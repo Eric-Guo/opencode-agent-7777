@@ -17,6 +17,7 @@ const HISTORY_DIALOG_LIMIT = 20
 const FETCH_MESSAGE_LIMIT = HISTORY_DIALOG_LIMIT * 4
 const SESSION_ID_KEY = "opencode.7777.session.id"
 const SESSION_DIRECTORY_KEY = "opencode.7777.session.directory"
+const windowsElectron = navigator.userAgent.includes("Electron") && navigator.platform.toLowerCase().startsWith("win")
 
 type LoadStatus = "loading" | "ready" | "failed"
 type ServerInfo = {
@@ -515,7 +516,7 @@ function App() {
 
   return (
     <div class="app-shell">
-      <header class="topbar">
+      <header class="topbar" data-windows-electron={windowsElectron ? "" : undefined}>
         <div>
           <h1>7777</h1>
           <p>{statusText(state.sessionStatus)}</p>
