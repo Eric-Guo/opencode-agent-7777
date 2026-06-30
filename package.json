@@ -1,0 +1,30 @@
+{
+  "name": "@opencode-ai/7777",
+  "version": "1.17.11",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsgo -b",
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/ui": "workspace:*",
+    "dompurify": "catalog:",
+    "marked": "catalog:",
+    "solid-js": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "catalog:",
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-solid": "catalog:"
+  }
+}
