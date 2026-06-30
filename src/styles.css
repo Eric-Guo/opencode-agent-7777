@@ -47,11 +47,14 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  width: env(titlebar-area-width, 100%);
+  max-width: env(titlebar-area-width, 100%);
   min-width: 0;
   padding: 18px 22px 14px;
   border-bottom: 1px solid #dedbd2;
   background: rgba(247, 247, 244, 0.9);
   -webkit-app-region: drag;
+  user-select: none;
 }
 
 .topbar h1 {
@@ -84,6 +87,7 @@ button {
   font-size: 12px;
   font-weight: 650;
   -webkit-app-region: no-drag;
+  user-select: none;
 }
 
 .conversation {
