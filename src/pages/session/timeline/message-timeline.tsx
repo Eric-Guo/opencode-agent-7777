@@ -46,19 +46,6 @@ function MessageView(props: { item: HistoryItem }) {
     <article class={`message message-${props.item.info.role}`}>
       <div class="message-avatar">{props.item.info.role === "user" ? "U" : "7"}</div>
       <div class="message-body">
-        <div class="message-meta-row">
-          <div class="message-meta">{role()}</div>
-          <button
-            type="button"
-            class="message-copy"
-            aria-label="Copy message"
-            disabled={!copyValue()}
-            onClick={handleCopy}
-          >
-            <Icon name="copy" />
-            <span>{copied() ? "Copied" : "Copy"}</span>
-          </button>
-        </div>
         <Show when={hasContent()} fallback={<div class="message-empty">...</div>}>
           <Show when={reasoning().length > 0}>
             <div class="reasoning-list">
@@ -88,6 +75,19 @@ function MessageView(props: { item: HistoryItem }) {
             </For>
           </ul>
         </Show>
+        <div class="message-actions">
+          <div class="message-meta">{role()}</div>
+          <button
+            type="button"
+            class="message-copy"
+            aria-label="Copy message"
+            disabled={!copyValue()}
+            onClick={handleCopy}
+          >
+            <Icon name="copy" />
+            <span>{copied() ? "Copied" : "Copy message"}</span>
+          </button>
+        </div>
       </div>
     </article>
   )
