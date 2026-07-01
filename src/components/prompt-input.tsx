@@ -1,5 +1,5 @@
 import { Icon } from "@opencode-ai/ui/icon"
-import { For, Show } from "solid-js"
+import { createMemo, createSignal, For, Show } from "solid-js"
 import type { ModelOption, ModelLoadStatus } from "@/context/sync"
 import type { ModelSelection } from "@/context/local"
 
@@ -17,8 +17,31 @@ export function PromptInput(props: {
   onSubmit: () => void
   onAbort: () => void
 }) {
-  const selectedModelValue = () =>
-    props.selectedModel ? `${props.selectedModel.providerID}:${props.selectedModel.modelID}` : ""
+  const [modelOpen, setModelOpen] = createSignal(false)
+  const selectedModel = createMemo(() =>
+    props.models.find(
+      (model) => model.providerID === props.selectedModel?.providerID && model.modelID === props.selectedModel.modelID,
+    ),
+  )
+  const modelLabel = createMemo(() => {
+    if (props.modelStatus === "loading") return "Loading models"
+    return selectedModel()?.modelName ?? "Server default"
+  })
+  const groupedModels = createMemo(() => {
+    const groups = new Map<string, ModelOption[]>()
+    for (const model of props.models) {
+      const group = groups.get(model.providerName)
+      if (group) group.push(model)
+      else groups.set(model.providerName, [model])
+    }
+    return Array.from(groups, ([providerName, models]) => ({ providerName, models }))
+  })
+  const canOpenModel = createMemo(() => !props.disabled && props.modelStatus !== "loading" && props.models.length > 0)
+
+  const selectModel = (model: ModelOption) => {
+    props.onModelSelect({ providerID: model.providerID, modelID: model.modelID })
+    setModelOpen(false)
+  }
 
   return (
     <div class="composer-panel">
@@ -40,36 +63,63 @@ export function PromptInput(props: {
             <Icon name="plus" />
           </button>
           <span class="composer-agent">7777</span>
-          <div class="composer-model">
-            <Icon name="models" />
-            <select
-              id="prompt-model-select"
+          <div
+            class="composer-model"
+            onFocusOut={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+              setModelOpen(false)
+            }}
+          >
+            <button
+              type="button"
+              class="composer-model-trigger"
               aria-label="Model"
-              value={selectedModelValue()}
-              disabled={props.disabled || props.modelStatus === "loading" || props.models.length === 0}
-              onChange={(event) => {
-                const value = event.currentTarget.value
-                const model = props.models.find((item) => `${item.providerID}:${item.modelID}` === value)
-                if (!model) return
-                props.onModelSelect({ providerID: model.providerID, modelID: model.modelID })
+              aria-expanded={modelOpen()}
+              aria-haspopup="listbox"
+              disabled={!canOpenModel()}
+              onClick={() => setModelOpen((open) => !open)}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return
+                setModelOpen(false)
               }}
             >
-              <Show
-                when={props.models.length > 0}
-                fallback={
-                  <option value="">{props.modelStatus === "loading" ? "Loading models" : "Server default"}</option>
-                }
-              >
-                <For each={props.models}>
-                  {(model) => (
-                    <option value={`${model.providerID}:${model.modelID}`}>
-                      {model.modelName || `${model.providerName} / ${model.modelID}`}
-                    </option>
+              <Icon name="models" />
+              <span>{modelLabel()}</span>
+              <Icon name="chevron-down" />
+            </button>
+            <Show when={modelOpen()}>
+              <div class="composer-model-popover" role="listbox" aria-label="Model">
+                <For each={groupedModels()}>
+                  {(group) => (
+                    <div class="composer-model-group">
+                      <div class="composer-model-group-label">{group.providerName}</div>
+                      <For each={group.models}>
+                        {(model) => {
+                          const selected = () =>
+                            model.providerID === props.selectedModel?.providerID &&
+                            model.modelID === props.selectedModel.modelID
+                          return (
+                            <button
+                              type="button"
+                              class="composer-model-option"
+                              classList={{ selected: selected() }}
+                              role="option"
+                              aria-selected={selected()}
+                              onClick={() => selectModel(model)}
+                            >
+                              <span>{model.modelName || model.modelID}</span>
+                              <Show when={selected()}>
+                                <Icon name="check-small" />
+                              </Show>
+                            </button>
+                          )
+                        }}
+                      </For>
+                    </div>
                   )}
                 </For>
-              </Show>
-            </select>
-            <Icon name="chevron-down" />
+              </div>
+            </Show>
           </div>
         </div>
         <button
