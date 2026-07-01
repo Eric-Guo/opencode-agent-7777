@@ -46,8 +46,16 @@ export function readableError(error: unknown) {
   return String(error)
 }
 
+export function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
+  return part.type === "text"
+}
+
+export function isReasoningPart(part: Part): part is Extract<Part, { type: "reasoning" }> {
+  return part.type === "reasoning"
+}
+
 export function isTextLikePart(part: Part): part is Extract<Part, { type: "text" | "reasoning" }> {
-  return part.type === "text" || part.type === "reasoning"
+  return isTextPart(part) || isReasoningPart(part)
 }
 
 export function isToolPart(part: Part): part is Extract<Part, { type: "tool" }> {
@@ -56,10 +64,17 @@ export function isToolPart(part: Part): part is Extract<Part, { type: "tool" }> 
 
 export function messageText(parts: Part[]) {
   return parts
-    .filter(isTextLikePart)
+    .filter(isTextPart)
     .map((part) => part.text)
     .filter((text) => text.trim().length > 0)
     .join("\n\n")
+}
+
+export function reasoningSummaries(parts: Part[]) {
+  return parts
+    .filter(isReasoningPart)
+    .map((part) => part.text)
+    .filter((text) => text.trim().length > 0)
 }
 
 export function renderMarkdown(value: string) {

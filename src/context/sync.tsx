@@ -1,7 +1,20 @@
-import type { Event as OpencodeEvent, Message, Part, Session, SessionStatus } from "@opencode-ai/sdk"
+import type {
+  Event as OpencodeEvent,
+  Message,
+  Part,
+  ProviderListResponse,
+  Session,
+  SessionStatus,
+} from "@opencode-ai/sdk"
 import { createStore } from "solid-js/store"
 import { AGENT_ID, FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { readSessionRecord, writeSessionRecord } from "@/context/local"
+import {
+  readModelSelection,
+  readSessionRecord,
+  writeModelSelection,
+  writeSessionRecord,
+  type ModelSelection,
+} from "@/context/local"
 import { createSession, restoreSession } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { makeClient, type OpencodeClient } from "@/context/sdk"
@@ -15,13 +28,21 @@ import {
 } from "@/pages/session/helpers"
 
 export type LoadStatus = "loading" | "ready" | "failed"
+export type ModelLoadStatus = "loading" | "ready" | "failed"
+export type ModelOption = ModelSelection & {
+  providerName: string
+  modelName: string
+}
 
 export type AppState = {
   status: LoadStatus
+  modelStatus: ModelLoadStatus
   server: ServerInfo | undefined
   session: Session | undefined
   sessionStatus: SessionStatus
   messages: HistoryItem[]
+  models: ModelOption[]
+  selectedModel: ModelSelection | undefined
   prompt: string
   submitting: boolean
   error: string
@@ -31,10 +52,13 @@ const idleStatus = { type: "idle" } satisfies SessionStatus
 
 export const [state, setState] = createStore<AppState>({
   status: "loading" as LoadStatus,
+  modelStatus: "loading" as ModelLoadStatus,
   server: undefined,
   session: undefined,
   sessionStatus: idleStatus,
   messages: [],
+  models: [],
+  selectedModel: undefined,
   prompt: "",
   submitting: false,
   error: "",
@@ -65,6 +89,76 @@ function refreshMessages() {
     })
     .then((result) => {
       setState("messages", normalizeHistory(result.data ?? []))
+    })
+}
+
+function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
+  return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
+}
+
+function findModel(options: ModelOption[], model: ModelSelection | undefined) {
+  if (!model) return
+  return options.find((option) => sameModel(option, model))
+}
+
+function resolveSelectedModel(options: ModelOption[], defaults: ProviderListResponse["default"]) {
+  const stored = readModelSelection()
+  const storedOption = findModel(options, stored)
+  if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
+
+  for (const option of options) {
+    const modelID = defaults[option.providerID]
+    if (!modelID) continue
+    const defaultOption = findModel(options, { providerID: option.providerID, modelID })
+    if (defaultOption) return { providerID: defaultOption.providerID, modelID: defaultOption.modelID }
+  }
+
+  const first = options[0]
+  if (!first) return
+  return { providerID: first.providerID, modelID: first.modelID }
+}
+
+function refreshModels() {
+  const activeClient = client
+  const session = state.session
+  if (!activeClient || !session) return Promise.resolve()
+
+  setState("modelStatus", "loading")
+  return activeClient.provider
+    .list({
+      query: { directory: session.directory },
+    })
+    .then((result) => {
+      const data = result.data
+      if (!data) throw new Error("Model list response was empty")
+      const connected = new Set(data.connected)
+      const options = data.all
+        .filter((provider) => connected.has(provider.id))
+        .flatMap((provider) =>
+          Object.values(provider.models)
+            .filter((model) => model.status !== "deprecated")
+            .map((model) => ({
+              providerID: provider.id,
+              modelID: model.id,
+              providerName: provider.name,
+              modelName: model.name.replace("(latest)", "").trim(),
+            })),
+        )
+        .sort((a, b) => {
+          const provider = a.providerName.localeCompare(b.providerName)
+          if (provider !== 0) return provider
+          return a.modelName.localeCompare(b.modelName)
+        })
+
+      const selected = resolveSelectedModel(options, data.default)
+      setState("models", options)
+      setState("selectedModel", selected)
+      setState("modelStatus", "ready")
+      if (selected) writeModelSelection(selected)
+    })
+    .catch((error) => {
+      setState("modelStatus", "failed")
+      setState("error", readableError(error))
     })
 }
 
@@ -151,7 +245,10 @@ function handleEvent(event: OpencodeEvent) {
     scheduleRefresh()
     return
   }
-  if (event.type === "session.error" && (!event.properties.sessionID || event.properties.sessionID === state.session?.id)) {
+  if (
+    event.type === "session.error" &&
+    (!event.properties.sessionID || event.properties.sessionID === state.session?.id)
+  ) {
     setState("error", readableError(event.properties.error))
   }
 }
@@ -186,6 +283,7 @@ function startEventStream() {
 
 export function initializeSessionSync() {
   setState("status", "loading")
+  setState("modelStatus", "loading")
   return resolveServer()
     .then((server) => {
       setState("server", server)
@@ -198,7 +296,7 @@ export function initializeSessionSync() {
           setState("session", session)
           setState("status", "ready")
           void window.api?.setBackgroundColor?.("#f7f7f4")
-          return refreshMessages()
+          return Promise.all([refreshMessages(), refreshModels()]).then(() => undefined)
         })
     })
     .then(startEventStream)
@@ -221,7 +319,7 @@ function appendOptimisticMessage(text: string) {
         role: "user",
         time: { created: Date.now() },
         agent: AGENT_ID,
-        model: { providerID: "", modelID: "" },
+        model: state.selectedModel ?? { providerID: "", modelID: "" },
       },
       parts: [
         {
@@ -256,6 +354,7 @@ export function submitPrompt() {
       path: { id: active.sessionID },
       body: {
         agent: AGENT_ID,
+        model: state.selectedModel,
         parts: [{ type: "text", text }],
       },
     })
@@ -266,6 +365,12 @@ export function submitPrompt() {
       scheduleRefresh(0)
     })
     .finally(() => setState("submitting", false))
+}
+
+export function selectModel(model: ModelSelection) {
+  if (!findModel(state.models, model)) return
+  setState("selectedModel", model)
+  writeModelSelection(model)
 }
 
 export function abortPrompt() {

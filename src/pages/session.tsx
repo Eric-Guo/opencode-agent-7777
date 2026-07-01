@@ -5,6 +5,7 @@ import {
   abortPrompt,
   disposeSessionSync,
   initializeSessionSync,
+  selectModel,
   setPrompt,
   state,
   statusText,
@@ -69,7 +70,11 @@ export default function Session() {
         disabled={state.status !== "ready"}
         busy={busy()}
         canSubmit={canSubmit()}
+        models={state.models}
+        selectedModel={state.selectedModel}
+        modelStatus={state.modelStatus}
         onPromptChange={setPrompt}
+        onModelSelect={selectModel}
         onSubmit={submitPrompt}
         onAbort={abortPrompt}
       />

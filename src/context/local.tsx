@@ -1,9 +1,14 @@
 import type { Session } from "@opencode-ai/sdk"
-import { SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
+import { MODEL_SELECTION_KEY, SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
 
 export type SessionRecord = {
   id: string
   directory?: string
+}
+
+export type ModelSelection = {
+  providerID: string
+  modelID: string
 }
 
 function storageGet(key: string) {
@@ -36,4 +41,24 @@ export function readSessionRecord(): SessionRecord | undefined {
 export function writeSessionRecord(session: Session) {
   storageSet(SESSION_ID_KEY, session.id)
   storageSet(SESSION_DIRECTORY_KEY, session.directory)
+}
+
+export function readModelSelection(): ModelSelection | undefined {
+  const value = storageGet(MODEL_SELECTION_KEY)
+  if (!value) return
+  try {
+    const parsed = JSON.parse(value) as Partial<ModelSelection>
+    if (typeof parsed.providerID !== "string" || typeof parsed.modelID !== "string") return
+    return {
+      providerID: parsed.providerID,
+      modelID: parsed.modelID,
+    }
+  } catch {
+    return
+  }
+}
+
+export function writeModelSelection(model: ModelSelection | undefined) {
+  if (!model) return
+  storageSet(MODEL_SELECTION_KEY, JSON.stringify(model))
 }
