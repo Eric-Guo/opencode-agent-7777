@@ -9,7 +9,7 @@ import type {
 } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { createStore } from "solid-js/store"
-import { AGENT_ID, DEFAULT_SESSION_DIRECTORY_NAME, FETCH_MESSAGE_LIMIT } from "@/constants/session"
+import { AGENT_ID, FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import {
   readModelSelection,
   readSessionRecord,
@@ -18,6 +18,7 @@ import {
   type ModelSelection,
 } from "@/context/local"
 import { createSession, restoreSession } from "@/context/server-session"
+import { defaultSessionDirectory } from "@/context/session-directory"
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { makeClient, type OpencodeClient } from "@/context/sdk"
 import {
@@ -266,15 +267,11 @@ function refreshModels() {
     })
 }
 
-function defaultSessionDirectory(baseDirectory: string) {
-  const separator = baseDirectory.includes("\\") ? "\\" : "/"
-  return `${baseDirectory.replace(/[\\/]+$/, "")}${separator}${DEFAULT_SESSION_DIRECTORY_NAME}`
-}
-
 function createDefaultSession(baseClient: OpencodeClient) {
   return baseClient.path.get().then((result) => {
     if (!result.data) throw new Error("Failed to load server path")
-    return createSession(baseClient, defaultSessionDirectory(result.data.directory))
+    const paths = result.data as typeof result.data & { home?: string }
+    return createSession(baseClient, defaultSessionDirectory(paths.home ?? result.data.directory))
   })
 }
 

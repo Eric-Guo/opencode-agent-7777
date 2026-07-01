@@ -1,13 +1,15 @@
 import type { Session } from "@opencode-ai/sdk"
 import type { SessionRecord } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
+import { normalizeSessionDirectory } from "@/context/session-directory"
 
 export function restoreSession(baseClient: OpencodeClient, record: SessionRecord | undefined) {
   if (!record) return Promise.resolve<Session | undefined>(undefined)
+  const directory = record.directory ? normalizeSessionDirectory(record.directory) : undefined
   return baseClient.session
     .get({
       path: { id: record.id },
-      query: record.directory ? { directory: record.directory } : undefined,
+      query: directory ? { directory } : undefined,
     })
     .then((result) => result.data)
     .catch(() => undefined)
@@ -16,7 +18,7 @@ export function restoreSession(baseClient: OpencodeClient, record: SessionRecord
 export function createSession(baseClient: OpencodeClient, directory: string) {
   return baseClient.session
     .create({
-      query: { directory },
+      query: { directory: normalizeSessionDirectory(directory) },
       body: {
         title: "7777",
       },
