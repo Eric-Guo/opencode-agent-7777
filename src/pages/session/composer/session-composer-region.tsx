@@ -1,31 +1,24 @@
-import type { Permission } from "@opencode-ai/sdk"
 import { For, Show } from "solid-js"
 import { PromptInput } from "@/components/prompt-input"
 import type { ModelSelection } from "@/context/local"
-import type { ModelLoadStatus, ModelOption } from "@/context/sync"
+import type { ModelLoadStatus, ModelOption, PermissionRequestView } from "@/context/sync"
 
-function permissionDescription(type: string) {
-  if (type === "external_directory") return "Access files outside the project directory"
-  if (type === "grep") return "Search file contents with a regular expression"
-  if (type === "glob") return "Match files with a glob pattern"
-  if (type === "list") return "List files in a directory"
-  if (type === "read") return "Read files matching the requested path"
-  if (type === "bash") return "Run a shell command"
+function permissionDescription(permission: string) {
+  if (permission === "external_directory") return "Access files outside the project directory"
+  if (permission === "grep") return "Search file contents with a regular expression"
+  if (permission === "glob") return "Match files with a glob pattern"
+  if (permission === "list") return "List files in a directory"
+  if (permission === "read") return "Read files matching the requested path"
+  if (permission === "bash") return "Run a shell command"
   return "The agent needs permission to continue"
 }
 
-function permissionPatterns(permission: Permission) {
-  const pattern = permission.pattern
-  if (!pattern) return []
-  return Array.isArray(pattern) ? pattern : [pattern]
-}
-
 function SessionPermissionDock(props: {
-  request: Permission
+  request: PermissionRequestView
   responding: boolean
   onDecide: (response: "once" | "always" | "reject") => void
 }) {
-  const patterns = () => permissionPatterns(props.request)
+  const description = () => permissionDescription(props.request.permission)
 
   return (
     <section class="permission-dock" aria-label="Permission required">
@@ -33,15 +26,15 @@ function SessionPermissionDock(props: {
         <div class="permission-icon">!</div>
         <div>
           <h2>Permission required</h2>
-          <p>{props.request.title || permissionDescription(props.request.type)}</p>
+          <p>{props.request.title || description()}</p>
         </div>
       </div>
-      <Show when={props.request.title && permissionDescription(props.request.type)}>
-        <p class="permission-hint">{permissionDescription(props.request.type)}</p>
+      <Show when={props.request.title && description()}>
+        <p class="permission-hint">{description()}</p>
       </Show>
-      <Show when={patterns().length > 0}>
+      <Show when={props.request.patterns.length > 0}>
         <div class="permission-patterns">
-          <For each={patterns()}>{(pattern) => <code>{pattern}</code>}</For>
+          <For each={props.request.patterns}>{(pattern) => <code>{pattern}</code>}</For>
         </div>
       </Show>
       <div class="permission-actions">
@@ -82,7 +75,7 @@ export function SessionComposerRegion(props: {
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
   modelStatus: ModelLoadStatus
-  permissionRequest: Permission | undefined
+  permissionRequest: PermissionRequestView | undefined
   permissionResponding: boolean
   onPromptChange: (value: string) => void
   onModelSelect: (model: ModelSelection) => void

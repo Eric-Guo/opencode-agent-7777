@@ -7,6 +7,7 @@ import type {
   Session,
   SessionStatus,
 } from "@opencode-ai/sdk"
+import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { createStore } from "solid-js/store"
 import { AGENT_ID, FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import {
@@ -34,6 +35,14 @@ export type ModelOption = ModelSelection & {
   providerName: string
   modelName: string
 }
+export type PermissionRequestView = {
+  id: string
+  sessionID: string
+  permission: string
+  patterns: string[]
+  title?: string
+  replyTarget: "respond" | "session"
+}
 
 export type AppState = {
   status: LoadStatus
@@ -44,7 +53,7 @@ export type AppState = {
   messages: HistoryItem[]
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
-  permissionRequest: Permission | undefined
+  permissionRequest: PermissionRequestView | undefined
   permissionResponding: boolean
   prompt: string
   submitting: boolean
@@ -74,6 +83,41 @@ let streamAbort: AbortController | undefined
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 const alertedPermissionIDs = new Set<string>()
 
+type V2PermissionAskedEvent = {
+  type: "permission.asked"
+  data?: V2PermissionLike
+  properties?: V2PermissionLike
+}
+
+type V2PermissionRepliedEvent = {
+  type: "permission.replied"
+  data?: V2PermissionReplyLike
+  properties?: V2PermissionReplyLike
+}
+
+type V2PermissionReplyLike = {
+  sessionID?: string
+  requestID?: string
+  permissionID?: string
+}
+
+type V2PermissionLike = V2PermissionRequest & {
+  action?: string
+  resources?: string[]
+}
+
+function v2PermissionAsked(event: OpencodeEvent): V2PermissionLike | undefined {
+  const candidate = event as { type: string; data?: V2PermissionLike; properties?: V2PermissionLike }
+  if (candidate.type !== "permission.asked") return
+  return candidate.data ?? candidate.properties
+}
+
+function v2PermissionReplied(event: OpencodeEvent): V2PermissionReplyLike | undefined {
+  const candidate = event as { type: string; data?: V2PermissionReplyLike; properties?: V2PermissionReplyLike }
+  if (candidate.type !== "permission.replied") return
+  return candidate.data ?? candidate.properties
+}
+
 function currentSession() {
   if (!client || !state.session) {
     setState("error", "Session is not ready")
@@ -95,6 +139,60 @@ function refreshMessages() {
     })
     .then((result) => {
       setState("messages", normalizeHistory(result.data ?? []))
+    })
+}
+
+function serverAuthHeader(server: ServerInfo): Record<string, string> {
+  if (!server.password) return {}
+  return {
+    Authorization: `Basic ${btoa(`${server.username ?? "opencode"}:${server.password}`)}`,
+  }
+}
+
+function serverUrl(path: string) {
+  const server = state.server
+  if (!server) throw new Error("Server is not ready")
+  return `${server.url.replace(/\/$/, "")}${path}`
+}
+
+function toPermissionView(permission: Permission): PermissionRequestView {
+  const pattern = permission.pattern
+  return {
+    id: permission.id,
+    sessionID: permission.sessionID,
+    permission: permission.type,
+    patterns: pattern ? (Array.isArray(pattern) ? pattern : [pattern]) : [],
+    title: permission.title,
+    replyTarget: "respond",
+  }
+}
+
+function toV2PermissionView(permission: V2PermissionLike): PermissionRequestView {
+  const isSessionPermission = !!permission.action || !!permission.resources
+  return {
+    id: permission.id,
+    sessionID: permission.sessionID,
+    permission: permission.permission ?? permission.action ?? "permission",
+    patterns: permission.patterns ?? permission.resources ?? [],
+    replyTarget: isSessionPermission ? "session" : "respond",
+  }
+}
+
+function refreshPermissions() {
+  const active = currentSession()
+  if (!active || !state.server) return Promise.resolve()
+
+  return fetch(serverUrl(`/api/session/${encodeURIComponent(active.sessionID)}/permission`), {
+    headers: serverAuthHeader(state.server),
+  })
+    .then((response) => {
+      if (!response.ok) throw new Error(`Failed to load permissions: ${response.status}`)
+      return response.json() as Promise<{ data?: V2PermissionLike[] }>
+    })
+    .then((result) => {
+      const request = result.data?.[0]
+      setState("permissionRequest", request ? toV2PermissionView(request) : undefined)
+      setState("permissionResponding", false)
     })
 }
 
@@ -216,6 +314,22 @@ function upsertPart(part: Part, delta: string | undefined) {
 }
 
 function handleEvent(event: OpencodeEvent) {
+  const asked = v2PermissionAsked(event)
+  if (asked && asked.sessionID === state.session?.id) {
+    const request = toV2PermissionView(asked)
+    setState("permissionRequest", request)
+    setState("permissionResponding", false)
+    notifyPermissionRequest(request)
+    return
+  }
+  const replied = v2PermissionReplied(event)
+  const repliedID = replied?.requestID ?? replied?.permissionID
+  if (replied?.sessionID === state.session?.id && repliedID) {
+    alertedPermissionIDs.delete(repliedID)
+    setState("permissionRequest", (current) => (current?.id === repliedID ? undefined : current))
+    setState("permissionResponding", false)
+    return
+  }
   if (event.type === "session.updated" && event.properties.info.id === state.session?.id) {
     setState("session", event.properties.info)
     return
@@ -243,9 +357,10 @@ function handleEvent(event: OpencodeEvent) {
     return
   }
   if (event.type === "permission.updated" && event.properties.sessionID === state.session?.id) {
-    setState("permissionRequest", event.properties)
+    const request = toPermissionView(event.properties)
+    setState("permissionRequest", request)
     setState("permissionResponding", false)
-    notifyPermissionRequest(event.properties)
+    notifyPermissionRequest(request)
     return
   }
   if (event.type === "permission.replied" && event.properties.sessionID === state.session?.id) {
@@ -273,18 +388,22 @@ function handleEvent(event: OpencodeEvent) {
   }
 }
 
-function permissionNotificationBody(permission: Permission) {
-  if (permission.title) return permission.title
-  if (permission.type === "external_directory") return "Access files outside the project directory"
-  if (permission.type === "grep") return "Search file contents with a regular expression"
-  if (permission.type === "glob") return "Match files with a glob pattern"
-  if (permission.type === "list") return "List files in a directory"
-  if (permission.type === "read") return "Read files matching the requested path"
-  if (permission.type === "bash") return "Run a shell command"
+function permissionDescription(permission: string) {
+  if (permission === "external_directory") return "Access files outside the project directory"
+  if (permission === "grep") return "Search file contents with a regular expression"
+  if (permission === "glob") return "Match files with a glob pattern"
+  if (permission === "list") return "List files in a directory"
+  if (permission === "read") return "Read files matching the requested path"
+  if (permission === "bash") return "Run a shell command"
   return "The agent needs permission to continue"
 }
 
-function notifyPermissionRequest(permission: Permission) {
+function permissionNotificationBody(permission: PermissionRequestView) {
+  if (permission.title) return permission.title
+  return permissionDescription(permission.permission)
+}
+
+function notifyPermissionRequest(permission: PermissionRequestView) {
   if (alertedPermissionIDs.has(permission.id)) return
   alertedPermissionIDs.add(permission.id)
 
@@ -348,7 +467,7 @@ export function initializeSessionSync() {
           setState("session", session)
           setState("status", "ready")
           void window.api?.setBackgroundColor?.("#111112")
-          return Promise.all([refreshMessages(), refreshModels()]).then(() => undefined)
+          return Promise.all([refreshMessages(), refreshModels(), refreshPermissions()]).then(() => undefined)
         })
     })
     .then(startEventStream)
@@ -428,18 +547,36 @@ export function selectModel(model: ModelSelection) {
 export function decidePermission(response: "once" | "always" | "reject") {
   const active = currentSession()
   const request = state.permissionRequest
-  if (!active || !request || state.permissionResponding) return
+  if (!active || !request || state.permissionResponding || !state.server) return
 
   setState("error", "")
   setState("permissionResponding", true)
-  void active.client
-    .postSessionIdPermissionsPermissionId({
-      path: {
-        id: active.sessionID,
-        permissionID: request.id,
-      },
-      body: { response },
-    })
+  const reply =
+    request.replyTarget === "session"
+      ? fetch(
+          serverUrl(
+            `/api/session/${encodeURIComponent(request.sessionID)}/permission/${encodeURIComponent(request.id)}/reply`,
+          ),
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...serverAuthHeader(state.server),
+            },
+            body: JSON.stringify({ reply: response }),
+          },
+        ).then((result) => {
+          if (!result.ok) throw new Error(`Failed to respond to permission: ${result.status}`)
+        })
+      : active.client.postSessionIdPermissionsPermissionId({
+          path: {
+            id: request.sessionID,
+            permissionID: request.id,
+          },
+          body: { response },
+        })
+
+  void reply
     .then(() => {
       setState("permissionRequest", (current) => (current?.id === request.id ? undefined : current))
       scheduleRefresh(120)
