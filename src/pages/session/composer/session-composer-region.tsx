@@ -1,71 +1,9 @@
-import { For, Show } from "solid-js"
+import { Show } from "solid-js"
 import { PromptInput } from "@/components/prompt-input"
 import type { ModelSelection } from "@/context/local"
-import type { ModelLoadStatus, ModelOption, PermissionRequestView } from "@/context/sync"
-
-function permissionDescription(permission: string) {
-  if (permission === "external_directory") return "Access files outside the project directory"
-  if (permission === "grep") return "Search file contents with a regular expression"
-  if (permission === "glob") return "Match files with a glob pattern"
-  if (permission === "list") return "List files in a directory"
-  if (permission === "read") return "Read files matching the requested path"
-  if (permission === "bash") return "Run a shell command"
-  return "The agent needs permission to continue"
-}
-
-function SessionPermissionDock(props: {
-  request: PermissionRequestView
-  responding: boolean
-  onDecide: (response: "once" | "always" | "reject") => void
-}) {
-  const description = () => permissionDescription(props.request.permission)
-
-  return (
-    <section class="permission-dock" aria-label="Permission required">
-      <div class="permission-header">
-        <div class="permission-icon">!</div>
-        <div>
-          <h2>Permission required</h2>
-          <p>{props.request.title || description()}</p>
-        </div>
-      </div>
-      <Show when={props.request.title && description()}>
-        <p class="permission-hint">{description()}</p>
-      </Show>
-      <Show when={props.request.patterns.length > 0}>
-        <div class="permission-patterns">
-          <For each={props.request.patterns}>{(pattern) => <code>{pattern}</code>}</For>
-        </div>
-      </Show>
-      <div class="permission-actions">
-        <button
-          type="button"
-          class="permission-button"
-          disabled={props.responding}
-          onClick={() => props.onDecide("reject")}
-        >
-          Deny
-        </button>
-        <button
-          type="button"
-          class="permission-button"
-          disabled={props.responding}
-          onClick={() => props.onDecide("always")}
-        >
-          Allow always
-        </button>
-        <button
-          type="button"
-          class="permission-button permission-primary"
-          disabled={props.responding}
-          onClick={() => props.onDecide("once")}
-        >
-          Allow once
-        </button>
-      </div>
-    </section>
-  )
-}
+import type { ModelLoadStatus, ModelOption } from "@/context/models"
+import type { PermissionRequestView } from "@/context/permission"
+import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 
 export function SessionComposerRegion(props: {
   prompt: string

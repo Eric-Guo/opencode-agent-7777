@@ -1,16 +1,14 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { createEffect, createMemo, onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
+import { selectModel } from "@/context/models"
+import { decidePermission } from "@/context/permission"
+import { abortPrompt, setPrompt, submitPrompt } from "@/context/prompt"
 import {
-  abortPrompt,
-  decidePermission,
   disposeSessionSync,
   initializeSessionSync,
-  selectModel,
-  setPrompt,
   state,
   statusText,
-  submitPrompt,
 } from "@/context/sync"
 import { ErrorBanner } from "@/pages/error"
 import { SessionComposerRegion } from "@/pages/session/composer"

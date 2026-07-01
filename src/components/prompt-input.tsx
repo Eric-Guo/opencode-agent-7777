@@ -1,6 +1,6 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show } from "solid-js"
-import type { ModelOption, ModelLoadStatus } from "@/context/sync"
+import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { ModelSelection } from "@/context/local"
 
 export function PromptInput(props: {
