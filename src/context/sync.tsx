@@ -9,7 +9,7 @@ import type {
 } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { createStore } from "solid-js/store"
-import { AGENT_ID, FETCH_MESSAGE_LIMIT } from "@/constants/session"
+import { AGENT_ID, DEFAULT_SESSION_DIRECTORY_NAME, FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import {
   readModelSelection,
   readSessionRecord,
@@ -266,6 +266,18 @@ function refreshModels() {
     })
 }
 
+function defaultSessionDirectory(baseDirectory: string) {
+  const separator = baseDirectory.includes("\\") ? "\\" : "/"
+  return `${baseDirectory.replace(/[\\/]+$/, "")}${separator}${DEFAULT_SESSION_DIRECTORY_NAME}`
+}
+
+function createDefaultSession(baseClient: OpencodeClient) {
+  return baseClient.path.get().then((result) => {
+    if (!result.data) throw new Error("Failed to load server path")
+    return createSession(baseClient, defaultSessionDirectory(result.data.directory))
+  })
+}
+
 function scheduleRefresh(delay = 120) {
   if (refreshTimer) clearTimeout(refreshTimer)
   refreshTimer = setTimeout(() => {
@@ -460,7 +472,7 @@ export function initializeSessionSync() {
       setState("server", server)
       const baseClient = makeClient(server)
       return restoreSession(baseClient, readSessionRecord())
-        .then((session) => session ?? createSession(baseClient))
+        .then((session) => session ?? createDefaultSession(baseClient))
         .then((session) => {
           writeSessionRecord(session)
           client = makeClient(server, session.directory)

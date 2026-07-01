@@ -13,9 +13,10 @@ export function restoreSession(baseClient: OpencodeClient, record: SessionRecord
     .catch(() => undefined)
 }
 
-export function createSession(baseClient: OpencodeClient) {
+export function createSession(baseClient: OpencodeClient, directory: string) {
   return baseClient.session
     .create({
+      query: { directory },
       body: {
         title: "7777",
       },
