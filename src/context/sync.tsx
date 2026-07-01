@@ -2,6 +2,7 @@ import type {
   Event as OpencodeEvent,
   Message,
   Part,
+  Permission,
   ProviderListResponse,
   Session,
   SessionStatus,
@@ -43,6 +44,8 @@ export type AppState = {
   messages: HistoryItem[]
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
+  permissionRequest: Permission | undefined
+  permissionResponding: boolean
   prompt: string
   submitting: boolean
   error: string
@@ -59,6 +62,8 @@ export const [state, setState] = createStore<AppState>({
   messages: [],
   models: [],
   selectedModel: undefined,
+  permissionRequest: undefined,
+  permissionResponding: false,
   prompt: "",
   submitting: false,
   error: "",
@@ -67,6 +72,7 @@ export const [state, setState] = createStore<AppState>({
 let client: OpencodeClient | undefined
 let streamAbort: AbortController | undefined
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
+const alertedPermissionIDs = new Set<string>()
 
 function currentSession() {
   if (!client || !state.session) {
@@ -236,6 +242,20 @@ function handleEvent(event: OpencodeEvent) {
     )
     return
   }
+  if (event.type === "permission.updated" && event.properties.sessionID === state.session?.id) {
+    setState("permissionRequest", event.properties)
+    setState("permissionResponding", false)
+    notifyPermissionRequest(event.properties)
+    return
+  }
+  if (event.type === "permission.replied" && event.properties.sessionID === state.session?.id) {
+    alertedPermissionIDs.delete(event.properties.permissionID)
+    setState("permissionRequest", (current) =>
+      current?.id === event.properties.permissionID ? undefined : current,
+    )
+    setState("permissionResponding", false)
+    return
+  }
   if (event.type === "session.status" && event.properties.sessionID === state.session?.id) {
     setState("sessionStatus", event.properties.status)
     return
@@ -251,6 +271,38 @@ function handleEvent(event: OpencodeEvent) {
   ) {
     setState("error", readableError(event.properties.error))
   }
+}
+
+function permissionNotificationBody(permission: Permission) {
+  if (permission.title) return permission.title
+  if (permission.type === "external_directory") return "Access files outside the project directory"
+  if (permission.type === "grep") return "Search file contents with a regular expression"
+  if (permission.type === "glob") return "Match files with a glob pattern"
+  if (permission.type === "list") return "List files in a directory"
+  if (permission.type === "read") return "Read files matching the requested path"
+  if (permission.type === "bash") return "Run a shell command"
+  return "The agent needs permission to continue"
+}
+
+function notifyPermissionRequest(permission: Permission) {
+  if (alertedPermissionIDs.has(permission.id)) return
+  alertedPermissionIDs.add(permission.id)
+
+  const title = "Permission required"
+  const body = permissionNotificationBody(permission)
+  if (window.api?.showNotification) {
+    window.api.showNotification(title, body)
+    return
+  }
+  if (!("Notification" in window)) return
+
+  void (async () => {
+    const result =
+      Notification.permission === "default"
+        ? await Notification.requestPermission().catch(() => "denied" as NotificationPermission)
+        : Notification.permission
+    if (result === "granted") new Notification(title, { body })
+  })()
 }
 
 function stopEventStream() {
@@ -295,7 +347,7 @@ export function initializeSessionSync() {
           client = makeClient(server, session.directory)
           setState("session", session)
           setState("status", "ready")
-          void window.api?.setBackgroundColor?.("#f7f7f4")
+          void window.api?.setBackgroundColor?.("#111112")
           return Promise.all([refreshMessages(), refreshModels()]).then(() => undefined)
         })
     })
@@ -371,6 +423,33 @@ export function selectModel(model: ModelSelection) {
   if (!findModel(state.models, model)) return
   setState("selectedModel", model)
   writeModelSelection(model)
+}
+
+export function decidePermission(response: "once" | "always" | "reject") {
+  const active = currentSession()
+  const request = state.permissionRequest
+  if (!active || !request || state.permissionResponding) return
+
+  setState("error", "")
+  setState("permissionResponding", true)
+  void active.client
+    .postSessionIdPermissionsPermissionId({
+      path: {
+        id: active.sessionID,
+        permissionID: request.id,
+      },
+      body: { response },
+    })
+    .then(() => {
+      setState("permissionRequest", (current) => (current?.id === request.id ? undefined : current))
+      scheduleRefresh(120)
+    })
+    .catch((error) => {
+      setState("error", readableError(error))
+    })
+    .finally(() => {
+      setState("permissionResponding", false)
+    })
 }
 
 export function abortPrompt() {

@@ -7,6 +7,7 @@ type DesktopServerReadyData = {
 type DesktopAPI = {
   awaitInitialization: () => Promise<DesktopServerReadyData>
   setBackgroundColor?: (color: string) => Promise<void>
+  showNotification?: (title: string, body?: string) => void
 }
 
 declare global {

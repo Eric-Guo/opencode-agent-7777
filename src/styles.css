@@ -410,6 +410,113 @@ button {
   flex: 0 0 auto;
 }
 
+.permission-dock {
+  max-width: 1120px;
+  margin: 0 auto 12px;
+  border: 1px solid #4b3b2d;
+  border-radius: 12px;
+  background: #1a1512;
+  padding: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+}
+
+.permission-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.permission-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #3a281d;
+  color: #f0a069;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.permission-header h2 {
+  margin: 0;
+  color: #f1e7df;
+  font-size: 14px;
+  font-weight: 760;
+  line-height: 1.3;
+}
+
+.permission-header p,
+.permission-hint {
+  margin: 4px 0 0;
+  color: #bdb2aa;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.permission-hint {
+  margin-left: 40px;
+}
+
+.permission-patterns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 0 40px;
+}
+
+.permission-patterns code {
+  border: 1px solid #45372e;
+  border-radius: 6px;
+  background: #111112;
+  padding: 6px 8px;
+  color: #f0d7c6;
+  font-family: "JetBrainsMono Nerd Font Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.permission-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.permission-button {
+  min-height: 32px;
+  border: 1px solid #3b3d42;
+  border-radius: 8px;
+  background: #202124;
+  padding: 0 12px;
+  color: #d9dadd;
+  font-size: 13px;
+  font-weight: 680;
+}
+
+.permission-button:hover:not(:disabled) {
+  border-color: #555960;
+  background: #292b30;
+}
+
+.permission-button:disabled {
+  opacity: 0.55;
+}
+
+.permission-primary {
+  border-color: #8a5130;
+  background: #9d5a34;
+  color: #fff7f0;
+}
+
+.permission-primary:hover:not(:disabled) {
+  border-color: #b56c3f;
+  background: #ad653b;
+}
+
 .composer {
   display: block;
   padding: 0 44px 24px;
@@ -681,6 +788,19 @@ button {
 
   .composer {
     padding: 0 14px 14px;
+  }
+
+  .permission-dock {
+    margin-bottom: 10px;
+  }
+
+  .permission-hint,
+  .permission-patterns {
+    margin-left: 0;
+  }
+
+  .permission-actions {
+    flex-wrap: wrap;
   }
 
   .composer-footer {

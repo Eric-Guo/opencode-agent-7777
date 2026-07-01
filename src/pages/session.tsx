@@ -3,6 +3,7 @@ import { createEffect, createMemo, onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import {
   abortPrompt,
+  decidePermission,
   disposeSessionSync,
   initializeSessionSync,
   selectModel,
@@ -73,8 +74,11 @@ export default function Session() {
         models={state.models}
         selectedModel={state.selectedModel}
         modelStatus={state.modelStatus}
+        permissionRequest={state.permissionRequest}
+        permissionResponding={state.permissionResponding}
         onPromptChange={setPrompt}
         onModelSelect={selectModel}
+        onPermissionDecide={decidePermission}
         onSubmit={submitPrompt}
         onAbort={abortPrompt}
       />
