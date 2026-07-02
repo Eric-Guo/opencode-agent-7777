@@ -45,36 +45,38 @@ function MessageView(props: { item: HistoryItem }) {
   return (
     <article class={`message message-${props.item.info.role}`}>
       <div class="message-avatar">{props.item.info.role === "user" ? "U" : "7"}</div>
-      <div class="message-body">
-        <Show when={hasContent()} fallback={<div class="message-empty">...</div>}>
-          <Show when={reasoning().length > 0}>
-            <div class="reasoning-list">
-              <For each={reasoning()}>
-                {(value, index) => (
-                  <details class="reasoning-summary" open>
-                    <summary>
-                      {reasoning().length > 1 ? `Reasoning summary ${index() + 1}` : "Reasoning summary"}
-                    </summary>
-                    <div class="markdown" innerHTML={renderMarkdown(value)} />
-                  </details>
+      <div class="message-content">
+        <div class="message-body">
+          <Show when={hasContent()} fallback={<div class="message-empty">...</div>}>
+            <Show when={reasoning().length > 0}>
+              <div class="reasoning-list">
+                <For each={reasoning()}>
+                  {(value, index) => (
+                    <details class="reasoning-summary" open>
+                      <summary>
+                        {reasoning().length > 1 ? `Reasoning summary ${index() + 1}` : "Reasoning summary"}
+                      </summary>
+                      <div class="markdown" innerHTML={renderMarkdown(value)} />
+                    </details>
+                  )}
+                </For>
+              </div>
+            </Show>
+            <Show when={text()}>{(value) => <div class="markdown" innerHTML={renderMarkdown(value())} />}</Show>
+          </Show>
+          <Show when={tools().length > 0}>
+            <ul class="tool-list">
+              <For each={tools()}>
+                {(part) => (
+                  <li>
+                    <span>{part.tool}</span>
+                    <span>{toolStatus(part)}</span>
+                  </li>
                 )}
               </For>
-            </div>
+            </ul>
           </Show>
-          <Show when={text()}>{(value) => <div class="markdown" innerHTML={renderMarkdown(value())} />}</Show>
-        </Show>
-        <Show when={tools().length > 0}>
-          <ul class="tool-list">
-            <For each={tools()}>
-              {(part) => (
-                <li>
-                  <span>{part.tool}</span>
-                  <span>{toolStatus(part)}</span>
-                </li>
-              )}
-            </For>
-          </ul>
-        </Show>
+        </div>
         <div class="message-actions">
           <div class="message-meta">{role()}</div>
           <button
