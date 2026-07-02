@@ -1,9 +1,9 @@
 import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
-import type { ServerInfo } from "@/context/server"
 import { currentSession, scheduleRefresh } from "@/context/server-sync"
 import { setState, state } from "@/context/sync"
 import { readableError } from "@/utils/server-errors"
+import { serverHttpHeaders, serverUrl } from "@/utils/server"
 
 export type PermissionRequestView = {
   id: string
@@ -47,19 +47,6 @@ function v2PermissionReplied(event: OpencodeEvent): V2PermissionReplyLike | unde
   const candidate = event as unknown as V2PermissionRepliedEvent
   if (candidate.type !== "permission.replied") return
   return candidate.data ?? candidate.properties
-}
-
-function serverAuthHeader(server: ServerInfo): Record<string, string> {
-  if (!server.password) return {}
-  return {
-    Authorization: `Basic ${btoa(`${server.username ?? "opencode"}:${server.password}`)}`,
-  }
-}
-
-function serverUrl(path: string) {
-  const server = state.server
-  if (!server) throw new Error("Server is not ready")
-  return `${server.url.replace(/\/$/, "")}${path}`
 }
 
 function toPermissionView(permission: Permission): PermissionRequestView {
@@ -127,8 +114,8 @@ export function refreshPermissions() {
   const active = currentSession()
   if (!active || !state.server) return Promise.resolve()
 
-  return fetch(serverUrl(`/api/session/${encodeURIComponent(active.sessionID)}/permission`), {
-    headers: serverAuthHeader(state.server),
+  return fetch(serverUrl(state.server, `/api/session/${encodeURIComponent(active.sessionID)}/permission`), {
+    headers: serverHttpHeaders(state.server),
   })
     .then((response) => {
       if (!response.ok) throw new Error(`Failed to load permissions: ${response.status}`)
@@ -191,13 +178,14 @@ export function decidePermission(response: "once" | "always" | "reject") {
     request.replyTarget === "session"
       ? fetch(
           serverUrl(
+            state.server,
             `/api/session/${encodeURIComponent(request.sessionID)}/permission/${encodeURIComponent(request.id)}/reply`,
           ),
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              ...serverAuthHeader(state.server),
+              ...serverHttpHeaders(state.server),
             },
             body: JSON.stringify({ reply: response }),
           },

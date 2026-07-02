@@ -1,10 +1,11 @@
 import { Icon } from "@opencode-ai/ui/icon"
-import { createMemo, createSignal, For, Show } from "solid-js"
+import { createMemo, For, Show } from "solid-js"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { ModelSelection } from "@/context/local"
 import type { PromptAttachment } from "@/context/sync"
-import { ACCEPTED_FILE_TYPES, attachmentMime, fileDataUrl } from "@/components/prompt-input/files"
-import { uuid } from "@/utils/uuid"
+import { createPromptAttachments } from "@/components/prompt-input/attachments"
+import { ACCEPTED_FILE_TYPES } from "@/components/prompt-input/files"
+import { createPromptInputTransientState } from "@/components/prompt-input/transient-state"
 
 export function PromptInput(props: {
   value: string
@@ -24,7 +25,7 @@ export function PromptInput(props: {
   onSubmit: () => void
   onAbort: () => void
 }) {
-  const [modelOpen, setModelOpen] = createSignal(false)
+  const transient = createPromptInputTransientState()
   let fileInputRef: HTMLInputElement | undefined
   const selectedModel = createMemo(() =>
     props.models.find(
@@ -48,30 +49,13 @@ export function PromptInput(props: {
 
   const selectModel = (model: ModelOption) => {
     props.onModelSelect({ providerID: model.providerID, modelID: model.modelID })
-    setModelOpen(false)
+    transient.setModelOpen(false)
   }
 
   const addFiles = async (files: File[]) => {
-    let unsupported = false
-    for (const file of files) {
-      const mime = await attachmentMime(file)
-      if (!mime) {
-        unsupported = true
-        continue
-      }
-      const url = await fileDataUrl(file, mime)
-      if (!url) {
-        unsupported = true
-        continue
-      }
-      props.onAttachmentAdd({
-        id: uuid(),
-        filename: file.name,
-        mime,
-        url,
-      })
-    }
-    if (unsupported) props.onAttachmentError("Some selected files are not supported.")
+    const result = await createPromptAttachments(files)
+    for (const attachment of result.attachments) props.onAttachmentAdd(attachment)
+    if (result.unsupported) props.onAttachmentError("Some selected files are not supported.")
   }
 
   return (
@@ -137,27 +121,27 @@ export function PromptInput(props: {
             class="relative min-w-0 max-w-[220px] text-[#9b9da1]"
             onFocusOut={(event) => {
               if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
-              setModelOpen(false)
+              transient.setModelOpen(false)
             }}
           >
             <button
               type="button"
               class="flex h-[30px] max-w-[220px] items-center gap-2 border-0 bg-transparent p-0 text-[13px] font-[650] text-[#a8aaae] outline-none hover:enabled:text-[#e1e2e4] disabled:opacity-60 aria-expanded:text-[#e1e2e4] [&_[data-component=icon]]:h-4 [&_[data-component=icon]]:w-4 [&_[data-component=icon]]:shrink-0"
               aria-label="Model"
-              aria-expanded={modelOpen()}
+              aria-expanded={transient.modelOpen()}
               aria-haspopup="listbox"
               disabled={!canOpenModel()}
-              onClick={() => setModelOpen((open) => !open)}
+              onClick={() => transient.setModelOpen((open) => !open)}
               onKeyDown={(event) => {
                 if (event.key !== "Escape") return
-                setModelOpen(false)
+                transient.setModelOpen(false)
               }}
             >
               <Icon name="models" />
               <span class="min-w-0 max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap">{modelLabel()}</span>
               <Icon name="chevron-down" />
             </button>
-            <Show when={modelOpen()}>
+            <Show when={transient.modelOpen()}>
               <div
                 class="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-80 w-80 max-w-[min(320px,calc(100vw-36px))] flex-col overflow-y-auto rounded-lg border border-[#34363a] bg-[#191a1d] p-1.5 shadow-[0_16px_44px_rgba(0,0,0,0.46)]"
                 role="listbox"
