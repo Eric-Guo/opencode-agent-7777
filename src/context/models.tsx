@@ -1,43 +1,16 @@
-import type { ProviderListResponse, Session } from "@opencode-ai/sdk"
-import {
-  readModelSelection,
-  writeModelSelection,
-  type ModelSelection,
-} from "@/context/local"
+import type { Session } from "@opencode-ai/sdk"
+import { writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
-import { setState, state } from "@/context/sync"
 import { readableError } from "@/pages/session/helpers"
+import { findModel, resolveSelectedModel } from "@/pages/session/session-model-helpers"
+import { setState, state } from "@/pages/session/session-state"
+
+export { findModel } from "@/pages/session/session-model-helpers"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 export type ModelOption = ModelSelection & {
   providerName: string
   modelName: string
-}
-
-function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
-  return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
-}
-
-export function findModel(options: ModelOption[], model: ModelSelection | undefined) {
-  if (!model) return
-  return options.find((option) => sameModel(option, model))
-}
-
-function resolveSelectedModel(options: ModelOption[], defaults: ProviderListResponse["default"]) {
-  const stored = readModelSelection()
-  const storedOption = findModel(options, stored)
-  if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
-
-  for (const option of options) {
-    const modelID = defaults[option.providerID]
-    if (!modelID) continue
-    const defaultOption = findModel(options, { providerID: option.providerID, modelID })
-    if (defaultOption) return { providerID: defaultOption.providerID, modelID: defaultOption.modelID }
-  }
-
-  const first = options[0]
-  if (!first) return
-  return { providerID: first.providerID, modelID: first.modelID }
 }
 
 export function refreshModels(activeClient: OpencodeClient | undefined, session: Session | undefined) {
