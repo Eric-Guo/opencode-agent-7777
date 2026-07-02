@@ -4,7 +4,6 @@ import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PermissionRequestView } from "@/context/permission"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
-import "./session-composer-region.css"
 
 export function SessionComposerRegion(props: {
   prompt: string
@@ -24,7 +23,7 @@ export function SessionComposerRegion(props: {
 }) {
   return (
     <form
-      class="composer"
+      class="block bg-linear-to-b from-[rgba(17,17,18,0)] from-0% to-[#111112] to-[26%] px-11 pb-6 max-[720px]:px-3.5 max-[720px]:pb-3.5"
       onSubmit={(event) => {
         event.preventDefault()
         props.onSubmit()

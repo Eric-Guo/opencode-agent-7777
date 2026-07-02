@@ -9,7 +9,6 @@ import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 import { disposeSessionSync, initializeSessionSync, statusText } from "./session-sync"
 import { state } from "./session-state"
-import "./session-layout.css"
 
 export default function SessionLayout() {
   let messageList: HTMLDivElement | undefined
@@ -31,15 +30,18 @@ export default function SessionLayout() {
   })
 
   return (
-    <div class="app-shell">
+    <div class="grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-[#111112]">
       <SessionHeader status={statusText()} userDialogCount={timeline.userDialogCount()} />
 
-      <main class="conversation" ref={messageList}>
+      <main
+        class="min-h-0 overflow-y-auto px-11 pb-7 pt-6 scroll-smooth max-[720px]:px-[18px] max-[720px]:py-4"
+        ref={messageList}
+      >
         <Show
           when={state.status !== "loading"}
           fallback={
-            <div class="loading">
-              <Spinner class="loading-spinner" />
+            <div class="flex min-h-full flex-col items-center justify-center gap-3 text-[#8b8d91]">
+              <Spinner class="h-6 w-6" />
               <span>Starting 7777</span>
             </div>
           }
@@ -47,9 +49,11 @@ export default function SessionLayout() {
           <Show
             when={timeline.visibleMessages().length > 0}
             fallback={
-              <div class="empty-state">
-                <div class="empty-mark">7777</div>
-                <p>Ready</p>
+              <div class="flex min-h-full flex-col items-center justify-center gap-3 text-[#8b8d91]">
+                <div class="flex h-16 w-16 items-center justify-center rounded-lg border border-[#303236] bg-[#171819] font-[760] text-[#22d1bd]">
+                  7777
+                </div>
+                <p class="m-0 text-[13px]">Ready</p>
               </div>
             }
           >
