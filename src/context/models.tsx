@@ -1,9 +1,9 @@
 import type { Session } from "@opencode-ai/sdk"
 import { writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
-import { readableError } from "@/pages/session/helpers"
+import { setState, state } from "@/context/sync"
 import { findModel, resolveSelectedModel } from "@/pages/session/session-model-helpers"
-import { setState, state } from "@/pages/session/session-state"
+import { readableError } from "@/utils/server-errors"
 
 export { findModel } from "@/pages/session/session-model-helpers"
 

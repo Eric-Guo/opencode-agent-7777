@@ -1,7 +1,7 @@
 import { AGENT_ID } from "@/constants/session"
-import { readableError } from "@/pages/session/helpers"
-import { currentSession, scheduleRefresh } from "@/pages/session/session-sync"
-import { idleStatus, setState, state } from "@/pages/session/session-state"
+import { idleStatus, setState, state } from "@/context/sync"
+import { currentSession, scheduleRefresh } from "@/context/server-sync"
+import { readableError } from "@/utils/server-errors"
 
 function appendOptimisticMessage(text: string) {
   const active = currentSession()

@@ -1,16 +1,51 @@
+import type { Part } from "@opencode-ai/sdk"
 import { Icon } from "@opencode-ai/ui/icon"
+import DOMPurify from "dompurify"
+import { marked } from "marked"
 import { createMemo, createSignal, For, Show } from "solid-js"
-import {
-  isToolPart,
-  messageText,
-  reasoningSummaries,
-  renderMarkdown,
-  toolStatus,
-  type HistoryItem,
-} from "@/pages/session/helpers"
+import type { HistoryItem } from "@/pages/session/timeline/rows"
 
 const markdownClass =
   "text-[15px] leading-[1.7] text-[#d8d8d8] [overflow-wrap:anywhere] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:mb-2.5 [&_p]:mt-0 [&_ul]:mb-2.5 [&_ul]:mt-0 [&_ol]:mb-2.5 [&_ol]:mt-0 [&_pre]:mb-2.5 [&_pre]:mt-0 [&_blockquote]:mb-2.5 [&_blockquote]:mt-0 [&_a]:text-[#22d1bd] [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:rounded [&_code]:bg-[#202124] [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.92em] [&_code]:text-[#efefef] [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-[#2d2f33] [&_pre]:bg-[#08090a] [&_pre]:p-3 [&_pre]:text-[#f4f2ed] [&_pre_code]:block [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_blockquote]:border-l-[3px] [&_blockquote]:border-l-[#2aa99c] [&_blockquote]:pl-3 [&_blockquote]:text-[#a7aaae] [&_img]:my-3 [&_img]:block [&_img]:h-auto [&_img]:max-w-[min(100%,680px)] [&_img]:rounded-lg [&_img]:border [&_img]:border-[#303236]"
+
+function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
+  return part.type === "text"
+}
+
+function isReasoningPart(part: Part): part is Extract<Part, { type: "reasoning" }> {
+  return part.type === "reasoning"
+}
+
+function isToolPart(part: Part): part is Extract<Part, { type: "tool" }> {
+  return part.type === "tool"
+}
+
+function messageText(parts: Part[]) {
+  return parts
+    .filter(isTextPart)
+    .map((part) => part.text)
+    .filter((text) => text.trim().length > 0)
+    .join("\n\n")
+}
+
+function reasoningSummaries(parts: Part[]) {
+  return parts
+    .filter(isReasoningPart)
+    .map((part) => part.text)
+    .filter((text) => text.trim().length > 0)
+}
+
+function renderMarkdown(value: string) {
+  const parsed = marked.parse(value, { async: false })
+  return DOMPurify.sanitize(typeof parsed === "string" ? parsed : value)
+}
+
+function toolStatus(part: Extract<Part, { type: "tool" }>) {
+  if (part.state.status === "completed") return part.state.title || "Done"
+  if (part.state.status === "error") return part.state.error
+  if (part.state.status === "running") return part.state.title || "Running"
+  return "Pending"
+}
 
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard

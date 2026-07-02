@@ -1,9 +1,9 @@
 import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import type { ServerInfo } from "@/context/server"
-import { readableError } from "@/pages/session/helpers"
-import { currentSession, scheduleRefresh } from "@/pages/session/session-sync"
-import { setState, state } from "@/pages/session/session-state"
+import { currentSession, scheduleRefresh } from "@/context/server-sync"
+import { setState, state } from "@/context/sync"
+import { readableError } from "@/utils/server-errors"
 
 export type PermissionRequestView = {
   id: string

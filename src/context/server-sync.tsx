@@ -7,18 +7,25 @@ import { makeClient, type OpencodeClient } from "@/context/sdk"
 import { resolveServer } from "@/context/server"
 import { createSession, restoreSession } from "@/context/server-session"
 import { defaultSessionDirectory } from "@/context/session-directory"
-import {
-  compareHistoryItem,
-  comparePart,
-  isTextLikePart,
-  normalizeHistory,
-  readableError,
-} from "@/pages/session/helpers"
-import { idleStatus, setState, state } from "@/pages/session/session-state"
+import { idleStatus, setState, state } from "@/context/sync"
+import { compareHistoryItem, comparePart, normalizeHistory } from "@/pages/session/timeline/rows"
+import { readableError } from "@/utils/server-errors"
 
 let client: OpencodeClient | undefined
 let streamAbort: AbortController | undefined
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
+
+function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
+  return part.type === "text"
+}
+
+function isReasoningPart(part: Part): part is Extract<Part, { type: "reasoning" }> {
+  return part.type === "reasoning"
+}
+
+function isTextLikePart(part: Part): part is Extract<Part, { type: "text" | "reasoning" }> {
+  return isTextPart(part) || isReasoningPart(part)
+}
 
 export function currentSession() {
   if (!client || !state.session) {
