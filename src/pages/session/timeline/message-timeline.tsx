@@ -20,6 +20,10 @@ function isToolPart(part: Part): part is Extract<Part, { type: "tool" }> {
   return part.type === "tool"
 }
 
+function isFilePart(part: Part): part is Extract<Part, { type: "file" }> {
+  return part.type === "file"
+}
+
 function messageText(parts: Part[]) {
   return parts
     .filter(isTextPart)
@@ -47,6 +51,50 @@ function toolStatus(part: Extract<Part, { type: "tool" }>) {
   return "Pending"
 }
 
+function fileLabel(part: Extract<Part, { type: "file" }>) {
+  return part.filename || part.url
+}
+
+function fileMime(part: Extract<Part, { type: "file" }>) {
+  return part.mime || "file"
+}
+
+function FileAttachment(props: { part: Extract<Part, { type: "file" }> }) {
+  const label = createMemo(() => fileLabel(props.part))
+  const mime = createMemo(() => fileMime(props.part))
+  const isImage = createMemo(() => mime().startsWith("image/"))
+
+  return (
+    <Show
+      when={isImage()}
+      fallback={
+        <a
+          class="flex min-h-9 max-w-full items-center gap-2 rounded-lg border border-[#303236] bg-[#171819] px-2.5 py-1.5 text-xs font-[650] text-[#c9cace] no-underline hover:border-[#44464a] hover:text-[#f1f1f1]"
+          href={props.part.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Icon name="folder" />
+          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{label()}</span>
+          <span class="shrink-0 text-[#787a7f]">{mime()}</span>
+        </a>
+      }
+    >
+      <figure class="m-0 max-w-full">
+        <img
+          src={props.part.url}
+          alt={label()}
+          class="block h-auto max-h-[420px] max-w-full rounded-lg border border-[#303236] object-contain"
+          loading="lazy"
+        />
+        <figcaption class="mt-1.5 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-[650] text-[#85878c]">
+          {label()}
+        </figcaption>
+      </figure>
+    </Show>
+  )
+}
+
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
   if (clipboard?.writeText) return clipboard.writeText(value)
@@ -66,9 +114,10 @@ function MessageView(props: { item: HistoryItem }) {
   const text = createMemo(() => messageText(props.item.parts))
   const reasoning = createMemo(() => reasoningSummaries(props.item.parts))
   const tools = createMemo(() => props.item.parts.filter(isToolPart))
+  const files = createMemo(() => props.item.parts.filter(isFilePart))
   const role = createMemo(() => (props.item.info.role === "user" ? "You" : "7777"))
   const copyValue = createMemo(() => text() || reasoning().join("\n\n"))
-  const hasContent = createMemo(() => !!text() || reasoning().length > 0)
+  const hasContent = createMemo(() => !!text() || reasoning().length > 0 || files().length > 0)
   const [copied, setCopied] = createSignal(false)
 
   const handleCopy = () => {
@@ -117,6 +166,11 @@ function MessageView(props: { item: HistoryItem }) {
                     </details>
                   )}
                 </For>
+              </div>
+            </Show>
+            <Show when={files().length > 0}>
+              <div class="mb-3 flex max-w-full flex-col gap-2">
+                <For each={files()}>{(part) => <FileAttachment part={part} />}</For>
               </div>
             </Show>
             <Show when={text()}>{(value) => <div class={markdownClass} innerHTML={renderMarkdown(value())} />}</Show>
