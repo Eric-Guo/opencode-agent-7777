@@ -1,2 +1,2 @@
 export { SessionComposerRegion } from "./session-composer-region"
-export { abortPrompt, setPrompt, submitPrompt } from "./session-composer-state"
+export { abortPrompt, addAttachment, removeAttachment, setPrompt, submitPrompt } from "./session-composer-state"

@@ -3,10 +3,12 @@ import { PromptInput } from "@/components/prompt-input"
 import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PermissionRequestView } from "@/context/permission"
+import type { PromptAttachment } from "@/context/sync"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 
 export function SessionComposerRegion(props: {
   prompt: string
+  attachments: PromptAttachment[]
   disabled: boolean
   busy: boolean
   canSubmit: boolean
@@ -16,6 +18,9 @@ export function SessionComposerRegion(props: {
   permissionRequest: PermissionRequestView | undefined
   permissionResponding: boolean
   onPromptChange: (value: string) => void
+  onAttachmentAdd: (attachment: PromptAttachment) => void
+  onAttachmentRemove: (id: string) => void
+  onAttachmentError: (message: string) => void
   onModelSelect: (model: ModelSelection) => void
   onPermissionDecide: (response: "once" | "always" | "reject") => void
   onSubmit: () => void
@@ -40,6 +45,7 @@ export function SessionComposerRegion(props: {
       </Show>
       <PromptInput
         value={props.prompt}
+        attachments={props.attachments}
         disabled={props.disabled}
         busy={props.busy}
         canSubmit={props.canSubmit}
@@ -48,6 +54,9 @@ export function SessionComposerRegion(props: {
         selectedModel={props.selectedModel}
         modelStatus={props.modelStatus}
         onChange={props.onPromptChange}
+        onAttachmentAdd={props.onAttachmentAdd}
+        onAttachmentRemove={props.onAttachmentRemove}
+        onAttachmentError={props.onAttachmentError}
         onModelSelect={props.onModelSelect}
         onSubmit={props.onSubmit}
         onAbort={props.onAbort}

@@ -8,6 +8,13 @@ import type { HistoryItem } from "@/pages/session/timeline/rows"
 
 export type LoadStatus = "loading" | "ready" | "failed"
 
+export type PromptAttachment = {
+  id: string
+  filename: string
+  mime: string
+  url: string
+}
+
 export type AppState = {
   status: LoadStatus
   modelStatus: ModelLoadStatus
@@ -20,6 +27,7 @@ export type AppState = {
   permissionRequest: PermissionRequestView | undefined
   permissionResponding: boolean
   prompt: string
+  attachments: PromptAttachment[]
   submitting: boolean
   error: string
 }
@@ -38,6 +46,7 @@ export const [state, setState] = createStore<AppState>({
   permissionRequest: undefined,
   permissionResponding: false,
   prompt: "",
+  attachments: [],
   submitting: false,
   error: "",
 })

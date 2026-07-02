@@ -2,9 +2,13 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { ModelSelection } from "@/context/local"
+import type { PromptAttachment } from "@/context/sync"
+import { ACCEPTED_FILE_TYPES, attachmentMime, fileDataUrl } from "@/components/prompt-input/files"
+import { uuid } from "@/utils/uuid"
 
 export function PromptInput(props: {
   value: string
+  attachments: PromptAttachment[]
   disabled: boolean
   busy: boolean
   canSubmit: boolean
@@ -13,11 +17,15 @@ export function PromptInput(props: {
   selectedModel: ModelSelection | undefined
   modelStatus: ModelLoadStatus
   onChange: (value: string) => void
+  onAttachmentAdd: (attachment: PromptAttachment) => void
+  onAttachmentRemove: (id: string) => void
+  onAttachmentError: (message: string) => void
   onModelSelect: (model: ModelSelection) => void
   onSubmit: () => void
   onAbort: () => void
 }) {
   const [modelOpen, setModelOpen] = createSignal(false)
+  let fileInputRef: HTMLInputElement | undefined
   const selectedModel = createMemo(() =>
     props.models.find(
       (model) => model.providerID === props.selectedModel?.providerID && model.modelID === props.selectedModel.modelID,
@@ -43,8 +51,43 @@ export function PromptInput(props: {
     setModelOpen(false)
   }
 
+  const addFiles = async (files: File[]) => {
+    let unsupported = false
+    for (const file of files) {
+      const mime = await attachmentMime(file)
+      if (!mime) {
+        unsupported = true
+        continue
+      }
+      const url = await fileDataUrl(file, mime)
+      if (!url) {
+        unsupported = true
+        continue
+      }
+      props.onAttachmentAdd({
+        id: uuid(),
+        filename: file.name,
+        mime,
+        url,
+      })
+    }
+    if (unsupported) props.onAttachmentError("Some selected files are not supported.")
+  }
+
   return (
     <div class="mx-auto min-w-0 max-w-[1120px] rounded-[14px] border border-[#44464a] bg-[#121213] shadow-[0_12px_36px_rgba(0,0,0,0.2)]">
+      <input
+        ref={(el) => (fileInputRef = el)}
+        type="file"
+        multiple
+        accept={ACCEPTED_FILE_TYPES.join(",")}
+        class="hidden"
+        onChange={(event) => {
+          const files = event.currentTarget.files
+          if (files) void addFiles(Array.from(files))
+          event.currentTarget.value = ""
+        }}
+      />
       <textarea
         class="block max-h-[180px] min-h-[92px] w-full resize-y border-0 bg-transparent px-5 pb-2.5 pt-[18px] text-[15px] leading-[1.5] text-[#e2e2e2] outline-none placeholder:text-[#6e7074] disabled:opacity-[0.62]"
         aria-label="Message"
@@ -58,13 +101,34 @@ export function PromptInput(props: {
           props.onSubmit()
         }}
       />
+      <Show when={props.attachments.length > 0}>
+        <div class="flex flex-wrap gap-2 border-t border-[#232426] px-[18px] py-2">
+          <For each={props.attachments}>
+            {(attachment) => (
+              <span class="flex h-7 max-w-[220px] items-center gap-1.5 rounded-md border border-[#303236] bg-[#191a1d] pl-2.5 pr-1 text-[12px] font-[560] text-[#c5c7cb]">
+                <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{attachment.filename}</span>
+                <button
+                  type="button"
+                  class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-0 bg-transparent text-[#85878c] hover:enabled:bg-[#25272b] hover:enabled:text-[#e1e2e4] disabled:opacity-60 [&_[data-component=icon]]:h-3 [&_[data-component=icon]]:w-3"
+                  aria-label={`Remove ${attachment.filename}`}
+                  disabled={props.disabled}
+                  onClick={() => props.onAttachmentRemove(attachment.id)}
+                >
+                  <Icon name="close" />
+                </button>
+              </span>
+            )}
+          </For>
+        </div>
+      </Show>
       <div class="flex min-h-[54px] items-center justify-between gap-3 border-t border-[#232426] py-0 pl-[18px] pr-3.5 max-[720px]:flex-col max-[720px]:items-stretch max-[720px]:px-3 max-[720px]:py-2.5">
         <div class="flex min-w-0 items-center gap-3.5 max-[720px]:w-full max-[720px]:flex-wrap">
           <button
             type="button"
-            class="flex h-[30px] w-[30px] items-center justify-center rounded-lg border-0 bg-transparent text-[#8d8f93] opacity-100 [&_[data-component=icon]]:h-[19px] [&_[data-component=icon]]:w-[19px]"
+            class="flex h-[30px] w-[30px] items-center justify-center rounded-lg border-0 bg-transparent text-[#8d8f93] opacity-100 hover:enabled:bg-[#232428] hover:enabled:text-[#e1e2e4] disabled:opacity-60 [&_[data-component=icon]]:h-[19px] [&_[data-component=icon]]:w-[19px]"
             aria-label="Add context"
-            disabled
+            disabled={props.disabled}
+            onClick={() => fileInputRef?.click()}
           >
             <Icon name="plus" />
           </button>
@@ -114,9 +178,7 @@ export function PromptInput(props: {
                             <button
                               type="button"
                               class={`flex min-h-8 w-full items-center justify-between gap-2.5 rounded-md border-0 px-2 py-0 text-left text-[13px] font-[560] hover:bg-[#24262a] hover:text-[#f0f0f1] focus-visible:bg-[#24262a] focus-visible:text-[#f0f0f1] ${
-                                selected()
-                                  ? "bg-[#2c3137] text-[#f5f5f5]"
-                                  : "bg-transparent text-[#c9cace]"
+                                selected() ? "bg-[#2c3137] text-[#f5f5f5]" : "bg-transparent text-[#c9cace]"
                               }`}
                               role="option"
                               aria-selected={selected()}

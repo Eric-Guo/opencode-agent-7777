@@ -4,9 +4,16 @@ import { SessionHeader } from "@/components/session"
 import { selectModel } from "@/context/models"
 import { decidePermission } from "@/context/permission"
 import { disposeSessionSync, initializeSessionSync, statusText } from "@/context/server-sync"
-import { state } from "@/context/sync"
+import { setState, state } from "@/context/sync"
 import { ErrorBanner } from "@/pages/error"
-import { abortPrompt, SessionComposerRegion, setPrompt, submitPrompt } from "@/pages/session/composer"
+import {
+  abortPrompt,
+  addAttachment,
+  removeAttachment,
+  SessionComposerRegion,
+  setPrompt,
+  submitPrompt,
+} from "@/pages/session/composer"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 
@@ -14,7 +21,10 @@ export function SessionPage() {
   let messageList: HTMLDivElement | undefined
   const timeline = createTimelineModel({ messages: () => state.messages })
   const busy = createMemo(() => state.submitting || state.sessionStatus.type !== "idle")
-  const canSubmit = createMemo(() => state.prompt.trim().length > 0 && !state.submitting && state.status === "ready")
+  const canSubmit = createMemo(
+    () =>
+      (state.prompt.trim().length > 0 || state.attachments.length > 0) && !state.submitting && state.status === "ready",
+  )
 
   createEffect(() => {
     timeline.visibleMessages().length
@@ -66,6 +76,7 @@ export function SessionPage() {
 
       <SessionComposerRegion
         prompt={state.prompt}
+        attachments={state.attachments}
         disabled={state.status !== "ready"}
         busy={busy()}
         canSubmit={canSubmit()}
@@ -75,6 +86,9 @@ export function SessionPage() {
         permissionRequest={state.permissionRequest}
         permissionResponding={state.permissionResponding}
         onPromptChange={setPrompt}
+        onAttachmentAdd={addAttachment}
+        onAttachmentRemove={removeAttachment}
+        onAttachmentError={(message) => setState("error", message)}
         onModelSelect={selectModel}
         onPermissionDecide={decidePermission}
         onSubmit={submitPrompt}
