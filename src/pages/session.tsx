@@ -1,5 +1,5 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
-import { createEffect, createMemo, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { selectModel } from "@/context/models"
 import { decidePermission } from "@/context/permission"
@@ -9,6 +9,7 @@ import { ErrorBanner } from "@/pages/error"
 import {
   abortPrompt,
   addAttachment,
+  createPromptInputController,
   removeAttachment,
   SessionComposerRegion,
   setPrompt,
@@ -20,11 +21,7 @@ import { createTimelineModel } from "@/pages/session/timeline/model"
 export function SessionPage() {
   let messageList: HTMLDivElement | undefined
   const timeline = createTimelineModel({ messages: () => state.messages })
-  const busy = createMemo(() => state.submitting || state.sessionStatus.type !== "idle")
-  const canSubmit = createMemo(
-    () =>
-      (state.prompt.trim().length > 0 || state.attachments.length > 0) && !state.submitting && state.status === "ready",
-  )
+  const promptInput = createPromptInputController()
 
   createEffect(() => {
     timeline.visibleMessages().length
@@ -78,8 +75,8 @@ export function SessionPage() {
         prompt={state.prompt}
         attachments={state.attachments}
         disabled={state.status !== "ready"}
-        busy={busy()}
-        canSubmit={canSubmit()}
+        busy={promptInput.busy()}
+        canSubmit={promptInput.canSubmit()}
         models={state.models}
         selectedModel={state.selectedModel}
         modelStatus={state.modelStatus}
