@@ -4,11 +4,81 @@
 @source "./";
 
 :root {
-  color-scheme: dark;
-  background: #0f0f10;
-  color: #e5e5e5;
+  color-scheme: light dark;
+  --oc-7777-page-bg: #fafafa;
+  --oc-7777-page-fg: #1f1f1f;
+  --oc-7777-composer-bg: var(--v2-background-bg-base);
+  --oc-7777-composer-text: var(--v2-text-text-base);
+  --oc-7777-composer-placeholder: var(--v2-text-text-faint);
+  --oc-7777-composer-control-fg: var(--v2-text-text-faint);
+  --oc-7777-composer-control-fg-hover: var(--v2-text-text-base);
+  --oc-7777-composer-control-icon: var(--v2-icon-icon-muted);
+  --oc-7777-composer-control-icon-hover: var(--v2-icon-icon-base);
+  --oc-7777-composer-control-bg-hover: var(--v2-overlay-simple-overlay-hover);
+  --oc-7777-composer-control-bg-pressed: var(--v2-overlay-simple-overlay-pressed);
+  --oc-7777-composer-shadow: var(--v2-elevation-raised);
+  background: var(--oc-7777-page-bg);
+  color: var(--oc-7777-page-fg);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+:root[data-color-scheme="light"],
+[data-color-scheme="light"] {
+  color-scheme: light;
+  --oc-7777-page-bg: #fafafa;
+  --oc-7777-page-fg: #1f1f1f;
+  --oc-7777-composer-bg: var(--v2-background-bg-base);
+  --oc-7777-composer-text: var(--v2-text-text-base);
+  --oc-7777-composer-placeholder: var(--v2-text-text-faint);
+  --oc-7777-composer-control-fg: var(--v2-text-text-faint);
+  --oc-7777-composer-control-fg-hover: var(--v2-text-text-base);
+  --oc-7777-composer-control-icon: var(--v2-icon-icon-muted);
+  --oc-7777-composer-control-icon-hover: var(--v2-icon-icon-base);
+  --oc-7777-composer-control-bg-hover: var(--v2-overlay-simple-overlay-hover);
+  --oc-7777-composer-control-bg-pressed: var(--v2-overlay-simple-overlay-pressed);
+  --oc-7777-composer-shadow: var(--v2-elevation-raised);
+}
+
+:root[data-color-scheme="dark"],
+[data-color-scheme="dark"] {
+  color-scheme: dark;
+  --oc-7777-page-bg: #080808;
+  --oc-7777-page-fg: #e5e5e5;
+  --oc-7777-composer-bg: #121213;
+  --oc-7777-composer-text: #e2e2e2;
+  --oc-7777-composer-placeholder: #6e7074;
+  --oc-7777-composer-control-fg: #9b9da1;
+  --oc-7777-composer-control-fg-hover: #e1e2e4;
+  --oc-7777-composer-control-icon: #8d8f93;
+  --oc-7777-composer-control-icon-hover: #e1e2e4;
+  --oc-7777-composer-control-bg-hover: #232428;
+  --oc-7777-composer-control-bg-pressed: #232428;
+  --oc-7777-composer-shadow: 0 0 0 1px #44464a, 0 12px 36px rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-color-scheme]) {
+    color-scheme: dark;
+    --oc-7777-page-bg: #080808;
+    --oc-7777-page-fg: #e5e5e5;
+    --oc-7777-composer-bg: #121213;
+    --oc-7777-composer-text: #e2e2e2;
+    --oc-7777-composer-placeholder: #6e7074;
+    --oc-7777-composer-control-fg: #9b9da1;
+    --oc-7777-composer-control-fg-hover: #e1e2e4;
+    --oc-7777-composer-control-icon: #8d8f93;
+    --oc-7777-composer-control-icon-hover: #e1e2e4;
+    --oc-7777-composer-control-bg-hover: #232428;
+    --oc-7777-composer-control-bg-pressed: #232428;
+    --oc-7777-composer-shadow: 0 0 0 1px #44464a, 0 12px 36px rgba(0, 0, 0, 0.2);
+  }
 }
 
 * {
@@ -25,15 +95,12 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: #080808;
+  background: var(--oc-7777-page-bg);
 }
 
 button,
 select,
 textarea {
-  font: inherit;
-}
-
-button {
+  font-family: inherit;
   letter-spacing: 0;
 }

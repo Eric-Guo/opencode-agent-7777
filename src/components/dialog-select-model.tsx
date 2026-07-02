@@ -39,7 +39,7 @@ export function ModelSelectorControl(props: {
 
   return (
     <div
-      class="relative min-w-0 max-w-[220px] text-[#9b9da1]"
+      class="relative min-w-0 max-w-[220px] text-[var(--oc-7777-composer-control-fg)]"
       onFocusOut={(event) => {
         if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
         props.setOpen(false)
@@ -47,7 +47,7 @@ export function ModelSelectorControl(props: {
     >
       <button
         type="button"
-        class="flex h-[30px] max-w-[220px] items-center gap-2 border-0 bg-transparent p-0 text-[13px] font-[650] text-[#a8aaae] outline-none hover:enabled:text-[#e1e2e4] disabled:opacity-60 aria-expanded:text-[#e1e2e4] [&_[data-component=icon]]:h-4 [&_[data-component=icon]]:w-4 [&_[data-component=icon]]:shrink-0"
+        class="group flex h-7 min-w-0 max-w-[220px] items-center justify-start gap-1.5 rounded-sm border-0 bg-transparent px-2 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-control-fg)] outline-none hover:enabled:bg-[var(--oc-7777-composer-control-bg-hover)] hover:enabled:text-[var(--oc-7777-composer-control-fg-hover)] disabled:opacity-60 aria-expanded:bg-[var(--oc-7777-composer-control-bg-pressed)] aria-expanded:text-[var(--oc-7777-composer-control-fg-hover)] [&_[data-component=icon]]:shrink-0 [&_[data-slot=icon-svg]]:size-4"
         aria-label="Model"
         aria-expanded={props.open()}
         aria-haspopup="listbox"
@@ -58,9 +58,14 @@ export function ModelSelectorControl(props: {
           props.setOpen(false)
         }}
       >
-        <Icon name="models" />
+        <Icon
+          name="models"
+          class="text-[var(--oc-7777-composer-control-icon)] transition-colors duration-150 group-hover:text-[var(--oc-7777-composer-control-icon-hover)]"
+        />
         <span class="min-w-0 max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap">{modelLabel()}</span>
-        <Icon name="chevron-down" />
+        <span class="-ml-0.5 -mr-1 flex shrink-0">
+          <Icon name="chevron-down" size="small" class="text-[var(--oc-7777-composer-control-icon)]" />
+        </span>
       </button>
       <Show when={props.open()}>
         <div
