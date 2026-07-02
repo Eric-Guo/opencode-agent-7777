@@ -1,5 +1,6 @@
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { windowsElectron } from "@/context/platform"
+import "./session-header.css"
 
 export function SessionHeader(props: { status: string; userDialogCount: number }) {
   return (

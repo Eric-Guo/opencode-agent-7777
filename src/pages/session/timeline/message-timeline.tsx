@@ -8,6 +8,7 @@ import {
   toolStatus,
   type HistoryItem,
 } from "@/pages/session/helpers"
+import "./message-timeline.css"
 
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard

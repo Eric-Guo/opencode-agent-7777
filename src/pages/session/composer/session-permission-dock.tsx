@@ -1,5 +1,6 @@
 import { For, Show } from "solid-js"
 import { permissionDescription, type PermissionRequestView } from "@/context/permission"
+import "./session-permission-dock.css"
 
 export function SessionPermissionDock(props: {
   request: PermissionRequestView

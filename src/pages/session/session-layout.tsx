@@ -9,6 +9,7 @@ import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 import { disposeSessionSync, initializeSessionSync, statusText } from "./session-sync"
 import { state } from "./session-state"
+import "./session-layout.css"
 
 export default function SessionLayout() {
   let messageList: HTMLDivElement | undefined

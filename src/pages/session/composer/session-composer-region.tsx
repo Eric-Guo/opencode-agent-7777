@@ -4,6 +4,7 @@ import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PermissionRequestView } from "@/context/permission"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
+import "./session-composer-region.css"
 
 export function SessionComposerRegion(props: {
   prompt: string
