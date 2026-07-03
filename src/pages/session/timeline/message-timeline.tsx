@@ -4,7 +4,7 @@ import DOMPurify from "dompurify"
 import { marked } from "marked"
 import { createMemo, createSignal, For, Show } from "solid-js"
 import { useLanguage, type TranslationKey, type TranslationParams } from "@/context/language"
-import type { HistoryItem } from "@/pages/session/timeline/rows"
+import type { HistoryItem } from "@/context/sync"
 
 const markdownClass =
   "text-[15px] leading-[1.7] text-v2-text-text-base [overflow-wrap:anywhere] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:mb-2.5 [&_p]:mt-0 [&_ul]:mb-2.5 [&_ul]:mt-0 [&_ol]:mb-2.5 [&_ol]:mt-0 [&_pre]:mb-2.5 [&_pre]:mt-0 [&_blockquote]:mb-2.5 [&_blockquote]:mt-0 [&_a]:text-v2-text-text-accent [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:rounded [&_code]:bg-v2-background-bg-layer-02 [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.92em] [&_code]:text-v2-text-text-base [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-v2-border-border-base [&_pre]:bg-v2-background-bg-deep [&_pre]:p-3 [&_pre]:text-v2-text-text-base [&_pre_code]:block [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_blockquote]:border-l-[3px] [&_blockquote]:border-l-v2-border-border-strong [&_blockquote]:pl-3 [&_blockquote]:text-v2-text-text-muted [&_img]:my-3 [&_img]:block [&_img]:h-auto [&_img]:max-w-[min(100%,680px)] [&_img]:rounded-lg [&_img]:border [&_img]:border-v2-border-border-base"

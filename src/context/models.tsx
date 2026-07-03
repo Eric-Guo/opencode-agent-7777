@@ -1,16 +1,13 @@
-import type { Session } from "@opencode-ai/sdk"
+import type { ProviderListResponse, Session } from "@opencode-ai/sdk"
 import { createMemo, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
 import { translateSync } from "@/context/language"
-import { writeModelSelection, type ModelSelection } from "@/context/local"
+import { readModelSelection, writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
 import { setState, state } from "@/context/sync"
 import { popularProviders } from "@/hooks/use-providers"
-import { findModel, resolveSelectedModel } from "@/pages/session/session-model-helpers"
 import { readableError } from "@/utils/server-errors"
-
-export { findModel } from "@/pages/session/session-model-helpers"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
@@ -115,6 +112,28 @@ function isProviderVisibility(value: unknown): value is ProviderVisibility {
 
 function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
   return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
+}
+
+export function findModel<T extends ModelSelection>(options: T[], model: ModelSelection | undefined) {
+  if (!model) return
+  return options.find((option) => sameModel(option, model))
+}
+
+function resolveSelectedModel<T extends ModelSelection>(options: T[], defaults: ProviderListResponse["default"]) {
+  const stored = readModelSelection()
+  const storedOption = findModel(options, stored)
+  if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
+
+  for (const option of options) {
+    const modelID = defaults[option.providerID]
+    if (!modelID) continue
+    const defaultOption = findModel(options, { providerID: option.providerID, modelID })
+    if (defaultOption) return { providerID: defaultOption.providerID, modelID: defaultOption.modelID }
+  }
+
+  const first = options[0]
+  if (!first) return
+  return { providerID: first.providerID, modelID: first.modelID }
 }
 
 function modelKey(model: ModelSelection) {

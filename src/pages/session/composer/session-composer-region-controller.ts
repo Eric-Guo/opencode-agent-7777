@@ -1,15 +1,9 @@
 import { createMemo } from "solid-js"
 import { modelSelector } from "@/context/models"
 import { decidePermission } from "@/context/permission"
+import { abortPrompt, addAttachment, removeAttachment, setPrompt, submitPrompt } from "@/context/prompt"
 import { setState, state } from "@/context/sync"
 import { createPromptInputController } from "@/pages/session/composer/session-composer-controls"
-import {
-  abortPrompt,
-  addAttachment,
-  removeAttachment,
-  setPrompt,
-  submitPrompt,
-} from "@/pages/session/composer/session-composer-state"
 
 export function createSessionComposerRegionController() {
   const promptInput = createPromptInputController()
