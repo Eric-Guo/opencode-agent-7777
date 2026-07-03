@@ -13,6 +13,7 @@ import {
   type ValidComponent,
 } from "solid-js"
 import { createStore } from "solid-js/store"
+import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
 import type { ModelSelectorState } from "@/context/models"
 import { useLanguage } from "@/context/language"
 import { popularProviders } from "@/hooks/use-providers"
@@ -54,6 +55,7 @@ export function ModelSelectorPopoverV2(props: {
   let searchRef: HTMLInputElement | undefined
   let contentRef: HTMLDivElement | undefined
   let restoreTrigger = true
+  const canManage = () => DEFAULT_MODEL_CONFIG.manageModels && !!props.onManage
 
   const allModels = createMemo(() =>
     props.model
@@ -76,7 +78,7 @@ export function ModelSelectorPopoverV2(props: {
     }
     return Array.from(byProvider, ([category, items]) => ({ category, items })).sort(sortModelGroups)
   })
-  const keys = () => [...models().map(modelKey), manageKey]
+  const keys = () => (canManage() ? [...models().map(modelKey), manageKey] : models().map(modelKey))
   const current = () => {
     const value = props.model.current()
     return value ? `${value.provider.id}:${value.id}` : undefined
@@ -136,7 +138,7 @@ export function ModelSelectorPopoverV2(props: {
       selectModel(item)
       return
     }
-    if (store.active === manageKey) manage()
+    if (canManage() && store.active === manageKey) manage()
   }
   const moveActive = (delta: number) => {
     const options = keys()
@@ -151,7 +153,7 @@ export function ModelSelectorPopoverV2(props: {
     const first = [...allModels()]
       .sort((a, b) => a.name.localeCompare(b.name))
       .find((item) => matchesModelSearch(search, [item.name, item.id, item.provider.name]))
-    setStore({ search: value, active: first ? modelKey(first) : manageKey })
+    setStore({ search: value, active: first ? modelKey(first) : canManage() ? manageKey : "" })
   }
 
   createEffect(() => {
@@ -278,21 +280,23 @@ export function ModelSelectorPopoverV2(props: {
               </Show>
             </div>
           </ScrollView>
-          <div class="h-px bg-v2-border-border-muted" />
-          <div class="flex flex-col p-0.5">
-            <MenuV2.Item
-              data-option-key={manageKey}
-              classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === manageKey }}
-              onMouseEnter={() => {
-                setStore("active", manageKey)
-                setTimeout(() => searchRef?.focus())
-              }}
-              onSelect={manage}
-            >
-              <Icon name="outline-sliders" size="small" />
-              <span class="min-w-0 flex-1 truncate leading-5">{language.t("dialog.model.manage")}</span>
-            </MenuV2.Item>
-          </div>
+          <Show when={canManage()}>
+            <div class="h-px bg-v2-border-border-muted" />
+            <div class="flex flex-col p-0.5">
+              <MenuV2.Item
+                data-option-key={manageKey}
+                classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === manageKey }}
+                onMouseEnter={() => {
+                  setStore("active", manageKey)
+                  setTimeout(() => searchRef?.focus())
+                }}
+                onSelect={manage}
+              >
+                <Icon name="outline-sliders" size="small" />
+                <span class="min-w-0 flex-1 truncate leading-5">{language.t("dialog.model.manage")}</span>
+              </MenuV2.Item>
+            </div>
+          </Show>
         </MenuV2.Content>
       </MenuV2.Portal>
     </MenuV2>

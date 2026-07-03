@@ -124,6 +124,11 @@ function resolveSelectedModel<T extends ModelSelection>(options: T[], defaults: 
   const storedOption = findModel(options, stored)
   if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
 
+  const configuredDefaultOption = findModel(options, DEFAULT_MODEL_CONFIG.defaultSelection ?? undefined)
+  if (configuredDefaultOption) {
+    return { providerID: configuredDefaultOption.providerID, modelID: configuredDefaultOption.modelID }
+  }
+
   for (const option of options) {
     const modelID = defaults[option.providerID]
     if (!modelID) continue

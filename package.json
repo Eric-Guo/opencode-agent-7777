@@ -7,7 +7,8 @@
     "typecheck": "tsgo -b",
     "dev": "vite",
     "build": "vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
     "@opencode-ai/sdk": "workspace:*",

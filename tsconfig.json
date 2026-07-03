@@ -20,6 +20,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "package.json"],
+  "include": ["src", "src/**/*.json", "package.json"],
   "exclude": ["dist", "node_modules/.ts-dist"]
 }
