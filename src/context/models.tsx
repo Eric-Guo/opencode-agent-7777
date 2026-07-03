@@ -1,6 +1,7 @@
 import type { Session } from "@opencode-ai/sdk"
 import { createMemo, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
+import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
 import { translateSync } from "@/context/language"
 import { writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
@@ -24,6 +25,7 @@ type ProviderVisibility = {
 
 type ModelConfig = {
   user: Array<ModelSelection & { visibility: Visibility }>
+  disabledProviders: string[]
   popularProviders: ProviderVisibility[]
   recent: ModelSelection[]
 }
@@ -54,21 +56,33 @@ export type ModelSelectorState = {
 const MODEL_CONFIG_KEY = "opencode.7777.model.config"
 const RECENT_LIMIT = 5
 
+function defaultModelConfig(): ModelConfig {
+  return {
+    user: DEFAULT_MODEL_CONFIG.user.map((item) => ({ ...item })),
+    disabledProviders: [...DEFAULT_MODEL_CONFIG.disabledProviders],
+    popularProviders: DEFAULT_MODEL_CONFIG.popularProviders.map((item) => ({ ...item })),
+    recent: [],
+  }
+}
+
 function readModelConfig(): ModelConfig {
-  if (typeof localStorage !== "object") return { user: [], popularProviders: [], recent: [] }
+  if (typeof localStorage !== "object") return defaultModelConfig()
   try {
     const value = localStorage.getItem(MODEL_CONFIG_KEY)
-    if (!value) return { user: [], popularProviders: [], recent: [] }
+    if (!value) return defaultModelConfig()
     const parsed = JSON.parse(value) as Partial<ModelConfig>
     return {
       user: Array.isArray(parsed.user) ? parsed.user.filter(isConfiguredVisibility) : [],
+      disabledProviders: Array.isArray(parsed.disabledProviders)
+        ? parsed.disabledProviders.filter((item): item is string => typeof item === "string")
+        : [...DEFAULT_MODEL_CONFIG.disabledProviders],
       popularProviders: Array.isArray(parsed.popularProviders)
         ? parsed.popularProviders.filter(isProviderVisibility)
         : [],
       recent: Array.isArray(parsed.recent) ? parsed.recent.filter(isModelSelection) : [],
     }
   } catch {
-    return { user: [], popularProviders: [], recent: [] }
+    return defaultModelConfig()
   }
 }
 
@@ -120,11 +134,13 @@ const visibilityMaps = createRoot(() => ({
     for (const item of modelConfig.popularProviders) map.set(item.providerID, item.visibility)
     return map
   }),
+  disabledProvider: createMemo(() => new Set(modelConfig.disabledProviders)),
 }))
 
 function persistConfig(next: ModelConfig = modelConfig) {
   writeModelConfig({
     user: [...next.user],
+    disabledProviders: [...next.disabledProviders],
     popularProviders: [...next.popularProviders],
     recent: [...next.recent],
   })
@@ -138,8 +154,16 @@ function providerVisibilityMap() {
   return visibilityMaps.provider()
 }
 
+function disabledProviderSet() {
+  return visibilityMaps.disabledProvider()
+}
+
 function isPopularProvider(providerID: string) {
   return popularProviderSet.has(providerID)
+}
+
+function providerDefaultVisibility(providerID: string): Visibility {
+  return providerVisibilityMap().get(providerID) ?? (disabledProviderSet().has(providerID) ? "hide" : "show")
 }
 
 function removeModelVisibility(model: ModelSelection) {
@@ -150,12 +174,9 @@ function removeModelVisibility(model: ModelSelection) {
 }
 
 function updateVisibility(model: ModelSelection, visibility: Visibility) {
-  if (isPopularProvider(model.providerID)) {
-    const providerVisibility = providerVisibilityMap().get(model.providerID) ?? "show"
-    if (providerVisibility === visibility) {
-      removeModelVisibility(model)
-      return
-    }
+  if (providerDefaultVisibility(model.providerID) === visibility) {
+    removeModelVisibility(model)
+    return
   }
 
   const index = modelConfig.user.findIndex((item) => sameModel(item, model))
@@ -169,6 +190,7 @@ function updateProviderVisibility(providerID: string, visibility: Visibility) {
   if (providerModels.length === 0) return
 
   const nextUser = modelConfig.user.filter((item) => item.providerID !== providerID)
+  const nextDisabledProviders = modelConfig.disabledProviders.filter((item) => item !== providerID)
 
   if (isPopularProvider(providerID)) {
     const index = modelConfig.popularProviders.findIndex((item) => item.providerID === providerID)
@@ -176,19 +198,24 @@ function updateProviderVisibility(providerID: string, visibility: Visibility) {
     if (index >= 0) nextPopularProviders[index] = { providerID, visibility }
     else nextPopularProviders.push({ providerID, visibility })
 
-    setModelConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
-    persistConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
+    setModelConfig({
+      ...modelConfig,
+      user: nextUser,
+      disabledProviders: nextDisabledProviders,
+      popularProviders: nextPopularProviders,
+    })
+    persistConfig({
+      ...modelConfig,
+      user: nextUser,
+      disabledProviders: nextDisabledProviders,
+      popularProviders: nextPopularProviders,
+    })
     return
   }
 
-  const nextProviderModels = providerModels.map((item) => ({
-    providerID,
-    modelID: item.id,
-    visibility,
-  }))
-  const nextUserWithProvider = [...nextUser, ...nextProviderModels]
-  setModelConfig("user", nextUserWithProvider)
-  persistConfig({ ...modelConfig, user: nextUserWithProvider })
+  if (visibility === "hide") nextDisabledProviders.push(providerID)
+  setModelConfig({ ...modelConfig, user: nextUser, disabledProviders: nextDisabledProviders })
+  persistConfig({ ...modelConfig, user: nextUser, disabledProviders: nextDisabledProviders })
 }
 
 function compactPopularProviderConfig(options: ModelOption[]) {
@@ -244,10 +271,7 @@ export function visibleModel(model: ModelSelection) {
   const modelVisibility = visibilityMap().get(modelKey(model))
   if (modelVisibility) return modelVisibility !== "hide"
 
-  const providerVisibility = isPopularProvider(model.providerID)
-    ? providerVisibilityMap().get(model.providerID)
-    : undefined
-  return providerVisibility !== "hide"
+  return providerDefaultVisibility(model.providerID) !== "hide"
 }
 
 export const modelSelector: ModelSelectorState = {
