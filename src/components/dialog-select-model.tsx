@@ -69,14 +69,14 @@ export function ModelSelectorControl(props: {
       </button>
       <Show when={props.open()}>
         <div
-          class="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-80 w-80 max-w-[min(320px,calc(100vw-36px))] flex-col overflow-y-auto rounded-lg border border-[#34363a] bg-[#191a1d] p-1.5 shadow-[0_16px_44px_rgba(0,0,0,0.46)]"
+          class="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-80 w-80 max-w-[min(320px,calc(100vw-36px))] flex-col overflow-y-auto rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 p-1.5 shadow-[var(--v2-elevation-floating)]"
           role="listbox"
           aria-label="Model"
         >
           <For each={groupedModels()}>
             {(group) => (
               <div class="[&+&]:mt-1.5">
-                <div class="px-[9px] pb-1 pt-[7px] text-[11px] font-bold uppercase leading-none text-[#73757a]">
+                <div class="px-[9px] pb-1 pt-[7px] text-[11px] font-bold uppercase leading-none text-v2-text-text-faint">
                   {group.providerName}
                 </div>
                 <For each={group.models}>
@@ -87,8 +87,10 @@ export function ModelSelectorControl(props: {
                     return (
                       <button
                         type="button"
-                        class={`flex min-h-8 w-full items-center justify-between gap-2.5 rounded-md border-0 px-2 py-0 text-left text-[13px] font-[560] hover:bg-[#24262a] hover:text-[#f0f0f1] focus-visible:bg-[#24262a] focus-visible:text-[#f0f0f1] ${
-                          selected() ? "bg-[#2c3137] text-[#f5f5f5]" : "bg-transparent text-[#c9cace]"
+                        class={`flex min-h-8 w-full items-center justify-between gap-2.5 rounded-md border-0 px-2 py-0 text-left text-[13px] font-[560] hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:text-v2-text-text-base ${
+                          selected()
+                            ? "bg-v2-overlay-simple-overlay-pressed text-v2-text-text-base"
+                            : "bg-transparent text-v2-text-text-muted"
                         }`}
                         role="option"
                         aria-selected={selected()}
@@ -98,7 +100,7 @@ export function ModelSelectorControl(props: {
                           {model.modelName || model.modelID}
                         </span>
                         <Show when={selected()}>
-                          <Icon name="check-small" class="h-[15px] w-[15px] shrink-0 text-[#d8d9dc]" />
+                          <Icon name="check-small" class="h-[15px] w-[15px] shrink-0 text-v2-icon-icon-base" />
                         </Show>
                       </button>
                     )

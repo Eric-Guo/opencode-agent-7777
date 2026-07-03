@@ -10,6 +10,7 @@ import { defaultSessionDirectory } from "@/context/session-directory"
 import { idleStatus, setState, state } from "@/context/sync"
 import { compareHistoryItem, comparePart, normalizeHistory } from "@/pages/session/timeline/rows"
 import { readableError } from "@/utils/server-errors"
+import { syncWindowBackgroundColor } from "@/utils/theme"
 
 let client: OpencodeClient | undefined
 let streamAbort: AbortController | undefined
@@ -194,7 +195,7 @@ export function initializeSessionSync() {
           client = makeClient(server, session.directory)
           setState("session", session)
           setState("status", "ready")
-          void window.api?.setBackgroundColor?.("#111112")
+          syncWindowBackgroundColor()
           return Promise.all([refreshMessages(), refreshModels(client, session), refreshPermissions()]).then(
             () => undefined,
           )

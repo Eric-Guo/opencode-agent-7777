@@ -1,27 +1,17 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { createEffect, onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
-import { selectModel } from "@/context/models"
-import { decidePermission } from "@/context/permission"
 import { disposeSessionSync, initializeSessionSync, statusText } from "@/context/server-sync"
-import { setState, state } from "@/context/sync"
+import { state } from "@/context/sync"
 import { ErrorBanner } from "@/pages/error"
-import {
-  abortPrompt,
-  addAttachment,
-  createPromptInputController,
-  removeAttachment,
-  SessionComposerRegion,
-  setPrompt,
-  submitPrompt,
-} from "@/pages/session/composer"
+import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 
 export function SessionPage() {
   let messageList: HTMLDivElement | undefined
   const timeline = createTimelineModel({ messages: () => state.messages })
-  const promptInput = createPromptInputController()
+  const composer = createSessionComposerRegionController()
 
   createEffect(() => {
     timeline.visibleMessages().length
@@ -37,7 +27,7 @@ export function SessionPage() {
   })
 
   return (
-    <div class="grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-[#111112]">
+    <div class="grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
       <SessionHeader status={statusText()} userDialogCount={timeline.userDialogCount()} />
 
       <main
@@ -47,7 +37,7 @@ export function SessionPage() {
         <Show
           when={state.status !== "loading"}
           fallback={
-            <div class="flex min-h-full flex-col items-center justify-center gap-3 text-[#8b8d91]">
+            <div class="flex min-h-full flex-col items-center justify-center gap-3 text-v2-text-text-muted">
               <Spinner class="h-6 w-6" />
               <span>Starting 7777</span>
             </div>
@@ -56,8 +46,8 @@ export function SessionPage() {
           <Show
             when={timeline.visibleMessages().length > 0}
             fallback={
-              <div class="flex min-h-full flex-col items-center justify-center gap-3 text-[#8b8d91]">
-                <div class="flex h-16 w-16 items-center justify-center rounded-lg border border-[#303236] bg-[#171819] font-[760] text-[#22d1bd]">
+              <div class="flex min-h-full flex-col items-center justify-center gap-3 text-v2-text-text-muted">
+                <div class="flex h-16 w-16 items-center justify-center rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 font-[760] text-v2-text-text-accent">
                   7777
                 </div>
                 <p class="m-0 text-[13px]">Ready</p>
@@ -71,26 +61,7 @@ export function SessionPage() {
 
       <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
 
-      <SessionComposerRegion
-        prompt={state.prompt}
-        attachments={state.attachments}
-        disabled={state.status !== "ready"}
-        busy={promptInput.busy()}
-        canSubmit={promptInput.canSubmit()}
-        models={state.models}
-        selectedModel={state.selectedModel}
-        modelStatus={state.modelStatus}
-        permissionRequest={state.permissionRequest}
-        permissionResponding={state.permissionResponding}
-        onPromptChange={setPrompt}
-        onAttachmentAdd={addAttachment}
-        onAttachmentRemove={removeAttachment}
-        onAttachmentError={(message) => setState("error", message)}
-        onModelSelect={selectModel}
-        onPermissionDecide={decidePermission}
-        onSubmit={submitPrompt}
-        onAbort={abortPrompt}
-      />
+      <SessionComposerRegion controller={composer} />
     </div>
   )
 }

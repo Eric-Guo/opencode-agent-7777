@@ -10,20 +10,22 @@ export function SessionPermissionDock(props: {
 
   return (
     <section
-      class="mx-auto mb-3 max-w-[1120px] rounded-xl border border-[#4b3b2d] bg-[#1a1512] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.24)] max-[720px]:mb-2.5"
+      class="mx-auto mb-3 max-w-[1120px] rounded-xl border border-[var(--v2-state-border-warning)] bg-[var(--v2-state-bg-warning)] p-3.5 shadow-[var(--v2-elevation-raised)] max-[720px]:mb-2.5"
       aria-label="Permission required"
     >
       <div class="flex items-start gap-3">
-        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#3a281d] text-sm font-extrabold text-[#f0a069]">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-v2-background-bg-layer-02 text-sm font-extrabold text-[var(--v2-state-fg-warning)]">
           !
         </div>
         <div>
-          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-[#f1e7df]">Permission required</h2>
-          <p class="m-0 mt-1 text-[13px] leading-[1.45] text-[#bdb2aa]">{props.request.title || description()}</p>
+          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-[var(--v2-state-fg-warning)]">Permission required</h2>
+          <p class="m-0 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted">
+            {props.request.title || description()}
+          </p>
         </div>
       </div>
       <Show when={props.request.title && description()}>
-        <p class="mb-0 ml-10 mt-1 text-[13px] leading-[1.45] text-[#bdb2aa] max-[720px]:ml-0">
+        <p class="mb-0 ml-10 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted max-[720px]:ml-0">
           {description()}
         </p>
       </Show>
@@ -31,7 +33,7 @@ export function SessionPermissionDock(props: {
         <div class="ml-10 mt-3 flex flex-col gap-1.5 max-[720px]:ml-0">
           <For each={props.request.patterns}>
             {(pattern) => (
-              <code class="[overflow-wrap:anywhere] rounded-md border border-[#45372e] bg-[#111112] px-2 py-1.5 font-mono text-xs leading-[1.45] text-[#f0d7c6]">
+              <code class="[overflow-wrap:anywhere] rounded-md border border-v2-border-border-base bg-v2-background-bg-base px-2 py-1.5 font-mono text-xs leading-[1.45] text-v2-text-text-base">
                 {pattern}
               </code>
             )}
@@ -41,7 +43,7 @@ export function SessionPermissionDock(props: {
       <div class="mt-3.5 flex justify-end gap-2 max-[720px]:flex-wrap">
         <button
           type="button"
-          class="min-h-8 rounded-lg border border-[#3b3d42] bg-[#202124] px-3 text-[13px] font-[680] text-[#d9dadd] hover:enabled:border-[#555960] hover:enabled:bg-[#292b30] disabled:opacity-55"
+          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
           disabled={props.responding}
           onClick={() => props.onDecide("reject")}
         >
@@ -49,7 +51,7 @@ export function SessionPermissionDock(props: {
         </button>
         <button
           type="button"
-          class="min-h-8 rounded-lg border border-[#3b3d42] bg-[#202124] px-3 text-[13px] font-[680] text-[#d9dadd] hover:enabled:border-[#555960] hover:enabled:bg-[#292b30] disabled:opacity-55"
+          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
           disabled={props.responding}
           onClick={() => props.onDecide("always")}
         >
@@ -57,7 +59,7 @@ export function SessionPermissionDock(props: {
         </button>
         <button
           type="button"
-          class="min-h-8 rounded-lg border border-[#8a5130] bg-[#9d5a34] px-3 text-[13px] font-[680] text-[#fff7f0] hover:enabled:border-[#b56c3f] hover:enabled:bg-[#ad653b] disabled:opacity-55"
+          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-accent px-3 text-[13px] font-[680] text-v2-text-text-contrast hover:enabled:bg-[var(--v2-text-text-accent-hover)] disabled:opacity-55"
           disabled={props.responding}
           onClick={() => props.onDecide("once")}
         >
