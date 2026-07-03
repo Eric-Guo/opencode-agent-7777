@@ -20,9 +20,23 @@ export const dict = {
   "prompt.unsupportedFiles": "Some selected files are not supported.",
   "prompt.removeAttachment": "Remove {{filename}}",
 
+  "common.clear": "Clear",
+  "common.close": "Close",
+  "common.loading": "Loading",
+  "common.loading.ellipsis": "...",
+
   "model.aria": "Model",
   "model.loading": "Loading models",
   "model.default": "Server default",
+  "model.tag.free": "Free",
+  "model.tag.latest": "Latest",
+
+  "dialog.model.select.title": "Select model",
+  "dialog.model.search.placeholder": "Search models",
+  "dialog.model.empty": "No model results",
+  "dialog.model.manage": "Manage models",
+  "dialog.model.manage.description": "Customize which models appear in the model selector.",
+  "dialog.model.manage.provider.toggle": "Toggle all {{provider}} models",
 
   "permission.required": "Permission required",
   "permission.description.externalDirectory": "Access files outside the project directory",

@@ -24,9 +24,23 @@ export const dict = {
   "prompt.unsupportedFiles": "部分所选文件不受支持。",
   "prompt.removeAttachment": "移除 {{filename}}",
 
+  "common.clear": "清除",
+  "common.close": "关闭",
+  "common.loading": "加载中",
+  "common.loading.ellipsis": "...",
+
   "model.aria": "模型",
   "model.loading": "正在加载模型",
   "model.default": "服务器默认",
+  "model.tag.free": "免费",
+  "model.tag.latest": "最新",
+
+  "dialog.model.select.title": "选择模型",
+  "dialog.model.search.placeholder": "搜索模型",
+  "dialog.model.empty": "没有模型结果",
+  "dialog.model.manage": "管理模型",
+  "dialog.model.manage.description": "自定义模型选择器中显示的模型。",
+  "dialog.model.manage.provider.toggle": "切换所有 {{provider}} 模型",
 
   "permission.required": "需要权限",
   "permission.description.externalDirectory": "访问项目目录外的文件",

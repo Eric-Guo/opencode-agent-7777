@@ -1,14 +1,16 @@
 import { Icon } from "@opencode-ai/ui/icon"
-import { Show } from "solid-js"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
+import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
+import { createMemo, Show } from "solid-js"
+import { DialogManageModelsV2 } from "@/components/dialog-manage-models"
 import { useLanguage } from "@/context/language"
-import type { ModelLoadStatus, ModelOption } from "@/context/models"
-import type { ModelSelection } from "@/context/local"
+import type { ModelLoadStatus, ModelSelectorState } from "@/context/models"
 import type { PromptAttachment } from "@/context/sync"
-import { ModelSelectorControl } from "@/components/dialog-select-model"
+import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { createPromptAttachments } from "@/components/prompt-input/attachments"
 import { ACCEPTED_FILE_TYPES } from "@/components/prompt-input/files"
 import { PromptImageAttachments } from "@/components/prompt-input/image-attachments"
-import { createPromptInputTransientState } from "@/components/prompt-input/transient-state"
 
 export function PromptInput(props: {
   value: string
@@ -17,19 +19,28 @@ export function PromptInput(props: {
   busy: boolean
   canSubmit: boolean
   placeholder: string
-  models: ModelOption[]
-  selectedModel: ModelSelection | undefined
+  model: ModelSelectorState
   modelStatus: ModelLoadStatus
   onChange: (value: string) => void
   onAttachmentAdd: (attachment: PromptAttachment) => void
   onAttachmentRemove: (id: string) => void
   onAttachmentError: (message: string) => void
-  onModelSelect: (model: ModelSelection) => void
   onSubmit: () => void
   onAbort: () => void
 }) {
   const language = useLanguage()
-  const transient = createPromptInputTransientState()
+  const dialog = useDialog()
+  const selectedModel = createMemo(() => props.model.current())
+  const modelName = createMemo(() => {
+    if (props.modelStatus === "loading") return language.t("model.loading")
+    return selectedModel()?.name ?? language.t("dialog.model.select.title")
+  })
+  const modelDisabled = createMemo(
+    () =>
+      props.disabled ||
+      props.modelStatus !== "ready" ||
+      !props.model.list().some((item) => props.model.visible({ modelID: item.id, providerID: item.provider.id })),
+  )
   let fileInputRef: HTMLInputElement | undefined
   const addFiles = async (files: File[]) => {
     const result = await createPromptAttachments(files)
@@ -83,15 +94,30 @@ export function PromptInput(props: {
           <span class="flex h-7 shrink-0 items-center rounded-sm px-2 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-control-fg)]">
             7777
           </span>
-          <ModelSelectorControl
-            models={props.models}
-            selectedModel={props.selectedModel}
-            modelStatus={props.modelStatus}
-            disabled={props.disabled}
-            open={transient.modelOpen}
-            setOpen={transient.setModelOpen}
-            onSelect={props.onModelSelect}
-          />
+          <Show when={props.modelStatus !== "loading"}>
+            <ModelSelectorPopoverV2
+              model={props.model}
+              triggerAs={ButtonV2}
+              triggerProps={{
+                variant: "ghost-muted",
+                size: "normal",
+                disabled: modelDisabled(),
+                class: "min-w-0 max-w-[220px] justify-start ![font-weight:440] group",
+                "data-action": "prompt-model",
+                "aria-label": language.t("model.aria"),
+              }}
+              onManage={() => dialog.show(() => <DialogManageModelsV2 model={props.model} />)}
+            >
+              <Icon
+                name="models"
+                class="size-4 shrink-0 text-v2-icon-icon-muted transition-colors duration-150 group-hover:text-v2-icon-icon-base"
+              />
+              <span class="truncate">{modelName()}</span>
+              <span class="-ml-0.5 -mr-1 flex shrink-0">
+                <IconV2 name="chevron-down" size="small" class="text-v2-icon-icon-muted" />
+              </span>
+            </ModelSelectorPopoverV2>
+          </Show>
         </div>
         <button
           type={props.busy ? "button" : "submit"}

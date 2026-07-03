@@ -1,17 +1,16 @@
 import type { ProviderListResponse } from "@opencode-ai/sdk"
 import { readModelSelection, type ModelSelection } from "@/context/local"
-import type { ModelOption } from "@/context/models"
 
 function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
   return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
 }
 
-export function findModel(options: ModelOption[], model: ModelSelection | undefined) {
+export function findModel<T extends ModelSelection>(options: T[], model: ModelSelection | undefined) {
   if (!model) return
   return options.find((option) => sameModel(option, model))
 }
 
-export function resolveSelectedModel(options: ModelOption[], defaults: ProviderListResponse["default"]) {
+export function resolveSelectedModel<T extends ModelSelection>(options: T[], defaults: ProviderListResponse["default"]) {
   const stored = readModelSelection()
   const storedOption = findModel(options, stored)
   if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }

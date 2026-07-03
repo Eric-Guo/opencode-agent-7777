@@ -34,14 +34,12 @@ export function SessionComposerRegion(props: {
         busy={controller.busy()}
         canSubmit={controller.canSubmit()}
         placeholder={language.t("prompt.placeholder")}
-        models={controller.models()}
-        selectedModel={controller.selectedModel()}
+        model={controller.model}
         modelStatus={controller.modelStatus()}
         onChange={controller.setPrompt}
         onAttachmentAdd={controller.addAttachment}
         onAttachmentRemove={controller.removeAttachment}
         onAttachmentError={controller.setAttachmentError}
-        onModelSelect={controller.selectModel}
         onSubmit={controller.submitPrompt}
         onAbort={controller.abortPrompt}
       />

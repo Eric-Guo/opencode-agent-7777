@@ -1,5 +1,5 @@
 import { createMemo } from "solid-js"
-import { selectModel } from "@/context/models"
+import { modelSelector } from "@/context/models"
 import { decidePermission } from "@/context/permission"
 import { setState, state } from "@/context/sync"
 import { createPromptInputController } from "@/pages/session/composer/session-composer-controls"
@@ -21,8 +21,7 @@ export function createSessionComposerRegionController() {
     disabled,
     busy: promptInput.busy,
     canSubmit: promptInput.canSubmit,
-    models: () => state.models,
-    selectedModel: () => state.selectedModel,
+    model: modelSelector,
     modelStatus: () => state.modelStatus,
     permissionRequest: () => state.permissionRequest,
     permissionResponding: () => state.permissionResponding,
@@ -30,7 +29,6 @@ export function createSessionComposerRegionController() {
     addAttachment,
     removeAttachment,
     setAttachmentError: (message: string) => setState("error", message),
-    selectModel,
     decidePermission,
     submitPrompt,
     abortPrompt,
