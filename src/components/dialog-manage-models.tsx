@@ -12,13 +12,8 @@ type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
 
 export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (props) => {
   const language = useLanguage()
-  const providerList = (providerID: string) => props.model.list().filter((item) => item.provider.id === providerID)
-  const providerVisible = (providerID: string) =>
-    providerList(providerID).every((item) => props.model.visible({ modelID: item.id, providerID: item.provider.id }))
   const setProviderVisibility = (providerID: string, checked: boolean) => {
-    providerList(providerID).forEach((item) => {
-      props.model.setVisibility({ modelID: item.id, providerID: item.provider.id }, checked)
-    })
+    props.model.setProviderVisibility(providerID, checked)
   }
   const setModelVisibility = (item: ModelItem, checked: boolean) => {
     props.model.setVisibility({ modelID: item.id, providerID: item.provider.id }, checked)
@@ -106,7 +101,9 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
                           </h3>
                         </div>
                         <SwitchV2
-                          checked={providerVisible(group.category)}
+                          checked={group.items.every((item) =>
+                            props.model.visible({ modelID: item.id, providerID: item.provider.id }),
+                          )}
                           onChange={(checked) => setProviderVisibility(group.category, checked)}
                           hideLabel
                         >
