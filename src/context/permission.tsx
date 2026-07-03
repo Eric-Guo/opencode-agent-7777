@@ -1,5 +1,6 @@
 import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
+import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
 import { currentSession, scheduleRefresh } from "@/context/server-sync"
 import { setState, state } from "@/context/sync"
 import { readableError } from "@/utils/server-errors"
@@ -72,14 +73,20 @@ function toV2PermissionView(permission: V2PermissionLike): PermissionRequestView
   }
 }
 
-export function permissionDescription(permission: string) {
-  if (permission === "external_directory") return "Access files outside the project directory"
-  if (permission === "grep") return "Search file contents with a regular expression"
-  if (permission === "glob") return "Match files with a glob pattern"
-  if (permission === "list") return "List files in a directory"
-  if (permission === "read") return "Read files matching the requested path"
-  if (permission === "bash") return "Run a shell command"
-  return "The agent needs permission to continue"
+type Translator = (key: TranslationKey, params?: TranslationParams) => string
+
+function permissionDescriptionKey(permission: string): TranslationKey {
+  if (permission === "external_directory") return "permission.description.externalDirectory"
+  if (permission === "grep") return "permission.description.grep"
+  if (permission === "glob") return "permission.description.glob"
+  if (permission === "list") return "permission.description.list"
+  if (permission === "read") return "permission.description.read"
+  if (permission === "bash") return "permission.description.bash"
+  return "permission.description.default"
+}
+
+export function permissionDescription(permission: string, t: Translator = translateSync) {
+  return t(permissionDescriptionKey(permission))
 }
 
 function permissionNotificationBody(permission: PermissionRequestView) {
@@ -91,7 +98,7 @@ function notifyPermissionRequest(permission: PermissionRequestView) {
   if (alertedPermissionIDs.has(permission.id)) return
   alertedPermissionIDs.add(permission.id)
 
-  const title = "Permission required"
+  const title = translateSync("permission.required")
   const body = permissionNotificationBody(permission)
   if (window.api?.showNotification) {
     window.api.showNotification(title, body)
@@ -118,7 +125,7 @@ export function refreshPermissions() {
     headers: serverHttpHeaders(state.server),
   })
     .then((response) => {
-      if (!response.ok) throw new Error(`Failed to load permissions: ${response.status}`)
+      if (!response.ok) throw new Error(translateSync("error.permissionsLoadFailed", { status: response.status }))
       return response.json() as Promise<{ data?: V2PermissionLike[] }>
     })
     .then((result) => {
@@ -190,7 +197,7 @@ export function decidePermission(response: "once" | "always" | "reject") {
             body: JSON.stringify({ reply: response }),
           },
         ).then((result) => {
-          if (!result.ok) throw new Error(`Failed to respond to permission: ${result.status}`)
+          if (!result.ok) throw new Error(translateSync("error.permissionsReplyFailed", { status: result.status }))
         })
       : active.client.postSessionIdPermissionsPermissionId({
           path: {

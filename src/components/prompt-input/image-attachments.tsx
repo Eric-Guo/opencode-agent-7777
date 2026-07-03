@@ -1,5 +1,6 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { For, Show } from "solid-js"
+import { useLanguage } from "@/context/language"
 import type { PromptAttachment } from "@/context/sync"
 
 export function PromptImageAttachments(props: {
@@ -7,6 +8,8 @@ export function PromptImageAttachments(props: {
   disabled: boolean
   onRemove: (id: string) => void
 }) {
+  const language = useLanguage()
+
   return (
     <Show when={props.attachments.length > 0}>
       <div class="flex flex-wrap gap-2 border-t border-v2-border-border-base px-[18px] py-2">
@@ -17,7 +20,7 @@ export function PromptImageAttachments(props: {
               <button
                 type="button"
                 class="flex h-5 w-5 shrink-0 items-center justify-center rounded border-0 bg-transparent text-v2-icon-icon-muted hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-icon-icon-base disabled:opacity-60 [&_[data-component=icon]]:h-3 [&_[data-component=icon]]:w-3"
-                aria-label={`Remove ${attachment.filename}`}
+                aria-label={language.t("prompt.removeAttachment", { filename: attachment.filename })}
                 disabled={props.disabled}
                 onClick={() => props.onRemove(attachment.id)}
               >

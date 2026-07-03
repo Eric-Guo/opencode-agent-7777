@@ -1,5 +1,7 @@
+import { translateSync } from "@/context/language"
+
 export function readableError(error: unknown) {
-  if (!error) return "Request failed"
+  if (!error) return translateSync("error.requestFailed")
   if (error instanceof Error) return error.message
   if (typeof error === "string") return error
   if (typeof error === "object" && "data" in error) {

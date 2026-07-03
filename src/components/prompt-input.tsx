@@ -1,5 +1,6 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { Show } from "solid-js"
+import { useLanguage } from "@/context/language"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { ModelSelection } from "@/context/local"
 import type { PromptAttachment } from "@/context/sync"
@@ -27,12 +28,13 @@ export function PromptInput(props: {
   onSubmit: () => void
   onAbort: () => void
 }) {
+  const language = useLanguage()
   const transient = createPromptInputTransientState()
   let fileInputRef: HTMLInputElement | undefined
   const addFiles = async (files: File[]) => {
     const result = await createPromptAttachments(files)
     for (const attachment of result.attachments) props.onAttachmentAdd(attachment)
-    if (result.unsupported) props.onAttachmentError("Some selected files are not supported.")
+    if (result.unsupported) props.onAttachmentError(language.t("prompt.unsupportedFiles"))
   }
 
   return (
@@ -51,7 +53,7 @@ export function PromptInput(props: {
       />
       <textarea
         class="block max-h-[180px] min-h-[52px] w-full resize-y border-0 bg-transparent px-4 pb-2 pt-4 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-text)] outline-none placeholder:text-[var(--oc-7777-composer-placeholder)] disabled:opacity-[0.62]"
-        aria-label="Message"
+        aria-label={language.t("prompt.message.aria")}
         placeholder={props.placeholder}
         value={props.value}
         disabled={props.disabled}
@@ -72,7 +74,7 @@ export function PromptInput(props: {
           <button
             type="button"
             class="flex size-7 items-center justify-center rounded-md border-0 bg-transparent p-[6px] text-[var(--oc-7777-composer-control-icon)] opacity-100 hover:enabled:bg-[var(--oc-7777-composer-control-bg-hover)] hover:enabled:text-[var(--oc-7777-composer-control-icon-hover)] disabled:opacity-60 [&_[data-component=icon]]:size-4 [&_[data-slot=icon-svg]]:size-4"
-            aria-label="Add context"
+            aria-label={language.t("prompt.addContext")}
             disabled={props.disabled}
             onClick={() => fileInputRef?.click()}
           >
@@ -94,7 +96,7 @@ export function PromptInput(props: {
         <button
           type={props.busy ? "button" : "submit"}
           class="flex size-7 shrink-0 cursor-default items-center justify-center rounded-md border-0 bg-[linear-gradient(180deg,var(--v2-alpha-light-20)_0%,var(--v2-alpha-light-0)_100%),linear-gradient(90deg,var(--v2-background-bg-contrast)_0%,var(--v2-background-bg-contrast)_100%)] p-[6px] text-v2-icon-icon-muted shadow-[var(--v2-elevation-button-contrast)] hover:enabled:bg-v2-overlay-simple-overlay-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-v2-border-border-active disabled:bg-transparent disabled:opacity-50 [&_[data-component=icon]]:size-4 [&_[data-slot=icon-svg]]:size-4"
-          aria-label={props.busy ? "Stop" : "Send"}
+          aria-label={props.busy ? language.t("prompt.stop") : language.t("prompt.send")}
           disabled={!props.busy && !props.canSubmit}
           onClick={() => {
             if (props.busy) props.onAbort()

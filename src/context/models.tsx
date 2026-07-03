@@ -1,4 +1,5 @@
 import type { Session } from "@opencode-ai/sdk"
+import { translateSync } from "@/context/language"
 import { writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
 import { setState, state } from "@/context/sync"
@@ -23,7 +24,7 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
     })
     .then((result) => {
       const data = result.data
-      if (!data) throw new Error("Model list response was empty")
+      if (!data) throw new Error(translateSync("error.modelListEmpty"))
       const connected = new Set(data.connected)
       const options = data.all
         .filter((provider) => connected.has(provider.id))

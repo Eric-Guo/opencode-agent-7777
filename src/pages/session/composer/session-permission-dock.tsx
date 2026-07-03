@@ -1,4 +1,5 @@
 import { For, Show } from "solid-js"
+import { useLanguage } from "@/context/language"
 import { permissionDescription, type PermissionRequestView } from "@/context/permission"
 
 export function SessionPermissionDock(props: {
@@ -6,19 +7,22 @@ export function SessionPermissionDock(props: {
   responding: boolean
   onDecide: (response: "once" | "always" | "reject") => void
 }) {
-  const description = () => permissionDescription(props.request.permission)
+  const language = useLanguage()
+  const description = () => permissionDescription(props.request.permission, language.t)
 
   return (
     <section
       class="mx-auto mb-3 max-w-[1120px] rounded-xl border border-[var(--v2-state-border-warning)] bg-[var(--v2-state-bg-warning)] p-3.5 shadow-[var(--v2-elevation-raised)] max-[720px]:mb-2.5"
-      aria-label="Permission required"
+      aria-label={language.t("permission.required")}
     >
       <div class="flex items-start gap-3">
         <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-v2-background-bg-layer-02 text-sm font-extrabold text-[var(--v2-state-fg-warning)]">
           !
         </div>
         <div>
-          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-[var(--v2-state-fg-warning)]">Permission required</h2>
+          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-[var(--v2-state-fg-warning)]">
+            {language.t("permission.required")}
+          </h2>
           <p class="m-0 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted">
             {props.request.title || description()}
           </p>
@@ -47,7 +51,7 @@ export function SessionPermissionDock(props: {
           disabled={props.responding}
           onClick={() => props.onDecide("reject")}
         >
-          Deny
+          {language.t("permission.action.deny")}
         </button>
         <button
           type="button"
@@ -55,7 +59,7 @@ export function SessionPermissionDock(props: {
           disabled={props.responding}
           onClick={() => props.onDecide("always")}
         >
-          Allow always
+          {language.t("permission.action.allowAlways")}
         </button>
         <button
           type="button"
@@ -63,7 +67,7 @@ export function SessionPermissionDock(props: {
           disabled={props.responding}
           onClick={() => props.onDecide("once")}
         >
-          Allow once
+          {language.t("permission.action.allowOnce")}
         </button>
       </div>
     </section>

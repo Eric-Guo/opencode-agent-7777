@@ -1,5 +1,6 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, For, Show, type Accessor, type Setter } from "solid-js"
+import { useLanguage } from "@/context/language"
 import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 
@@ -12,14 +13,15 @@ export function ModelSelectorControl(props: {
   setOpen: Setter<boolean>
   onSelect: (model: ModelSelection) => void
 }) {
+  const language = useLanguage()
   const selectedModel = createMemo(() =>
     props.models.find(
       (model) => model.providerID === props.selectedModel?.providerID && model.modelID === props.selectedModel.modelID,
     ),
   )
   const modelLabel = createMemo(() => {
-    if (props.modelStatus === "loading") return "Loading models"
-    return selectedModel()?.modelName ?? "Server default"
+    if (props.modelStatus === "loading") return language.t("model.loading")
+    return selectedModel()?.modelName ?? language.t("model.default")
   })
   const groupedModels = createMemo(() => {
     const groups = new Map<string, ModelOption[]>()
@@ -48,7 +50,7 @@ export function ModelSelectorControl(props: {
       <button
         type="button"
         class="group flex h-7 min-w-0 max-w-[220px] items-center justify-start gap-1.5 rounded-sm border-0 bg-transparent px-2 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-control-fg)] outline-none hover:enabled:bg-[var(--oc-7777-composer-control-bg-hover)] hover:enabled:text-[var(--oc-7777-composer-control-fg-hover)] disabled:opacity-60 aria-expanded:bg-[var(--oc-7777-composer-control-bg-pressed)] aria-expanded:text-[var(--oc-7777-composer-control-fg-hover)] [&_[data-component=icon]]:shrink-0 [&_[data-slot=icon-svg]]:size-4"
-        aria-label="Model"
+        aria-label={language.t("model.aria")}
         aria-expanded={props.open()}
         aria-haspopup="listbox"
         disabled={!canOpenModel()}
@@ -71,7 +73,7 @@ export function ModelSelectorControl(props: {
         <div
           class="absolute bottom-[calc(100%+8px)] left-0 z-30 flex max-h-80 w-80 max-w-[min(320px,calc(100vw-36px))] flex-col overflow-y-auto rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 p-1.5 shadow-[var(--v2-elevation-floating)]"
           role="listbox"
-          aria-label="Model"
+          aria-label={language.t("model.aria")}
         >
           <For each={groupedModels()}>
             {(group) => (

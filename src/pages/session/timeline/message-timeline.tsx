@@ -3,6 +3,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import DOMPurify from "dompurify"
 import { marked } from "marked"
 import { createMemo, createSignal, For, Show } from "solid-js"
+import { useLanguage, type TranslationKey, type TranslationParams } from "@/context/language"
 import type { HistoryItem } from "@/pages/session/timeline/rows"
 
 const markdownClass =
@@ -44,11 +45,13 @@ function renderMarkdown(value: string) {
   return DOMPurify.sanitize(typeof parsed === "string" ? parsed : value)
 }
 
-function toolStatus(part: Extract<Part, { type: "tool" }>) {
-  if (part.state.status === "completed") return part.state.title || "Done"
+type Translator = (key: TranslationKey, params?: TranslationParams) => string
+
+function toolStatus(part: Extract<Part, { type: "tool" }>, t: Translator) {
+  if (part.state.status === "completed") return part.state.title || t("timeline.tool.done")
   if (part.state.status === "error") return part.state.error
-  if (part.state.status === "running") return part.state.title || "Running"
-  return "Pending"
+  if (part.state.status === "running") return part.state.title || t("timeline.tool.running")
+  return t("timeline.tool.pending")
 }
 
 function fileLabel(part: Extract<Part, { type: "file" }>) {
@@ -111,11 +114,12 @@ function copyToClipboard(value: string) {
 }
 
 function MessageView(props: { item: HistoryItem }) {
+  const language = useLanguage()
   const text = createMemo(() => messageText(props.item.parts))
   const reasoning = createMemo(() => reasoningSummaries(props.item.parts))
   const tools = createMemo(() => props.item.parts.filter(isToolPart))
   const files = createMemo(() => props.item.parts.filter(isFilePart))
-  const role = createMemo(() => (props.item.info.role === "user" ? "You" : "7777"))
+  const role = createMemo(() => (props.item.info.role === "user" ? language.t("timeline.role.user") : "7777"))
   const copyValue = createMemo(() => text() || reasoning().join("\n\n"))
   const hasContent = createMemo(() => !!text() || reasoning().length > 0 || files().length > 0)
   const [copied, setCopied] = createSignal(false)
@@ -157,7 +161,9 @@ function MessageView(props: { item: HistoryItem }) {
                   {(value, index) => (
                     <details class="overflow-hidden rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01" open>
                       <summary class="min-h-[34px] cursor-default select-none px-2.5 py-2 text-xs font-bold leading-[1.4] text-v2-text-text-muted">
-                        {reasoning().length > 1 ? `Reasoning summary ${index() + 1}` : "Reasoning summary"}
+                        {reasoning().length > 1
+                          ? language.t("timeline.reasoningSummaryIndexed", { index: index() + 1 })
+                          : language.t("timeline.reasoningSummary")}
                       </summary>
                       <div
                         class={`${markdownClass} border-t border-v2-border-border-base p-2.5 text-[13px] leading-[1.55] text-v2-text-text-muted`}
@@ -183,7 +189,7 @@ function MessageView(props: { item: HistoryItem }) {
                     <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[650] text-v2-text-text-base">
                       {part.tool}
                     </span>
-                    <span>{toolStatus(part)}</span>
+                    <span>{toolStatus(part, language.t)}</span>
                   </li>
                 )}
               </For>
@@ -199,12 +205,12 @@ function MessageView(props: { item: HistoryItem }) {
           <button
             type="button"
             class="inline-flex h-7 min-w-[34px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[15px] [&_[data-component=icon]]:w-[15px]"
-            aria-label="Copy message"
+            aria-label={language.t("timeline.copy")}
             disabled={!copyValue()}
             onClick={handleCopy}
           >
             <Icon name="copy" />
-            <span>{copied() ? "Copied" : "Copy message"}</span>
+            <span>{copied() ? language.t("timeline.copied") : language.t("timeline.copy")}</span>
           </button>
         </div>
       </div>

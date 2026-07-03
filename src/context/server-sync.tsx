@@ -1,6 +1,7 @@
 import type { Event as OpencodeEvent, Message, Part, SessionStatus } from "@opencode-ai/sdk"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { readSessionRecord, writeSessionRecord } from "@/context/local"
+import type { TranslationKey, TranslationParams } from "@/context/language"
 import { refreshModels } from "@/context/models"
 import { handlePermissionEvent, refreshPermissions } from "@/context/permission"
 import { makeClient, type OpencodeClient } from "@/context/sdk"
@@ -8,6 +9,7 @@ import { resolveServer } from "@/context/server"
 import { createSession, restoreSession } from "@/context/server-session"
 import { defaultSessionDirectory } from "@/context/session-directory"
 import { idleStatus, setState, state } from "@/context/sync"
+import { translateSync } from "@/context/language"
 import { compareHistoryItem, comparePart, normalizeHistory } from "@/pages/session/timeline/rows"
 import { readableError } from "@/utils/server-errors"
 import { syncWindowBackgroundColor } from "@/utils/theme"
@@ -30,7 +32,7 @@ function isTextLikePart(part: Part): part is Extract<Part, { type: "text" | "rea
 
 export function currentSession() {
   if (!client || !state.session) {
-    setState("error", "Session is not ready")
+    setState("error", translateSync("error.sessionNotReady"))
     return
   }
   return {
@@ -54,7 +56,7 @@ function refreshMessages() {
 
 function createDefaultSession(baseClient: OpencodeClient) {
   return baseClient.path.get().then((result) => {
-    if (!result.data) throw new Error("Failed to load server path")
+    if (!result.data) throw new Error(translateSync("error.loadServerPathFailed"))
     const paths = result.data as typeof result.data & { home?: string }
     return createSession(baseClient, defaultSessionDirectory(paths.home ?? result.data.directory))
   })
@@ -208,13 +210,16 @@ export function initializeSessionSync() {
     })
 }
 
-export function statusText(status: SessionStatus = state.sessionStatus) {
-  if (state.status === "loading") return "Starting"
-  if (state.status === "failed") return "Offline"
-  if (state.submitting) return "Sending"
-  if (status.type === "busy") return "Working"
-  if (status.type === "retry") return `Retry ${status.attempt}`
-  return "Ready"
+export function statusText(
+  t: (key: TranslationKey, params?: TranslationParams) => string,
+  status: SessionStatus = state.sessionStatus,
+) {
+  if (state.status === "loading") return t("session.status.starting")
+  if (state.status === "failed") return t("session.status.offline")
+  if (state.submitting) return t("session.status.sending")
+  if (status.type === "busy") return t("session.status.working")
+  if (status.type === "retry") return t("session.status.retry", { attempt: status.attempt })
+  return t("session.status.ready")
 }
 
 export function disposeSessionSync() {
