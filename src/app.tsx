@@ -20,7 +20,7 @@ function ThemeSideEffects() {
   return null
 }
 
-export function App(props: { locale?: Locale }) {
+export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
   return (
     <>
       <ThemeSideEffects />
@@ -28,13 +28,31 @@ export function App(props: { locale?: Locale }) {
         <UiI18nBridge>
           <DialogProvider>
             <MarkedProvider>
-              <FileComponentProvider component={File}>
-                <Session />
-              </FileComponentProvider>
+              <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
             </MarkedProvider>
           </DialogProvider>
         </UiI18nBridge>
       </LanguageProvider>
     </>
+  )
+}
+
+function ConnectionGate(props: ParentProps) {
+  return <>{props.children}</>
+}
+
+export function AppInterface() {
+  return (
+    <ConnectionGate>
+      <Session />
+    </ConnectionGate>
+  )
+}
+
+export function App(props: { locale?: Locale }) {
+  return (
+    <AppBaseProviders locale={props.locale}>
+      <AppInterface />
+    </AppBaseProviders>
   )
 }

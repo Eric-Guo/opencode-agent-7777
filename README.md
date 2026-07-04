@@ -28,11 +28,12 @@ is owned by the app root in `src/app.tsx`. Existing desktop API calls now route 
 unused prompt-input transient state helper was removed; app-only editor features remain out of scope until 7777 needs
 them. Permission request event normalization and dock view shaping now live in
 `src/pages/session/composer/session-request-tree.ts`, matching the main app's composer feature boundary without adding
-app-only auto-respond behavior.
+app-only auto-respond behavior. The app shell now exposes `AppBaseProviders` and `AppInterface`, with a local
+`ConnectionGate` boundary in `src/app.tsx`; `src/entry.tsx` renders through those boundaries without adding the main
+app's routing or health-check features.
 
 | Feature/source area | Current 7777 source | Main app source layout | Mismatch found |
 | --- | --- | --- | --- |
-| App shell, render bootstrap, and base providers | `src/entry.tsx`, `src/app.tsx` | `src/entry.tsx`, `src/app.tsx` (`AppBaseProviders`, `AppInterface`, `ConnectionGate`) | 7777 renders one `App` directly and keeps only language/dialog providers there. The app splits platform/server bootstrap in `entry.tsx` from base providers, connection gate, and routed app interface in `app.tsx`. |
 | Server connection and SDK scope | `src/context/server.tsx`, `src/context/sdk.tsx`, `src/utils/server.ts`, `src/context/server-sync.tsx` | `src/context/server.tsx`, `src/context/server-sdk.tsx`, `src/context/sdk.tsx`, `src/utils/server.ts` | 7777 keeps a single `ServerInfo` and builds SDK clients directly. The app separates server catalog/selection, server-scoped SDK, and directory-scoped SDK. |
 | Global/server sync and event reduction | `src/context/server-sync.tsx`, `src/context/server-session.ts`, `src/context/permission.tsx`, `src/pages/new-session.tsx` | `src/context/server-sync.tsx`, `src/context/global-sync/bootstrap.ts`, `src/context/global-sync/event-reducer.ts`, `src/context/global-sync/queue.ts`, `src/context/global-sync/session-load.ts`, `src/context/global-sync/session-cache.ts`, `src/pages/new-session.tsx` | 7777 still combines startup, default session creation, SSE subscription, message refresh, model refresh, permission refresh, and event handling in the sync/session files. New-session creation has been moved to the app-matching page feature file, while bootstrap, event reducers, queues, session loading, and cache behavior remain broader than the app's `global-sync/*` layout. |
 | Session message cache, history normalization, and status text | `src/context/server-session.ts` | `src/context/server-session.ts`, `src/pages/session/timeline/model.ts`, `src/components/status-popover.tsx`, `src/components/status-popover-body.tsx` | 7777 `server-session.ts` owns the global UI store, message sorting/merge, optimistic message helpers, refresh timer, current session lookup, and `statusText`. In the app, session cache/state, timeline model, and visible status presentation are separate features. |
