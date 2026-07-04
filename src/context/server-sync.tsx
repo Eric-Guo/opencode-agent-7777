@@ -23,7 +23,6 @@ import { readableError } from "@/utils/server-errors"
 import { syncWindowBackgroundColor } from "@/utils/theme"
 
 let streamAbort: AbortController | undefined
-let creatingSession: Promise<void> | undefined
 
 function refreshCurrentMessages() {
   return refreshMessages(FETCH_MESSAGE_LIMIT)
@@ -45,7 +44,7 @@ function createDefaultSession(baseClient: OpencodeClient) {
   })
 }
 
-function activateSession(server: ServerInfo, session: NonNullable<typeof state.session>) {
+export function activateSession(server: ServerInfo, session: NonNullable<typeof state.session>) {
   writeSessionRecord(session)
   const activeClient = makeClient(server, session.directory)
   setSessionClient(activeClient)
@@ -99,6 +98,10 @@ function startEventStream() {
   })
 }
 
+export function restartSessionEventStream() {
+  startEventStream()
+}
+
 export function initializeSessionSync() {
   setState("status", "loading")
   setState("modelStatus", "loading")
@@ -110,36 +113,11 @@ export function initializeSessionSync() {
         .then((session) => session ?? createDefaultSession(baseClient))
         .then((session) => activateSession(server, session))
     })
-    .then(startEventStream)
+    .then(restartSessionEventStream)
     .catch((error) => {
       setState("status", "failed")
       setState("error", readableError(error))
     })
-}
-
-export function startNewSession() {
-  if (creatingSession) return creatingSession
-
-  const server = state.server
-  const directory = state.session?.directory
-  if (!server || !directory) {
-    setState("error", translateSync("error.sessionNotReady"))
-    return Promise.resolve()
-  }
-
-  setState("error", "")
-  const baseClient = makeClient(server)
-  creatingSession = createSession(baseClient, directory)
-    .then((session) => activateSession(server, session))
-    .then(startEventStream)
-    .catch((error) => {
-      setState("error", readableError(error))
-    })
-    .finally(() => {
-      creatingSession = undefined
-    })
-
-  return creatingSession
 }
 
 export function disposeSessionSync() {

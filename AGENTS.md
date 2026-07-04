@@ -36,6 +36,8 @@ In development, the client resolves the opencode server from `VITE_OPENCODE_SERV
 
 Prioritize stability, simplicity, then performance. Do not restart the app or server process while debugging unless explicitly requested. For browser verification, use the available automation tools and re-check the page after interactions.
 
+`packages/7777` is a nested Git repository, and the parent monorepo ignores `packages/7777/`. Run `git status`, `git diff`, and related checks from `<repo-root>/packages/7777` when reviewing changes in this package; running them from the parent repo will not show the package changes.
+
 When moving, splitting, or adding a feature that also exists in `<repo-root>/packages/app`, follow the main app filename and module boundary for that feature. If the 7777 implementation intentionally remains in a different file or is 7777-only, update the `Code Layout Parity Review` section in `README.md` in the same change.
 
 For public-facing docs and reference configs, use placeholders such as `<repo-root>`, `<knowledge-base-folder>`, and `<optional-secondary-search-tool>` instead of personal home directories, private company names, internal network paths, credentials, or proprietary tool names.

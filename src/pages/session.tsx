@@ -1,11 +1,13 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
-import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js"
+import { onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { useLanguage } from "@/context/language"
-import { disposeSessionSync, initializeSessionSync, startNewSession } from "@/context/server-sync"
+import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import { state, statusText } from "@/context/server-session"
+import { createNewSessionController } from "@/pages/new-session"
 import { ErrorBanner } from "@/pages/error"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
+import { createTimelineAutoScroll } from "@/pages/session/helpers"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 
@@ -14,20 +16,11 @@ export function SessionPage() {
   const language = useLanguage()
   const timeline = createTimelineModel({ messages: () => state.messages })
   const composer = createSessionComposerRegionController()
-  const [creatingSession, setCreatingSession] = createSignal(false)
+  const newSession = createNewSessionController()
 
-  const handleNewSession = () => {
-    if (creatingSession() || state.status !== "ready") return
-    setCreatingSession(true)
-    void startNewSession().finally(() => setCreatingSession(false))
-  }
-
-  createEffect(() => {
-    timeline.visibleMessages().length
-    queueMicrotask(() => {
-      if (!messageList) return
-      messageList.scrollTop = messageList.scrollHeight
-    })
+  createTimelineAutoScroll({
+    items: timeline.visibleMessages,
+    container: () => messageList,
   })
 
   onMount(() => {
@@ -40,9 +33,9 @@ export function SessionPage() {
       <SessionHeader
         status={statusText(language.t)}
         userDialogCount={timeline.userDialogCount()}
-        newSessionPending={creatingSession()}
-        newSessionDisabled={state.status !== "ready"}
-        onNewSession={handleNewSession}
+        newSessionPending={newSession.pending()}
+        newSessionDisabled={newSession.disabled()}
+        onNewSession={newSession.create}
       />
 
       <main
