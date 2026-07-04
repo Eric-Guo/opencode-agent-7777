@@ -1,76 +1,29 @@
 import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
-import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
-import { translateSync } from "@/context/language"
-import { refreshModels } from "@/context/models"
-import { handlePermissionEvent, refreshPermissions } from "@/context/permission"
-import { makeClient, type OpencodeClient } from "@/context/sdk"
 import {
-  createSession,
-  disposeSessionRefresh,
-  handleSessionEvent,
-  idleStatus,
-  refreshMessages,
-  restoreSession,
-  scheduleRefresh as scheduleSessionRefresh,
-  setSessionClient,
-  setState,
-  state,
-} from "@/context/server-session"
-import { resolveServer, type ServerInfo } from "@/context/server"
-import { defaultSessionDirectory } from "@/context/session-directory"
+  activateSession,
+  initializeSessionSync as bootstrapSessionSync,
+  refreshCurrentMessages,
+} from "./global-sync/bootstrap"
+import { applySessionEvent } from "./global-sync/event-reducer"
+import { disposeRefreshQueue, scheduleRefreshTask } from "./global-sync/queue"
+import { handlePermissionEvent } from "@/context/permission"
+import { makeClient } from "@/context/sdk"
+import { setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
 
 let streamAbort: AbortController | undefined
 
-function refreshCurrentMessages() {
-  return refreshMessages(FETCH_MESSAGE_LIMIT)
-}
-
 function scheduleMessageRefresh(delay = 120) {
-  scheduleSessionRefresh(refreshCurrentMessages, delay)
+  scheduleRefreshTask(refreshCurrentMessages, delay)
 }
 
 export function scheduleRefresh(delay = 120) {
   scheduleMessageRefresh(delay)
 }
 
-function createDefaultSession(baseClient: OpencodeClient) {
-  return baseClient.path.get().then((result) => {
-    const paths = result.data as { directory?: unknown; home?: unknown } | undefined
-    const baseDirectory = typeof paths?.home === "string" ? paths.home : paths?.directory
-    if (typeof baseDirectory !== "string") throw new Error(translateSync("error.loadServerPathFailed"))
-    return createSession(baseClient, defaultSessionDirectory(baseDirectory))
-  })
-}
-
-export function activateSession(
-  server: ServerInfo,
-  session: NonNullable<typeof state.session>,
-  options: { restoreDraft?: boolean } = {},
-) {
-  const draft = options.restoreDraft ? readPromptDraft() : undefined
-  if (!options.restoreDraft) clearPromptDraft()
-  writeSessionRecord(session)
-  const activeClient = makeClient(server, session.directory)
-  setSessionClient(activeClient)
-  setState("session", session)
-  setState("sessionStatus", idleStatus)
-  setState("messages", [])
-  setState("permissionRequest", undefined)
-  setState("permissionResponding", false)
-  setState("prompt", draft?.prompt ?? "")
-  setState("attachments", draft?.attachments ?? [])
-  setState("submitting", false)
-  setState("status", "ready")
-  return Promise.all([refreshCurrentMessages(), refreshModels(activeClient, session), refreshPermissions()]).then(
-    () => undefined,
-  )
-}
-
 function handleEvent(event: OpencodeEvent) {
   if (handlePermissionEvent(event)) return
-  handleSessionEvent(event, { refresh: scheduleMessageRefresh })
+  applySessionEvent(event, { refresh: scheduleMessageRefresh })
 }
 
 function stopEventStream() {
@@ -108,16 +61,7 @@ export function restartSessionEventStream() {
 }
 
 export function initializeSessionSync() {
-  setState("status", "loading")
-  setState("modelStatus", "loading")
-  return resolveServer()
-    .then((server) => {
-      setState("server", server)
-      const baseClient = makeClient(server)
-      return restoreSession(baseClient, readSessionRecord())
-        .then((session) => session ?? createDefaultSession(baseClient))
-        .then((session) => activateSession(server, session, { restoreDraft: true }))
-    })
+  return bootstrapSessionSync()
     .then(restartSessionEventStream)
     .catch((error) => {
       setState("status", "failed")
@@ -127,5 +71,7 @@ export function initializeSessionSync() {
 
 export function disposeSessionSync() {
   stopEventStream()
-  disposeSessionRefresh()
+  disposeRefreshQueue()
 }
+
+export { activateSession }
