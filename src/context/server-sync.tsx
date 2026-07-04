@@ -77,8 +77,9 @@ function stopEventStream() {
 function startEventStream() {
   stopEventStream()
   const server = state.server
-  if (!server) return
-  const activeClient = makeClient(server)
+  const directory = state.session?.directory
+  if (!server || !directory) return
+  const activeClient = makeClient(server, directory)
   const controller = new AbortController()
   streamAbort = controller
   void (async () => {
@@ -130,6 +131,7 @@ export function startNewSession() {
   const baseClient = makeClient(server)
   creatingSession = createSession(baseClient, directory)
     .then((session) => activateSession(server, session))
+    .then(startEventStream)
     .catch((error) => {
       setState("error", readableError(error))
     })
