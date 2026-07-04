@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 type DesktopServerReadyData = {
   url: string
   username: string | null

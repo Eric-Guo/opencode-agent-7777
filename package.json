@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@opencode-ai/sdk": "workspace:*",
+    "@opencode-ai/session-ui": "workspace:*",
     "@opencode-ai/ui": "workspace:*",
     "dompurify": "catalog:",
     "marked": "catalog:",

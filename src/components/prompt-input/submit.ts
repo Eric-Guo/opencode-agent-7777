@@ -28,6 +28,7 @@ export function submitPrompt() {
   const text = state.prompt.trim()
   const attachments = [...state.attachments]
   if (!active || state.submitting || (!text && attachments.length === 0)) return
+  const previousRevert = state.session?.revert
 
   const parts = buildRequestParts({
     text,
@@ -40,6 +41,9 @@ export function submitPrompt() {
   setState("error", "")
   setState("submitting", true)
   setState("sessionStatus", { type: "busy" })
+  if (state.session?.revert) {
+    setState("session", (session) => (session ? { ...session, revert: undefined } : session))
+  }
   appendOptimisticMessage({
     messageID: parts.localMessageID,
     sessionID: active.sessionID,
@@ -57,6 +61,9 @@ export function submitPrompt() {
     })
     .then(() => scheduleRefresh(250))
     .catch((error) => {
+      if (previousRevert && state.session?.id === active.sessionID && !state.session.revert) {
+        setState("session", (session) => (session ? { ...session, revert: previousRevert } : session))
+      }
       setState("error", readableError(error))
       setState("sessionStatus", idleStatus)
       scheduleRefresh(0)
