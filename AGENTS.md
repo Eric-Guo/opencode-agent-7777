@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `/Users/guochunzhong/git/oss/opencode/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/styles.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Build output goes to `dist/`; generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `node_modules/`, or `.turbo/`.
+This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `/Users/guochunzhong/git/oss/opencode/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Build output goes to `dist/`; generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `node_modules/`, or `.turbo/`.
 
 The Vite config uses `@` as an alias for `./src` and serves shared public assets from `../app/public`.
 
@@ -35,3 +35,5 @@ In development, the client resolves the opencode server from `VITE_OPENCODE_SERV
 ## Agent-Specific Instructions
 
 Prioritize stability, simplicity, then performance. Do not restart the app or server process while debugging unless explicitly requested. For browser verification, use the available automation tools and re-check the page after interactions.
+
+When moving, splitting, or adding a feature that also exists in `/Users/guochunzhong/git/oss/opencode/packages/app`, follow the main app filename and module boundary for that feature. If the 7777 implementation intentionally remains in a different file or is 7777-only, update the `Code Layout Parity Review` section in `README.md` in the same change.
