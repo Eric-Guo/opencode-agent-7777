@@ -6,6 +6,7 @@ import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { useLanguage } from "@/context/language"
+import { writePromptDraft } from "@/context/local"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import {
   currentSession,
@@ -91,6 +92,7 @@ export function SessionPage() {
           if (draft) {
             setState("prompt", draft.text)
             setState("attachments", draft.attachments)
+            writePromptDraft({ prompt: draft.text, attachments: draft.attachments })
           }
           return refreshMessages(FETCH_MESSAGE_LIMIT)
         })

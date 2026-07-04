@@ -1,4 +1,5 @@
 import { AGENT_ID } from "@/constants/session"
+import { clearPromptDraft } from "@/context/local"
 import { scheduleRefresh } from "@/context/server-sync"
 import { currentSession, idleStatus, setState, state, type PromptAttachment } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
@@ -38,6 +39,7 @@ export function submitPrompt() {
 
   setState("prompt", "")
   setState("attachments", [])
+  clearPromptDraft()
   setState("error", "")
   setState("submitting", true)
   setState("sessionStatus", { type: "busy" })

@@ -1,6 +1,6 @@
 import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { readSessionRecord, writeSessionRecord } from "@/context/local"
+import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
 import { translateSync } from "@/context/language"
 import { refreshModels } from "@/context/models"
 import { handlePermissionEvent, refreshPermissions } from "@/context/permission"
@@ -44,7 +44,13 @@ function createDefaultSession(baseClient: OpencodeClient) {
   })
 }
 
-export function activateSession(server: ServerInfo, session: NonNullable<typeof state.session>) {
+export function activateSession(
+  server: ServerInfo,
+  session: NonNullable<typeof state.session>,
+  options: { restoreDraft?: boolean } = {},
+) {
+  const draft = options.restoreDraft ? readPromptDraft() : undefined
+  if (!options.restoreDraft) clearPromptDraft()
   writeSessionRecord(session)
   const activeClient = makeClient(server, session.directory)
   setSessionClient(activeClient)
@@ -53,8 +59,8 @@ export function activateSession(server: ServerInfo, session: NonNullable<typeof 
   setState("messages", [])
   setState("permissionRequest", undefined)
   setState("permissionResponding", false)
-  setState("prompt", "")
-  setState("attachments", [])
+  setState("prompt", draft?.prompt ?? "")
+  setState("attachments", draft?.attachments ?? [])
   setState("submitting", false)
   setState("status", "ready")
   return Promise.all([refreshCurrentMessages(), refreshModels(activeClient, session), refreshPermissions()]).then(
@@ -110,7 +116,7 @@ export function initializeSessionSync() {
       const baseClient = makeClient(server)
       return restoreSession(baseClient, readSessionRecord())
         .then((session) => session ?? createDefaultSession(baseClient))
-        .then((session) => activateSession(server, session))
+        .then((session) => activateSession(server, session, { restoreDraft: true }))
     })
     .then(restartSessionEventStream)
     .catch((error) => {
