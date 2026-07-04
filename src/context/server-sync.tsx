@@ -37,9 +37,10 @@ export function scheduleRefresh(delay = 120) {
 
 function createDefaultSession(baseClient: OpencodeClient) {
   return baseClient.path.get().then((result) => {
-    if (!result.data) throw new Error(translateSync("error.loadServerPathFailed"))
-    const paths = result.data as typeof result.data & { home?: string }
-    return createSession(baseClient, defaultSessionDirectory(paths.home ?? result.data.directory))
+    const paths = result.data as { directory?: unknown; home?: unknown } | undefined
+    const baseDirectory = typeof paths?.home === "string" ? paths.home : paths?.directory
+    if (typeof baseDirectory !== "string") throw new Error(translateSync("error.loadServerPathFailed"))
+    return createSession(baseClient, defaultSessionDirectory(baseDirectory))
   })
 }
 
