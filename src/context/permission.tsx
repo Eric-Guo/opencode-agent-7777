@@ -1,94 +1,19 @@
-import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
-import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
-import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
+import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
+import { translateSync } from "@/context/language"
 import { showPlatformNotification } from "@/context/platform"
 import { scheduleRefresh } from "@/context/server-sync"
 import { currentSession, setState, state } from "@/context/server-session"
+import {
+  permissionDescription,
+  toPermissionView,
+  toV2PermissionView,
+  v2PermissionAsked,
+  v2PermissionReplied,
+  type PermissionRequestView,
+  type V2PermissionLike,
+} from "@/pages/session/composer/session-request-tree"
 import { readableError } from "@/utils/server-errors"
 import { serverHttpHeaders, serverUrl } from "@/utils/server"
-
-export type PermissionRequestView = {
-  id: string
-  sessionID: string
-  permission: string
-  patterns: string[]
-  title?: string
-  replyTarget: "respond" | "session"
-}
-
-type V2PermissionAskedEvent = {
-  type: "permission.asked"
-  data?: V2PermissionLike
-  properties?: V2PermissionLike
-}
-
-type V2PermissionRepliedEvent = {
-  type: "permission.replied"
-  data?: V2PermissionReplyLike
-  properties?: V2PermissionReplyLike
-}
-
-type V2PermissionReplyLike = {
-  sessionID?: string
-  requestID?: string
-  permissionID?: string
-}
-
-type V2PermissionLike = V2PermissionRequest & {
-  action?: string
-  resources?: string[]
-}
-
-function v2PermissionAsked(event: OpencodeEvent): V2PermissionLike | undefined {
-  const candidate = event as unknown as V2PermissionAskedEvent
-  if (candidate.type !== "permission.asked") return
-  return candidate.data ?? candidate.properties
-}
-
-function v2PermissionReplied(event: OpencodeEvent): V2PermissionReplyLike | undefined {
-  const candidate = event as unknown as V2PermissionRepliedEvent
-  if (candidate.type !== "permission.replied") return
-  return candidate.data ?? candidate.properties
-}
-
-function toPermissionView(permission: Permission): PermissionRequestView {
-  const pattern = permission.pattern
-  return {
-    id: permission.id,
-    sessionID: permission.sessionID,
-    permission: permission.type,
-    patterns: pattern ? (Array.isArray(pattern) ? pattern : [pattern]) : [],
-    title: permission.title,
-    replyTarget: "respond",
-  }
-}
-
-function toV2PermissionView(permission: V2PermissionLike): PermissionRequestView {
-  const isSessionPermission = !!permission.action || !!permission.resources
-  return {
-    id: permission.id,
-    sessionID: permission.sessionID,
-    permission: permission.permission ?? permission.action ?? "permission",
-    patterns: permission.patterns ?? permission.resources ?? [],
-    replyTarget: isSessionPermission ? "session" : "respond",
-  }
-}
-
-type Translator = (key: TranslationKey, params?: TranslationParams) => string
-
-function permissionDescriptionKey(permission: string): TranslationKey {
-  if (permission === "external_directory") return "permission.description.externalDirectory"
-  if (permission === "grep") return "permission.description.grep"
-  if (permission === "glob") return "permission.description.glob"
-  if (permission === "list") return "permission.description.list"
-  if (permission === "read") return "permission.description.read"
-  if (permission === "bash") return "permission.description.bash"
-  return "permission.description.default"
-}
-
-export function permissionDescription(permission: string, t: Translator = translateSync) {
-  return t(permissionDescriptionKey(permission))
-}
 
 function permissionNotificationBody(permission: PermissionRequestView) {
   if (permission.title) return permission.title

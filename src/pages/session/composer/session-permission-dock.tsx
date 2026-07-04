@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import { permissionDescription, type PermissionRequestView } from "@/context/permission"
+import { permissionDescription, type PermissionRequestView } from "@/pages/session/composer/session-request-tree"
 
 export function SessionPermissionDock(props: {
   request: PermissionRequestView
