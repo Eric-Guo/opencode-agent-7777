@@ -16,15 +16,22 @@ function recentDialogMessages(items: HistoryItem[]) {
 
 export function createTimelineModel(input: {
   messages: Accessor<HistoryItem[]>
+  loading: Accessor<boolean>
   revertMessageID?: Accessor<string | undefined>
 }) {
   const visibleMessages = createMemo(() =>
     recentDialogMessages(applyRevertBoundary(input.messages(), input.revertMessageID?.())),
   )
+  const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
   const userDialogCount = createMemo(() => visibleMessages().filter((item) => item.info.role === "user").length)
 
   return {
+    ready,
     visibleMessages,
     userDialogCount,
   }
+}
+
+export function isTimelineReady(items: HistoryItem[], loading: boolean) {
+  return items.some((item) => item.info.role === "user") || !loading
 }

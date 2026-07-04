@@ -61,6 +61,7 @@ export function SessionPage() {
   const language = useLanguage()
   const timeline = createTimelineModel({
     messages: () => state.messages,
+    loading: () => state.messagesLoading,
     revertMessageID: () => state.session?.revert?.messageID,
   })
   const composer = createSessionComposerRegionController()
@@ -125,7 +126,7 @@ export function SessionPage() {
         ref={messageList}
       >
         <Show
-          when={state.status !== "loading"}
+          when={state.status !== "loading" && timeline.ready()}
           fallback={
             <div class="flex min-h-full flex-col items-center justify-center gap-3 text-v2-text-text-muted">
               <Spinner class="h-6 w-6" />

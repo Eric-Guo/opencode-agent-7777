@@ -31,6 +31,7 @@ export type AppState = {
   session: Session | undefined
   sessionStatus: SessionStatus
   messages: HistoryItem[]
+  messagesLoading: boolean
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
   permissionRequest: PermissionRequestView | undefined
@@ -50,6 +51,7 @@ export const [state, setState] = createStore<AppState>({
   session: undefined,
   sessionStatus: idleStatus,
   messages: [],
+  messagesLoading: false,
   models: [],
   selectedModel: undefined,
   permissionRequest: undefined,
@@ -62,6 +64,7 @@ export const [state, setState] = createStore<AppState>({
 
 let client: OpencodeClient | undefined
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
+let messageRefreshCount = 0
 
 function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
   return part.type === "text"
@@ -139,13 +142,20 @@ export function comparePart(a: Part, b: Part) {
 export function refreshMessages(limit: number) {
   const active = currentSession()
   if (!active) return Promise.resolve()
+  messageRefreshCount += 1
+  setState("messagesLoading", true)
   return active.client.session
     .messages({
       path: { id: active.sessionID },
       query: { limit },
     })
     .then((result) => {
+      if (state.session?.id !== active.sessionID) return
       setState("messages", normalizeHistory(result.data ?? []))
+    })
+    .finally(() => {
+      messageRefreshCount = Math.max(0, messageRefreshCount - 1)
+      if (messageRefreshCount === 0) setState("messagesLoading", false)
     })
 }
 
