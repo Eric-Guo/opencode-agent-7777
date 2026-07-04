@@ -21,17 +21,6 @@ source includes `src/context/default-model-config.ts`, `src/context/default-mode
 `scripts/apply-model-config-dump.ts`, `src/context/session-directory.ts`, and 7777-specific session constants in
 `src/constants/session.ts`.
 
-Review update: new-session creation now lives in `src/pages/new-session.tsx`, matching the main app's feature filename.
-The session page also delegates timeline auto-scroll to `src/pages/session/helpers.ts` instead of keeping that helper
-logic inline. Theme preload source now lives at `public/oc-theme-preload.js`, and the window background sync side effect
-is owned by the app root in `src/app.tsx`. Existing desktop API calls now route through `src/context/platform.tsx`. The
-unused prompt-input transient state helper was removed; app-only editor features remain out of scope until 7777 needs
-them. Permission request event normalization and dock view shaping now live in
-`src/pages/session/composer/session-request-tree.ts`, matching the main app's composer feature boundary without adding
-app-only auto-respond behavior. The app shell now exposes `AppBaseProviders` and `AppInterface`, with a local
-`ConnectionGate` boundary in `src/app.tsx`; `src/entry.tsx` renders through those boundaries without adding the main
-app's routing or health-check features.
-
 | Feature/source area | Current 7777 source | Main app source layout | Mismatch found |
 | --- | --- | --- | --- |
 | Server connection and SDK scope | `src/context/server.tsx`, `src/context/sdk.tsx`, `src/utils/server.ts`, `src/context/server-sync.tsx` | `src/context/server.tsx`, `src/context/server-sdk.tsx`, `src/context/sdk.tsx`, `src/utils/server.ts` | 7777 keeps a single `ServerInfo` and builds SDK clients directly. The app separates server catalog/selection, server-scoped SDK, and directory-scoped SDK. |
