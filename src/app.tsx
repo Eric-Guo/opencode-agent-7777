@@ -2,6 +2,7 @@ import "@/index.css"
 
 import { I18nProvider } from "@opencode-ai/ui/context"
 import { DialogProvider } from "@opencode-ai/ui/context/dialog"
+import { MarkedProvider } from "@opencode-ai/ui/context/marked"
 import type { ParentProps } from "solid-js"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import Session from "@/pages/session"
@@ -16,7 +17,9 @@ export function App(props: { locale?: Locale }) {
     <LanguageProvider locale={props.locale}>
       <UiI18nBridge>
         <DialogProvider>
-          <Session />
+          <MarkedProvider>
+            <Session />
+          </MarkedProvider>
         </DialogProvider>
       </UiI18nBridge>
     </LanguageProvider>

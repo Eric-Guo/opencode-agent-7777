@@ -1,8 +1,7 @@
 import type { Part } from "@opencode-ai/sdk"
+import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { Message as SharedMessage, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { Icon } from "@opencode-ai/ui/icon"
-import DOMPurify from "dompurify"
-import { marked } from "marked"
 import { createMemo, createSignal, For, Show, type ComponentProps } from "solid-js"
 import { useLanguage, type TranslationKey, type TranslationParams } from "@/context/language"
 import type { HistoryItem } from "@/context/server-session"
@@ -39,11 +38,6 @@ function reasoningSummaries(parts: Part[]) {
     .filter(isReasoningPart)
     .map((part) => part.text)
     .filter((text) => text.trim().length > 0)
-}
-
-function renderMarkdown(value: string) {
-  const parsed = marked.parse(value, { async: false })
-  return DOMPurify.sanitize(typeof parsed === "string" ? parsed : value)
 }
 
 type Translator = (key: TranslationKey, params?: TranslationParams) => string
@@ -168,9 +162,10 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                                 ? language.t("timeline.reasoningSummaryIndexed", { index: index() + 1 })
                                 : language.t("timeline.reasoningSummary")}
                             </summary>
-                            <div
+                            <Markdown
                               class={`${markdownClass} border-t border-v2-border-border-base p-2.5 text-[13px] leading-[1.55] text-v2-text-text-muted`}
-                              innerHTML={renderMarkdown(value)}
+                              text={value}
+                              cacheKey={`${props.item.info.id}:reasoning:${index()}`}
                             />
                           </details>
                         )}
@@ -183,7 +178,9 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                     </div>
                   </Show>
                   <Show when={text()}>
-                    {(value) => <div class={markdownClass} innerHTML={renderMarkdown(value())} />}
+                    {(value) => (
+                      <Markdown class={markdownClass} text={value()} cacheKey={`${props.item.info.id}:text`} />
+                    )}
                   </Show>
                 </Show>
                 <Show when={tools().length > 0}>
