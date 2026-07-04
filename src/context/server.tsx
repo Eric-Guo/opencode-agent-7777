@@ -1,3 +1,5 @@
+import { awaitDesktopInitialization } from "@/context/platform"
+
 export type ServerInfo = {
   url: string
   username?: string
@@ -5,8 +7,9 @@ export type ServerInfo = {
 }
 
 export function resolveServer(): Promise<ServerInfo> {
-  if (window.api?.awaitInitialization) {
-    return window.api.awaitInitialization().then((data) => ({
+  const desktopInitialization = awaitDesktopInitialization()
+  if (desktopInitialization) {
+    return desktopInitialization.then((data) => ({
       url: data.url,
       username: data.username ?? undefined,
       password: data.password ?? undefined,

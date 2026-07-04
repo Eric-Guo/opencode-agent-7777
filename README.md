@@ -24,7 +24,7 @@ source includes `src/context/default-model-config.ts`, `src/context/default-mode
 Review update: new-session creation now lives in `src/pages/new-session.tsx`, matching the main app's feature filename.
 The session page also delegates timeline auto-scroll to `src/pages/session/helpers.ts` instead of keeping that helper
 logic inline. Theme preload source now lives at `public/oc-theme-preload.js`, and the window background sync side effect
-is owned by the app root in `src/app.tsx`.
+is owned by the app root in `src/app.tsx`. Existing desktop API calls now route through `src/context/platform.tsx`.
 
 | Feature/source area | Current 7777 source | Main app source layout | Mismatch found |
 | --- | --- | --- | --- |
@@ -39,7 +39,6 @@ is owned by the app root in `src/app.tsx`.
 | Timeline projection, rows, rendering, and measurement | `src/pages/session/timeline/message-timeline.tsx`, `src/pages/session/timeline/model.ts` | `src/pages/session/timeline/model.ts`, `src/pages/session/timeline/projection.ts`, `src/pages/session/timeline/rows.ts`, `src/pages/session/timeline/timeline-row.ts`, `src/pages/session/timeline/row-reconciliation.ts`, `src/pages/session/timeline/virtual-items.ts`, `src/pages/session/timeline/measure.ts`, `src/pages/session/timeline/message-timeline.tsx` | 7777 keeps message filtering, dialog limiting, markdown rendering, reasoning summaries, file/tool rendering, copy behavior, and row display in two files. The app splits timeline data selection, projection, row typing, reconciliation, virtualization, measurement, and rendered timeline UI. |
 | Session page shell, layout, navigation, and header actions | `src/pages/session.tsx`, `src/pages/session/helpers.ts`, `src/pages/new-session.tsx`, `src/components/session/session-header.tsx`, `src/context/local.tsx`, `src/constants/session.ts` | `src/pages/session.tsx`, `src/pages/session/helpers.ts`, `src/pages/session/session-layout.ts`, `src/pages/session/new-session-layout.ts`, `src/pages/session/use-session-hash-scroll.ts`, `src/components/session/session-header.tsx`, `src/context/tabs.tsx`, `src/utils/session-route.ts` | 7777 now keeps new-session creation and timeline auto-scroll outside `session.tsx`, matching the closest app filenames for those features. It still combines session initialization, loading/empty states, persisted session ID, and header controls in the session page/header path, while the app separates route/session layout, tab/session routing, hash scroll, and header behavior. |
 | Server error formatting | `src/utils/server-errors.ts` | `src/utils/server-errors.ts`, `src/utils/server-errors.test.ts` | 7777 exposes a small `readableError` helper. The app source handles named server errors, config/model diagnostics, session-not-found helpers, and tests in the same utility area. |
-| Platform integration | `src/context/platform.tsx`, `src/components/session/session-header.tsx` | `src/context/platform.tsx`, `src/entry.tsx`, `src/app.tsx` | 7777 currently exposes only a `windowsElectron` constant for header spacing and calls a few `window.api` methods directly. The app routes platform APIs through `PlatformProvider` and typed platform helpers. |
 
 ## Model Selector Defaults
 

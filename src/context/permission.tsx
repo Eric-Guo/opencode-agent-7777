@@ -1,6 +1,7 @@
 import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
+import { showPlatformNotification } from "@/context/platform"
 import { scheduleRefresh } from "@/context/server-sync"
 import { currentSession, setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
@@ -100,10 +101,7 @@ function notifyPermissionRequest(permission: PermissionRequestView) {
 
   const title = translateSync("permission.required")
   const body = permissionNotificationBody(permission)
-  if (window.api?.showNotification) {
-    window.api.showNotification(title, body)
-    return
-  }
+  if (showPlatformNotification(title, body)) return
   if (!("Notification" in window)) return
 
   void (async () => {
