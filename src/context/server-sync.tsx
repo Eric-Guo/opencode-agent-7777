@@ -20,7 +20,6 @@ import {
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { defaultSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
-import { syncWindowBackgroundColor } from "@/utils/theme"
 
 let streamAbort: AbortController | undefined
 
@@ -57,7 +56,6 @@ export function activateSession(server: ServerInfo, session: NonNullable<typeof 
   setState("attachments", [])
   setState("submitting", false)
   setState("status", "ready")
-  syncWindowBackgroundColor()
   return Promise.all([refreshCurrentMessages(), refreshModels(activeClient, session), refreshPermissions()]).then(
     () => undefined,
   )

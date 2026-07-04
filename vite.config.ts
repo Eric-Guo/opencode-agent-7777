@@ -4,7 +4,7 @@ import { defineConfig } from "vite"
 import solidPlugin from "vite-plugin-solid"
 import { fileURLToPath } from "node:url"
 
-const theme = fileURLToPath(new URL("./src/theme-preload.js", import.meta.url))
+const theme = fileURLToPath(new URL("./public/oc-theme-preload.js", import.meta.url))
 
 export default defineConfig({
   base: "./",
