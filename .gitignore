@@ -1,4 +1,7 @@
-7777.sublime-workspace
+*.sublime-workspace
 node_modules/
 dist/
 .turbo/
+.env
+.env.*
+*.local

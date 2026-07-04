@@ -2,10 +2,18 @@
 
 This package is the SolidJS/Vite UI for the `7777` agent.
 
+## Open Source Notes
+
+This package should not depend on a contributor's local home directory or private company resources. Use
+`<repo-root>` in documentation when referring to the monorepo checkout, and keep private agent prompts, internal
+network paths, credentials, and localStorage dumps out of commits.
+
+The production/private 7777 agent prompt is not included verbatim. A sanitized reference template lives at
+`docs/reference/7777-agent.md`; copy and adapt it for a local OpenCode agent configuration if needed.
+
 ## Code Layout Parity Review
 
-Target root: `/Users/guochunzhong/git/oss/opencode/packages/app`. Target paths below are relative to that
-root.
+Target root: `<repo-root>/packages/app`. Target paths below are relative to that root.
 
 This section tracks code that exists in `packages/7777` but is currently bundled into a different file or a broader
 module than the main app layout. Keep 7777-only source in place unless it duplicates an app feature. Known 7777-only

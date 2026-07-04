@@ -3,7 +3,7 @@
   [
     {
       "path": ".",
-      "folder_exclude_patterns": [".turbo","dist"]      
+      "folder_exclude_patterns": [".turbo","dist"]
     }
   ]
 }
