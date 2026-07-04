@@ -48,11 +48,6 @@
       "visibility": "hide"
     },
     {
-      "providerID": "kimi-for-coding",
-      "modelID": "k2p7",
-      "visibility": "show"
-    },
-    {
       "providerID": "opencode",
       "modelID": "claude-fable-5",
       "visibility": "hide"
@@ -241,6 +236,41 @@
       "modelID": "deepseek-reasoner",
       "providerID": "deepseek",
       "visibility": "hide"
+    },
+    {
+      "modelID": "minimax-m2.7",
+      "providerID": "opencode-go",
+      "visibility": "hide"
+    },
+    {
+      "modelID": "qwen3.6-plus",
+      "providerID": "opencode-go",
+      "visibility": "hide"
+    },
+    {
+      "modelID": "zai-glm-4.7",
+      "providerID": "cerebras",
+      "visibility": "show"
+    },
+    {
+      "modelID": "deepseek-ai/DeepSeek-V4-Pro",
+      "providerID": "siliconflow-cn",
+      "visibility": "show"
+    },
+    {
+      "modelID": "Pro/moonshotai/Kimi-K2.6",
+      "providerID": "siliconflow-cn",
+      "visibility": "show"
+    },
+    {
+      "modelID": "Qwen/Qwen3.6-35B-A3B",
+      "providerID": "siliconflow-cn",
+      "visibility": "show"
+    },
+    {
+      "modelID": "Qwen/Qwen3.5-27B",
+      "providerID": "siliconflow-cn",
+      "visibility": "show"
     }
   ]
 }
