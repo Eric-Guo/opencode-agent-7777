@@ -1,31 +1,28 @@
-import type { Part } from "@opencode-ai/sdk"
-import { Markdown } from "@opencode-ai/session-ui/markdown"
-import { Message as SharedMessage, type UserActions } from "@opencode-ai/session-ui/message-part"
+import { Message as SharedMessage, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show, type ComponentProps } from "solid-js"
 import { useLanguage, type TranslationKey, type TranslationParams } from "@/context/language"
 import type { HistoryItem } from "@/context/server-session"
 
-const markdownClass =
-  "text-[15px] leading-[1.7] text-v2-text-text-base [overflow-wrap:anywhere] [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_p]:mb-2.5 [&_p]:mt-0 [&_ul]:mb-2.5 [&_ul]:mt-0 [&_ol]:mb-2.5 [&_ol]:mt-0 [&_pre]:mb-2.5 [&_pre]:mt-0 [&_blockquote]:mb-2.5 [&_blockquote]:mt-0 [&_a]:text-v2-text-text-accent [&_a]:underline [&_a]:underline-offset-[3px] [&_code]:rounded [&_code]:bg-v2-background-bg-layer-02 [&_code]:px-1 [&_code]:py-px [&_code]:font-mono [&_code]:text-[0.92em] [&_code]:text-v2-text-text-base [&_pre]:overflow-x-auto [&_pre]:rounded-lg [&_pre]:border [&_pre]:border-v2-border-border-base [&_pre]:bg-v2-background-bg-deep [&_pre]:p-3 [&_pre]:text-v2-text-text-base [&_pre_code]:block [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit [&_blockquote]:border-l-[3px] [&_blockquote]:border-l-v2-border-border-strong [&_blockquote]:pl-3 [&_blockquote]:text-v2-text-text-muted [&_img]:my-3 [&_img]:block [&_img]:h-auto [&_img]:max-w-[min(100%,680px)] [&_img]:rounded-lg [&_img]:border [&_img]:border-v2-border-border-base"
+type SdkPart = import("@opencode-ai/sdk").Part
 
-function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
+function isTextPart(part: SdkPart): part is Extract<SdkPart, { type: "text" }> {
   return part.type === "text"
 }
 
-function isReasoningPart(part: Part): part is Extract<Part, { type: "reasoning" }> {
+function isReasoningPart(part: SdkPart): part is Extract<SdkPart, { type: "reasoning" }> {
   return part.type === "reasoning"
 }
 
-function isToolPart(part: Part): part is Extract<Part, { type: "tool" }> {
+function isToolPart(part: SdkPart): part is Extract<SdkPart, { type: "tool" }> {
   return part.type === "tool"
 }
 
-function isFilePart(part: Part): part is Extract<Part, { type: "file" }> {
+function isFilePart(part: SdkPart): part is Extract<SdkPart, { type: "file" }> {
   return part.type === "file"
 }
 
-function messageText(parts: Part[]) {
+function messageText(parts: SdkPart[]) {
   return parts
     .filter(isTextPart)
     .map((part) => part.text)
@@ -33,7 +30,7 @@ function messageText(parts: Part[]) {
     .join("\n\n")
 }
 
-function reasoningSummaries(parts: Part[]) {
+function reasoningSummaries(parts: SdkPart[]) {
   return parts
     .filter(isReasoningPart)
     .map((part) => part.text)
@@ -42,23 +39,24 @@ function reasoningSummaries(parts: Part[]) {
 
 type Translator = (key: TranslationKey, params?: TranslationParams) => string
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
+type SharedPartProps = ComponentProps<typeof Part>
 
-function toolStatus(part: Extract<Part, { type: "tool" }>, t: Translator) {
+function toolStatus(part: Extract<SdkPart, { type: "tool" }>, t: Translator) {
   if (part.state.status === "completed") return part.state.title || t("timeline.tool.done")
   if (part.state.status === "error") return part.state.error
   if (part.state.status === "running") return part.state.title || t("timeline.tool.running")
   return t("timeline.tool.pending")
 }
 
-function fileLabel(part: Extract<Part, { type: "file" }>) {
+function fileLabel(part: Extract<SdkPart, { type: "file" }>) {
   return part.filename || part.url
 }
 
-function fileMime(part: Extract<Part, { type: "file" }>) {
+function fileMime(part: Extract<SdkPart, { type: "file" }>) {
   return part.mime || "file"
 }
 
-function FileAttachment(props: { part: Extract<Part, { type: "file" }> }) {
+function FileAttachment(props: { part: Extract<SdkPart, { type: "file" }> }) {
   const label = createMemo(() => fileLabel(props.part))
   const mime = createMemo(() => fileMime(props.part))
   const isImage = createMemo(() => mime().startsWith("image/"))
@@ -111,6 +109,8 @@ function copyToClipboard(value: string) {
 
 function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
   const language = useLanguage()
+  const textParts = createMemo(() => props.item.parts.filter(isTextPart))
+  const reasoningParts = createMemo(() => props.item.parts.filter(isReasoningPart))
   const text = createMemo(() => messageText(props.item.parts))
   const reasoning = createMemo(() => reasoningSummaries(props.item.parts))
   const tools = createMemo(() => props.item.parts.filter(isToolPart))
@@ -149,25 +149,15 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
             <>
               <div class="min-w-0 border-0 bg-transparent p-0 shadow-none">
                 <Show when={hasContent()} fallback={<div class="text-v2-text-text-faint">...</div>}>
-                  <Show when={reasoning().length > 0}>
-                    <div class="mb-3 flex flex-col gap-2">
-                      <For each={reasoning()}>
-                        {(value, index) => (
-                          <details
-                            class="overflow-hidden rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01"
-                            open
-                          >
-                            <summary class="min-h-[34px] cursor-default select-none px-2.5 py-2 text-xs font-bold leading-[1.4] text-v2-text-text-muted">
-                              {reasoning().length > 1
-                                ? language.t("timeline.reasoningSummaryIndexed", { index: index() + 1 })
-                                : language.t("timeline.reasoningSummary")}
-                            </summary>
-                            <Markdown
-                              class={`${markdownClass} border-t border-v2-border-border-base p-2.5 text-[13px] leading-[1.55] text-v2-text-text-muted`}
-                              text={value}
-                              cacheKey={`${props.item.info.id}:reasoning:${index()}`}
-                            />
-                          </details>
+                  <Show when={reasoningParts().length > 0}>
+                    <div class="mb-3">
+                      <For each={reasoningParts()}>
+                        {(part) => (
+                          <Part
+                            message={props.item.info as SharedPartProps["message"]}
+                            part={part as SharedPartProps["part"]}
+                            useV2Actions
+                          />
                         )}
                       </For>
                     </div>
@@ -177,10 +167,17 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                       <For each={files()}>{(part) => <FileAttachment part={part} />}</For>
                     </div>
                   </Show>
-                  <Show when={text()}>
-                    {(value) => (
-                      <Markdown class={markdownClass} text={value()} cacheKey={`${props.item.info.id}:text`} />
-                    )}
+                  <Show when={textParts().length > 0}>
+                    <For each={textParts()}>
+                      {(part) => (
+                        <Part
+                          message={props.item.info as SharedPartProps["message"]}
+                          part={part as SharedPartProps["part"]}
+                          showAssistantCopyPartID={null}
+                          useV2Actions
+                        />
+                      )}
+                    </For>
                   </Show>
                 </Show>
                 <Show when={tools().length > 0}>
