@@ -18,6 +18,7 @@ export const dict = {
   "prompt.addContext": "Add context",
   "prompt.send": "Send",
   "prompt.stop": "Stop",
+  "prompt.dropzone.label": "Drop images, PDFs, or text files here",
   "prompt.unsupportedFiles": "Some selected files are not supported.",
   "prompt.removeAttachment": "Remove {{filename}}",
 

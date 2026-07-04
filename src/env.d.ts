@@ -6,8 +6,24 @@ type DesktopServerReadyData = {
   password: string | null
 }
 
+type DesktopPickedFile = {
+  path: string
+  name: string
+  size: number
+}
+
 type DesktopAPI = {
   awaitInitialization: () => Promise<DesktopServerReadyData>
+  openFilePicker?: (opts?: {
+    multiple?: boolean
+    title?: string
+    defaultPath?: string
+    extensions?: string[]
+  }) => Promise<{ token: string; files: DesktopPickedFile[] } | null>
+  readPickedFile?: (token: string, path: string) => Promise<ArrayBuffer>
+  releasePickedFiles?: (token: string) => Promise<void>
+  getPathForFile?: (file: File) => string
+  readClipboardImage?: () => Promise<{ buffer: ArrayBuffer; width: number; height: number } | null>
   setBackgroundColor?: (color: string) => Promise<void>
   showNotification?: (title: string, body?: string) => void
 }

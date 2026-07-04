@@ -14,7 +14,7 @@ export function buildRequestParts(input: {
       (attachment): FilePartInput => ({
         type: "file",
         mime: attachment.mime,
-        filename: attachment.filename,
+        filename: attachment.sourcePath ?? attachment.filename,
         url: attachment.url,
       }),
     ),
@@ -39,7 +39,7 @@ export function buildRequestParts(input: {
       messageID: localMessageID,
       type: "file" as const,
       mime: attachment.mime,
-      filename: attachment.filename,
+      filename: attachment.sourcePath ?? attachment.filename,
       url: attachment.url,
     })),
   ]

@@ -22,6 +22,7 @@ export const dict = {
   "prompt.addContext": "添加上下文",
   "prompt.send": "发送",
   "prompt.stop": "停止",
+  "prompt.dropzone.label": "将图片、PDF 或文本文件拖放到此处",
   "prompt.unsupportedFiles": "部分所选文件不受支持。",
   "prompt.removeAttachment": "移除 {{filename}}",
 

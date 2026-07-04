@@ -2,15 +2,58 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
-import { createMemo, Show } from "solid-js"
+import { createMemo, createSignal, Show } from "solid-js"
 import { DialogManageModelsV2 } from "@/components/dialog-manage-models"
+import { ACCEPTED_FILE_EXTENSIONS } from "@/constants/file-picker"
 import { useLanguage } from "@/context/language"
 import type { ModelLoadStatus, ModelSelectorState } from "@/context/models"
 import type { PromptAttachment } from "@/context/server-session"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import { createPromptAttachments } from "@/components/prompt-input/attachments"
-import { ACCEPTED_FILE_TYPES } from "@/components/prompt-input/files"
+import { ACCEPTED_FILE_TYPES, pickAttachmentFiles } from "@/components/prompt-input/files"
+import { PromptDragOverlay } from "@/components/prompt-input/drag-overlay"
 import { PromptImageAttachments } from "@/components/prompt-input/image-attachments"
+
+const attachmentPaths = new WeakMap<File, string>()
+
+async function openDesktopAttachmentPicker(
+  options: {
+    defaultPath?: string
+    multiple?: boolean
+    accept?: string[]
+  },
+  onFile: (file: File) => Promise<unknown>,
+) {
+  const api = window.api
+  if (!api?.openFilePicker || !api.readPickedFile || !api.releasePickedFiles) return
+  const result = await api.openFilePicker({
+    multiple: options.multiple ?? false,
+    defaultPath: options.defaultPath,
+    extensions: ACCEPTED_FILE_EXTENSIONS,
+  })
+  if (!result) return
+  try {
+    for (const file of result.files) {
+      const selected = new File([await api.readPickedFile(result.token, file.path)], file.name)
+      attachmentPaths.set(selected, file.path)
+      await onFile(selected)
+    }
+  } finally {
+    await api.releasePickedFiles(result.token)
+  }
+}
+
+function getDesktopPathForFile(file: File) {
+  return attachmentPaths.get(file) ?? window.api?.getPathForFile?.(file) ?? ""
+}
+
+async function readDesktopClipboardImage() {
+  const image = await window.api?.readClipboardImage?.().catch(() => null)
+  if (!image) return null
+  return new File([new Blob([image.buffer], { type: "image/png" })], `pasted-image-${Date.now()}.png`, {
+    type: "image/png",
+  })
+}
 
 export function PromptInput(props: {
   value: string
@@ -30,6 +73,7 @@ export function PromptInput(props: {
 }) {
   const language = useLanguage()
   const dialog = useDialog()
+  const [dragging, setDragging] = createSignal(false)
   const selectedModel = createMemo(() => props.model.current())
   const modelName = createMemo(() => {
     if (props.modelStatus === "loading") return language.t("model.loading")
@@ -42,14 +86,35 @@ export function PromptInput(props: {
       !props.model.list().some((item) => props.model.visible({ modelID: item.id, providerID: item.provider.id })),
   )
   let fileInputRef: HTMLInputElement | undefined
-  const addFiles = async (files: File[]) => {
-    const result = await createPromptAttachments(files)
-    for (const attachment of result.attachments) props.onAttachmentAdd(attachment)
-    if (result.unsupported) props.onAttachmentError(language.t("prompt.unsupportedFiles"))
+  let textAreaRef: HTMLTextAreaElement | undefined
+  const attachments = createPromptAttachments({
+    textarea: () => textAreaRef,
+    value: () => props.value,
+    setValue: props.onChange,
+    addAttachment: props.onAttachmentAdd,
+    warn: () => props.onAttachmentError(language.t("prompt.unsupportedFiles")),
+    isDialogActive: () => !!dialog.active,
+    disabled: () => props.disabled,
+    setDragging,
+    readClipboardImage: window.api?.readClipboardImage ? readDesktopClipboardImage : undefined,
+    getPathForFile: window.api?.getPathForFile ? getDesktopPathForFile : undefined,
+  })
+  const pick = () => {
+    pickAttachmentFiles({
+      picker: window.api?.openFilePicker ? openDesktopAttachmentPicker : undefined,
+      directory: () => "",
+      fallback: () => fileInputRef?.click(),
+      onFile: attachments.addAttachment,
+      onError: (error) => props.onAttachmentError(error instanceof Error ? error.message : String(error)),
+    })
   }
 
   return (
-    <div class="mx-auto min-w-0 max-w-[1120px] rounded-xl bg-[var(--oc-7777-composer-bg)] shadow-[var(--oc-7777-composer-shadow)]">
+    <div
+      class="relative mx-auto min-w-0 max-w-[1120px] rounded-xl bg-[var(--oc-7777-composer-bg)] shadow-[var(--oc-7777-composer-shadow)]"
+      classList={{ "outline outline-2 outline-v2-border-border-active": dragging() }}
+    >
+      <PromptDragOverlay active={dragging()} label={language.t("prompt.dropzone.label")} />
       <input
         ref={(el) => (fileInputRef = el)}
         type="file"
@@ -58,17 +123,19 @@ export function PromptInput(props: {
         class="hidden"
         onChange={(event) => {
           const files = event.currentTarget.files
-          if (files) void addFiles(Array.from(files))
+          if (files) void attachments.addAttachments(Array.from(files))
           event.currentTarget.value = ""
         }}
       />
       <textarea
+        ref={(el) => (textAreaRef = el)}
         class="block max-h-[180px] min-h-[52px] w-full resize-y border-0 bg-transparent px-4 pb-2 pt-4 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-text)] outline-none placeholder:text-[var(--oc-7777-composer-placeholder)] disabled:opacity-[0.62]"
         aria-label={language.t("prompt.message.aria")}
         placeholder={props.placeholder}
         value={props.value}
         disabled={props.disabled}
         onInput={(event) => props.onChange(event.currentTarget.value)}
+        onPaste={attachments.handlePaste}
         onKeyDown={(event) => {
           if (event.key !== "Enter" || event.shiftKey) return
           event.preventDefault()
@@ -87,7 +154,7 @@ export function PromptInput(props: {
             class="flex size-7 items-center justify-center rounded-md border-0 bg-transparent p-[6px] text-[var(--oc-7777-composer-control-icon)] opacity-100 hover:enabled:bg-[var(--oc-7777-composer-control-bg-hover)] hover:enabled:text-[var(--oc-7777-composer-control-icon-hover)] disabled:opacity-60 [&_[data-component=icon]]:size-4 [&_[data-slot=icon-svg]]:size-4"
             aria-label={language.t("prompt.addContext")}
             disabled={props.disabled}
-            onClick={() => fileInputRef?.click()}
+            onClick={pick}
           >
             <Icon name="plus" />
           </button>

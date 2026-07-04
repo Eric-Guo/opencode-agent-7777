@@ -19,6 +19,7 @@ export type HistoryItem = {
 export type PromptAttachment = {
   id: string
   filename: string
+  sourcePath?: string
   mime: string
   url: string
 }
