@@ -5,7 +5,7 @@ import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
 import { translateSync } from "@/context/language"
 import { readModelSelection, writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
-import { setState, state } from "@/context/sync"
+import { setState, state } from "@/context/server-session"
 import { popularProviders } from "@/hooks/use-providers"
 import { readableError } from "@/utils/server-errors"
 

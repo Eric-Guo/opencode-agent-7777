@@ -1,6 +1,6 @@
 import { createMemo, type Accessor } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import type { HistoryItem } from "@/context/sync"
+import type { HistoryItem } from "@/context/server-session"
 
 function recentDialogMessages(items: HistoryItem[]) {
   const userMessages = items.filter((item) => item.info.role === "user")

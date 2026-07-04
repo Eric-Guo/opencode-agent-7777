@@ -1,5 +1,5 @@
 import { abortPrompt, submitPrompt } from "@/components/prompt-input/submit"
-import { setState, type PromptAttachment } from "@/context/sync"
+import { setState, type PromptAttachment } from "@/context/server-session"
 
 export function setPrompt(value: string) {
   setState("prompt", value)

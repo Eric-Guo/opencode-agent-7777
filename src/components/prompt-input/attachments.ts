@@ -1,4 +1,4 @@
-import type { PromptAttachment } from "@/context/sync"
+import type { PromptAttachment } from "@/context/server-session"
 import { uuid } from "@/utils/uuid"
 import { attachmentMime } from "./files"
 

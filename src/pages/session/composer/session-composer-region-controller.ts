@@ -2,7 +2,7 @@ import { createMemo } from "solid-js"
 import { modelSelector } from "@/context/models"
 import { decidePermission } from "@/context/permission"
 import { abortPrompt, addAttachment, removeAttachment, setPrompt, submitPrompt } from "@/context/prompt"
-import { setState, state } from "@/context/sync"
+import { setState, state } from "@/context/server-session"
 import { createPromptInputController } from "@/pages/session/composer/session-composer-controls"
 
 export function createSessionComposerRegionController() {

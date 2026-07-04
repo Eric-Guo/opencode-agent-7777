@@ -1,7 +1,7 @@
 import { Icon } from "@opencode-ai/ui/icon"
 import { For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
-import type { PromptAttachment } from "@/context/sync"
+import type { PromptAttachment } from "@/context/server-session"
 
 export function PromptImageAttachments(props: {
   attachments: PromptAttachment[]

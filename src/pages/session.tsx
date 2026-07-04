@@ -1,9 +1,9 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
-import { createEffect, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { useLanguage } from "@/context/language"
-import { disposeSessionSync, initializeSessionSync, statusText } from "@/context/server-sync"
-import { state } from "@/context/sync"
+import { disposeSessionSync, initializeSessionSync, startNewSession } from "@/context/server-sync"
+import { state, statusText } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
@@ -14,6 +14,13 @@ export function SessionPage() {
   const language = useLanguage()
   const timeline = createTimelineModel({ messages: () => state.messages })
   const composer = createSessionComposerRegionController()
+  const [creatingSession, setCreatingSession] = createSignal(false)
+
+  const handleNewSession = () => {
+    if (creatingSession() || state.status !== "ready") return
+    setCreatingSession(true)
+    void startNewSession().finally(() => setCreatingSession(false))
+  }
 
   createEffect(() => {
     timeline.visibleMessages().length
@@ -30,7 +37,13 @@ export function SessionPage() {
 
   return (
     <div class="grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
-      <SessionHeader status={statusText(language.t)} userDialogCount={timeline.userDialogCount()} />
+      <SessionHeader
+        status={statusText(language.t)}
+        userDialogCount={timeline.userDialogCount()}
+        newSessionPending={creatingSession()}
+        newSessionDisabled={state.status !== "ready"}
+        onNewSession={handleNewSession}
+      />
 
       <main
         class="min-h-0 overflow-y-auto px-11 pb-7 pt-6 scroll-smooth max-[720px]:px-[18px] max-[720px]:py-4"

@@ -1,56 +1,40 @@
-import type { Event as OpencodeEvent, Message, Part, SessionStatus } from "@opencode-ai/sdk"
+import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { readSessionRecord, writeSessionRecord } from "@/context/local"
-import type { TranslationKey, TranslationParams } from "@/context/language"
+import { translateSync } from "@/context/language"
 import { refreshModels } from "@/context/models"
 import { handlePermissionEvent, refreshPermissions } from "@/context/permission"
 import { makeClient, type OpencodeClient } from "@/context/sdk"
-import { resolveServer } from "@/context/server"
-import { createSession, restoreSession } from "@/context/server-session"
+import {
+  createSession,
+  disposeSessionRefresh,
+  handleSessionEvent,
+  idleStatus,
+  refreshMessages,
+  restoreSession,
+  scheduleRefresh as scheduleSessionRefresh,
+  setSessionClient,
+  setState,
+  state,
+} from "@/context/server-session"
+import { resolveServer, type ServerInfo } from "@/context/server"
 import { defaultSessionDirectory } from "@/context/session-directory"
-import { compareHistoryItem, comparePart, idleStatus, normalizeHistory, setState, state } from "@/context/sync"
-import { translateSync } from "@/context/language"
 import { readableError } from "@/utils/server-errors"
 import { syncWindowBackgroundColor } from "@/utils/theme"
 
-let client: OpencodeClient | undefined
 let streamAbort: AbortController | undefined
-let refreshTimer: ReturnType<typeof setTimeout> | undefined
+let creatingSession: Promise<void> | undefined
 
-function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
-  return part.type === "text"
+function refreshCurrentMessages() {
+  return refreshMessages(FETCH_MESSAGE_LIMIT)
 }
 
-function isReasoningPart(part: Part): part is Extract<Part, { type: "reasoning" }> {
-  return part.type === "reasoning"
+function scheduleMessageRefresh(delay = 120) {
+  scheduleSessionRefresh(refreshCurrentMessages, delay)
 }
 
-function isTextLikePart(part: Part): part is Extract<Part, { type: "text" | "reasoning" }> {
-  return isTextPart(part) || isReasoningPart(part)
-}
-
-export function currentSession() {
-  if (!client || !state.session) {
-    setState("error", translateSync("error.sessionNotReady"))
-    return
-  }
-  return {
-    client,
-    sessionID: state.session.id,
-  }
-}
-
-function refreshMessages() {
-  const active = currentSession()
-  if (!active) return Promise.resolve()
-  return active.client.session
-    .messages({
-      path: { id: active.sessionID },
-      query: { limit: FETCH_MESSAGE_LIMIT },
-    })
-    .then((result) => {
-      setState("messages", normalizeHistory(result.data ?? []))
-    })
+export function scheduleRefresh(delay = 120) {
+  scheduleMessageRefresh(delay)
 }
 
 function createDefaultSession(baseClient: OpencodeClient) {
@@ -61,97 +45,28 @@ function createDefaultSession(baseClient: OpencodeClient) {
   })
 }
 
-export function scheduleRefresh(delay = 120) {
-  if (refreshTimer) clearTimeout(refreshTimer)
-  refreshTimer = setTimeout(() => {
-    refreshTimer = undefined
-    void refreshMessages().catch((error) => setState("error", readableError(error)))
-  }, delay)
-}
-
-function upsertMessage(info: Message) {
-  setState("messages", (items) => {
-    const withoutLocal = info.role === "user" ? items.filter((item) => !item.info.id.startsWith("local-")) : items
-    const index = withoutLocal.findIndex((item) => item.info.id === info.id)
-    if (index === -1) return [...withoutLocal, { info, parts: [] }].sort(compareHistoryItem)
-    return withoutLocal.map((item, itemIndex) => (itemIndex === index ? { ...item, info } : item))
-  })
-}
-
-function mergePart(existing: Part | undefined, incoming: Part, delta: string | undefined): Part {
-  if (!delta) return incoming
-  if (!existing) return incoming
-  if (!isTextLikePart(existing) || !isTextLikePart(incoming)) return incoming
-  if (incoming.text.length >= existing.text.length) return incoming
-  return {
-    ...incoming,
-    text: `${existing.text}${delta}`,
-  }
-}
-
-function upsertPart(part: Part, delta: string | undefined) {
-  const hasMessage = state.messages.some((item) => item.info.id === part.messageID)
-  if (!hasMessage) {
-    scheduleRefresh()
-    return
-  }
-  setState("messages", (items) =>
-    items.map((item) => {
-      if (item.info.id !== part.messageID) return item
-      const index = item.parts.findIndex((current) => current.id === part.id)
-      if (index === -1) return { ...item, parts: [...item.parts, part].sort(comparePart) }
-      const parts = item.parts.map((current, partIndex) =>
-        partIndex === index ? mergePart(current, part, delta) : current,
-      )
-      return { ...item, parts: parts.sort(comparePart) }
-    }),
+function activateSession(server: ServerInfo, session: NonNullable<typeof state.session>) {
+  writeSessionRecord(session)
+  const activeClient = makeClient(server, session.directory)
+  setSessionClient(activeClient)
+  setState("session", session)
+  setState("sessionStatus", idleStatus)
+  setState("messages", [])
+  setState("permissionRequest", undefined)
+  setState("permissionResponding", false)
+  setState("prompt", "")
+  setState("attachments", [])
+  setState("submitting", false)
+  setState("status", "ready")
+  syncWindowBackgroundColor()
+  return Promise.all([refreshCurrentMessages(), refreshModels(activeClient, session), refreshPermissions()]).then(
+    () => undefined,
   )
 }
 
 function handleEvent(event: OpencodeEvent) {
   if (handlePermissionEvent(event)) return
-
-  if (event.type === "session.updated" && event.properties.info.id === state.session?.id) {
-    setState("session", event.properties.info)
-    return
-  }
-  if (event.type === "message.updated" && event.properties.info.sessionID === state.session?.id) {
-    upsertMessage(event.properties.info)
-    return
-  }
-  if (event.type === "message.removed" && event.properties.sessionID === state.session?.id) {
-    setState("messages", (items) => items.filter((item) => item.info.id !== event.properties.messageID))
-    return
-  }
-  if (event.type === "message.part.updated" && event.properties.part.sessionID === state.session?.id) {
-    upsertPart(event.properties.part, event.properties.delta)
-    return
-  }
-  if (event.type === "message.part.removed" && event.properties.sessionID === state.session?.id) {
-    setState("messages", (items) =>
-      items.map((item) =>
-        item.info.id === event.properties.messageID
-          ? { ...item, parts: item.parts.filter((part) => part.id !== event.properties.partID) }
-          : item,
-      ),
-    )
-    return
-  }
-  if (event.type === "session.status" && event.properties.sessionID === state.session?.id) {
-    setState("sessionStatus", event.properties.status)
-    return
-  }
-  if (event.type === "session.idle" && event.properties.sessionID === state.session?.id) {
-    setState("sessionStatus", idleStatus)
-    scheduleRefresh()
-    return
-  }
-  if (
-    event.type === "session.error" &&
-    (!event.properties.sessionID || event.properties.sessionID === state.session?.id)
-  ) {
-    setState("error", readableError(event.properties.error))
-  }
+  handleSessionEvent(event, { refresh: scheduleMessageRefresh })
 }
 
 function stopEventStream() {
@@ -161,8 +76,9 @@ function stopEventStream() {
 
 function startEventStream() {
   stopEventStream()
-  const activeClient = client
-  if (!activeClient) return
+  const server = state.server
+  if (!server) return
+  const activeClient = makeClient(server)
   const controller = new AbortController()
   streamAbort = controller
   void (async () => {
@@ -191,16 +107,7 @@ export function initializeSessionSync() {
       const baseClient = makeClient(server)
       return restoreSession(baseClient, readSessionRecord())
         .then((session) => session ?? createDefaultSession(baseClient))
-        .then((session) => {
-          writeSessionRecord(session)
-          client = makeClient(server, session.directory)
-          setState("session", session)
-          setState("status", "ready")
-          syncWindowBackgroundColor()
-          return Promise.all([refreshMessages(), refreshModels(client, session), refreshPermissions()]).then(
-            () => undefined,
-          )
-        })
+        .then((session) => activateSession(server, session))
     })
     .then(startEventStream)
     .catch((error) => {
@@ -209,22 +116,31 @@ export function initializeSessionSync() {
     })
 }
 
-export function statusText(
-  t: (key: TranslationKey, params?: TranslationParams) => string,
-  status: SessionStatus = state.sessionStatus,
-) {
-  if (state.status === "loading") return t("session.status.starting")
-  if (state.status === "failed") return t("session.status.offline")
-  if (state.submitting) return t("session.status.sending")
-  if (status.type === "busy") return t("session.status.working")
-  if (status.type === "retry") return t("session.status.retry", { attempt: status.attempt })
-  return t("session.status.ready")
+export function startNewSession() {
+  if (creatingSession) return creatingSession
+
+  const server = state.server
+  const directory = state.session?.directory
+  if (!server || !directory) {
+    setState("error", translateSync("error.sessionNotReady"))
+    return Promise.resolve()
+  }
+
+  setState("error", "")
+  const baseClient = makeClient(server)
+  creatingSession = createSession(baseClient, directory)
+    .then((session) => activateSession(server, session))
+    .catch((error) => {
+      setState("error", readableError(error))
+    })
+    .finally(() => {
+      creatingSession = undefined
+    })
+
+  return creatingSession
 }
 
 export function disposeSessionSync() {
   stopEventStream()
-  if (refreshTimer) {
-    clearTimeout(refreshTimer)
-    refreshTimer = undefined
-  }
+  disposeSessionRefresh()
 }

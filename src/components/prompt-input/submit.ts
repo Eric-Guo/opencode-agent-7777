@@ -1,6 +1,6 @@
 import { AGENT_ID } from "@/constants/session"
-import { idleStatus, setState, state, type PromptAttachment } from "@/context/sync"
-import { currentSession, scheduleRefresh } from "@/context/server-sync"
+import { scheduleRefresh } from "@/context/server-sync"
+import { currentSession, idleStatus, setState, state, type PromptAttachment } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
 import { buildRequestParts, createOptimisticUserMessage } from "./build-request-parts"
 

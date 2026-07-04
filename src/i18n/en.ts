@@ -9,6 +9,7 @@ export const dict = {
   "session.status.working": "Working",
   "session.status.retry": "Retry {{attempt}}",
   "session.status.ready": "Ready",
+  "session.new": "New session",
   "session.loading": "Starting 7777",
   "session.empty": "Ready",
 

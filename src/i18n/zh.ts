@@ -13,6 +13,7 @@ export const dict = {
   "session.status.working": "处理中",
   "session.status.retry": "重试 {{attempt}}",
   "session.status.ready": "就绪",
+  "session.new": "新会话",
   "session.loading": "正在启动 7777",
   "session.empty": "就绪",
 

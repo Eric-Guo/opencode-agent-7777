@@ -1,8 +1,8 @@
 import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
 import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
 import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
-import { currentSession, scheduleRefresh } from "@/context/server-sync"
-import { setState, state } from "@/context/sync"
+import { scheduleRefresh } from "@/context/server-sync"
+import { currentSession, setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
 import { serverHttpHeaders, serverUrl } from "@/utils/server"
 
