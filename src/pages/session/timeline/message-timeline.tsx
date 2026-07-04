@@ -48,50 +48,6 @@ function toolStatus(part: Extract<SdkPart, { type: "tool" }>, t: Translator) {
   return t("timeline.tool.pending")
 }
 
-function fileLabel(part: Extract<SdkPart, { type: "file" }>) {
-  return part.filename || part.url
-}
-
-function fileMime(part: Extract<SdkPart, { type: "file" }>) {
-  return part.mime || "file"
-}
-
-function FileAttachment(props: { part: Extract<SdkPart, { type: "file" }> }) {
-  const label = createMemo(() => fileLabel(props.part))
-  const mime = createMemo(() => fileMime(props.part))
-  const isImage = createMemo(() => mime().startsWith("image/"))
-
-  return (
-    <Show
-      when={isImage()}
-      fallback={
-        <a
-          class="flex min-h-9 max-w-full items-center gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2.5 py-1.5 text-xs font-[650] text-v2-text-text-base no-underline hover:border-v2-border-border-strong hover:text-v2-text-text-base"
-          href={props.part.url}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Icon name="folder" />
-          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{label()}</span>
-          <span class="shrink-0 text-v2-text-text-faint">{mime()}</span>
-        </a>
-      }
-    >
-      <figure class="m-0 max-w-full">
-        <img
-          src={props.part.url}
-          alt={label()}
-          class="block h-auto max-h-[420px] max-w-full rounded-lg border border-v2-border-border-base object-contain"
-          loading="lazy"
-        />
-        <figcaption class="mt-1.5 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-[650] text-v2-text-text-faint">
-          {label()}
-        </figcaption>
-      </figure>
-    </Show>
-  )
-}
-
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
   if (clipboard?.writeText) return clipboard.writeText(value)
@@ -164,7 +120,15 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                   </Show>
                   <Show when={files().length > 0}>
                     <div class="mb-3 flex max-w-full flex-col gap-2">
-                      <For each={files()}>{(part) => <FileAttachment part={part} />}</For>
+                      <For each={files()}>
+                        {(part) => (
+                          <Part
+                            message={props.item.info as SharedPartProps["message"]}
+                            part={part as SharedPartProps["part"]}
+                            useV2Actions
+                          />
+                        )}
+                      </For>
                     </div>
                   </Show>
                   <Show when={textParts().length > 0}>
