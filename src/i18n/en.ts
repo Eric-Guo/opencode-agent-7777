@@ -56,9 +56,6 @@ export const dict = {
   "timeline.copied": "Copied",
   "timeline.reasoningSummary": "Reasoning summary",
   "timeline.reasoningSummaryIndexed": "Reasoning summary {{index}}",
-  "timeline.tool.done": "Done",
-  "timeline.tool.running": "Running",
-  "timeline.tool.pending": "Pending",
 
   "error.sessionNotReady": "Session is not ready",
   "error.requestFailed": "Request failed",

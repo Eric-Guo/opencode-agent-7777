@@ -60,9 +60,6 @@ export const dict = {
   "timeline.copied": "已复制",
   "timeline.reasoningSummary": "推理摘要",
   "timeline.reasoningSummaryIndexed": "推理摘要 {{index}}",
-  "timeline.tool.done": "完成",
-  "timeline.tool.running": "运行中",
-  "timeline.tool.pending": "等待中",
 
   "error.sessionNotReady": "会话尚未就绪",
   "error.requestFailed": "请求失败",

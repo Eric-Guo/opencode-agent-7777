@@ -1,7 +1,7 @@
 import { Message as SharedMessage, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show, type ComponentProps } from "solid-js"
-import { useLanguage, type TranslationKey, type TranslationParams } from "@/context/language"
+import { useLanguage } from "@/context/language"
 import type { HistoryItem } from "@/context/server-session"
 
 type SdkPart = import("@opencode-ai/sdk").Part
@@ -37,16 +37,8 @@ function reasoningSummaries(parts: SdkPart[]) {
     .filter((text) => text.trim().length > 0)
 }
 
-type Translator = (key: TranslationKey, params?: TranslationParams) => string
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
 type SharedPartProps = ComponentProps<typeof Part>
-
-function toolStatus(part: Extract<SdkPart, { type: "tool" }>, t: Translator) {
-  if (part.state.status === "completed") return part.state.title || t("timeline.tool.done")
-  if (part.state.status === "error") return part.state.error
-  if (part.state.status === "running") return part.state.title || t("timeline.tool.running")
-  return t("timeline.tool.pending")
-}
 
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
@@ -145,18 +137,17 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                   </Show>
                 </Show>
                 <Show when={tools().length > 0}>
-                  <ul class="mt-3 flex list-none flex-col gap-1.5 p-0">
+                  <div class="mt-3 flex flex-col gap-1.5">
                     <For each={tools()}>
                       {(part) => (
-                        <li class="flex min-h-7 items-center justify-between gap-3 rounded-[7px] border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2.5 py-0 text-xs text-v2-text-text-muted">
-                          <span class="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap font-[650] text-v2-text-text-base">
-                            {part.tool}
-                          </span>
-                          <span>{toolStatus(part, language.t)}</span>
-                        </li>
+                        <Part
+                          message={props.item.info as SharedPartProps["message"]}
+                          part={part as SharedPartProps["part"]}
+                          useV2Actions
+                        />
                       )}
                     </For>
-                  </ul>
+                  </div>
                 </Show>
               </div>
               <div class="mt-2 flex min-h-7 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
