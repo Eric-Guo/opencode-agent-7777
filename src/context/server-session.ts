@@ -79,13 +79,63 @@ export function currentSession() {
 }
 
 export function normalizeHistory(items: { info: Message; parts: Part[] }[]): HistoryItem[] {
-  return items
-    .filter((item) => !!item.info?.id)
-    .map((item) => ({
+  const byID = new Map<string, HistoryItem>()
+  for (const item of items) {
+    if (!item.info?.id) continue
+    byID.set(item.info.id, {
       info: item.info,
       parts: item.parts.filter((part) => !!part.id).sort(comparePart),
-    }))
-    .sort(compareHistoryItem)
+    })
+  }
+  return [...byID.values()].sort(compareHistoryItem)
+}
+
+function assistantParentIDs(items: HistoryItem[]) {
+  const userIDs = new Set(items.filter((item) => item.info.role === "user").map((item) => item.info.id))
+  return [
+    ...new Set(
+      items.flatMap((item) =>
+        item.info.role === "assistant" && !userIDs.has(item.info.parentID) ? [item.info.parentID] : [],
+      ),
+    ),
+  ]
+}
+
+function cachedParents(parentIDs: string[]) {
+  const ids = new Set(parentIDs)
+  return state.messages.filter((item) => item.info.role === "user" && ids.has(item.info.id))
+}
+
+async function fetchParentMessages(active: { client: OpencodeClient; sessionID: string }, parentIDs: string[]) {
+  const cached = new Map(cachedParents(parentIDs).map((item) => [item.info.id, item] as const))
+  const fetched = await Promise.all(
+    parentIDs.map((messageID) =>
+      active.client.session
+        .message({
+          path: { id: active.sessionID, messageID },
+        })
+        .then((result) => result.data)
+        .catch(() => undefined),
+    ),
+  )
+  const parents = new Map<string, HistoryItem>()
+  for (const item of normalizeHistory(fetched.filter((item): item is { info: Message; parts: Part[] } => !!item))) {
+    if (item.info.role === "user") parents.set(item.info.id, item)
+  }
+  for (const parentID of parentIDs) {
+    if (!parents.has(parentID)) {
+      const item = cached.get(parentID)
+      if (item) parents.set(parentID, item)
+    }
+  }
+  return normalizeHistory([...parents.values()])
+}
+
+async function hydrateAssistantParents(active: { client: OpencodeClient; sessionID: string }, items: HistoryItem[]) {
+  const parentIDs = assistantParentIDs(items)
+  if (parentIDs.length === 0) return items
+  const parents = await fetchParentMessages(active, parentIDs)
+  return normalizeHistory([...items, ...parents])
 }
 
 export function compareHistoryItem(a: HistoryItem, b: HistoryItem) {
@@ -110,7 +160,11 @@ export function refreshMessages(limit: number) {
     })
     .then((result) => {
       if (state.session?.id !== active.sessionID) return
-      setState("messages", normalizeHistory(result.data ?? []))
+      return hydrateAssistantParents(active, normalizeHistory(result.data ?? []))
+    })
+    .then((messages) => {
+      if (!messages || state.session?.id !== active.sessionID) return
+      setState("messages", messages)
     })
     .finally(() => {
       messageRefreshCount = Math.max(0, messageRefreshCount - 1)
