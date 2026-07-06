@@ -19,10 +19,7 @@ export function restoreSession(baseClient: OpencodeClient, record: SessionRecord
 export function createSession(baseClient: OpencodeClient, directory: string) {
   return baseClient.session
     .create({
-      query: { directory: normalizeSessionDirectory(directory) },
-      body: {
-        title: "7777",
-      },
+      query: { directory: normalizeSessionDirectory(directory) }
     })
     .then((result) => {
       if (!result.data) throw new Error(translateSync("error.createSessionFailed"))
