@@ -5,7 +5,6 @@ import type { Part } from "@opencode-ai/sdk"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { useLanguage } from "@/context/language"
 import { writePromptDraft } from "@/context/local"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import {
@@ -13,15 +12,23 @@ import {
   refreshMessages,
   setState,
   state,
-  statusText,
   type PromptAttachment,
 } from "@/context/server-session"
-import { createNewSessionController } from "@/pages/new-session"
 import { ErrorBanner } from "@/pages/error"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
-import { createTimelineAutoScroll } from "@/pages/session/helpers"
+import {
+  NEW_SESSION_EMPTY_BADGE_CLASS,
+  NEW_SESSION_EMPTY_STATE_CLASS,
+} from "@/pages/session/new-session-layout"
+import {
+  SESSION_LOADING_STATE_CLASS,
+  SESSION_MESSAGE_SCROLLER_CLASS,
+  SESSION_ROUTE_FRAME_CLASS,
+  useSessionLayout,
+} from "@/pages/session/session-layout"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
+import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 import { readableError } from "@/utils/server-errors"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
@@ -58,14 +65,15 @@ function promptDraftFromParts(parts: Part[]) {
 
 export function SessionPage() {
   let messageList: HTMLDivElement | undefined
-  const language = useLanguage()
   const timeline = createTimelineModel({
     messages: () => state.messages,
     loading: () => state.messagesLoading,
     revertMessageID: () => state.session?.revert?.messageID,
   })
   const composer = createSessionComposerRegionController()
-  const newSession = createNewSessionController()
+  const layout = useSessionLayout({
+    userDialogCount: timeline.userDialogCount,
+  })
   const sessionUiData = createMemo(
     () =>
       ({
@@ -101,7 +109,7 @@ export function SessionPage() {
     },
   }
 
-  createTimelineAutoScroll({
+  useSessionHashScroll({
     items: timeline.visibleMessages,
     container: () => messageList,
   })
@@ -112,36 +120,25 @@ export function SessionPage() {
   })
 
   return (
-    <div class="grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
-      <SessionHeader
-        status={statusText(language.t)}
-        userDialogCount={timeline.userDialogCount()}
-        newSessionPending={newSession.pending()}
-        newSessionDisabled={newSession.disabled()}
-        onNewSession={newSession.create}
-      />
+    <div class={SESSION_ROUTE_FRAME_CLASS}>
+      <SessionHeader {...layout.header()} />
 
-      <main
-        class="min-h-0 overflow-y-auto px-11 pb-7 pt-6 scroll-smooth max-[720px]:px-[18px] max-[720px]:py-4"
-        ref={messageList}
-      >
+      <main class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
         <Show
           when={state.status !== "loading" && timeline.ready()}
           fallback={
-            <div class="flex min-h-full flex-col items-center justify-center gap-3 text-v2-text-text-muted">
+            <div class={SESSION_LOADING_STATE_CLASS}>
               <Spinner class="h-6 w-6" />
-              <span>{language.t("session.loading")}</span>
+              <span>{layout.language.t("session.loading")}</span>
             </div>
           }
         >
           <Show
             when={timeline.visibleMessages().length > 0}
             fallback={
-              <div class="flex min-h-full flex-col items-center justify-center gap-3 text-v2-text-text-muted">
-                <div class="flex h-16 w-16 items-center justify-center rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 font-[760] text-v2-text-text-accent">
-                  7777
-                </div>
-                <p class="m-0 text-[13px]">{language.t("session.empty")}</p>
+              <div class={NEW_SESSION_EMPTY_STATE_CLASS}>
+                <div class={NEW_SESSION_EMPTY_BADGE_CLASS}>7777</div>
+                <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
               </div>
             }
           >

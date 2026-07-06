@@ -1,6 +1,6 @@
 import { createEffect } from "solid-js"
 
-export function createTimelineAutoScroll(input: {
+export function useSessionHashScroll(input: {
   items: () => readonly unknown[]
   container: () => HTMLElement | undefined
 }) {
