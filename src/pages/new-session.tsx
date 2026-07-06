@@ -10,11 +10,10 @@ import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
 
 let newSessionPromise: Promise<void> | undefined
-const defaultSessionTitle = "7777"
-const defaultTitlePattern = /^(New session - |Child session - )\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+const defaultTitlePattern = /^(New session|Child session) - \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
 
 function isDefaultTitle(title: string) {
-  return title === defaultSessionTitle || defaultTitlePattern.test(title)
+  return title.match(defaultTitlePattern)?.[1] !== undefined
 }
 
 function isMeaningfulUserPart(part: Part) {
