@@ -178,6 +178,23 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
   )
 }
 
-export function MessageTimeline(props: { messages: HistoryItem[]; actions?: UserActions }) {
-  return <For each={props.messages}>{(item) => <MessageView item={item} actions={props.actions} />}</For>
+export function MessageTimeline(props: {
+  messages: HistoryItem[]
+  actions?: UserActions
+  onPointerGesture?: (target?: EventTarget | null) => void
+}) {
+  const handlePointerDown = (event: PointerEvent) => {
+    props.onPointerGesture?.(event.target)
+  }
+
+  const handlePointerMove = (event: PointerEvent) => {
+    if (event.buttons !== 1) return
+    props.onPointerGesture?.(event.target)
+  }
+
+  return (
+    <div data-slot="session-message-timeline" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}>
+      <For each={props.messages}>{(item) => <MessageView item={item} actions={props.actions} />}</For>
+    </div>
+  )
 }

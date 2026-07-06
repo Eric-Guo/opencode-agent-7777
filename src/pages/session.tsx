@@ -65,6 +65,8 @@ function promptDraftFromParts(parts: Part[]) {
 
 export function SessionPage() {
   let messageList: HTMLDivElement | undefined
+  let timelinePointerGesture = 0
+  const timelinePointerGestureWindowMs = 250
   const timeline = createTimelineModel({
     messages: () => state.messages,
     loading: () => state.messagesLoading,
@@ -112,7 +114,19 @@ export function SessionPage() {
   useSessionHashScroll({
     items: timeline.visibleMessages,
     container: () => messageList,
+    shouldScrollToEnd: () => Date.now() - timelinePointerGesture >= timelinePointerGestureWindowMs,
   })
+
+  const markTimelinePointerGesture = (target?: EventTarget | null) => {
+    const root = messageList
+    if (!root) return
+
+    const el = target instanceof Element ? target : undefined
+    const nested = el?.closest("[data-scrollable]")
+    if (nested && nested !== root) return
+
+    timelinePointerGesture = Date.now()
+  }
 
   onMount(() => {
     void initializeSessionSync()
@@ -143,7 +157,11 @@ export function SessionPage() {
             }
           >
             <DataProvider data={sessionUiData()} directory={state.session?.directory ?? ""}>
-              <MessageTimeline messages={timeline.visibleMessages()} actions={actions} />
+              <MessageTimeline
+                messages={timeline.visibleMessages()}
+                actions={actions}
+                onPointerGesture={markTimelinePointerGesture}
+              />
             </DataProvider>
           </Show>
         </Show>
