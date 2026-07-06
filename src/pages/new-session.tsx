@@ -1,13 +1,13 @@
 import { createMemo, createSignal } from "solid-js"
 import type { Session } from "@opencode-ai/sdk"
 import type { ModelSelection } from "@/context/local"
+import { hideBlankRecentSession, sessionHasUserContent } from "@/context/directory-sync"
 import { createSession } from "@/context/global-sync/session-load"
 import { translateSync } from "@/context/language"
 import { setState, state, type HistoryItem } from "@/context/server-session"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync"
 import { makeClient, type OpencodeClient } from "@/context/sdk"
 import { normalizeSessionDirectory } from "@/context/session-directory"
-import { hideBlankRecentSession, sessionHasUserContent } from "@/pages/session/recent-sessions"
 import { readableError } from "@/utils/server-errors"
 
 let newSessionPromise: Promise<void> | undefined

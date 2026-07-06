@@ -1,8 +1,8 @@
 import type { Session } from "@opencode-ai/sdk"
+import { refreshRecentSessions } from "@/context/directory-sync"
 import { setState, state } from "@/context/server-session"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync"
 import { readableError } from "@/utils/server-errors"
-import { refreshRecentSessions } from "./recent-sessions"
 
 export function openRecentSession(session: Session) {
   const server = state.server

@@ -12,7 +12,7 @@ import {
 } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { createDefaultSession, restoreSession } from "./session-load"
-import { refreshRecentSessions } from "@/pages/session/recent-sessions"
+import { refreshRecentSessions } from "@/context/directory-sync"
 
 export function refreshCurrentMessages() {
   return refreshMessages(FETCH_MESSAGE_LIMIT)

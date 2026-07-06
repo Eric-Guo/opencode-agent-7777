@@ -5,18 +5,19 @@ import { setState, state, type HistoryItem } from "@/context/server-session"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
 
+export const DEFAULT_RECENT_SESSION_TITLE = "7777"
+
 const HIDDEN_BLANK_RECENT_SESSION_IDS_KEY = "opencode.7777.recent.hiddenBlankSessionIDs"
 const HIDDEN_BLANK_RECENT_SESSION_LIMIT = 100
-const DEFAULT_RECENT_SESSION_TITLE = "7777"
 const hiddenBlankRecentSessionIDs = new Set<string>()
 
-function sessionTime(session: Session) {
+export function sessionUpdatedTime(session: Session) {
   return session.time.updated ?? session.time.created
 }
 
 function sortRecentSessions(sessions: Session[]) {
   return [...sessions].sort((a, b) => {
-    const diff = sessionTime(b) - sessionTime(a)
+    const diff = sessionUpdatedTime(b) - sessionUpdatedTime(a)
     if (diff !== 0) return diff
     return a.id < b.id ? 1 : a.id > b.id ? -1 : 0
   })
@@ -69,10 +70,7 @@ function writeHiddenBlankRecentSessionIDs(ids: Set<string>) {
   }
   if (typeof localStorage !== "object") return
   try {
-    localStorage.setItem(
-      HIDDEN_BLANK_RECENT_SESSION_IDS_KEY,
-      JSON.stringify([...hiddenBlankRecentSessionIDs]),
-    )
+    localStorage.setItem(HIDDEN_BLANK_RECENT_SESSION_IDS_KEY, JSON.stringify([...hiddenBlankRecentSessionIDs]))
   } catch {
     return
   }
@@ -83,21 +81,6 @@ export function hideBlankRecentSession(sessionID: string) {
   ids.add(sessionID)
   writeHiddenBlankRecentSessionIDs(ids)
   setState("recentSessions", (sessions) => sessions.filter((session) => session.id !== sessionID))
-}
-
-export function recentSessionTitle(session: Session) {
-  return session.title.trim() || DEFAULT_RECENT_SESSION_TITLE
-}
-
-export function recentSessionDescription(session: Session) {
-  const date = new Date(sessionTime(session))
-  if (Number.isNaN(date.getTime())) return session.id
-  return date.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
 }
 
 export function refreshRecentSessions() {

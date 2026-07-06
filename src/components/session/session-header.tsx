@@ -5,11 +5,11 @@ import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
 import { windowsElectron } from "@/context/platform"
 import { state } from "@/context/server-session"
-import { openRecentSession } from "@/pages/session/recent-session-switch"
+import { openRecentSession } from "@/context/tabs"
 import {
   recentSessionDescription,
   recentSessionTitle,
-} from "@/pages/session/recent-sessions"
+} from "@/pages/home"
 
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"
