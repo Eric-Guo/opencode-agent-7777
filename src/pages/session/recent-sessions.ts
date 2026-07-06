@@ -1,12 +1,13 @@
-import type { Session } from "@opencode-ai/sdk"
+import type { Part, Session } from "@opencode-ai/sdk"
 import { RECENT_SESSION_LIMIT } from "@/constants/session"
 import { makeClient } from "@/context/sdk"
-import { setState, state } from "@/context/server-session"
+import { setState, state, type HistoryItem } from "@/context/server-session"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
 
 const HIDDEN_BLANK_RECENT_SESSION_IDS_KEY = "opencode.7777.recent.hiddenBlankSessionIDs"
 const HIDDEN_BLANK_RECENT_SESSION_LIMIT = 100
+const DEFAULT_RECENT_SESSION_TITLE = "7777"
 const hiddenBlankRecentSessionIDs = new Set<string>()
 
 function sessionTime(session: Session) {
@@ -27,6 +28,23 @@ function uniqueSessions(sessions: Session[]) {
 
 function rootSessions(sessions: Session[]) {
   return sessions.filter((session) => !session.parentID)
+}
+
+function isMeaningfulUserPart(part: Part) {
+  if (part.type === "compaction" || part.type === "step-start" || part.type === "step-finish") return false
+  if (part.type === "text") return !part.synthetic && part.text.trim().length > 0
+  if (part.type === "subtask") return part.prompt.trim().length > 0
+  return true
+}
+
+export function isDefaultRecentSessionTitle(title: string) {
+  return !title.trim() || title.trim() === DEFAULT_RECENT_SESSION_TITLE
+}
+
+export function sessionHasUserContent(messages: HistoryItem[]) {
+  return messages.some(
+    (message) => message.info.role === "user" && message.parts.some((part) => isMeaningfulUserPart(part)),
+  )
 }
 
 function readHiddenBlankRecentSessionIDs() {
@@ -68,7 +86,7 @@ export function hideBlankRecentSession(sessionID: string) {
 }
 
 export function recentSessionTitle(session: Session) {
-  return session.title.trim() || "7777"
+  return session.title.trim() || DEFAULT_RECENT_SESSION_TITLE
 }
 
 export function recentSessionDescription(session: Session) {
