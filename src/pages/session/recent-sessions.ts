@@ -5,6 +5,10 @@ import { setState, state } from "@/context/server-session"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
 
+const HIDDEN_BLANK_RECENT_SESSION_IDS_KEY = "opencode.7777.recent.hiddenBlankSessionIDs"
+const HIDDEN_BLANK_RECENT_SESSION_LIMIT = 100
+const hiddenBlankRecentSessionIDs = new Set<string>()
+
 function sessionTime(session: Session) {
   return session.time.updated ?? session.time.created
 }
@@ -23,6 +27,44 @@ function uniqueSessions(sessions: Session[]) {
 
 function rootSessions(sessions: Session[]) {
   return sessions.filter((session) => !session.parentID)
+}
+
+function readHiddenBlankRecentSessionIDs() {
+  const ids = new Set(hiddenBlankRecentSessionIDs)
+  if (typeof localStorage !== "object") return ids
+  try {
+    const parsed = JSON.parse(localStorage.getItem(HIDDEN_BLANK_RECENT_SESSION_IDS_KEY) || "[]") as unknown
+    if (!Array.isArray(parsed)) return ids
+    for (const id of parsed) {
+      if (typeof id === "string") ids.add(id)
+    }
+    return ids
+  } catch {
+    return ids
+  }
+}
+
+function writeHiddenBlankRecentSessionIDs(ids: Set<string>) {
+  hiddenBlankRecentSessionIDs.clear()
+  for (const id of [...ids].slice(-HIDDEN_BLANK_RECENT_SESSION_LIMIT)) {
+    hiddenBlankRecentSessionIDs.add(id)
+  }
+  if (typeof localStorage !== "object") return
+  try {
+    localStorage.setItem(
+      HIDDEN_BLANK_RECENT_SESSION_IDS_KEY,
+      JSON.stringify([...hiddenBlankRecentSessionIDs]),
+    )
+  } catch {
+    return
+  }
+}
+
+export function hideBlankRecentSession(sessionID: string) {
+  const ids = readHiddenBlankRecentSessionIDs()
+  ids.add(sessionID)
+  writeHiddenBlankRecentSessionIDs(ids)
+  setState("recentSessions", (sessions) => sessions.filter((session) => session.id !== sessionID))
 }
 
 export function recentSessionTitle(session: Session) {
@@ -56,10 +98,12 @@ export function refreshRecentSessions() {
     })
     .then((result) => {
       if (state.session?.directory !== directory) return
+      const hiddenSessionIDs = readHiddenBlankRecentSessionIDs()
       setState(
         "recentSessions",
         sortRecentSessions(rootSessions(uniqueSessions(result.data ?? [])))
           .filter((session) => session.id !== state.session?.id)
+          .filter((session) => !hiddenSessionIDs.has(session.id))
           .slice(0, RECENT_SESSION_LIMIT),
       )
     })
