@@ -27,6 +27,9 @@ export type AppState = {
   modelStatus: ModelLoadStatus
   server: ServerInfo | undefined
   session: Session | undefined
+  recentSessions: Session[]
+  recentSessionsLoading: boolean
+  recentSessionSwitchingID: string | undefined
   sessionStatus: SessionStatus
   messages: HistoryItem[]
   messagesLoading: boolean
@@ -47,6 +50,9 @@ export const [state, setState] = createStore<AppState>({
   modelStatus: "loading",
   server: undefined,
   session: undefined,
+  recentSessions: [],
+  recentSessionsLoading: false,
+  recentSessionSwitchingID: undefined,
   sessionStatus: idleStatus,
   messages: [],
   messagesLoading: false,

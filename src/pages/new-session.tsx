@@ -20,7 +20,26 @@ export function startNewSession() {
 
   setState("error", "")
   const baseClient = makeClient(server)
-  newSessionPromise = createSession(baseClient, directory)
+  const previousSession = state.session
+  const selectedModel = state.selectedModel
+  const summarizeCurrentSession =
+    previousSession && selectedModel
+      ? baseClient.session
+          .summarize({
+            path: { id: previousSession.id },
+            query: { directory },
+            body: {
+              providerID: selectedModel.providerID,
+              modelID: selectedModel.modelID,
+            },
+          })
+          .catch((error) => {
+            console.warn("[7777] failed to summarize session before creating a new session", error)
+          })
+      : Promise.resolve()
+
+  newSessionPromise = summarizeCurrentSession
+    .then(() => createSession(baseClient, directory))
     .then((session) => activateSession(server, session))
     .then(restartSessionEventStream)
     .catch((error) => {

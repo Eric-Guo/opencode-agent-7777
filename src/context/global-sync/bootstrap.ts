@@ -12,6 +12,7 @@ import {
 } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { createDefaultSession, restoreSession } from "./session-load"
+import { refreshRecentSessions } from "@/pages/session/recent-sessions"
 
 export function refreshCurrentMessages() {
   return refreshMessages(FETCH_MESSAGE_LIMIT)
@@ -36,9 +37,12 @@ export function activateSession(
   setState("attachments", draft?.attachments ?? [])
   setState("submitting", false)
   setState("status", "ready")
-  return Promise.all([refreshCurrentMessages(), refreshModels(activeClient, session), refreshPermissions()]).then(
-    () => undefined,
-  )
+  return Promise.all([
+    refreshCurrentMessages(),
+    refreshModels(activeClient, session),
+    refreshPermissions(),
+    refreshRecentSessions(),
+  ]).then(() => undefined)
 }
 
 export function initializeSessionSync() {
