@@ -1,4 +1,5 @@
 import { AGENT_ID } from "@/constants/session"
+import { refreshRecentSessions } from "@/context/directory-sync"
 import { clearPromptDraft } from "@/context/local"
 import { scheduleRefresh } from "@/context/server-sync"
 import { currentSession, idleStatus, setState, state, type PromptAttachment } from "@/context/server-session"
@@ -61,7 +62,10 @@ export function submitPrompt() {
         parts: parts.requestParts,
       },
     })
-    .then(() => scheduleRefresh(250))
+    .then(() => {
+      scheduleRefresh(250)
+      return refreshRecentSessions()
+    })
     .catch((error) => {
       if (previousRevert && state.session?.id === active.sessionID && !state.session.revert) {
         setState("session", (session) => (session ? { ...session, revert: previousRevert } : session))

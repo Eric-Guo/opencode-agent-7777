@@ -1,7 +1,6 @@
 import { createMemo, createSignal } from "solid-js"
-import type { Session } from "@opencode-ai/sdk"
+import type { Part, Session } from "@opencode-ai/sdk"
 import type { ModelSelection } from "@/context/local"
-import { hideBlankRecentSession, sessionHasUserContent } from "@/context/directory-sync"
 import { createSession } from "@/context/global-sync/session-load"
 import { translateSync } from "@/context/language"
 import { setState, state, type HistoryItem } from "@/context/server-session"
@@ -17,6 +16,19 @@ function hasSessionDisplayMetadata(session: Session) {
   const title = session.title.trim()
   if (title && title !== "7777" && !defaultTitlePattern.test(title)) return true
   return !!session.summary
+}
+
+function isMeaningfulUserPart(part: Part) {
+  if (part.type === "compaction" || part.type === "step-start" || part.type === "step-finish") return false
+  if (part.type === "text") return !part.synthetic && part.text.trim().length > 0
+  if (part.type === "subtask") return part.prompt.trim().length > 0
+  return true
+}
+
+function sessionHasUserContent(messages: HistoryItem[]) {
+  return messages.some(
+    (message) => message.info.role === "user" && message.parts.some((part) => isMeaningfulUserPart(part)),
+  )
 }
 
 function modelForSummary(messages: HistoryItem[], selectedModel: ModelSelection | undefined) {
@@ -120,7 +132,6 @@ export function startNewSession() {
   ])
     .then(([messages, smallModel]) => {
       const previousSessionHasContent = sessionHasUserContent(messages)
-      if (previousSession && !previousSessionHasContent) hideBlankRecentSession(previousSession.id)
       return createSession(baseClient, directory).then((session) => ({
         session,
         previousSessionHasContent,
