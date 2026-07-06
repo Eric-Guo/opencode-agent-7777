@@ -2,7 +2,7 @@ import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
 import { refreshModels } from "@/context/models"
 import { refreshPermissions } from "@/context/permission"
-import { makeClient } from "@/context/sdk"
+import { makeClient, type OpencodeClient } from "@/context/sdk"
 import {
   idleStatus,
   refreshMessages,
@@ -11,11 +11,26 @@ import {
   state,
 } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
+import { normalizeSessionDirectory } from "@/context/session-directory"
 import { createDefaultSession, restoreSession } from "./session-load"
 import { refreshRecentSessions } from "@/context/directory-sync"
 
 export function refreshCurrentMessages() {
   return refreshMessages(FETCH_MESSAGE_LIMIT)
+}
+
+export function refreshSessionStatus(activeClient: OpencodeClient, session: NonNullable<typeof state.session>) {
+  return activeClient.session
+    .status({
+      query: { directory: normalizeSessionDirectory(session.directory) },
+    })
+    .then((result) => {
+      if (state.session?.id !== session.id) return
+      setState("sessionStatus", result.data?.[session.id] ?? idleStatus)
+    })
+    .catch(() => {
+      if (state.session?.id === session.id) setState("sessionStatus", idleStatus)
+    })
 }
 
 export function activateSession(
@@ -36,8 +51,10 @@ export function activateSession(
   setState("prompt", draft?.prompt ?? "")
   setState("attachments", draft?.attachments ?? [])
   setState("submitting", false)
-  setState("status", "ready")
   return Promise.all([
+    refreshSessionStatus(activeClient, session).then(() => {
+      if (state.session?.id === session.id) setState("status", "ready")
+    }),
     refreshCurrentMessages(),
     refreshModels(activeClient, session),
     refreshPermissions(),
