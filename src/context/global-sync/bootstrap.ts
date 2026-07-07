@@ -2,7 +2,8 @@ import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
 import { refreshModels } from "@/context/models"
 import { refreshPermissions } from "@/context/permission"
-import { makeClient, type OpencodeClient } from "@/context/sdk"
+import { createDirectorySdk } from "@/context/sdk"
+import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
 import {
   idleStatus,
   refreshMessages,
@@ -41,7 +42,7 @@ export function activateSession(
   const draft = options.restoreDraft ? readPromptDraft() : undefined
   if (!options.restoreDraft) clearPromptDraft()
   writeSessionRecord(session)
-  const activeClient = makeClient(server, session.directory)
+  const activeClient = createDirectorySdk(server, session.directory).client
   setSessionClient(activeClient)
   setState("session", session)
   setState("sessionStatus", idleStatus)
@@ -68,7 +69,7 @@ export function initializeSessionSync() {
   return resolveServer()
     .then((server) => {
       setState("server", server)
-      const baseClient = makeClient(server)
+      const baseClient = createServerSdk(server).client
       return restoreSession(baseClient, readSessionRecord())
         .then((session) => session ?? createDefaultSession(baseClient))
         .then((session) => activateSession(server, session, { restoreDraft: true }))

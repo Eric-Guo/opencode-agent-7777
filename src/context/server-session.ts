@@ -4,7 +4,7 @@ import { translateSync, type TranslationKey, type TranslationParams } from "@/co
 import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PermissionRequestView } from "@/pages/session/composer/session-request-tree"
-import type { OpencodeClient } from "@/context/sdk"
+import type { OpencodeClient } from "@/context/server-sdk"
 import type { ServerInfo } from "@/context/server"
 
 export type LoadStatus = "loading" | "ready" | "failed"

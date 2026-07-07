@@ -1,6 +1,6 @@
 import type { Session } from "@opencode-ai/sdk"
 import { RECENT_SESSION_LIMIT } from "@/constants/session"
-import { makeClient } from "@/context/sdk"
+import { createDirectorySdk } from "@/context/sdk"
 import { setState, state } from "@/context/server-session"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
@@ -19,7 +19,7 @@ export function refreshRecentSessions() {
     return Promise.resolve()
   }
 
-  const client = makeClient(server, directory)
+  const client = createDirectorySdk(server, directory).client
   setState("recentSessionsLoading", true)
   return client.session
     .list({

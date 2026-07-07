@@ -1,14 +1,28 @@
-import { createOpencodeClient } from "@opencode-ai/sdk/client"
 import type { ServerInfo } from "@/context/server"
-import { serverAuthHeader } from "@/utils/server"
+import { createServerSdk, type OpencodeClient, type ServerClientConfig } from "@/context/server-sdk"
 
-export type OpencodeClient = ReturnType<typeof createOpencodeClient>
+export type { OpencodeClient } from "@/context/server-sdk"
 
-export function makeClient(server: ServerInfo, directory?: string) {
-  return createOpencodeClient({
-    baseUrl: server.url,
+export type DirectorySdk = {
+  server: ServerInfo
+  directory: string
+  url: string
+  client: OpencodeClient
+  createClient(config?: ServerClientConfig): OpencodeClient
+}
+
+export function createDirectorySdk(server: ServerInfo, directory: string): DirectorySdk {
+  const serverSdk = createServerSdk(server)
+  return {
+    server: serverSdk.server,
     directory,
-    headers: serverAuthHeader(server),
-    throwOnError: true,
-  })
+    url: serverSdk.url,
+    client: serverSdk.createClient({ directory, throwOnError: true }),
+    createClient(config: ServerClientConfig = {}) {
+      return serverSdk.createClient({
+        directory,
+        ...config,
+      })
+    },
+  }
 }

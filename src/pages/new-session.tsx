@@ -5,7 +5,7 @@ import { createSession } from "@/context/global-sync/session-load"
 import { translateSync } from "@/context/language"
 import { setState, state, type HistoryItem } from "@/context/server-session"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync"
-import { makeClient, type OpencodeClient } from "@/context/sdk"
+import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
 
@@ -120,7 +120,7 @@ export function startNewSession() {
   }
 
   setState("error", "")
-  const baseClient = makeClient(server)
+  const baseClient = createServerSdk(server).client
   const previousSession = state.session
   const selectedModel = state.selectedModel
 

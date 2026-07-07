@@ -7,7 +7,7 @@ import {
 import { applySessionEvent } from "./global-sync/event-reducer"
 import { disposeRefreshQueue, scheduleRefreshTask } from "./global-sync/queue"
 import { handlePermissionEvent } from "@/context/permission"
-import { makeClient } from "@/context/sdk"
+import { createDirectorySdk } from "@/context/sdk"
 import { setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
 
@@ -36,7 +36,7 @@ function startEventStream() {
   const server = state.server
   const directory = state.session?.directory
   if (!server || !directory) return
-  const activeClient = makeClient(server, directory)
+  const activeClient = createDirectorySdk(server, directory).client
   const controller = new AbortController()
   streamAbort = controller
   void (async () => {
