@@ -31,7 +31,16 @@ export function projectTimelineMessages(messages: HistoryItem[], userMessages: H
     assistantMessagesByParent.set(item.info.parentID, [item])
   }
 
-  return userMessages.flatMap((item) => [item, ...(assistantMessagesByParent.get(item.info.id) ?? emptyHistoryItems)])
+  const assistantChain = (parentID: string, seen = new Set<string>()): HistoryItem[] => {
+    const assistants = assistantMessagesByParent.get(parentID) ?? emptyHistoryItems
+    return assistants.flatMap((assistant) => {
+      if (seen.has(assistant.info.id)) return emptyHistoryItems
+      seen.add(assistant.info.id)
+      return [assistant, ...assistantChain(assistant.info.id, seen)]
+    })
+  }
+
+  return userMessages.flatMap((item) => [item, ...assistantChain(item.info.id)])
 }
 
 export function createTimelineModel(input: {

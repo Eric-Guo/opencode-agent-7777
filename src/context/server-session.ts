@@ -96,24 +96,26 @@ export function normalizeHistory(items: { info: Message; parts: Part[] }[]): His
   return [...byID.values()].sort(compareHistoryItem)
 }
 
-function assistantParentIDs(items: HistoryItem[]) {
-  const userIDs = new Set(items.filter((item) => item.info.role === "user").map((item) => item.info.id))
+function missingAssistantParentIDs(items: HistoryItem[], requested = new Set<string>()) {
+  const messageIDs = new Set(items.map((item) => item.info.id))
   return [
     ...new Set(
       items.flatMap((item) =>
-        item.info.role === "assistant" && !userIDs.has(item.info.parentID) ? [item.info.parentID] : [],
+        item.info.role === "assistant" && !messageIDs.has(item.info.parentID) && !requested.has(item.info.parentID)
+          ? [item.info.parentID]
+          : [],
       ),
     ),
   ]
 }
 
-function cachedParents(parentIDs: string[]) {
-  const ids = new Set(parentIDs)
-  return state.messages.filter((item) => item.info.role === "user" && ids.has(item.info.id))
+function cachedMessages(messageIDs: string[]) {
+  const ids = new Set(messageIDs)
+  return state.messages.filter((item) => ids.has(item.info.id))
 }
 
 async function fetchParentMessages(active: { client: OpencodeClient; sessionID: string }, parentIDs: string[]) {
-  const cached = new Map(cachedParents(parentIDs).map((item) => [item.info.id, item] as const))
+  const cached = new Map(cachedMessages(parentIDs).map((item) => [item.info.id, item] as const))
   const fetched = await Promise.all(
     parentIDs.map((messageID) =>
       active.client.session
@@ -126,7 +128,7 @@ async function fetchParentMessages(active: { client: OpencodeClient; sessionID: 
   )
   const parents = new Map<string, HistoryItem>()
   for (const item of normalizeHistory(fetched.filter((item): item is { info: Message; parts: Part[] } => !!item))) {
-    if (item.info.role === "user") parents.set(item.info.id, item)
+    parents.set(item.info.id, item)
   }
   for (const parentID of parentIDs) {
     if (!parents.has(parentID)) {
@@ -138,10 +140,16 @@ async function fetchParentMessages(active: { client: OpencodeClient; sessionID: 
 }
 
 async function hydrateAssistantParents(active: { client: OpencodeClient; sessionID: string }, items: HistoryItem[]) {
-  const parentIDs = assistantParentIDs(items)
-  if (parentIDs.length === 0) return items
-  const parents = await fetchParentMessages(active, parentIDs)
-  return normalizeHistory([...items, ...parents])
+  let hydrated = items
+  const requested = new Set<string>()
+  while (true) {
+    const parentIDs = missingAssistantParentIDs(hydrated, requested)
+    if (parentIDs.length === 0) return hydrated
+    parentIDs.forEach((id) => requested.add(id))
+    const parents = await fetchParentMessages(active, parentIDs)
+    if (parents.length === 0) return hydrated
+    hydrated = normalizeHistory([...hydrated, ...parents])
+  }
 }
 
 export function compareHistoryItem(a: HistoryItem, b: HistoryItem) {

@@ -130,4 +130,24 @@ describe("server session message hydration", () => {
     expect(client.rootRequests).toEqual([{ path: { id: "session", messageID: parent.id } }])
     expect(state.messages.map((item) => item.info.id)).toEqual([parent.id, assistant.id])
   })
+
+  test("backfills assistant parent chains through the visible user root", async () => {
+    const parent = userMessage("msg_1")
+    const assistant = assistantMessage("msg_2", parent.id)
+    const child = assistantMessage("msg_3", assistant.id, { time: { created: 3, completed: 3 } })
+    const client = messageClient(
+      [{ data: [historyItem(child)] }],
+      [{ data: historyItem(assistant) }, { data: historyItem(parent) }],
+    )
+    setSessionClient(client)
+    setState("session", session())
+
+    await refreshMessages(2)
+
+    expect(client.rootRequests).toEqual([
+      { path: { id: "session", messageID: assistant.id } },
+      { path: { id: "session", messageID: parent.id } },
+    ])
+    expect(state.messages.map((item) => item.info.id)).toEqual([parent.id, assistant.id, child.id])
+  })
 })

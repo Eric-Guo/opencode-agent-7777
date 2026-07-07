@@ -40,6 +40,18 @@ describe("timeline model", () => {
     ])
   })
 
+  test("projects assistant parent chains under visible user parents", () => {
+    const user = item("msg_1", "user")
+    const parent = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
+    const child = item("msg_3", "assistant", { parentID: parent.info.id } as Partial<Message>)
+
+    expect(projectTimelineMessages([child, parent, user], [user]).map((message) => message.info.id)).toEqual([
+      "msg_1",
+      "msg_2",
+      "msg_3",
+    ])
+  })
+
   test("waits for an assistant-only load to hydrate its user root", () => {
     expect(isTimelineReady([item("msg_2", "assistant")], true)).toBe(false)
     expect(isTimelineReady([item("msg_1", "user"), item("msg_2", "assistant")], true)).toBe(true)
