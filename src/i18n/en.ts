@@ -30,6 +30,11 @@ export const dict = {
   "common.loading": "Loading",
   "common.loading.ellipsis": "...",
 
+  "ui.messagePart.option.typeOwnAnswer": "Type your own answer",
+  "ui.question.custom.placeholder": "Write an answer",
+  "ui.question.singleHint": "Choose one option.",
+  "ui.question.multiHint": "Choose one or more options.",
+
   "model.aria": "Model",
   "model.loading": "Loading models",
   "model.default": "Server default",

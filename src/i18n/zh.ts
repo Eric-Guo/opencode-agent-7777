@@ -34,6 +34,11 @@ export const dict = {
   "common.loading": "加载中",
   "common.loading.ellipsis": "...",
 
+  "ui.messagePart.option.typeOwnAnswer": "输入自己的答案",
+  "ui.question.custom.placeholder": "填写答案",
+  "ui.question.singleHint": "选择一个选项。",
+  "ui.question.multiHint": "选择一个或多个选项。",
+
   "model.aria": "模型",
   "model.loading": "正在加载模型",
   "model.default": "服务器默认",
