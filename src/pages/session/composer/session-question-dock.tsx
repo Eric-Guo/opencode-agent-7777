@@ -57,6 +57,13 @@ export function SessionQuestionDock(props: {
     if ((store.answers[index]?.length ?? 0) > 0) return true
     return store.customOn[index] === true && (store.custom[index] ?? "").trim().length > 0
   }
+  const updateAnswer = (index: number, update: (current: QuestionAnswer) => QuestionAnswer) => {
+    setStore("answers", (current) => {
+      const next = current.map((answer) => [...answer]) as QuestionAnswer[]
+      next[index] = update(next[index] ?? [])
+      return next
+    })
+  }
 
   const setCustom = (value: string) => {
     const previous = customAnswer().trim()
@@ -65,11 +72,11 @@ export function SessionQuestionDock(props: {
 
     const next = value.trim()
     if (!multiple()) {
-      setStore("answers", store.tab, next ? [next] : [])
+      updateAnswer(store.tab, () => (next ? [next] : []))
       return
     }
 
-    setStore("answers", store.tab, (current = []) => {
+    updateAnswer(store.tab, (current) => {
       const withoutPrevious = current.filter((item) => item !== previous)
       if (!next) return withoutPrevious
       if (withoutPrevious.includes(next)) return withoutPrevious
@@ -81,12 +88,12 @@ export function SessionQuestionDock(props: {
     if (props.responding) return
 
     if (!multiple()) {
-      setStore("answers", store.tab, [label])
+      updateAnswer(store.tab, () => [label])
       setStore("customOn", store.tab, false)
       return
     }
 
-    setStore("answers", store.tab, (current = []) => {
+    updateAnswer(store.tab, (current) => {
       if (current.includes(label)) return current.filter((item) => item !== label)
       return [...current, label]
     })
@@ -105,11 +112,11 @@ export function SessionQuestionDock(props: {
     setStore("customOn", store.tab, next)
     const value = customAnswer().trim()
     if (next && value) {
-      setStore("answers", store.tab, (current = []) => (current.includes(value) ? current : [...current, value]))
+      updateAnswer(store.tab, (current) => (current.includes(value) ? current : [...current, value]))
       return
     }
     if (!next && value) {
-      setStore("answers", store.tab, (current = []) => current.filter((item) => item !== value))
+      updateAnswer(store.tab, (current) => current.filter((item) => item !== value))
     }
   }
 
@@ -166,15 +173,21 @@ export function SessionQuestionDock(props: {
       <div class="mt-2 grid gap-2" role={multiple() ? "group" : "radiogroup"}>
         <For each={options()}>
           {(option) => (
-            <button
-              type="button"
-              class="flex min-h-10 w-full items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
-              classList={{ "border-v2-background-bg-accent": picked(option.label) }}
-              role={multiple() ? "checkbox" : "radio"}
-              aria-checked={picked(option.label)}
-              disabled={props.responding}
-              onClick={() => select(option.label)}
+            <label
+              class="flex min-h-10 w-full cursor-pointer items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
+              classList={{
+                "border-v2-background-bg-accent": picked(option.label),
+                "pointer-events-none opacity-55": props.responding,
+              }}
             >
+              <input
+                type={multiple() ? "checkbox" : "radio"}
+                class="sr-only"
+                name={`${props.request.id}-${store.tab}`}
+                checked={picked(option.label)}
+                disabled={props.responding}
+                onChange={() => select(option.label)}
+              />
               <Mark multiple={multiple()} picked={picked(option.label)} />
               <span class="min-w-0">
                 <span class="block font-[650]">{option.label}</span>
@@ -182,24 +195,26 @@ export function SessionQuestionDock(props: {
                   <span class="mt-0.5 block text-[12px] text-v2-text-text-muted">{option.description}</span>
                 </Show>
               </span>
-            </button>
+            </label>
           )}
         </For>
 
         <label
-          class="flex min-h-10 w-full items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base"
-          classList={{ "border-v2-background-bg-accent": customPicked() }}
+          class="flex min-h-10 w-full cursor-pointer items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
+          classList={{
+            "border-v2-background-bg-accent": customPicked(),
+            "pointer-events-none opacity-55": props.responding,
+          }}
         >
-          <button
-            type="button"
-            class="mt-0.5 border-0 bg-transparent p-0"
+          <input
+            type={multiple() ? "checkbox" : "radio"}
+            class="sr-only"
+            name={`${props.request.id}-${store.tab}`}
+            checked={customPicked()}
             disabled={props.responding}
-            role={multiple() ? "checkbox" : "radio"}
-            aria-checked={customPicked()}
-            onClick={toggleCustom}
-          >
-            <Mark multiple={multiple()} picked={customPicked()} />
-          </button>
+            onChange={toggleCustom}
+          />
+          <Mark multiple={multiple()} picked={customPicked()} />
           <span class="min-w-0 flex-1">
             <span class="block font-[650]">{language.t("ui.messagePart.option.typeOwnAnswer")}</span>
             <textarea
