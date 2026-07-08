@@ -1,267 +1,466 @@
+import { Button } from "@opencode-ai/ui/button"
 import { Icon } from "@opencode-ai/ui/icon"
-import { For, Show, createMemo } from "solid-js"
+import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
+import { For, Show, createMemo, onCleanup, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { QuestionAnswer, QuestionRequest } from "@opencode-ai/sdk/v2"
 import { useLanguage } from "@/context/language"
 
-function Mark(props: { multiple: boolean; picked: boolean }) {
+function Mark(props: { multi: boolean; picked: boolean; onClick?: (event: MouseEvent) => void }) {
   return (
-    <span
-      class="flex size-4 shrink-0 items-center justify-center rounded border border-v2-border-border-base bg-v2-background-bg-base text-[10px] text-v2-text-text-contrast"
-      classList={{
-        "rounded-full": !props.multiple,
-        "bg-v2-background-bg-accent border-v2-background-bg-accent": props.picked,
-      }}
-      aria-hidden="true"
-    >
-      <Show when={props.picked}>
-        <Show when={props.multiple} fallback={<span class="size-1.5 rounded-full bg-v2-text-text-contrast" />}>
+    <span data-slot="question-option-check" aria-hidden="true" onClick={props.onClick}>
+      <span data-slot="question-option-box" data-type={props.multi ? "checkbox" : "radio"} data-picked={props.picked}>
+        <Show when={props.multi} fallback={<span data-slot="question-option-radio-dot" />}>
           <Icon name="check-small" size="small" />
         </Show>
-      </Show>
+      </span>
     </span>
   )
 }
 
-export function SessionQuestionDock(props: {
+function Option(props: {
+  multi: boolean
+  picked: boolean
+  label: string
+  description?: string
+  disabled: boolean
+  ref?: (el: HTMLButtonElement) => void
+  onFocus?: VoidFunction
+  onClick: VoidFunction
+}) {
+  return (
+    <button
+      type="button"
+      ref={props.ref}
+      data-slot="question-option"
+      data-picked={props.picked}
+      role={props.multi ? "checkbox" : "radio"}
+      aria-checked={props.picked}
+      disabled={props.disabled}
+      onFocus={props.onFocus}
+      onClick={props.onClick}
+    >
+      <Mark multi={props.multi} picked={props.picked} />
+      <span data-slot="question-option-main">
+        <span data-slot="option-label">{props.label}</span>
+        <Show when={props.description}>
+          <span data-slot="option-description">{props.description}</span>
+        </Show>
+      </span>
+    </button>
+  )
+}
+
+export const SessionQuestionDock: Component<{
   request: QuestionRequest
   responding: boolean
   onReply: (answers: QuestionAnswer[]) => void
   onReject: () => void
-}) {
+}> = (props) => {
   const language = useLanguage()
+
   const [store, setStore] = createStore({
     tab: 0,
     answers: [] as QuestionAnswer[],
     custom: [] as string[],
     customOn: [] as boolean[],
+    editing: false,
+    focus: 0,
+  })
+
+  let customRef: HTMLButtonElement | undefined
+  let optsRef: HTMLButtonElement[] = []
+  let focusFrame: number | undefined
+
+  onCleanup(() => {
+    if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
   })
 
   const questions = createMemo(() => props.request.questions)
   const total = createMemo(() => questions().length)
   const question = createMemo(() => questions()[store.tab])
   const options = createMemo(() => question()?.options ?? [])
-  const multiple = createMemo(() => question()?.multiple === true)
+  const input = createMemo(() => store.custom[store.tab] ?? "")
+  const on = createMemo(() => store.customOn[store.tab] === true)
+  const multi = createMemo(() => question()?.multiple === true)
+  const count = createMemo(() => options().length + 1)
   const last = createMemo(() => store.tab >= total() - 1)
-  const customAnswer = createMemo(() => store.custom[store.tab] ?? "")
-  const customPicked = createMemo(() => store.customOn[store.tab] === true)
+
   const summary = createMemo(() => {
-    return language.t("session.question.progress", {
-      current: Math.min(store.tab + 1, total()),
-      total: total(),
-    })
+    const n = Math.min(store.tab + 1, total())
+    return language.t("session.question.progress", { current: n, total: total() })
   })
+  const customLabel = () => language.t("ui.messagePart.option.typeOwnAnswer")
+  const customPlaceholder = () => language.t("ui.question.custom.placeholder")
+  const sending = () => props.responding
 
-  const picked = (label: string) => store.answers[store.tab]?.includes(label) ?? false
-  const answered = (index: number) => {
-    if ((store.answers[index]?.length ?? 0) > 0) return true
-    return store.customOn[index] === true && (store.custom[index] ?? "").trim().length > 0
-  }
-  const updateAnswer = (index: number, update: (current: QuestionAnswer) => QuestionAnswer) => {
-    setStore("answers", (current) => {
-      const next = current.map((answer) => [...answer]) as QuestionAnswer[]
-      next[index] = update(next[index] ?? [])
-      return next
-    })
-  }
-
-  const setCustom = (value: string) => {
-    const previous = customAnswer().trim()
-    setStore("custom", store.tab, value)
-    if (!customPicked()) return
-
+  const customUpdate = (value: string, selected: boolean = on()) => {
+    const prev = input().trim()
     const next = value.trim()
-    if (!multiple()) {
-      updateAnswer(store.tab, () => (next ? [next] : []))
+
+    setStore("custom", store.tab, value)
+    if (!selected) return
+
+    if (multi()) {
+      setStore("answers", store.tab, (current = []) => {
+        const removed = prev ? current.filter((item) => item.trim() !== prev) : current
+        if (!next) return removed
+        if (removed.some((item) => item.trim() === next)) return removed
+        return [...removed, next]
+      })
       return
     }
 
-    updateAnswer(store.tab, (current) => {
-      const withoutPrevious = current.filter((item) => item !== previous)
-      if (!next) return withoutPrevious
-      if (withoutPrevious.includes(next)) return withoutPrevious
-      return [...withoutPrevious, next]
+    setStore("answers", store.tab, next ? [next] : [])
+  }
+
+  const clamp = (i: number) => Math.max(0, Math.min(count() - 1, i))
+
+  const pickFocus = (tab: number = store.tab) => {
+    const list = questions()[tab]?.options ?? []
+    if (store.customOn[tab] === true) return list.length
+    return Math.max(
+      0,
+      list.findIndex((item) => store.answers[tab]?.includes(item.label) ?? false),
+    )
+  }
+
+  const focus = (i: number) => {
+    const next = clamp(i)
+    setStore("focus", next)
+    if (store.editing) return
+    if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
+    focusFrame = requestAnimationFrame(() => {
+      focusFrame = undefined
+      const el = next === options().length ? customRef : optsRef[next]
+      el?.focus()
     })
   }
 
-  const select = (label: string) => {
-    if (props.responding) return
+  const submit = () => props.onReply(questions().map((_, i) => store.answers[i] ?? []))
 
-    if (!multiple()) {
-      updateAnswer(store.tab, () => [label])
-      setStore("customOn", store.tab, false)
-      return
-    }
+  const answered = (i: number) => {
+    if ((store.answers[i]?.length ?? 0) > 0) return true
+    return store.customOn[i] === true && (store.custom[i] ?? "").trim().length > 0
+  }
 
-    updateAnswer(store.tab, (current) => {
-      if (current.includes(label)) return current.filter((item) => item !== label)
-      return [...current, label]
+  const picked = (answer: string) => store.answers[store.tab]?.includes(answer) ?? false
+
+  const pick = (answer: string, custom: boolean = false) => {
+    setStore("answers", store.tab, [answer])
+    if (custom) setStore("custom", store.tab, answer)
+    if (!custom) setStore("customOn", store.tab, false)
+    setStore("editing", false)
+  }
+
+  const toggle = (answer: string) => {
+    setStore("answers", store.tab, (current = []) => {
+      if (current.includes(answer)) return current.filter((item) => item !== answer)
+      return [...current, answer]
     })
   }
 
-  const toggleCustom = () => {
-    if (props.responding) return
+  const customToggle = () => {
+    if (sending()) return
+    setStore("focus", options().length)
 
-    if (!multiple()) {
+    if (!multi()) {
       setStore("customOn", store.tab, true)
-      setCustom(customAnswer())
+      setStore("editing", true)
+      customUpdate(input(), true)
       return
     }
 
-    const next = !customPicked()
+    const next = !on()
     setStore("customOn", store.tab, next)
-    const value = customAnswer().trim()
-    if (next && value) {
-      updateAnswer(store.tab, (current) => (current.includes(value) ? current : [...current, value]))
+    if (next) {
+      setStore("editing", true)
+      customUpdate(input(), true)
       return
     }
-    if (!next && value) {
-      updateAnswer(store.tab, (current) => current.filter((item) => item !== value))
-    }
+
+    const value = input().trim()
+    if (value) setStore("answers", store.tab, (current = []) => current.filter((item) => item.trim() !== value))
+    setStore("editing", false)
+    focus(options().length)
   }
 
-  const submit = () => {
-    props.onReply(questions().map((_, index) => store.answers[index] ?? []))
+  const customOpen = () => {
+    if (sending()) return
+    setStore("focus", options().length)
+    if (!on()) setStore("customOn", store.tab, true)
+    setStore("editing", true)
+    customUpdate(input(), true)
+  }
+
+  const move = (step: number) => {
+    if (store.editing || sending()) return
+    focus(store.focus + step)
+  }
+
+  const nav = (event: KeyboardEvent) => {
+    if (event.defaultPrevented) return
+
+    if (event.key === "Escape") {
+      event.preventDefault()
+      props.onReject()
+      return
+    }
+
+    const mod = (event.metaKey || event.ctrlKey) && !event.altKey
+    if (mod && event.key === "Enter") {
+      if (event.repeat) return
+      event.preventDefault()
+      next()
+      return
+    }
+
+    const target =
+      event.target instanceof HTMLElement ? event.target.closest('[data-slot="question-options"]') : undefined
+    if (store.editing) return
+    if (!(target instanceof HTMLElement)) return
+    if (event.altKey || event.ctrlKey || event.metaKey) return
+
+    if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+      event.preventDefault()
+      move(1)
+      return
+    }
+
+    if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+      event.preventDefault()
+      move(-1)
+      return
+    }
+
+    if (event.key === "Home") {
+      event.preventDefault()
+      focus(0)
+      return
+    }
+
+    if (event.key !== "End") return
+    event.preventDefault()
+    focus(count() - 1)
+  }
+
+  const selectOption = (optIndex: number) => {
+    if (sending()) return
+
+    if (optIndex === options().length) {
+      customOpen()
+      return
+    }
+
+    const opt = options()[optIndex]
+    if (!opt) return
+    if (multi()) {
+      setStore("editing", false)
+      toggle(opt.label)
+      return
+    }
+    pick(opt.label)
+  }
+
+  const commitCustom = () => {
+    setStore("editing", false)
+    customUpdate(input())
+    focus(options().length)
+  }
+
+  const resizeInput = (el: HTMLTextAreaElement) => {
+    el.style.height = "0px"
+    el.style.height = `${el.scrollHeight}px`
+  }
+
+  const focusCustom = (el: HTMLTextAreaElement) => {
+    setTimeout(() => {
+      el.focus()
+      resizeInput(el)
+    }, 0)
+  }
+
+  const toggleCustomMark = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    customToggle()
   }
 
   const next = () => {
-    if (props.responding) return
-    if (last()) {
+    if (sending()) return
+    if (store.editing) commitCustom()
+
+    if (store.tab >= total() - 1) {
       submit()
       return
     }
-    setStore("tab", store.tab + 1)
+
+    const tab = store.tab + 1
+    setStore("tab", tab)
+    setStore("editing", false)
+    focus(pickFocus(tab))
+  }
+
+  const back = () => {
+    if (sending()) return
+    if (store.tab <= 0) return
+    const tab = store.tab - 1
+    setStore("tab", tab)
+    setStore("editing", false)
+    focus(pickFocus(tab))
+  }
+
+  const jump = (tab: number) => {
+    if (sending()) return
+    setStore("tab", tab)
+    setStore("editing", false)
+    focus(pickFocus(tab))
   }
 
   return (
-    <section
-      class="mx-auto mb-3 max-w-[1120px] rounded-xl border border-v2-border-border-active bg-v2-background-bg-layer-02 p-3.5 shadow-[var(--v2-elevation-raised)] max-[720px]:mb-2.5"
-      aria-label={language.t("ui.tool.questions")}
-    >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-v2-text-text-base">{summary()}</h2>
-          <p class="m-0 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted">{question()?.question}</p>
-        </div>
-        <Show when={total() > 1}>
-          <div class="flex shrink-0 gap-1 pt-0.5">
-            <For each={questions()}>
-              {(_, index) => (
-                <button
-                  type="button"
-                  class="h-2.5 w-7 rounded-full border border-v2-border-border-base bg-v2-background-bg-base disabled:opacity-60"
-                  classList={{
-                    "bg-v2-background-bg-accent border-v2-background-bg-accent": index() === store.tab,
-                    "border-v2-text-text-accent": answered(index()),
-                  }}
-                  disabled={props.responding}
-                  aria-label={`${language.t("ui.tool.questions")} ${index() + 1}`}
-                  onClick={() => setStore("tab", index())}
-                />
-              )}
-            </For>
-          </div>
+    <div data-component="session-question-dock">
+      <DockPrompt
+        kind="question"
+        onKeyDown={nav}
+        header={
+          <>
+            <div data-slot="question-header-title">{summary()}</div>
+            <div data-slot="question-header-actions">
+              <Show when={total() > 1}>
+                <div data-slot="question-progress">
+                  <For each={questions()}>
+                    {(_, i) => (
+                      <button
+                        type="button"
+                        data-slot="question-progress-segment"
+                        data-active={i() === store.tab}
+                        data-answered={answered(i())}
+                        disabled={sending()}
+                        onClick={() => jump(i())}
+                        aria-label={`${language.t("ui.tool.questions")} ${i() + 1}`}
+                      />
+                    )}
+                  </For>
+                </div>
+              </Show>
+            </div>
+          </>
+        }
+        footer={
+          <>
+            <Button type="button" variant="ghost" size="large" disabled={sending()} onClick={props.onReject}>
+              {language.t("ui.common.dismiss")}
+            </Button>
+            <div data-slot="question-footer-actions">
+              <Show when={store.tab > 0}>
+                <Button type="button" variant="secondary" size="large" disabled={sending()} onClick={back}>
+                  {language.t("ui.common.back")}
+                </Button>
+              </Show>
+              <Button
+                type="button"
+                variant={last() ? "primary" : "secondary"}
+                size="large"
+                disabled={sending()}
+                onClick={next}
+              >
+                {last() ? language.t("ui.common.submit") : language.t("ui.common.next")}
+              </Button>
+            </div>
+          </>
+        }
+      >
+        <div data-slot="question-text">{question()?.question}</div>
+        <Show when={multi()} fallback={<div data-slot="question-hint">{language.t("ui.question.singleHint")}</div>}>
+          <div data-slot="question-hint">{language.t("ui.question.multiHint")}</div>
         </Show>
-      </div>
-
-      <div class="mt-3 text-[12px] font-[560] text-v2-text-text-faint">
-        <Show when={multiple()} fallback={language.t("ui.question.singleHint")}>
-          {language.t("ui.question.multiHint")}
-        </Show>
-      </div>
-
-      <div class="mt-2 grid gap-2" role={multiple() ? "group" : "radiogroup"}>
-        <For each={options()}>
-          {(option) => (
-            <label
-              class="flex min-h-10 w-full cursor-pointer items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
-              classList={{
-                "border-v2-background-bg-accent": picked(option.label),
-                "pointer-events-none opacity-55": props.responding,
-              }}
-            >
-              <input
-                type={multiple() ? "checkbox" : "radio"}
-                class="sr-only"
-                name={`${props.request.id}-${store.tab}`}
-                checked={picked(option.label)}
-                disabled={props.responding}
-                onChange={() => select(option.label)}
+        <div data-slot="question-options">
+          <For each={options()}>
+            {(opt, i) => (
+              <Option
+                multi={multi()}
+                picked={picked(opt.label)}
+                label={opt.label}
+                description={opt.description}
+                disabled={sending()}
+                ref={(el) => (optsRef[i()] = el)}
+                onFocus={() => setStore("focus", i())}
+                onClick={() => selectOption(i())}
               />
-              <Mark multiple={multiple()} picked={picked(option.label)} />
-              <span class="min-w-0">
-                <span class="block font-[650]">{option.label}</span>
-                <Show when={option.description}>
-                  <span class="mt-0.5 block text-[12px] text-v2-text-text-muted">{option.description}</span>
-                </Show>
-              </span>
-            </label>
-          )}
-        </For>
+            )}
+          </For>
 
-        <label
-          class="flex min-h-10 w-full cursor-pointer items-start gap-2 rounded-lg border border-v2-border-border-base bg-v2-background-bg-base px-3 py-2 text-left text-[13px] leading-[1.35] text-v2-text-text-base hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
-          classList={{
-            "border-v2-background-bg-accent": customPicked(),
-            "pointer-events-none opacity-55": props.responding,
-          }}
-        >
-          <input
-            type={multiple() ? "checkbox" : "radio"}
-            class="sr-only"
-            name={`${props.request.id}-${store.tab}`}
-            checked={customPicked()}
-            disabled={props.responding}
-            onChange={toggleCustom}
-          />
-          <Mark multiple={multiple()} picked={customPicked()} />
-          <span class="min-w-0 flex-1">
-            <span class="block font-[650]">{language.t("ui.messagePart.option.typeOwnAnswer")}</span>
-            <textarea
-              class="mt-1 block min-h-8 w-full resize-y rounded-md border border-v2-border-border-base bg-v2-background-bg-deep px-2 py-1.5 text-[13px] leading-5 text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint focus:border-v2-border-border-active disabled:opacity-55"
-              rows={1}
-              value={customAnswer()}
-              placeholder={language.t("ui.question.custom.placeholder")}
-              disabled={props.responding}
-              onFocus={() => {
-                if (!customPicked()) toggleCustom()
-              }}
-              onInput={(event) => setCustom(event.currentTarget.value)}
-            />
-          </span>
-        </label>
-      </div>
-
-      <div class="mt-3.5 flex justify-between gap-2 max-[720px]:flex-wrap">
-        <button
-          type="button"
-          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
-          disabled={props.responding}
-          onClick={props.onReject}
-        >
-          {language.t("ui.common.dismiss")}
-        </button>
-        <div class="flex gap-2">
-          <Show when={store.tab > 0}>
-            <button
-              type="button"
-              class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
-              disabled={props.responding}
-              onClick={() => setStore("tab", store.tab - 1)}
-            >
-              {language.t("ui.common.back")}
-            </button>
-          </Show>
-          <button
-            type="button"
-            class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-accent px-3 text-[13px] font-[680] text-v2-text-text-contrast hover:enabled:bg-[var(--v2-text-text-accent-hover)] disabled:opacity-55"
-            disabled={props.responding}
-            onClick={next}
+          <Show
+            when={store.editing}
+            fallback={
+              <button
+                type="button"
+                ref={customRef}
+                data-slot="question-option"
+                data-custom="true"
+                data-picked={on()}
+                role={multi() ? "checkbox" : "radio"}
+                aria-checked={on()}
+                disabled={sending()}
+                onFocus={() => setStore("focus", options().length)}
+                onClick={customOpen}
+              >
+                <Mark multi={multi()} picked={on()} onClick={toggleCustomMark} />
+                <span data-slot="question-option-main">
+                  <span data-slot="option-label">{customLabel()}</span>
+                  <span data-slot="option-description">{input() || customPlaceholder()}</span>
+                </span>
+              </button>
+            }
           >
-            {last() ? language.t("ui.common.submit") : language.t("ui.common.next")}
-          </button>
+            <div
+              data-slot="question-option"
+              data-custom="true"
+              data-picked={on()}
+              role={multi() ? "checkbox" : "radio"}
+              aria-checked={on()}
+              onMouseDown={(event) => {
+                if (sending()) {
+                  event.preventDefault()
+                  return
+                }
+                if (event.target instanceof HTMLTextAreaElement) return
+                const input = event.currentTarget.querySelector('[data-slot="question-custom-input"]')
+                if (input instanceof HTMLTextAreaElement) input.focus()
+              }}
+            >
+              <Mark multi={multi()} picked={on()} onClick={toggleCustomMark} />
+              <span data-slot="question-option-main">
+                <span data-slot="option-label">{customLabel()}</span>
+                <textarea
+                  ref={focusCustom}
+                  data-slot="question-custom-input"
+                  placeholder={customPlaceholder()}
+                  value={input()}
+                  rows={1}
+                  disabled={sending()}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault()
+                      setStore("editing", false)
+                      focus(options().length)
+                      return
+                    }
+                    if ((event.metaKey || event.ctrlKey) && !event.altKey) return
+                    if (event.key !== "Enter" || event.shiftKey) return
+                    event.preventDefault()
+                    commitCustom()
+                  }}
+                  onInput={(event) => {
+                    customUpdate(event.currentTarget.value)
+                    resizeInput(event.currentTarget)
+                  }}
+                />
+              </span>
+            </div>
+          </Show>
         </div>
-      </div>
-    </section>
+      </DockPrompt>
+    </div>
   )
 }
