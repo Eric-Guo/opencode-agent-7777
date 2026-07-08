@@ -3,39 +3,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show, type ComponentProps } from "solid-js"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 import { useLanguage } from "@/context/language"
-
-type SdkPart = import("@opencode-ai/sdk").Part
-
-function isTextPart(part: SdkPart): part is Extract<SdkPart, { type: "text" }> {
-  return part.type === "text"
-}
-
-function isReasoningPart(part: SdkPart): part is Extract<SdkPart, { type: "reasoning" }> {
-  return part.type === "reasoning"
-}
-
-function isToolPart(part: SdkPart): part is Extract<SdkPart, { type: "tool" }> {
-  return part.type === "tool"
-}
-
-function isFilePart(part: SdkPart): part is Extract<SdkPart, { type: "file" }> {
-  return part.type === "file"
-}
-
-function messageText(parts: SdkPart[]) {
-  return parts
-    .filter(isTextPart)
-    .map((part) => part.text)
-    .filter((text) => text.trim().length > 0)
-    .join("\n\n")
-}
-
-function reasoningSummaries(parts: SdkPart[]) {
-  return parts
-    .filter(isReasoningPart)
-    .map((part) => part.text)
-    .filter((text) => text.trim().length > 0)
-}
+import { createTimelineMessageRow } from "./rows"
 
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
 type SharedPartProps = ComponentProps<typeof Part>
@@ -57,19 +25,12 @@ function copyToClipboard(value: string) {
 
 function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
   const language = useLanguage()
-  const textParts = createMemo(() => props.item.parts.filter(isTextPart))
-  const reasoningParts = createMemo(() => props.item.parts.filter(isReasoningPart))
-  const text = createMemo(() => messageText(props.item.parts))
-  const reasoning = createMemo(() => reasoningSummaries(props.item.parts))
-  const tools = createMemo(() => props.item.parts.filter(isToolPart))
-  const files = createMemo(() => props.item.parts.filter(isFilePart))
+  const row = createMemo(() => createTimelineMessageRow(props.item))
   const role = createMemo(() => (props.item.info.role === "user" ? language.t("timeline.role.user") : "7777"))
-  const copyValue = createMemo(() => text() || reasoning().join("\n\n"))
-  const hasContent = createMemo(() => !!text() || reasoning().length > 0 || files().length > 0)
   const [copied, setCopied] = createSignal(false)
 
   const handleCopy = () => {
-    const value = copyValue()
+    const value = row().copyValue
     if (!value) return
     void copyToClipboard(value).then(() => {
       setCopied(true)
@@ -96,10 +57,10 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
           fallback={
             <>
               <div class="min-w-0 border-0 bg-transparent p-0 shadow-none">
-                <Show when={hasContent()} fallback={<div class="text-v2-text-text-faint">...</div>}>
-                  <Show when={reasoningParts().length > 0}>
+                <Show when={row().hasContent} fallback={<div class="text-v2-text-text-faint">...</div>}>
+                  <Show when={row().reasoningParts.length > 0}>
                     <div class="mb-3">
-                      <For each={reasoningParts()}>
+                      <For each={row().reasoningParts}>
                         {(part) => (
                           <Part
                             message={props.item.info as SharedPartProps["message"]}
@@ -110,9 +71,9 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                       </For>
                     </div>
                   </Show>
-                  <Show when={files().length > 0}>
+                  <Show when={row().files.length > 0}>
                     <div class="mb-3 flex max-w-full flex-col gap-2">
-                      <For each={files()}>
+                      <For each={row().files}>
                         {(part) => (
                           <Part
                             message={props.item.info as SharedPartProps["message"]}
@@ -123,8 +84,8 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                       </For>
                     </div>
                   </Show>
-                  <Show when={textParts().length > 0}>
-                    <For each={textParts()}>
+                  <Show when={row().textParts.length > 0}>
+                    <For each={row().textParts}>
                       {(part) => (
                         <Part
                           message={props.item.info as SharedPartProps["message"]}
@@ -136,9 +97,9 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                     </For>
                   </Show>
                 </Show>
-                <Show when={tools().length > 0}>
+                <Show when={row().tools.length > 0}>
                   <div class="mt-3 flex flex-col gap-1.5">
-                    <For each={tools()}>
+                    <For each={row().tools}>
                       {(part) => (
                         <Part
                           message={props.item.info as SharedPartProps["message"]}
@@ -156,7 +117,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                   type="button"
                   class="inline-flex h-7 min-w-[34px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[15px] [&_[data-component=icon]]:w-[15px]"
                   aria-label={language.t("timeline.copy")}
-                  disabled={!copyValue()}
+                  disabled={!row().copyValue}
                   onClick={handleCopy}
                 >
                   <Icon name="copy" />

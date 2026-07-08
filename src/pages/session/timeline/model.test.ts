@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { Message, Part } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
-import { isTimelineReady, projectTimelineMessages, selectUserMessages, selectVisibleUserMessages } from "./model"
+import { isTimelineReady, selectUserMessages, selectVisibleUserMessages } from "./model"
 
 const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>
   ({
@@ -27,29 +27,6 @@ describe("timeline model", () => {
     expect(users.map((message) => message.info.id)).toEqual(["msg_1", "msg_3", "msg_5"])
     expect(selectVisibleUserMessages(users, "msg_5").map((message) => message.info.id)).toEqual(["msg_1", "msg_3"])
     expect(selectVisibleUserMessages(users)).toBe(users)
-  })
-
-  test("projects assistant messages under visible user parents", () => {
-    const parent = item("msg_1", "user")
-    const child = item("msg_2", "assistant", { parentID: parent.info.id } as Partial<Message>)
-    const orphan = item("msg_3", "assistant", { parentID: "missing" } as Partial<Message>)
-
-    expect(projectTimelineMessages([child, orphan, parent], [parent]).map((message) => message.info.id)).toEqual([
-      "msg_1",
-      "msg_2",
-    ])
-  })
-
-  test("projects assistant parent chains under visible user parents", () => {
-    const user = item("msg_1", "user")
-    const parent = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
-    const child = item("msg_3", "assistant", { parentID: parent.info.id } as Partial<Message>)
-
-    expect(projectTimelineMessages([child, parent, user], [user]).map((message) => message.info.id)).toEqual([
-      "msg_1",
-      "msg_2",
-      "msg_3",
-    ])
   })
 
   test("waits for an assistant-only load to hydrate its user root", () => {
