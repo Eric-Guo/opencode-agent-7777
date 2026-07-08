@@ -1,4 +1,5 @@
 import type { Session, SessionStatus } from "@opencode-ai/sdk"
+import type { QuestionRequest } from "@opencode-ai/sdk/v2"
 import { createStore } from "solid-js/store"
 import { translateSync } from "@/context/language"
 import type { ModelSelection } from "@/context/local"
@@ -33,6 +34,8 @@ export type AppState = {
   selectedModel: ModelSelection | undefined
   permissionRequest: PermissionRequestView | undefined
   permissionResponding: boolean
+  questionRequest: QuestionRequest | undefined
+  questionResponding: boolean
   prompt: string
   attachments: PromptAttachment[]
   submitting: boolean
@@ -56,6 +59,8 @@ export const [state, setState] = createStore<AppState>({
   selectedModel: undefined,
   permissionRequest: undefined,
   permissionResponding: false,
+  questionRequest: undefined,
+  questionResponding: false,
   prompt: "",
   attachments: [],
   submitting: false,

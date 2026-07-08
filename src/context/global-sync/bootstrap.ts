@@ -3,6 +3,7 @@ import { refreshMessages } from "@/context/global-sync/session-cache"
 import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
 import { refreshModels } from "@/context/models"
 import { refreshPermissions } from "@/context/permission"
+import { refreshQuestions } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk"
 import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
 import { idleStatus, setSessionClient, setState, state } from "@/context/server-session"
@@ -44,6 +45,8 @@ export function activateSession(
   setState("messages", [])
   setState("permissionRequest", undefined)
   setState("permissionResponding", false)
+  setState("questionRequest", undefined)
+  setState("questionResponding", false)
   setState("prompt", draft?.prompt ?? "")
   setState("attachments", draft?.attachments ?? [])
   setState("submitting", false)
@@ -54,6 +57,7 @@ export function activateSession(
     refreshCurrentMessages(),
     refreshModels(activeClient, session),
     refreshPermissions(),
+    refreshQuestions(),
     refreshRecentSessions(),
   ]).then(() => undefined)
 }

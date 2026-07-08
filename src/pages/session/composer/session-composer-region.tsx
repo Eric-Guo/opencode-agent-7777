@@ -2,6 +2,7 @@ import { Show } from "solid-js"
 import { PromptInput } from "@/components/prompt-input"
 import { useLanguage } from "@/context/language"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
+import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
 import type { SessionComposerRegionController } from "@/pages/session/composer/session-composer-region-controller"
 
 export function SessionComposerRegion(props: {
@@ -18,6 +19,16 @@ export function SessionComposerRegion(props: {
         controller.submitPrompt()
       }}
     >
+      <Show when={controller.questionRequest()}>
+        {(request) => (
+          <SessionQuestionDock
+            request={request()}
+            responding={controller.questionResponding()}
+            onReply={controller.replyQuestion}
+            onReject={controller.rejectQuestion}
+          />
+        )}
+      </Show>
       <Show when={controller.permissionRequest()}>
         {(request) => (
           <SessionPermissionDock

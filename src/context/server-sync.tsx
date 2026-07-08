@@ -7,6 +7,7 @@ import {
 import { applySessionEvent } from "./global-sync/event-reducer"
 import { disposeRefreshQueue, scheduleRefreshTask } from "./global-sync/queue"
 import { handlePermissionEvent } from "@/context/permission"
+import { handleQuestionEvent } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk"
 import { setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
@@ -23,6 +24,7 @@ export function scheduleRefresh(delay = 120) {
 
 function handleEvent(event: OpencodeEvent) {
   if (handlePermissionEvent(event)) return
+  if (handleQuestionEvent(event)) return
   applySessionEvent(event, { refresh: scheduleMessageRefresh })
 }
 
