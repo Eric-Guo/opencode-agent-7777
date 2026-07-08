@@ -1,6 +1,6 @@
 import { createMemo } from "solid-js"
+import { statusText } from "@/components/status-popover"
 import { useLanguage } from "@/context/language"
-import { statusText } from "@/context/server-session"
 import { createNewSessionController } from "@/pages/new-session"
 
 export const SESSION_ROUTE_FRAME_CLASS =

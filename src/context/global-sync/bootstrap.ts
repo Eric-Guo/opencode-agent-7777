@@ -1,16 +1,11 @@
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
+import { refreshMessages } from "@/context/global-sync/session-cache"
 import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
 import { refreshModels } from "@/context/models"
 import { refreshPermissions } from "@/context/permission"
 import { createDirectorySdk } from "@/context/sdk"
 import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
-import {
-  idleStatus,
-  refreshMessages,
-  setSessionClient,
-  setState,
-  state,
-} from "@/context/server-session"
+import { idleStatus, setSessionClient, setState, state } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
 import { normalizeSessionDirectory } from "@/context/session-directory"
 import { createDefaultSession, restoreSession } from "./session-load"

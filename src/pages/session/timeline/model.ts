@@ -1,6 +1,6 @@
 import { createMemo, type Accessor } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import type { HistoryItem } from "@/context/server-session"
+import type { HistoryItem } from "@/context/global-sync/session-cache"
 
 const emptyHistoryItems: HistoryItem[] = []
 

@@ -1,8 +1,8 @@
 import { Message as SharedMessage, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, createSignal, For, Show, type ComponentProps } from "solid-js"
+import type { HistoryItem } from "@/context/global-sync/session-cache"
 import { useLanguage } from "@/context/language"
-import type { HistoryItem } from "@/context/server-session"
 
 type SdkPart = import("@opencode-ai/sdk").Part
 

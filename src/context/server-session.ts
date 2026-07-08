@@ -1,18 +1,14 @@
-import type { Message, Part, Session, SessionStatus } from "@opencode-ai/sdk"
+import type { Session, SessionStatus } from "@opencode-ai/sdk"
 import { createStore } from "solid-js/store"
-import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
+import { translateSync } from "@/context/language"
 import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PermissionRequestView } from "@/pages/session/composer/session-request-tree"
 import type { OpencodeClient } from "@/context/server-sdk"
 import type { ServerInfo } from "@/context/server"
+import type { HistoryItem } from "@/context/global-sync/session-cache"
 
 export type LoadStatus = "loading" | "ready" | "failed"
-
-export type HistoryItem = {
-  info: Message
-  parts: Part[]
-}
 
 export type PromptAttachment = {
   id: string
@@ -67,7 +63,6 @@ export const [state, setState] = createStore<AppState>({
 })
 
 let client: OpencodeClient | undefined
-let messageRefreshCount = 0
 
 export function setSessionClient(next: OpencodeClient | undefined) {
   client = next
@@ -82,118 +77,4 @@ export function currentSession() {
     client,
     sessionID: state.session.id,
   }
-}
-
-export function normalizeHistory(items: { info: Message; parts: Part[] }[]): HistoryItem[] {
-  const byID = new Map<string, HistoryItem>()
-  for (const item of items) {
-    if (!item.info?.id) continue
-    byID.set(item.info.id, {
-      info: item.info,
-      parts: item.parts.filter((part) => !!part.id).sort(comparePart),
-    })
-  }
-  return [...byID.values()].sort(compareHistoryItem)
-}
-
-function missingAssistantParentIDs(items: HistoryItem[], requested = new Set<string>()) {
-  const messageIDs = new Set(items.map((item) => item.info.id))
-  return [
-    ...new Set(
-      items.flatMap((item) =>
-        item.info.role === "assistant" && !messageIDs.has(item.info.parentID) && !requested.has(item.info.parentID)
-          ? [item.info.parentID]
-          : [],
-      ),
-    ),
-  ]
-}
-
-function cachedMessages(messageIDs: string[]) {
-  const ids = new Set(messageIDs)
-  return state.messages.filter((item) => ids.has(item.info.id))
-}
-
-async function fetchParentMessages(active: { client: OpencodeClient; sessionID: string }, parentIDs: string[]) {
-  const cached = new Map(cachedMessages(parentIDs).map((item) => [item.info.id, item] as const))
-  const fetched = await Promise.all(
-    parentIDs.map((messageID) =>
-      active.client.session
-        .message({
-          path: { id: active.sessionID, messageID },
-        })
-        .then((result) => result.data)
-        .catch(() => undefined),
-    ),
-  )
-  const parents = new Map<string, HistoryItem>()
-  for (const item of normalizeHistory(fetched.filter((item): item is { info: Message; parts: Part[] } => !!item))) {
-    parents.set(item.info.id, item)
-  }
-  for (const parentID of parentIDs) {
-    if (!parents.has(parentID)) {
-      const item = cached.get(parentID)
-      if (item) parents.set(parentID, item)
-    }
-  }
-  return normalizeHistory([...parents.values()])
-}
-
-async function hydrateAssistantParents(active: { client: OpencodeClient; sessionID: string }, items: HistoryItem[]) {
-  let hydrated = items
-  const requested = new Set<string>()
-  while (true) {
-    const parentIDs = missingAssistantParentIDs(hydrated, requested)
-    if (parentIDs.length === 0) return hydrated
-    parentIDs.forEach((id) => requested.add(id))
-    const parents = await fetchParentMessages(active, parentIDs)
-    if (parents.length === 0) return hydrated
-    hydrated = normalizeHistory([...hydrated, ...parents])
-  }
-}
-
-export function compareHistoryItem(a: HistoryItem, b: HistoryItem) {
-  const diff = a.info.time.created - b.info.time.created
-  if (diff !== 0) return diff
-  return a.info.id < b.info.id ? -1 : a.info.id > b.info.id ? 1 : 0
-}
-
-export function comparePart(a: Part, b: Part) {
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
-}
-
-export function refreshMessages(limit: number) {
-  const active = currentSession()
-  if (!active) return Promise.resolve()
-  messageRefreshCount += 1
-  setState("messagesLoading", true)
-  return active.client.session
-    .messages({
-      path: { id: active.sessionID },
-      query: { limit },
-    })
-    .then((result) => {
-      if (state.session?.id !== active.sessionID) return
-      return hydrateAssistantParents(active, normalizeHistory(result.data ?? []))
-    })
-    .then((messages) => {
-      if (!messages || state.session?.id !== active.sessionID) return
-      setState("messages", messages)
-    })
-    .finally(() => {
-      messageRefreshCount = Math.max(0, messageRefreshCount - 1)
-      if (messageRefreshCount === 0) setState("messagesLoading", false)
-    })
-}
-
-export function statusText(
-  t: (key: TranslationKey, params?: TranslationParams) => string,
-  status: SessionStatus = state.sessionStatus,
-) {
-  if (state.status === "loading") return t("session.status.starting")
-  if (state.status === "failed") return t("session.status.offline")
-  if (state.submitting) return t("session.status.sending")
-  if (status.type === "busy") return t("session.status.working")
-  if (status.type === "retry") return t("session.status.retry", { attempt: status.attempt })
-  return t("session.status.ready")
 }

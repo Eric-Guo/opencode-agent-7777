@@ -5,15 +5,10 @@ import type { Part } from "@opencode-ai/sdk"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
+import { refreshMessages } from "@/context/global-sync/session-cache"
 import { writePromptDraft } from "@/context/local"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
-import {
-  currentSession,
-  refreshMessages,
-  setState,
-  state,
-  type PromptAttachment,
-} from "@/context/server-session"
+import { currentSession, setState, state, type PromptAttachment } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
 import {

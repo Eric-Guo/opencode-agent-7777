@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { Message, Part, Session } from "@opencode-ai/sdk"
-import { refreshMessages, setSessionClient, setState, state, type HistoryItem } from "@/context/server-session"
-import type { OpencodeClient } from "@/context/sdk"
+import { refreshMessages, type HistoryItem } from "@/context/global-sync/session-cache"
+import { setSessionClient, setState, state } from "@/context/server-session"
+import type { OpencodeClient } from "@/context/server-sdk"
 
 type UserMessage = Extract<Message, { role: "user" }>
 type AssistantMessage = Extract<Message, { role: "assistant" }>
@@ -82,7 +83,7 @@ afterEach(() => {
   setState("error", "")
 })
 
-describe("server session message hydration", () => {
+describe("session cache message hydration", () => {
   test("backfills missing assistant user parents from the single-message endpoint", async () => {
     const parent = userMessage("msg_1")
     const assistant = assistantMessage("msg_2", parent.id)
