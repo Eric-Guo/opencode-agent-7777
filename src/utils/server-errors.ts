@@ -10,3 +10,20 @@ export function readableError(error: unknown) {
   }
   return String(error)
 }
+
+export function isSessionNotFoundError(error: unknown, sessionID: string) {
+  const body = unwrapErrorBody(error)
+  if (typeof body !== "object" || body === null) {
+    const message = readableError(error)
+    return message === `Session not found: ${sessionID}` || message.includes(`Session not found: ${sessionID}`)
+  }
+  const value = body as Record<string, unknown>
+  return value._tag === "SessionNotFoundError" && value.sessionID === sessionID
+}
+
+function unwrapErrorBody(error: unknown) {
+  if (error instanceof Error && error.cause && typeof error.cause === "object" && "body" in error.cause) {
+    return (error.cause as Record<string, unknown>).body
+  }
+  return error
+}

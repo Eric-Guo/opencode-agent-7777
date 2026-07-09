@@ -17,6 +17,8 @@ export const dict = {
   "session.question.progress": "{{current}}/{{total}} 个问题",
   "session.recent": "最近会话",
   "session.recent.empty": "暂无最近会话",
+  "session.recovered.parent": "所选会话已不存在，已打开其主会话。",
+  "session.recovered.new": "所选会话已不存在，已开始新会话。",
   "session.loading": "正在启动 7777",
   "session.empty": "就绪",
 

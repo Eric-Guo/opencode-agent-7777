@@ -13,6 +13,8 @@ export const dict = {
   "session.question.progress": "{{current}} of {{total}} questions",
   "session.recent": "Recent sessions",
   "session.recent.empty": "No recent sessions",
+  "session.recovered.parent": "The selected session no longer exists. Opened its main session instead.",
+  "session.recovered.new": "The selected session no longer exists. Started a new session instead.",
   "session.loading": "Starting 7777",
   "session.empty": "Ready",
 
