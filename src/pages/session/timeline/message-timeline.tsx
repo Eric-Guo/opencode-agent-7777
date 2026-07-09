@@ -48,7 +48,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
 
   return (
     <article
-      class={`group mx-auto mb-6 flex max-w-[1120px] max-[720px]:mb-5 ${
+      class={`group mx-auto mb-2 flex max-w-[1120px] max-[720px]:mb-5 ${
         props.item.info.role === "user" ? "justify-end" : "justify-start"
       }`}
     >
