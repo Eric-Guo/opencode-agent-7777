@@ -61,3 +61,88 @@ textarea {
   font-family: inherit;
   letter-spacing: 0;
 }
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] {
+  --question-prompt-max-height: none;
+  max-width: 640px;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-body"] {
+  gap: 8px;
+  padding: 4px 4px 0;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-header"] {
+  padding: 0 6px;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-header-title"],
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-text"],
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="option-label"],
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="option-description"] {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-text"],
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-hint"] {
+  padding: 0 6px;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-options"] {
+  gap: 4px;
+  margin-top: 6px;
+  padding: 1px 1px 8px;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-option"] {
+  gap: 8px;
+  padding: 5px 6px 5px 7px;
+  border-radius: 5px;
+}
+
+[data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-option-box"] {
+  height: 14px;
+  width: 14px;
+}
+
+[data-slot="session-message-timeline"] [data-component="collapsible"].tool-collapsible {
+  --tool-content-gap: 2px;
+}
+
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="collapsible-trigger"],
+[data-slot="session-message-timeline"] [data-slot="collapsible-trigger"] {
+  min-height: 0;
+}
+
+[data-slot="session-message-timeline"] [data-slot="collapsible-trigger"] {
+  height: 26px;
+}
+
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-trigger-content"] {
+  gap: 6px;
+}
+
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-info-structured"],
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-info-main"] {
+  gap: 6px;
+}
+
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-info"],
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-title"],
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-subtitle"],
+[data-slot="session-message-timeline"] [data-component="tool-trigger"] [data-slot="basic-tool-tool-arg"] {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+[data-slot="session-message-timeline"] [data-component="question-answers"] {
+  gap: 7px;
+  padding: 3px 0 5px;
+}
+
+[data-slot="session-message-timeline"] [data-component="question-answers"] [data-slot="question-answer-item"] {
+  gap: 1px;
+  font-size: 12px;
+  line-height: 1.35;
+}

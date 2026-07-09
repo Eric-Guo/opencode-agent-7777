@@ -48,7 +48,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
 
   return (
     <article
-      class={`group mx-auto mb-[34px] flex max-w-[1120px] max-[720px]:mb-[26px] ${
+      class={`group mx-auto mb-6 flex max-w-[1120px] max-[720px]:mb-5 ${
         props.item.info.role === "user" ? "justify-end" : "justify-start"
       }`}
     >
@@ -67,7 +67,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
               <div class="min-w-0 border-0 bg-transparent p-0 shadow-none">
                 <Show when={hasVisibleContent()} fallback={<div class="text-v2-text-text-faint">...</div>}>
                   <Show when={props.showReasoningSummaries && row().reasoningParts.length > 0}>
-                    <div class="mb-3">
+                    <div class="mb-2">
                       <For each={row().reasoningParts}>
                         {(part) => (
                           <Part
@@ -80,7 +80,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
                     </div>
                   </Show>
                   <Show when={row().files.length > 0}>
-                    <div class="mb-3 flex max-w-full flex-col gap-2">
+                    <div class="mb-2 flex max-w-full flex-col gap-1.5">
                       <For each={row().files}>
                         {(part) => (
                           <Part
@@ -106,7 +106,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
                   </Show>
                 </Show>
                 <Show when={row().tools.length > 0}>
-                  <div class="mt-3 flex flex-col gap-1.5">
+                  <div class="mt-2 flex flex-col gap-1">
                     <For each={row().tools}>
                       {(part) => (
                         <Part
@@ -119,11 +119,11 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
                   </div>
                 </Show>
               </div>
-              <div class="mt-2 flex min-h-7 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+              <div class="mt-1.5 flex min-h-6 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
                 <div class="min-w-0 text-xs font-semibold leading-none text-v2-text-text-faint">{role()}</div>
                 <button
                   type="button"
-                  class="inline-flex h-7 min-w-[34px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[15px] [&_[data-component=icon]]:w-[15px]"
+                  class="inline-flex h-6 min-w-[32px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[14px] [&_[data-component=icon]]:w-[14px]"
                   aria-label={language.t("timeline.copy")}
                   disabled={!visibleCopyValue()}
                   onClick={handleCopy}
