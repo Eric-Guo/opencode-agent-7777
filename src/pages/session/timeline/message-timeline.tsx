@@ -23,14 +23,22 @@ function copyToClipboard(value: string) {
   return Promise.resolve()
 }
 
-function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
+function MessageView(props: { item: HistoryItem; actions?: UserActions; showReasoningSummaries: boolean }) {
   const language = useLanguage()
   const row = createMemo(() => createTimelineMessageRow(props.item))
   const role = createMemo(() => (props.item.info.role === "user" ? language.t("timeline.role.user") : "7777"))
   const [copied, setCopied] = createSignal(false)
+  const visibleCopyValue = createMemo(() => row().text || (props.showReasoningSummaries ? row().reasoning.join("\n\n") : ""))
+  const hasVisibleContent = createMemo(
+    () =>
+      !!row().text ||
+      row().files.length > 0 ||
+      row().tools.length > 0 ||
+      (props.showReasoningSummaries && row().reasoning.length > 0),
+  )
 
   const handleCopy = () => {
-    const value = row().copyValue
+    const value = visibleCopyValue()
     if (!value) return
     void copyToClipboard(value).then(() => {
       setCopied(true)
@@ -57,8 +65,8 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
           fallback={
             <>
               <div class="min-w-0 border-0 bg-transparent p-0 shadow-none">
-                <Show when={row().hasContent} fallback={<div class="text-v2-text-text-faint">...</div>}>
-                  <Show when={row().reasoningParts.length > 0}>
+                <Show when={hasVisibleContent()} fallback={<div class="text-v2-text-text-faint">...</div>}>
+                  <Show when={props.showReasoningSummaries && row().reasoningParts.length > 0}>
                     <div class="mb-3">
                       <For each={row().reasoningParts}>
                         {(part) => (
@@ -117,7 +125,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
                   type="button"
                   class="inline-flex h-7 min-w-[34px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[15px] [&_[data-component=icon]]:w-[15px]"
                   aria-label={language.t("timeline.copy")}
-                  disabled={!row().copyValue}
+                  disabled={!visibleCopyValue()}
                   onClick={handleCopy}
                 >
                   <Icon name="copy" />
@@ -142,6 +150,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions }) {
 export function MessageTimeline(props: {
   messages: HistoryItem[]
   actions?: UserActions
+  showReasoningSummaries: boolean
   onPointerGesture?: (target?: EventTarget | null) => void
 }) {
   const handlePointerDown = (event: PointerEvent) => {
@@ -155,7 +164,15 @@ export function MessageTimeline(props: {
 
   return (
     <div data-slot="session-message-timeline" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}>
-      <For each={props.messages}>{(item) => <MessageView item={item} actions={props.actions} />}</For>
+      <For each={props.messages}>
+        {(item) => (
+          <MessageView
+            item={item}
+            actions={props.actions}
+            showReasoningSummaries={props.showReasoningSummaries}
+          />
+        )}
+      </For>
     </div>
   )
 }

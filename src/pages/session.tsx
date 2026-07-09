@@ -2,11 +2,11 @@ import { Spinner } from "@opencode-ai/ui/spinner"
 import { DataProvider } from "@opencode-ai/session-ui/context"
 import type { UserActions } from "@opencode-ai/session-ui/message-part"
 import type { Part } from "@opencode-ai/sdk"
-import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
+import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache"
-import { writePromptDraft } from "@/context/local"
+import { readShowReasoningSummaries, writePromptDraft, writeShowReasoningSummaries } from "@/context/local"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import { currentSession, setState, state, type PromptAttachment } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
@@ -68,6 +68,7 @@ export function SessionPage() {
     revertMessageID: () => state.session?.revert?.messageID,
   })
   const composer = createSessionComposerRegionController()
+  const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
@@ -123,6 +124,12 @@ export function SessionPage() {
     timelinePointerGesture = Date.now()
   }
 
+  const toggleReasoningSummaries = () => {
+    const next = !showReasoningSummaries()
+    setShowReasoningSummaries(next)
+    writeShowReasoningSummaries(next)
+  }
+
   onMount(() => {
     void initializeSessionSync()
     onCleanup(disposeSessionSync)
@@ -130,7 +137,11 @@ export function SessionPage() {
 
   return (
     <div class={SESSION_ROUTE_FRAME_CLASS}>
-      <SessionHeader {...layout.header()} />
+      <SessionHeader
+        {...layout.header()}
+        showReasoningSummaries={showReasoningSummaries()}
+        onToggleReasoningSummaries={toggleReasoningSummaries}
+      />
 
       <main class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
         <Show
@@ -155,6 +166,7 @@ export function SessionPage() {
               <MessageTimeline
                 messages={timeline.visibleMessages()}
                 actions={actions}
+                showReasoningSummaries={showReasoningSummaries()}
                 onPointerGesture={markTimelinePointerGesture}
               />
             </DataProvider>

@@ -14,6 +14,8 @@ export const dict = {
   "session.status.retry": "重试 {{attempt}}",
   "session.status.ready": "就绪",
   "session.new": "新会话",
+  "session.thinking": "思考",
+  "session.thinking.toggle": "显示或隐藏推理摘要",
   "session.question.progress": "{{current}}/{{total}} 个问题",
   "session.recent": "最近会话",
   "session.recent.empty": "暂无最近会话",

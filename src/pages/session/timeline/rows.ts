@@ -13,8 +13,6 @@ type TimelineMessageRow = {
   files: FilePart[]
   text: string
   reasoning: string[]
-  copyValue: string
-  hasContent: boolean
 }
 
 function isTextPart(part: SdkPart): part is TextPart {
@@ -50,7 +48,5 @@ export function createTimelineMessageRow(item: HistoryItem): TimelineMessageRow 
     files,
     text,
     reasoning,
-    copyValue: text || reasoning.join("\n\n"),
-    hasContent: !!text || reasoning.length > 0 || files.length > 0,
   }
 }

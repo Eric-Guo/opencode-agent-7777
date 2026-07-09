@@ -1,5 +1,11 @@
 import type { Session } from "@opencode-ai/sdk"
-import { MODEL_SELECTION_KEY, PROMPT_DRAFT_KEY, SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
+import {
+  MODEL_SELECTION_KEY,
+  PROMPT_DRAFT_KEY,
+  SESSION_DIRECTORY_KEY,
+  SESSION_ID_KEY,
+  SHOW_REASONING_SUMMARIES_KEY,
+} from "@/constants/session"
 import type { PromptAttachment } from "@/context/server-session"
 
 export type SessionRecord = {
@@ -93,6 +99,14 @@ export function readModelSelection(): ModelSelection | undefined {
 export function writeModelSelection(model: ModelSelection | undefined) {
   if (!model) return
   storageSet(MODEL_SELECTION_KEY, JSON.stringify(model))
+}
+
+export function readShowReasoningSummaries() {
+  return storageGet(SHOW_REASONING_SUMMARIES_KEY) === "true"
+}
+
+export function writeShowReasoningSummaries(value: boolean) {
+  storageSet(SHOW_REASONING_SUMMARIES_KEY, value ? "true" : "false")
 }
 
 export function readPromptDraft(): PromptDraft | undefined {

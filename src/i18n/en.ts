@@ -10,6 +10,8 @@ export const dict = {
   "session.status.retry": "Retry {{attempt}}",
   "session.status.ready": "Ready",
   "session.new": "New session",
+  "session.thinking": "Thinking",
+  "session.thinking.toggle": "Show or hide reasoning summaries",
   "session.question.progress": "{{current}} of {{total}} questions",
   "session.recent": "Recent sessions",
   "session.recent.empty": "No recent sessions",
