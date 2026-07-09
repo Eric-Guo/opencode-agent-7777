@@ -124,19 +124,21 @@ function MessageView(props: {
                   </div>
                 </Show>
               </div>
-              <div class="mt-1.5 flex min-h-6 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-                <div class="min-w-0 text-xs font-semibold leading-none text-v2-text-text-faint">{role()}</div>
-                <button
-                  type="button"
-                  class="inline-flex h-6 min-w-[32px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[14px] [&_[data-component=icon]]:w-[14px]"
-                  aria-label={language.t("timeline.copy")}
-                  disabled={!visibleCopyValue()}
-                  onClick={handleCopy}
-                >
-                  <Icon name="copy" />
-                  <span>{copied() ? language.t("timeline.copied") : language.t("timeline.copy")}</span>
-                </button>
-              </div>
+              <Show when={hasVisibleContent()}>
+                <div class="mt-1.5 flex min-h-6 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
+                  <div class="min-w-0 text-xs font-semibold leading-none text-v2-text-text-faint">{role()}</div>
+                  <button
+                    type="button"
+                    class="inline-flex h-6 min-w-[32px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[14px] [&_[data-component=icon]]:w-[14px]"
+                    aria-label={language.t("timeline.copy")}
+                    disabled={!visibleCopyValue()}
+                    onClick={handleCopy}
+                  >
+                    <Icon name="copy" />
+                    <span>{copied() ? language.t("timeline.copied") : language.t("timeline.copy")}</span>
+                  </button>
+                </div>
+              </Show>
             </>
           }
         >
