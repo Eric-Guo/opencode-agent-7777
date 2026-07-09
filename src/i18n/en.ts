@@ -12,6 +12,8 @@ export const dict = {
   "session.new": "New session",
   "session.thinking": "Thinking",
   "session.thinking.toggle": "Show or hide reasoning summaries",
+  "session.tools": "Tools",
+  "session.tools.toggle": "Show or hide tool parts",
   "session.question.progress": "{{current}} of {{total}} questions",
   "session.recent": "Recent sessions",
   "session.recent.empty": "No recent sessions",

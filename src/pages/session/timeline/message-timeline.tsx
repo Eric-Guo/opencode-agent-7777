@@ -23,7 +23,12 @@ function copyToClipboard(value: string) {
   return Promise.resolve()
 }
 
-function MessageView(props: { item: HistoryItem; actions?: UserActions; showReasoningSummaries: boolean }) {
+function MessageView(props: {
+  item: HistoryItem
+  actions?: UserActions
+  showReasoningSummaries: boolean
+  showToolsPart: boolean
+}) {
   const language = useLanguage()
   const row = createMemo(() => createTimelineMessageRow(props.item))
   const role = createMemo(() => (props.item.info.role === "user" ? language.t("timeline.role.user") : "7777"))
@@ -33,7 +38,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
     () =>
       !!row().text ||
       row().files.length > 0 ||
-      row().tools.length > 0 ||
+      (props.showToolsPart && row().tools.length > 0) ||
       (props.showReasoningSummaries && row().reasoning.length > 0),
   )
 
@@ -105,7 +110,7 @@ function MessageView(props: { item: HistoryItem; actions?: UserActions; showReas
                     </For>
                   </Show>
                 </Show>
-                <Show when={row().tools.length > 0}>
+                <Show when={props.showToolsPart && row().tools.length > 0}>
                   <div class="mt-2 flex flex-col gap-1">
                     <For each={row().tools}>
                       {(part) => (
@@ -151,6 +156,7 @@ export function MessageTimeline(props: {
   messages: HistoryItem[]
   actions?: UserActions
   showReasoningSummaries: boolean
+  showToolsPart: boolean
   onPointerGesture?: (target?: EventTarget | null) => void
 }) {
   const handlePointerDown = (event: PointerEvent) => {
@@ -170,6 +176,7 @@ export function MessageTimeline(props: {
             item={item}
             actions={props.actions}
             showReasoningSummaries={props.showReasoningSummaries}
+            showToolsPart={props.showToolsPart}
           />
         )}
       </For>

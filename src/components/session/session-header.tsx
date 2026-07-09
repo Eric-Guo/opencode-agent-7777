@@ -19,9 +19,11 @@ export function SessionHeader(props: {
   status: string
   userDialogCount: number
   showReasoningSummaries: boolean
+  showToolsPart: boolean
   newSessionPending: boolean
   newSessionDisabled: boolean
   onToggleReasoningSummaries: () => void
+  onToggleToolsPart: () => void
   onNewSession: () => void
 }) {
   const language = useLanguage()
@@ -63,6 +65,23 @@ export function SessionHeader(props: {
         >
           <Icon name="brain" />
           <span class="max-[720px]:hidden">{language.t("session.thinking")}</span>
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-[30px] min-w-[78px] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-[650] hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base max-[720px]:min-w-[30px] max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
+          classList={{
+            "border-v2-border-border-strong bg-v2-overlay-simple-overlay-hover text-v2-text-text-base":
+              props.showToolsPart,
+            "border-v2-border-border-base bg-v2-background-bg-layer-01 text-v2-text-text-muted":
+              !props.showToolsPart,
+          }}
+          aria-label={language.t("session.tools.toggle")}
+          aria-pressed={props.showToolsPart}
+          title={language.t("session.tools.toggle")}
+          onClick={props.onToggleToolsPart}
+        >
+          <Icon name="terminal" />
+          <span class="max-[720px]:hidden">{language.t("session.tools")}</span>
         </button>
         <DropdownMenu gutter={4} placement="bottom-end">
           <DropdownMenu.Trigger

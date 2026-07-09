@@ -5,6 +5,7 @@ import {
   SESSION_DIRECTORY_KEY,
   SESSION_ID_KEY,
   SHOW_REASONING_SUMMARIES_KEY,
+  SHOW_TOOLS_PART_KEY,
 } from "@/constants/session"
 import type { PromptAttachment } from "@/context/server-session"
 
@@ -107,6 +108,14 @@ export function readShowReasoningSummaries() {
 
 export function writeShowReasoningSummaries(value: boolean) {
   storageSet(SHOW_REASONING_SUMMARIES_KEY, value ? "true" : "false")
+}
+
+export function readShowToolsPart() {
+  return storageGet(SHOW_TOOLS_PART_KEY) === "true"
+}
+
+export function writeShowToolsPart(value: boolean) {
+  storageSet(SHOW_TOOLS_PART_KEY, value ? "true" : "false")
 }
 
 export function readPromptDraft(): PromptDraft | undefined {

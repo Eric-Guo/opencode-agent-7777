@@ -6,7 +6,13 @@ import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache"
-import { readShowReasoningSummaries, writePromptDraft, writeShowReasoningSummaries } from "@/context/local"
+import {
+  readShowReasoningSummaries,
+  readShowToolsPart,
+  writePromptDraft,
+  writeShowReasoningSummaries,
+  writeShowToolsPart,
+} from "@/context/local"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import { currentSession, setState, state, type PromptAttachment } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
@@ -69,6 +75,7 @@ export function SessionPage() {
   })
   const composer = createSessionComposerRegionController()
   const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
+  const [showToolsPart, setShowToolsPart] = createSignal(readShowToolsPart())
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
@@ -130,6 +137,12 @@ export function SessionPage() {
     writeShowReasoningSummaries(next)
   }
 
+  const toggleToolsPart = () => {
+    const next = !showToolsPart()
+    setShowToolsPart(next)
+    writeShowToolsPart(next)
+  }
+
   onMount(() => {
     void initializeSessionSync()
     onCleanup(disposeSessionSync)
@@ -140,7 +153,9 @@ export function SessionPage() {
       <SessionHeader
         {...layout.header()}
         showReasoningSummaries={showReasoningSummaries()}
+        showToolsPart={showToolsPart()}
         onToggleReasoningSummaries={toggleReasoningSummaries}
+        onToggleToolsPart={toggleToolsPart}
       />
 
       <main class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
@@ -167,6 +182,7 @@ export function SessionPage() {
                 messages={timeline.visibleMessages()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
+                showToolsPart={showToolsPart()}
                 onPointerGesture={markTimelinePointerGesture}
               />
             </DataProvider>
