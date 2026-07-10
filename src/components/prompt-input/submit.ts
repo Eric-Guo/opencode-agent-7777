@@ -1,8 +1,8 @@
 import { AGENT_ID } from "@/constants/session"
 import { refreshRecentSessions } from "@/context/directory-sync"
-import { clearPromptDraft } from "@/context/local"
+import { clearPromptDraft } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync"
-import { currentSession, idleStatus, setState, state, type PromptAttachment } from "@/context/server-session"
+import { currentSession, idleStatus, setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
 import { buildRequestParts, createOptimisticUserMessage } from "./build-request-parts"
 

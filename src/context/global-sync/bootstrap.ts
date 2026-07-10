@@ -1,8 +1,9 @@
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache"
-import { clearPromptDraft, readPromptDraft, readSessionRecord, writeSessionRecord } from "@/context/local"
+import { readSessionRecord, writeSessionRecord } from "@/context/local"
 import { refreshModels } from "@/context/models"
 import { refreshPermissions } from "@/context/permission"
+import { clearPromptDraft, readPromptDraft } from "@/context/prompt"
 import { refreshQuestions } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk"
 import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
@@ -65,12 +66,11 @@ export function activateSession(
 export function initializeSessionSync() {
   setState("status", "loading")
   setState("modelStatus", "loading")
-  return resolveServer()
-    .then((server) => {
-      setState("server", server)
-      const baseClient = createServerSdk(server).client
-      return restoreSession(baseClient, readSessionRecord())
-        .then((session) => session ?? createDefaultSession(baseClient))
-        .then((session) => activateSession(server, session, { restoreDraft: true }))
-    })
+  return resolveServer().then((server) => {
+    setState("server", server)
+    const baseClient = createServerSdk(server).client
+    return restoreSession(baseClient, readSessionRecord())
+      .then((session) => session ?? createDefaultSession(baseClient))
+      .then((session) => activateSession(server, session, { restoreDraft: true }))
+  })
 }

@@ -1,26 +1,22 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { DataProvider } from "@opencode-ai/session-ui/context"
 import type { UserActions } from "@opencode-ai/session-ui/message-part"
-import type { Part } from "@opencode-ai/sdk"
 import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache"
+import { writePromptDraft } from "@/context/prompt"
 import {
   readShowReasoningSummaries,
   readShowToolsPart,
-  writePromptDraft,
   writeShowReasoningSummaries,
   writeShowToolsPart,
-} from "@/context/local"
+} from "@/context/settings"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
-import { currentSession, setState, state, type PromptAttachment } from "@/context/server-session"
+import { currentSession, setState, state } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
-import {
-  NEW_SESSION_EMPTY_BADGE_CLASS,
-  NEW_SESSION_EMPTY_STATE_CLASS,
-} from "@/pages/session/new-session-layout"
+import { NEW_SESSION_EMPTY_BADGE_CLASS, NEW_SESSION_EMPTY_STATE_CLASS } from "@/pages/session/new-session-layout"
 import {
   SESSION_LOADING_STATE_CLASS,
   SESSION_MESSAGE_SCROLLER_CLASS,
@@ -30,39 +26,10 @@ import {
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { extractPromptFromParts } from "@/utils/prompt"
 import { readableError } from "@/utils/server-errors"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
-
-function promptTextFromParts(parts: Part[]) {
-  const text = parts
-    .filter((part): part is Extract<Part, { type: "text" }> => part.type === "text")
-    .filter((part) => !part.synthetic && !part.ignored)
-    .reduce((best: Extract<Part, { type: "text" }> | undefined, part) => {
-      if (!best) return part
-      return part.text.length > best.text.length ? part : best
-    }, undefined)
-  return text?.text ?? ""
-}
-
-function promptAttachmentsFromParts(parts: Part[]): PromptAttachment[] {
-  return parts
-    .filter((part): part is Extract<Part, { type: "file" }> => part.type === "file")
-    .filter((part) => !part.source)
-    .map((part) => ({
-      id: part.id,
-      filename: part.filename ?? "attachment",
-      mime: part.mime,
-      url: part.url,
-    }))
-}
-
-function promptDraftFromParts(parts: Part[]) {
-  return {
-    text: promptTextFromParts(parts),
-    attachments: promptAttachmentsFromParts(parts),
-  }
-}
 
 export function SessionPage() {
   let messageList: HTMLDivElement | undefined
@@ -94,7 +61,7 @@ export function SessionPage() {
       const active = currentSession()
       if (!active) return
       const message = state.messages.find((item) => item.info.id === input.messageID)
-      const draft = message ? promptDraftFromParts(message.parts) : undefined
+      const draft = message ? extractPromptFromParts(message.parts) : undefined
       setState("error", "")
       return active.client.session
         .revert({
@@ -179,7 +146,7 @@ export function SessionPage() {
           >
             <DataProvider data={sessionUiData()} directory={state.session?.directory ?? ""}>
               <MessageTimeline
-                messages={timeline.visibleMessages()}
+                rows={timeline.visibleRows()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
                 showToolsPart={showToolsPart()}

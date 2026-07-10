@@ -1,7 +1,7 @@
 import { createMemo, type Accessor } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
-import { projectTimelineMessages } from "./projection"
+import { projectTimelineMessages, projectTimelineRows } from "./projection"
 
 export function selectUserMessages(items: HistoryItem[]) {
   return items.filter((item) => item.info.role === "user")
@@ -28,6 +28,7 @@ export function createTimelineModel(input: {
     recentDialogMessages(selectVisibleUserMessages(userMessages(), input.revertMessageID?.())),
   )
   const visibleMessages = createMemo(() => projectTimelineMessages(input.messages(), visibleUserMessages()))
+  const visibleRows = createMemo(() => projectTimelineRows(input.messages(), visibleUserMessages()))
   const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
   const userDialogCount = createMemo(() => visibleUserMessages().length)
 
@@ -36,6 +37,7 @@ export function createTimelineModel(input: {
     userMessages,
     visibleUserMessages,
     visibleMessages,
+    visibleRows,
     userDialogCount,
   }
 }

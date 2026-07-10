@@ -1,4 +1,5 @@
 import type { HistoryItem } from "@/context/global-sync/session-cache"
+import { createTimelineMessageRow } from "./rows"
 
 type AssistantHistoryItem = HistoryItem & {
   info: HistoryItem["info"] & { role: "assistant"; parentID: string }
@@ -31,4 +32,8 @@ export function projectTimelineMessages(messages: HistoryItem[], userMessages: H
   }
 
   return userMessages.flatMap((item) => [item, ...assistantChain(item.info.id)])
+}
+
+export function projectTimelineRows(messages: HistoryItem[], userMessages: HistoryItem[]) {
+  return projectTimelineMessages(messages, userMessages).map(createTimelineMessageRow)
 }

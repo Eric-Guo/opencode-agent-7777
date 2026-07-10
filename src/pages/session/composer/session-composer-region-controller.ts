@@ -1,4 +1,4 @@
-import { abortPrompt, submitPrompt } from "@/context/prompt"
+import { abortPrompt, submitPrompt } from "@/components/prompt-input/submit"
 import { createPromptInputController } from "@/pages/session/composer/session-composer-controls"
 import { createSessionComposerController } from "@/pages/session/composer/session-composer-state"
 

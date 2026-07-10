@@ -5,4 +5,5 @@ export {
   type SessionComposerRegionController,
 } from "./session-composer-region-controller"
 export { createSessionComposerController, type SessionComposerController } from "./session-composer-state"
-export { abortPrompt, addAttachment, removeAttachment, setPrompt, submitPrompt } from "@/context/prompt"
+export { abortPrompt, submitPrompt } from "@/components/prompt-input/submit"
+export { addAttachment, removeAttachment, setPrompt } from "@/context/prompt"

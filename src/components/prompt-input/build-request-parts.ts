@@ -1,13 +1,9 @@
 import type { FilePartInput, Part } from "@opencode-ai/sdk"
 import { AGENT_ID } from "@/constants/session"
 import type { ModelSelection } from "@/context/local"
-import type { PromptAttachment } from "@/context/server-session"
+import type { PromptAttachment } from "@/context/prompt"
 
-export function buildRequestParts(input: {
-  text: string
-  attachments: PromptAttachment[]
-  sessionID: string
-}) {
+export function buildRequestParts(input: { text: string; attachments: PromptAttachment[]; sessionID: string }) {
   const requestParts = [
     ...(input.text ? [{ type: "text" as const, text: input.text }] : []),
     ...input.attachments.map(

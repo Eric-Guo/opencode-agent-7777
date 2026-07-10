@@ -1,4 +1,4 @@
-import type { ProviderListResponse, Session } from "@opencode-ai/sdk"
+import type { Session } from "@opencode-ai/sdk"
 import { createMemo, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
@@ -6,14 +6,12 @@ import { translateSync } from "@/context/language"
 import { readModelSelection, writeModelSelection, type ModelSelection } from "@/context/local"
 import type { OpencodeClient } from "@/context/sdk"
 import { setState, state } from "@/context/server-session"
-import { popularProviders } from "@/hooks/use-providers"
+import type { ProviderCatalog, ProviderItem, ProviderModel } from "@/hooks/provider-catalog"
+import { loadProviderCatalog, popularProviders } from "@/hooks/use-providers"
 import { readableError } from "@/utils/server-errors"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
-type ProviderListData = NonNullable<Awaited<ReturnType<OpencodeClient["provider"]["list"]>>["data"]>
-type ProviderItem = ProviderListData["all"][number]
-type ProviderModel = ProviderItem["models"][string]
 type Visibility = "show" | "hide"
 type ProviderVisibility = {
   providerID: string
@@ -119,7 +117,7 @@ export function findModel<T extends ModelSelection>(options: T[], model: ModelSe
   return options.find((option) => sameModel(option, model))
 }
 
-function resolveSelectedModel<T extends ModelSelection>(options: T[], defaults: ProviderListResponse["default"]) {
+function resolveSelectedModel<T extends ModelSelection>(options: T[], defaults: ProviderCatalog["default"]) {
   const stored = readModelSelection()
   const storedOption = findModel(options, stored)
   if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
@@ -330,30 +328,27 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
   if (!activeClient || !session) return Promise.resolve()
 
   setState("modelStatus", "loading")
-  return activeClient.provider
-    .list({
-      query: { directory: session.directory },
-    })
-    .then((result) => {
-      const data = result.data
-      if (!data) throw new Error(translateSync("error.modelListEmpty"))
-      const connected = new Set(data.connected)
-      const options = data.all
-        .filter((provider) => connected.has(provider.id))
+  return loadProviderCatalog(activeClient, session)
+    .then((catalog) => {
+      if (!catalog) throw new Error(translateSync("error.modelListEmpty"))
+      const options = catalog.connected
         .flatMap((provider) =>
           Object.values(provider.models)
             .filter((model) => model.status !== "deprecated")
-            .map((model) => ({
-              ...model,
-              id: model.id,
-              name: model.name.replace("(latest)", "").trim(),
-              provider,
-              latest: model.name.includes("(latest)"),
-              providerID: provider.id,
-              modelID: model.id,
-              providerName: provider.name,
-              modelName: model.name.replace("(latest)", "").trim(),
-            }) satisfies ModelOption),
+            .map(
+              (model) =>
+                ({
+                  ...model,
+                  id: model.id,
+                  name: model.name.replace("(latest)", "").trim(),
+                  provider,
+                  latest: model.name.includes("(latest)"),
+                  providerID: provider.id,
+                  modelID: model.id,
+                  providerName: provider.name,
+                  modelName: model.name.replace("(latest)", "").trim(),
+                }) satisfies ModelOption,
+            ),
         )
         .sort((a, b) => {
           const provider = a.providerName.localeCompare(b.providerName)
@@ -361,7 +356,7 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
           return a.modelName.localeCompare(b.modelName)
         })
 
-      const selected = resolveSelectedModel(options, data.default)
+      const selected = resolveSelectedModel(options, catalog.default)
       setState("models", options)
       setState("selectedModel", selected)
       setState("modelStatus", "ready")

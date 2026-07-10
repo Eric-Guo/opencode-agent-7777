@@ -1,19 +1,13 @@
 import type { Part as SdkPart } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
+import { TimelineRow, type TimelineMessageContent } from "./timeline-row"
+
+export { TimelineRow, type TimelineMessageContent } from "./timeline-row"
 
 type TextPart = Extract<SdkPart, { type: "text" }>
 type ReasoningPart = Extract<SdkPart, { type: "reasoning" }>
 type ToolPart = Extract<SdkPart, { type: "tool" }>
 type FilePart = Extract<SdkPart, { type: "file" }>
-
-type TimelineMessageRow = {
-  textParts: TextPart[]
-  reasoningParts: ReasoningPart[]
-  tools: ToolPart[]
-  files: FilePart[]
-  text: string
-  reasoning: string[]
-}
 
 function isTextPart(part: SdkPart): part is TextPart {
   return part.type === "text"
@@ -31,7 +25,7 @@ function isFilePart(part: SdkPart): part is FilePart {
   return part.type === "file"
 }
 
-export function createTimelineMessageRow(item: HistoryItem): TimelineMessageRow {
+function createTimelineMessageContent(item: HistoryItem): TimelineMessageContent {
   const textParts = item.parts.filter(isTextPart)
   const reasoningParts = item.parts.filter(isReasoningPart)
   const files = item.parts.filter(isFilePart)
@@ -49,4 +43,9 @@ export function createTimelineMessageRow(item: HistoryItem): TimelineMessageRow 
     text,
     reasoning,
   }
+}
+
+export function createTimelineMessageRow(item: HistoryItem): TimelineRow.TimelineRow {
+  if (item.info.role === "user") return { _tag: "UserMessage", item }
+  return { _tag: "AssistantMessage", item, content: createTimelineMessageContent(item) }
 }

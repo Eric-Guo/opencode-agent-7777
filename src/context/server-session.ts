@@ -4,20 +4,13 @@ import { createStore } from "solid-js/store"
 import { translateSync } from "@/context/language"
 import type { ModelSelection } from "@/context/local"
 import type { ModelLoadStatus, ModelOption } from "@/context/models"
+import type { PromptAttachment } from "@/context/prompt"
 import type { PermissionRequestView } from "@/pages/session/composer/session-request-tree"
 import type { OpencodeClient } from "@/context/server-sdk"
 import type { ServerInfo } from "@/context/server"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 
 export type LoadStatus = "loading" | "ready" | "failed"
-
-export type PromptAttachment = {
-  id: string
-  filename: string
-  sourcePath?: string
-  mime: string
-  url: string
-}
 
 export type AppState = {
   status: LoadStatus
