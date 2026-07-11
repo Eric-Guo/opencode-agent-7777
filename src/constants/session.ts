@@ -1,6 +1,6 @@
 export const AGENT_ID = "7777"
 export const DEFAULT_SESSION_DIRECTORY_NAME = "agent7777"
-export const HISTORY_DIALOG_LIMIT = 20
+export const HISTORY_DIALOG_LIMIT = 9
 export const FETCH_MESSAGE_LIMIT = HISTORY_DIALOG_LIMIT * 4
 export const RECENT_SESSION_LIMIT = 12
 export const SESSION_ID_KEY = "opencode.7777.session.id"
