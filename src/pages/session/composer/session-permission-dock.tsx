@@ -1,3 +1,6 @@
+import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
+import { Button } from "@opencode-ai/ui/button"
+import { Icon } from "@opencode-ai/ui/icon"
 import { For, Show } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { permissionDescription, type PermissionRequestView } from "@/pages/session/composer/session-request-tree"
@@ -11,65 +14,62 @@ export function SessionPermissionDock(props: {
   const description = () => permissionDescription(props.request.permission, language.t)
 
   return (
-    <section
-      class="mx-auto mb-3 max-w-[1120px] rounded-xl border border-[var(--v2-state-border-warning)] bg-[var(--v2-state-bg-warning)] p-3.5 shadow-[var(--v2-elevation-raised)] max-[720px]:mb-2.5"
-      aria-label={language.t("permission.required")}
+    <DockPrompt
+      kind="permission"
+      header={
+        <div data-slot="permission-row" data-variant="header">
+          <span data-slot="permission-icon">
+            <Icon name="warning" size="normal" />
+          </span>
+          <div data-slot="permission-header-title">{language.t("permission.required")}</div>
+        </div>
+      }
+      footer={
+        <>
+          <div />
+          <div data-slot="permission-footer-actions">
+            <Button variant="ghost" size="normal" onClick={() => props.onDecide("reject")} disabled={props.responding}>
+              {language.t("permission.action.deny")}
+            </Button>
+            <Button
+              variant="secondary"
+              size="normal"
+              onClick={() => props.onDecide("always")}
+              disabled={props.responding}
+            >
+              {language.t("permission.action.allowAlways")}
+            </Button>
+            <Button variant="primary" size="normal" onClick={() => props.onDecide("once")} disabled={props.responding}>
+              {language.t("permission.action.allowOnce")}
+            </Button>
+          </div>
+        </>
+      }
     >
-      <div class="flex items-start gap-3">
-        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-v2-background-bg-layer-02 text-sm font-extrabold text-[var(--v2-state-fg-warning)]">
-          !
+      <Show when={props.request.title || description()}>
+        <div data-slot="permission-row">
+          <span data-slot="permission-spacer" aria-hidden="true" />
+          <div data-slot="permission-hint">{props.request.title || description()}</div>
         </div>
-        <div>
-          <h2 class="m-0 text-sm font-[760] leading-[1.3] text-[var(--v2-state-fg-warning)]">
-            {language.t("permission.required")}
-          </h2>
-          <p class="m-0 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted">
-            {props.request.title || description()}
-          </p>
-        </div>
-      </div>
+      </Show>
+
       <Show when={props.request.title && description()}>
-        <p class="mb-0 ml-10 mt-1 text-[13px] leading-[1.45] text-v2-text-text-muted max-[720px]:ml-0">
-          {description()}
-        </p>
-      </Show>
-      <Show when={props.request.patterns.length > 0}>
-        <div class="ml-10 mt-3 flex flex-col gap-1.5 max-[720px]:ml-0">
-          <For each={props.request.patterns}>
-            {(pattern) => (
-              <code class="[overflow-wrap:anywhere] rounded-md border border-v2-border-border-base bg-v2-background-bg-base px-2 py-1.5 font-mono text-xs leading-[1.45] text-v2-text-text-base">
-                {pattern}
-              </code>
-            )}
-          </For>
+        <div data-slot="permission-row">
+          <span data-slot="permission-spacer" aria-hidden="true" />
+          <div data-slot="permission-hint">{description()}</div>
         </div>
       </Show>
-      <div class="mt-3.5 flex justify-end gap-2 max-[720px]:flex-wrap">
-        <button
-          type="button"
-          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
-          disabled={props.responding}
-          onClick={() => props.onDecide("reject")}
-        >
-          {language.t("permission.action.deny")}
-        </button>
-        <button
-          type="button"
-          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-button-neutral px-3 text-[13px] font-[680] text-v2-text-text-base hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
-          disabled={props.responding}
-          onClick={() => props.onDecide("always")}
-        >
-          {language.t("permission.action.allowAlways")}
-        </button>
-        <button
-          type="button"
-          class="min-h-8 rounded-lg border border-v2-border-border-base bg-v2-background-bg-accent px-3 text-[13px] font-[680] text-v2-text-text-contrast hover:enabled:bg-[var(--v2-text-text-accent-hover)] disabled:opacity-55"
-          disabled={props.responding}
-          onClick={() => props.onDecide("once")}
-        >
-          {language.t("permission.action.allowOnce")}
-        </button>
-      </div>
-    </section>
+
+      <Show when={props.request.patterns.length > 0}>
+        <div data-slot="permission-row">
+          <span data-slot="permission-spacer" aria-hidden="true" />
+          <div data-slot="permission-patterns">
+            <For each={props.request.patterns}>
+              {(pattern) => <code class="text-12-regular text-text-base break-all">{pattern}</code>}
+            </For>
+          </div>
+        </div>
+      </Show>
+    </DockPrompt>
   )
 }

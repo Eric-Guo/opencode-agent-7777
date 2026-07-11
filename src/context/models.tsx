@@ -195,7 +195,7 @@ function removeModelVisibility(model: ModelSelection) {
   persistConfig({ ...modelConfig, user: nextUser })
 }
 
-function updateVisibility(model: ModelSelection, visibility: Visibility) {
+export function updateModelVisibility(model: ModelSelection, visibility: Visibility) {
   if (providerDefaultVisibility(model.providerID) === visibility) {
     removeModelVisibility(model)
     return
@@ -207,7 +207,7 @@ function updateVisibility(model: ModelSelection, visibility: Visibility) {
   persistConfig()
 }
 
-function updateProviderVisibility(providerID: string, visibility: Visibility) {
+export function updateProviderVisibility(providerID: string, visibility: Visibility) {
   const providerModels = state.models.filter((item) => item.providerID === providerID)
   if (providerModels.length === 0) return
 
@@ -282,7 +282,7 @@ function compactPopularProviderConfig(options: ModelOption[]) {
   persistConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
 }
 
-function pushRecent(model: ModelSelection) {
+export function pushRecentModel(model: ModelSelection) {
   const unique = [model, ...modelConfig.recent.filter((item) => !sameModel(item, model))]
   if (unique.length > RECENT_LIMIT) unique.pop()
   setModelConfig("recent", unique)
@@ -294,34 +294,6 @@ export function visibleModel(model: ModelSelection) {
   if (modelVisibility) return modelVisibility !== "hide"
 
   return providerDefaultVisibility(model.providerID) !== "hide"
-}
-
-export const modelSelector: ModelSelectorState = {
-  current() {
-    return findModel(state.models, state.selectedModel)
-  },
-  list() {
-    return state.models
-  },
-  set(model, options) {
-    if (model && !findModel(state.models, model)) return
-    setState("selectedModel", model)
-    writeModelSelection(model)
-    if (model) {
-      updateVisibility(model, "show")
-      if (options?.recent) pushRecent(model)
-    }
-  },
-  visible(model) {
-    return visibleModel(model)
-  },
-  setVisibility(model, visible) {
-    if (!findModel(state.models, model)) return
-    updateVisibility(model, visible ? "show" : "hide")
-  },
-  setProviderVisibility(providerID, visible) {
-    updateProviderVisibility(providerID, visible ? "show" : "hide")
-  },
 }
 
 export function refreshModels(activeClient: OpencodeClient | undefined, session: Session | undefined) {
@@ -367,8 +339,4 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
       setState("modelStatus", "failed")
       setState("error", readableError(error))
     })
-}
-
-export function selectModel(model: ModelSelection) {
-  modelSelector.set(model, { recent: true })
 }

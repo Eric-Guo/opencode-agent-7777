@@ -1,5 +1,6 @@
 export { SessionComposerRegion } from "./session-composer-region"
 export { createPromptInputController } from "./session-composer-controls"
+export { createPromptModelSelection } from "./prompt-model-selection"
 export {
   createSessionComposerRegionController,
   type SessionComposerRegionController,
