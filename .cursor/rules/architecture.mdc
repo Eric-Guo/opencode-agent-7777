@@ -1,0 +1,47 @@
+---
+description: Module boundaries and layout parity for packages/7777
+alwaysApply: true
+---
+
+# Architecture & Module Boundaries
+
+7777 is a compact, single-session SolidJS/Vite UI. Target layout parity with `<repo-root>/packages/app`; see `README.md` → **Code Layout Parity Review** for the current map.
+
+## Layer Responsibilities
+
+| Layer | Role |
+|-------|------|
+| `src/context/` | Providers, global stores, server/SDK wiring, sync |
+| `src/pages/` | Route-level shells and feature composition |
+| `src/components/` | Reusable UI; no route or global-store ownership |
+| `src/hooks/` | Derived data and side-effect hooks |
+| `src/utils/` | Pure helpers (prompt parsing, server URL, UUID) |
+| `src/constants/` | Shared constants only |
+
+## Sync & Session Boundaries
+
+- **Server lifecycle**: `server-sync.tsx` owns one active-session SSE lifecycle.
+- **Global sync**: `global-sync/bootstrap.ts`, `session-load.ts`, `session-cache.ts`, `event-reducer.ts`, `queue.ts` — keep message cache, event reduction, and refresh timers here, not in `server-session.ts`.
+- **UI store**: `server-session.ts` holds global UI state and current-session lookup only.
+- **Prompt/composer**: draft state in `context/prompt.tsx`; submit/abort in `components/prompt-input/submit.ts`; composer orchestration under `pages/session/composer/`.
+- **Timeline**: projection in `timeline/projection.ts`, rows in `timeline/rows.ts`, types in `timeline/timeline-row.ts`, rendering in `message-timeline.tsx`. No virtualization layer (7777-only omission).
+
+## Parity Rules
+
+When adding or moving a feature that exists in `packages/app`:
+
+1. **Match app filenames and module boundaries** for that feature.
+2. **Keep 7777-only code** in place when the compact architecture requires it (e.g. `session-recovery.ts`, `default-model-config.*`, `question.tsx`).
+3. **Update `README.md` parity table** in the same change if layout intentionally differs or a new 7777-only module is added.
+
+```text
+# ❌ BAD — message cache logic in server-session.ts
+# ✅ GOOD — mutate cache via global-sync/session-cache.ts; reducer dispatches from event-reducer.ts
+
+# ❌ BAD — new shared feature as src/lib/my-feature.ts while app uses src/context/my-feature.tsx
+# ✅ GOOD — mirror app path: src/context/my-feature.tsx
+```
+
+## Intentional 7777 Differences
+
+Do not port app-only multi-session infrastructure: tab router, `session-route.ts`, timeline virtualization (`row-reconciliation`, `virtual-items`, `measure`), command palette (`use-composer-commands`), or `model-variant.ts`.
