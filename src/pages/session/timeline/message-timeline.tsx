@@ -1,11 +1,22 @@
-import { Message as SharedMessage, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
+import type { SessionStatus } from "@opencode-ai/sdk"
+import { Message as SharedMessage, MessageDivider, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
+import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
 import { Icon } from "@opencode-ai/ui/icon"
-import { createMemo, createSignal, For, Show, type ComponentProps, type JSX, type ParentProps } from "solid-js"
+import {
+  createMemo,
+  createSignal,
+  For,
+  Show,
+  type Accessor,
+  type ComponentProps,
+  type ParentProps,
+} from "solid-js"
 import { useLanguage } from "@/context/language"
 import { TimelineRow } from "./rows"
 
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
 type SharedPartProps = ComponentProps<typeof Part>
+type TimelineRowByTag<T extends TimelineRow.TimelineRow["_tag"]> = Extract<TimelineRow.TimelineRow, { _tag: T }>
 
 function copyToClipboard(value: string) {
   const clipboard = typeof navigator === "undefined" ? undefined : navigator.clipboard
@@ -157,22 +168,58 @@ function AssistantMessageRow(props: {
 }
 
 function renderTimelineRow(
-  row: TimelineRow.TimelineRow,
-  props: Pick<MessageTimelineProps, "actions" | "showReasoningSummaries" | "showToolsPart">,
-): JSX.Element {
-  switch (row._tag) {
-    case "UserMessage":
-      return <UserMessageRow row={row} actions={props.actions} />
-    case "AssistantMessage":
+  row: Accessor<TimelineRow.TimelineRow>,
+  props: Pick<MessageTimelineProps, "actions" | "showReasoningSummaries" | "showToolsPart" | "sessionStatus">,
+) {
+  switch (row()._tag) {
+    case "TurnGap":
+      return <div data-timeline-row="TurnGap" aria-hidden="true" class="h-6" />
+    case "UserMessage": {
+      const userMessageRow = row as Accessor<TimelineRowByTag<"UserMessage">>
+      return <UserMessageRow row={userMessageRow()} actions={props.actions} />
+    }
+    case "AssistantMessage": {
+      const assistantMessageRow = row as Accessor<TimelineRowByTag<"AssistantMessage">>
       return (
         <AssistantMessageRow
-          row={row}
+          row={assistantMessageRow()}
           showReasoningSummaries={props.showReasoningSummaries}
           showToolsPart={props.showToolsPart}
         />
       )
+    }
+    case "TurnDivider": {
+      const turnDividerRow = row as Accessor<TimelineRowByTag<"TurnDivider">>
+      return (
+        <TimelineRowFrame role="assistant">
+          <div data-slot="session-turn-compaction">
+            <MessageDivider
+              label={
+                turnDividerRow().label === "compaction"
+                  ? "Compacted conversation"
+                  : "Assistant response interrupted"
+              }
+            />
+          </div>
+        </TimelineRowFrame>
+      )
+    }
+    case "Retry":
+      return (
+        <TimelineRowFrame role="assistant">
+          <SessionRetry status={props.sessionStatus} show />
+        </TimelineRowFrame>
+      )
   }
-  throw new Error("Unknown timeline row")
+}
+
+function TimelineRowView(
+  props: { row: TimelineRow.TimelineRow } & Pick<
+    MessageTimelineProps,
+    "actions" | "showReasoningSummaries" | "showToolsPart" | "sessionStatus"
+  >,
+) {
+  return renderTimelineRow(() => props.row, props)
 }
 
 type MessageTimelineProps = {
@@ -180,6 +227,7 @@ type MessageTimelineProps = {
   actions?: UserActions
   showReasoningSummaries: boolean
   showToolsPart: boolean
+  sessionStatus: SessionStatus
   onPointerGesture?: (target?: EventTarget | null) => void
 }
 
@@ -195,7 +243,17 @@ export function MessageTimeline(props: MessageTimelineProps) {
 
   return (
     <div data-slot="session-message-timeline" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}>
-      <For each={props.rows}>{(row) => renderTimelineRow(row, props)}</For>
+      <For each={props.rows}>
+        {(row) => (
+          <TimelineRowView
+            row={row}
+            actions={props.actions}
+            showReasoningSummaries={props.showReasoningSummaries}
+            showToolsPart={props.showToolsPart}
+            sessionStatus={props.sessionStatus}
+          />
+        )}
+      </For>
     </div>
   )
 }

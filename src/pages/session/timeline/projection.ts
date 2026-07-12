@@ -1,5 +1,7 @@
+import type { SessionStatus } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 import { createTimelineMessageRow } from "./rows"
+import { TimelineRow } from "./timeline-row"
 
 type AssistantHistoryItem = HistoryItem & {
   info: HistoryItem["info"] & { role: "assistant"; parentID: string }
@@ -34,6 +36,36 @@ export function projectTimelineMessages(messages: HistoryItem[], userMessages: H
   return userMessages.flatMap((item) => [item, ...assistantChain(item.info.id)])
 }
 
-export function projectTimelineRows(messages: HistoryItem[], userMessages: HistoryItem[]) {
-  return projectTimelineMessages(messages, userMessages).map(createTimelineMessageRow)
+export function projectTimelineRows(
+  messages: HistoryItem[],
+  userMessages: HistoryItem[],
+  status: SessionStatus = { type: "idle" },
+) {
+  const projected = projectTimelineMessages(messages, userMessages)
+  const lastUserMessageID = userMessages.at(-1)?.info.id
+
+  return projected.flatMap<TimelineRow.TimelineRow>((item, index) => {
+    if (item.info.role === "user") {
+      const rows: TimelineRow.TimelineRow[] = []
+      if (index > 0) rows.push({ _tag: "TurnGap", userMessageID: item.info.id })
+      rows.push(createTimelineMessageRow(item))
+      if (item.parts.some((part) => part.type === "compaction")) {
+        rows.push({ _tag: "TurnDivider", userMessageID: item.info.id, label: "compaction" })
+      }
+      const next = projected[index + 1]
+      if (status.type === "retry" && item.info.id === lastUserMessageID && next?.info.role !== "assistant") {
+        rows.push({ _tag: "Retry", userMessageID: item.info.id })
+      }
+      return rows
+    }
+
+    const rows: TimelineRow.TimelineRow[] = [createTimelineMessageRow(item)]
+    if (item.info.error?.name === "MessageAbortedError") {
+      rows.push({ _tag: "TurnDivider", userMessageID: item.info.parentID, label: "interrupted" })
+    }
+    if (status.type === "retry" && index === projected.length - 1 && lastUserMessageID) {
+      rows.push({ _tag: "Retry", userMessageID: lastUserMessageID })
+    }
+    return rows
+  })
 }

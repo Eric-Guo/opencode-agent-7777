@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import type { Message, Part } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
-import { projectTimelineMessages } from "./projection"
+import { projectTimelineMessages, projectTimelineRows } from "./projection"
 
 const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>
   ({
@@ -36,5 +36,38 @@ describe("timeline projection", () => {
       "msg_2",
       "msg_3",
     ])
+  })
+
+  test("adds gaps between turns and dividers for compaction and interruption", () => {
+    const first = item("msg_1", "user")
+    const second = item("msg_2", "user")
+    second.parts = [{ type: "compaction" } as Part]
+    const aborted = item("msg_3", "assistant", {
+      parentID: second.info.id,
+      error: { name: "MessageAbortedError" },
+    } as Partial<Message>)
+
+    expect(projectTimelineRows([first, second, aborted], [first, second]).map((row) => row._tag)).toEqual([
+      "UserMessage",
+      "TurnGap",
+      "UserMessage",
+      "TurnDivider",
+      "AssistantMessage",
+      "TurnDivider",
+    ])
+  })
+
+  test("adds retry to the active turn with or without an assistant response", () => {
+    const user = item("msg_1", "user")
+    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
+
+    expect(projectTimelineRows([user], [user], { type: "retry", attempt: 1, message: "retrying", next: 1 }).at(-1)?._tag).toBe(
+      "Retry",
+    )
+    expect(
+      projectTimelineRows([user, assistant], [user], { type: "retry", attempt: 1, message: "retrying", next: 1 }).at(
+        -1,
+      )?._tag,
+    ).toBe("Retry")
   })
 })

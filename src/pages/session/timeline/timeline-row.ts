@@ -11,6 +11,11 @@ export type TimelineMessageContent = {
 }
 
 export namespace TimelineRow {
+  export type TurnGap = {
+    _tag: "TurnGap"
+    userMessageID: string
+  }
+
   export type UserMessage = {
     _tag: "UserMessage"
     item: HistoryItem
@@ -22,9 +27,30 @@ export namespace TimelineRow {
     content: TimelineMessageContent
   }
 
-  export type TimelineRow = UserMessage | AssistantMessage
+  export type TurnDivider = {
+    _tag: "TurnDivider"
+    userMessageID: string
+    label: "compaction" | "interrupted"
+  }
+
+  export type Retry = {
+    _tag: "Retry"
+    userMessageID: string
+  }
+
+  export type TimelineRow = TurnGap | UserMessage | TurnDivider | AssistantMessage | Retry
 
   export function key(row: TimelineRow) {
-    return `${row._tag}:${row.item.info.id}`
+    switch (row._tag) {
+      case "TurnGap":
+        return `turn-gap:${row.userMessageID}`
+      case "UserMessage":
+      case "AssistantMessage":
+        return `${row._tag}:${row.item.info.id}`
+      case "TurnDivider":
+        return `turn-divider:${row.userMessageID}:${row.label}`
+      case "Retry":
+        return `retry:${row.userMessageID}`
+    }
   }
 }

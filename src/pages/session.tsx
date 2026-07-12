@@ -39,6 +39,7 @@ export function SessionPage() {
     messages: () => state.messages,
     loading: () => state.messagesLoading,
     revertMessageID: () => state.session?.revert?.messageID,
+    status: () => state.sessionStatus,
   })
   const composer = createSessionComposerRegionController()
   const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
@@ -150,6 +151,7 @@ export function SessionPage() {
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
                 showToolsPart={showToolsPart()}
+                sessionStatus={state.sessionStatus}
                 onPointerGesture={markTimelinePointerGesture}
               />
             </DataProvider>
