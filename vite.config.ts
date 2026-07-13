@@ -8,6 +8,10 @@ const theme = fileURLToPath(new URL("./public/oc-theme-preload.js", import.meta.
 
 export default defineConfig({
   base: "./",
+  define: {
+    "import.meta.env.OPENCODE_SERVER_USERNAME": JSON.stringify(process.env.OPENCODE_SERVER_USERNAME),
+    "import.meta.env.OPENCODE_SERVER_PASSWORD": JSON.stringify(process.env.OPENCODE_SERVER_PASSWORD),
+  },
   publicDir: "../app/public",
   plugins: [
     {
