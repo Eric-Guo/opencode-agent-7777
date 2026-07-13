@@ -137,7 +137,12 @@ export function startNewSession() {
         summaryModels: uniqueModels([smallModel, modelForSummary(messages, selectedModel)]),
       }))
     })
-    .then((input) => activateSession(server, input.session).then(() => input))
+    .then((input) =>
+      activateSession(server, input.session).then(() => {
+        setState("welcomeSessionID", input.session.id)
+        return input
+      }),
+    )
     .then((input) => {
       restartSessionEventStream()
       if (

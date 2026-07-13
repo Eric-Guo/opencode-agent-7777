@@ -15,6 +15,7 @@ import {
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
 import { currentSession, setState, state } from "@/context/server-session"
 import { ErrorBanner } from "@/pages/error"
+import { AgentWelcome } from "@/pages/session/agent-welcome"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
 import { NEW_SESSION_EMPTY_BADGE_CLASS, NEW_SESSION_EMPTY_STATE_CLASS } from "@/pages/session/new-session-layout"
 import {
@@ -140,8 +141,17 @@ export function SessionPage() {
             when={timeline.visibleMessages().length > 0}
             fallback={
               <div class={NEW_SESSION_EMPTY_STATE_CLASS}>
-                <div class={NEW_SESSION_EMPTY_BADGE_CLASS}>7777</div>
-                <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
+                <Show
+                  when={state.session?.id === state.welcomeSessionID}
+                  fallback={
+                    <>
+                      <div class={NEW_SESSION_EMPTY_BADGE_CLASS}>7777</div>
+                      <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
+                    </>
+                  }
+                >
+                  <AgentWelcome />
+                </Show>
               </div>
             }
           >

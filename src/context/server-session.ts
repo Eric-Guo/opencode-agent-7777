@@ -32,6 +32,7 @@ export type AppState = {
   prompt: string
   attachments: PromptAttachment[]
   submitting: boolean
+  welcomeSessionID: string | undefined
   error: string
 }
 
@@ -57,6 +58,7 @@ export const [state, setState] = createStore<AppState>({
   prompt: "",
   attachments: [],
   submitting: false,
+  welcomeSessionID: undefined,
   error: "",
 })
 
