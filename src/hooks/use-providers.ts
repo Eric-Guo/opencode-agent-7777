@@ -15,10 +15,10 @@ export const popularProviders = [
 
 export async function loadProviderCatalog(client: OpencodeClient, session: Session) {
   const location = { directory: sessionDirectory(session) }
-  const [providers, models, defaultModel] = await Promise.all([
+  const defaultModel = await client.model.default({ location })
+  const [providers, models] = await Promise.all([
     client.provider.list({ location }),
     client.model.list({ location }),
-    client.model.default({ location }),
   ])
   return selectProviderCatalog({ providers: providers.data, models: models.data, defaultModel: defaultModel.data })
 }
