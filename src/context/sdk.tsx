@@ -17,12 +17,9 @@ export function createDirectorySdk(server: ServerInfo, directory: string): Direc
     server: serverSdk.server,
     directory,
     url: serverSdk.url,
-    client: serverSdk.createClient({ directory, throwOnError: true }),
+    client: serverSdk.client,
     createClient(config: ServerClientConfig = {}) {
-      return serverSdk.createClient({
-        directory,
-        ...config,
-      })
+      return serverSdk.createClient(config)
     },
   }
 }

@@ -1,4 +1,4 @@
-import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
+import type { OpenCodeEvent as OpencodeEvent } from "@opencode-ai/client"
 import {
   activateSession,
   initializeSessionSync as bootstrapSessionSync,
@@ -11,6 +11,7 @@ import { handleQuestionEvent } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk"
 import { setState, state } from "@/context/server-session"
 import { readableError } from "@/utils/server-errors"
+import { sessionDirectory } from "@/context/session-directory"
 
 let streamAbort: AbortController | undefined
 
@@ -36,20 +37,14 @@ function stopEventStream() {
 function startEventStream() {
   stopEventStream()
   const server = state.server
-  const directory = state.session?.directory
+  const directory = state.session ? sessionDirectory(state.session) : undefined
   if (!server || !directory) return
   const activeClient = createDirectorySdk(server, directory).client
   const controller = new AbortController()
   streamAbort = controller
   void (async () => {
-    const events = await activeClient.event.subscribe({
-      signal: controller.signal,
-      sseMaxRetryAttempts: 5,
-      onSseError: (error) => {
-        if (!controller.signal.aborted) console.error("[7777] event stream error", error)
-      },
-    })
-    for await (const event of events.stream) {
+    const events = activeClient.event.subscribe({ signal: controller.signal })
+    for await (const event of events) {
       if (controller.signal.aborted) return
       handleEvent(event)
     }

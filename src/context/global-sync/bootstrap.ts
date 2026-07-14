@@ -9,7 +9,7 @@ import { createDirectorySdk } from "@/context/sdk"
 import { createServerSdk, type OpencodeClient } from "@/context/server-sdk"
 import { idleStatus, setSessionClient, setState, state } from "@/context/server-session"
 import { resolveServer, type ServerInfo } from "@/context/server"
-import { normalizeSessionDirectory } from "@/context/session-directory"
+import { sessionDirectory } from "@/context/session-directory"
 import { createDefaultSession, restoreSession } from "./session-load"
 import { refreshRecentSessions } from "@/context/directory-sync"
 
@@ -19,12 +19,10 @@ export function refreshCurrentMessages() {
 
 export function refreshSessionStatus(activeClient: OpencodeClient, session: NonNullable<typeof state.session>) {
   return activeClient.session
-    .status({
-      query: { directory: normalizeSessionDirectory(session.directory) },
-    })
-    .then((result) => {
+    .active()
+    .then((active) => {
       if (state.session?.id !== session.id) return
-      setState("sessionStatus", result.data?.[session.id] ?? idleStatus)
+      setState("sessionStatus", active[session.id] ? { type: "busy" } : idleStatus)
     })
     .catch(() => {
       if (state.session?.id === session.id) setState("sessionStatus", idleStatus)
@@ -39,7 +37,7 @@ export function activateSession(
   const draft = options.restoreDraft ? readPromptDraft() : undefined
   if (!options.restoreDraft) clearPromptDraft()
   writeSessionRecord(session)
-  const activeClient = createDirectorySdk(server, session.directory).client
+  const activeClient = createDirectorySdk(server, sessionDirectory(session)).client
   setSessionClient(activeClient)
   setState("session", session)
   setState("sessionStatus", idleStatus)

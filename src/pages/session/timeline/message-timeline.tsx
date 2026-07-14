@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@opencode-ai/sdk"
+import type { SessionStatus } from "@opencode-ai/client"
 import { Message as SharedMessage, MessageDivider, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
 import { Icon } from "@opencode-ai/ui/icon"

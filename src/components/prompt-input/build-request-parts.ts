@@ -1,20 +1,13 @@
-import type { FilePartInput, Part } from "@opencode-ai/sdk"
+import type { Part, SessionPromptInput } from "@opencode-ai/client"
 import { AGENT_ID } from "@/constants/session"
 import type { ModelSelection } from "@/context/local"
 import type { PromptAttachment } from "@/context/prompt"
 
 export function buildRequestParts(input: { text: string; attachments: PromptAttachment[]; sessionID: string }) {
-  const requestParts = [
-    ...(input.text ? [{ type: "text" as const, text: input.text }] : []),
-    ...input.attachments.map(
-      (attachment): FilePartInput => ({
-        type: "file",
-        mime: attachment.mime,
-        filename: attachment.sourcePath ?? attachment.filename,
-        url: attachment.url,
-      }),
-    ),
-  ]
+  const requestFiles: NonNullable<SessionPromptInput["files"]> = input.attachments.map((attachment) => ({
+    uri: attachment.url,
+    name: attachment.sourcePath ?? attachment.filename,
+  }))
 
   const localMessageID = `local-${Date.now()}`
   const optimisticParts: Part[] = [
@@ -42,7 +35,7 @@ export function buildRequestParts(input: { text: string; attachments: PromptAtta
 
   return {
     localMessageID,
-    requestParts,
+    requestFiles,
     optimisticParts,
   }
 }

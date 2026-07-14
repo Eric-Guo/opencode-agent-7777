@@ -1,5 +1,5 @@
-import type { Session } from "@opencode-ai/sdk"
 import type { OpencodeClient } from "@/context/sdk"
+import { sessionDirectory, type Session } from "@/context/session-directory"
 import { selectProviderCatalog } from "@/hooks/provider-catalog"
 
 export const popularProviders = [
@@ -14,8 +14,11 @@ export const popularProviders = [
 ]
 
 export async function loadProviderCatalog(client: OpencodeClient, session: Session) {
-  const result = await client.provider.list({
-    query: { directory: session.directory },
-  })
-  return result.data ? selectProviderCatalog(result.data) : undefined
+  const location = { directory: sessionDirectory(session) }
+  const [providers, models, defaultModel] = await Promise.all([
+    client.provider.list({ location }),
+    client.model.list({ location }),
+    client.model.default({ location }),
+  ])
+  return selectProviderCatalog({ providers: providers.data, models: models.data, defaultModel: defaultModel.data })
 }

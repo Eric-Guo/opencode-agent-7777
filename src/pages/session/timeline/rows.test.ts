@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { Message, Part } from "@opencode-ai/sdk"
+import type { Message, Part } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 import { createTimelineMessageRow } from "./rows"
 

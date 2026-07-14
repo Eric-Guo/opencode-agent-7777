@@ -1,11 +1,10 @@
-import type { Event as OpencodeEvent } from "@opencode-ai/sdk"
+import type { OpenCodeEvent as OpencodeEvent } from "@opencode-ai/client"
 import { translateSync } from "@/context/language"
 import { showPlatformNotification } from "@/context/platform"
 import { scheduleRefresh } from "@/context/server-sync"
 import { currentSession, setState, state } from "@/context/server-session"
 import {
   permissionDescription,
-  toPermissionView,
   toV2PermissionView,
   v2PermissionAsked,
   v2PermissionReplied,
@@ -13,7 +12,6 @@ import {
   type V2PermissionLike,
 } from "@/pages/session/composer/session-request-tree"
 import { readableError } from "@/utils/server-errors"
-import { serverHttpHeaders, serverUrl } from "@/utils/server"
 
 function permissionNotificationBody(permission: PermissionRequestView) {
   if (permission.title) return permission.title
@@ -42,20 +40,13 @@ const alertedPermissionIDs = new Set<string>()
 
 export function refreshPermissions() {
   const active = currentSession()
-  if (!active || !state.server) return Promise.resolve()
+  if (!active) return Promise.resolve()
 
-  return fetch(serverUrl(state.server, `/api/session/${encodeURIComponent(active.sessionID)}/permission`), {
-    headers: serverHttpHeaders(state.server),
+  return active.client.permission.list({ sessionID: active.sessionID }).then((result) => {
+    const request = result[0]
+    setState("permissionRequest", request ? toV2PermissionView(request) : undefined)
+    setState("permissionResponding", false)
   })
-    .then((response) => {
-      if (!response.ok) throw new Error(translateSync("error.permissionsLoadFailed", { status: response.status }))
-      return response.json() as Promise<{ data?: V2PermissionLike[] }>
-    })
-    .then((result) => {
-      const request = result.data?.[0]
-      setState("permissionRequest", request ? toV2PermissionView(request) : undefined)
-      setState("permissionResponding", false)
-    })
 }
 
 export function handlePermissionEvent(event: OpencodeEvent) {
@@ -77,58 +68,21 @@ export function handlePermissionEvent(event: OpencodeEvent) {
     return true
   }
 
-  if (event.type === "permission.updated" && event.properties.sessionID === state.session?.id) {
-    const request = toPermissionView(event.properties)
-    setState("permissionRequest", request)
-    setState("permissionResponding", false)
-    notifyPermissionRequest(request)
-    return true
-  }
-
-  if (event.type === "permission.replied" && event.properties.sessionID === state.session?.id) {
-    alertedPermissionIDs.delete(event.properties.permissionID)
-    setState("permissionRequest", (current) =>
-      current?.id === event.properties.permissionID ? undefined : current,
-    )
-    setState("permissionResponding", false)
-    return true
-  }
-
   return false
 }
 
 export function decidePermission(response: "once" | "always" | "reject") {
   const active = currentSession()
   const request = state.permissionRequest
-  if (!active || !request || state.permissionResponding || !state.server) return
+  if (!active || !request || state.permissionResponding) return
 
   setState("error", "")
   setState("permissionResponding", true)
-  const reply =
-    request.replyTarget === "session"
-      ? fetch(
-          serverUrl(
-            state.server,
-            `/api/session/${encodeURIComponent(request.sessionID)}/permission/${encodeURIComponent(request.id)}/reply`,
-          ),
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...serverHttpHeaders(state.server),
-            },
-            body: JSON.stringify({ reply: response }),
-          },
-        ).then((result) => {
-          if (!result.ok) throw new Error(translateSync("error.permissionsReplyFailed", { status: result.status }))
-        })
-      : active.client.postSessionIdPermissionsPermissionId({
-          path: {
-            id: request.sessionID,
-            permissionID: request.id,
-          },
-          body: { response },
-        })
+  const reply = active.client.permission.reply({
+    sessionID: request.sessionID,
+    requestID: request.id,
+    reply: response,
+  })
 
   void reply
     .then(() => {

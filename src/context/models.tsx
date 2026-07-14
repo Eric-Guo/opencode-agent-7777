@@ -1,4 +1,3 @@
-import type { Session } from "@opencode-ai/sdk"
 import { createMemo, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/context/default-model-config"
@@ -9,6 +8,7 @@ import { setState, state } from "@/context/server-session"
 import type { ProviderCatalog, ProviderItem, ProviderModel } from "@/hooks/provider-catalog"
 import { loadProviderCatalog, popularProviders } from "@/hooks/use-providers"
 import { readableError } from "@/utils/server-errors"
+import type { Session } from "@/context/session-directory"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
@@ -25,7 +25,7 @@ type ModelConfig = {
   recent: ModelSelection[]
 }
 
-export type ModelOption = Omit<ProviderModel, "id" | "name" | "provider"> &
+export type ModelOption = Omit<ProviderModel, "id" | "name" | "cost" | "variants"> &
   ModelSelection & {
     provider: ProviderItem
     latest: boolean
@@ -311,12 +311,14 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
               (model) =>
                 ({
                   ...model,
-                  id: model.id,
+                  id: model.modelID,
                   name: model.name.replace("(latest)", "").trim(),
                   provider,
                   latest: model.name.includes("(latest)"),
+                  cost: model.cost[0],
+                  variants: Object.fromEntries(model.variants.map((variant) => [variant.id, variant])),
                   providerID: provider.id,
-                  modelID: model.id,
+                  modelID: model.modelID,
                   providerName: provider.name,
                   modelName: model.name.replace("(latest)", "").trim(),
                 }) satisfies ModelOption,

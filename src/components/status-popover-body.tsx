@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@opencode-ai/sdk"
+import type { SessionStatus } from "@opencode-ai/client"
 import type { TranslationKey, TranslationParams } from "@/context/language"
 import type { LoadStatus } from "@/context/server-session"
 

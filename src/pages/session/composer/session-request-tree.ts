@@ -1,5 +1,4 @@
-import type { Event as OpencodeEvent, Permission } from "@opencode-ai/sdk"
-import type { PermissionRequest as V2PermissionRequest } from "@opencode-ai/sdk/v2/client"
+import type { OpenCodeEvent as OpencodeEvent, PermissionV2Request as V2PermissionRequest } from "@opencode-ai/client"
 import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
 
 export type PermissionRequestView = {
@@ -17,13 +16,13 @@ export type V2PermissionLike = V2PermissionRequest & {
 }
 
 type V2PermissionAskedEvent = {
-  type: "permission.asked"
+  type: "permission.v2.asked"
   data?: V2PermissionLike
   properties?: V2PermissionLike
 }
 
 type V2PermissionRepliedEvent = {
-  type: "permission.replied"
+  type: "permission.v2.replied"
   data?: V2PermissionReplyLike
   properties?: V2PermissionReplyLike
 }
@@ -36,36 +35,23 @@ export type V2PermissionReplyLike = {
 
 export function v2PermissionAsked(event: OpencodeEvent): V2PermissionLike | undefined {
   const candidate = event as unknown as V2PermissionAskedEvent
-  if (candidate.type !== "permission.asked") return
+  if (candidate.type !== "permission.v2.asked") return
   return candidate.data ?? candidate.properties
 }
 
 export function v2PermissionReplied(event: OpencodeEvent): V2PermissionReplyLike | undefined {
   const candidate = event as unknown as V2PermissionRepliedEvent
-  if (candidate.type !== "permission.replied") return
+  if (candidate.type !== "permission.v2.replied") return
   return candidate.data ?? candidate.properties
 }
 
-export function toPermissionView(permission: Permission): PermissionRequestView {
-  const pattern = permission.pattern
-  return {
-    id: permission.id,
-    sessionID: permission.sessionID,
-    permission: permission.type,
-    patterns: pattern ? (Array.isArray(pattern) ? pattern : [pattern]) : [],
-    title: permission.title,
-    replyTarget: "respond",
-  }
-}
-
 export function toV2PermissionView(permission: V2PermissionLike): PermissionRequestView {
-  const isSessionPermission = !!permission.action || !!permission.resources
   return {
     id: permission.id,
     sessionID: permission.sessionID,
-    permission: permission.permission ?? permission.action ?? "permission",
-    patterns: permission.patterns ?? permission.resources ?? [],
-    replyTarget: isSessionPermission ? "session" : "respond",
+    permission: permission.action,
+    patterns: permission.resources,
+    replyTarget: "session",
   }
 }
 

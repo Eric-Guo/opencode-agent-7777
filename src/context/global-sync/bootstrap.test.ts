@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { Session, SessionStatus } from "@opencode-ai/sdk"
+import type { Session } from "@/context/session-directory"
 import { refreshSessionStatus } from "@/context/global-sync/bootstrap"
 import { recoverDeletedSession } from "@/context/session-recovery"
 import { idleStatus, setState, state } from "@/context/server-session"
@@ -8,20 +8,21 @@ import type { OpencodeClient } from "@/context/sdk"
 const session = (id = "session", input: Partial<Session> = {}): Session => ({
   id,
   projectID: "project",
-  directory: "/repo",
+  location: { directory: "/repo" },
   title: id,
-  version: "1",
+  cost: 0,
+  tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
   time: { created: 1, updated: 1 },
   ...input,
 })
 
-function statusClient(statuses: Record<string, SessionStatus>) {
+function statusClient(active: Record<string, { type: "running" }>) {
   const requests: unknown[] = []
   const client = {
     session: {
-      status: (input: unknown) => {
-        requests.push(input)
-        return Promise.resolve({ data: statuses })
+      active: () => {
+        requests.push({})
+        return Promise.resolve(active)
       },
     },
   } as unknown as OpencodeClient
@@ -36,12 +37,12 @@ afterEach(() => {
 describe("bootstrap session status hydration", () => {
   test("seeds the active session status from the server", async () => {
     const activeSession = session()
-    const client = statusClient({ [activeSession.id]: { type: "busy" } })
+    const client = statusClient({ [activeSession.id]: { type: "running" } })
     setState("session", activeSession)
 
     await refreshSessionStatus(client, activeSession)
 
-    expect(client.requests).toEqual([{ query: { directory: "/repo" } }])
+    expect(client.requests).toEqual([{}])
     expect(state.sessionStatus).toEqual({ type: "busy" })
   })
 
@@ -66,29 +67,29 @@ describe("deleted session recovery", () => {
       session: {
         get: (input: unknown) => {
           requests.push(input)
-          return Promise.resolve({ data: parent })
+          return Promise.resolve(parent)
         },
-        create: () => Promise.resolve({ data: session("new") }),
+        create: () => Promise.resolve(session("new")),
       },
-      path: {
-        get: () => Promise.resolve({ data: { home: "/home/user" } }),
+      location: {
+        get: () => Promise.resolve({ directory: "/home/user", project: { id: "global", directory: "/" } }),
       },
     } as unknown as OpencodeClient
 
     const result = await recoverDeletedSession(client, child)
 
     expect(result.session).toEqual(parent)
-    expect(requests).toEqual([{ path: { id: parent.id }, query: { directory: "/repo" } }])
+    expect(requests).toEqual([{ sessionID: parent.id }])
   })
 
   test("creates a default session when there is no parent to recover", async () => {
-    const next = session("new", { directory: "/home/user" })
+    const next = session("new", { location: { directory: "/home/user" } })
     const client = {
       session: {
-        create: () => Promise.resolve({ data: next }),
+        create: () => Promise.resolve(next),
       },
-      path: {
-        get: () => Promise.resolve({ data: { home: "/home/user" } }),
+      location: {
+        get: () => Promise.resolve({ directory: "/home/user", project: { id: "global", directory: "/" } }),
       },
     } as unknown as OpencodeClient
 

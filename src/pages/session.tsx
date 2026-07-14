@@ -29,6 +29,7 @@ import { createTimelineModel } from "@/pages/session/timeline/model"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { readableError } from "@/utils/server-errors"
+import { sessionDirectory } from "@/context/session-directory"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
 
@@ -56,7 +57,7 @@ export function SessionPage() {
         session_diff: {},
         message: state.session ? { [state.session.id]: state.messages.map((item) => item.info) } : {},
         part: Object.fromEntries(state.messages.map((item) => [item.info.id, item.parts])),
-      }) as SessionUiData,
+      }) as unknown as SessionUiData,
   )
   const actions: UserActions = {
     revert: (input) => {
@@ -65,13 +66,10 @@ export function SessionPage() {
       const message = state.messages.find((item) => item.info.id === input.messageID)
       const draft = message ? extractPromptFromParts(message.parts) : undefined
       setState("error", "")
-      return active.client.session
-        .revert({
-          path: { id: active.sessionID },
-          body: { messageID: input.messageID },
-        })
+      return active.client.session.revert
+        .stage({ sessionID: active.sessionID, messageID: input.messageID })
         .then((result) => {
-          if (result.data) setState("session", result.data)
+          setState("session", "revert", result)
           if (draft) {
             setState("prompt", draft.text)
             setState("attachments", draft.attachments)
@@ -155,7 +153,7 @@ export function SessionPage() {
               </div>
             }
           >
-            <DataProvider data={sessionUiData()} directory={state.session?.directory ?? ""}>
+            <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
               <MessageTimeline
                 rows={timeline.visibleRows()}
                 actions={actions}

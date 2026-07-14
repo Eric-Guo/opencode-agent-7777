@@ -1,4 +1,4 @@
-import type { Part as SdkPart } from "@opencode-ai/sdk"
+import type { Part as SdkPart } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 
 export type TimelineMessageContent = {

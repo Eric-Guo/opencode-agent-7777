@@ -1,5 +1,5 @@
-import type { Session } from "@opencode-ai/sdk"
 import { MODEL_SELECTION_KEY, SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
+import { sessionDirectory, type Session } from "@/context/session-directory"
 
 export type SessionRecord = {
   id: string
@@ -40,7 +40,7 @@ export function readSessionRecord(): SessionRecord | undefined {
 
 export function writeSessionRecord(session: Session) {
   storageSet(SESSION_ID_KEY, session.id)
-  storageSet(SESSION_DIRECTORY_KEY, session.directory)
+  storageSet(SESSION_DIRECTORY_KEY, sessionDirectory(session))
 }
 
 export function readModelSelection(): ModelSelection | undefined {

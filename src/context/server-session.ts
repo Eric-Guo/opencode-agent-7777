@@ -1,5 +1,4 @@
-import type { Session, SessionStatus } from "@opencode-ai/sdk"
-import type { QuestionRequest } from "@opencode-ai/sdk/v2"
+import type { QuestionV2Request as QuestionRequest, SessionStatus } from "@opencode-ai/client"
 import { createStore } from "solid-js/store"
 import { translateSync } from "@/context/language"
 import type { ModelSelection } from "@/context/local"
@@ -9,6 +8,7 @@ import type { PermissionRequestView } from "@/pages/session/composer/session-req
 import type { OpencodeClient } from "@/context/server-sdk"
 import type { ServerInfo } from "@/context/server"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
+import type { Session } from "@/context/session-directory"
 
 export type LoadStatus = "loading" | "ready" | "failed"
 
@@ -64,11 +64,16 @@ export const [state, setState] = createStore<AppState>({
 
 let client: OpencodeClient | undefined
 
+export type ActiveSession = {
+  client: OpencodeClient
+  sessionID: string
+}
+
 export function setSessionClient(next: OpencodeClient | undefined) {
   client = next
 }
 
-export function currentSession() {
+export function currentSession(): ActiveSession | undefined {
   if (!client || !state.session) {
     setState("error", translateSync("error.sessionNotReady"))
     return

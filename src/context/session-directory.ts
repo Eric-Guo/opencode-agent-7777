@@ -1,4 +1,11 @@
+import type { SessionInfo } from "@opencode-ai/client"
 import { DEFAULT_SESSION_DIRECTORY_NAME } from "@/constants/session"
+
+export type Session = SessionInfo
+
+export function sessionDirectory(session: Session) {
+  return session.location.directory
+}
 
 export function normalizeSessionDirectory(directory: string) {
   const normalized = directory.replace(/[\\/]+$/, "")

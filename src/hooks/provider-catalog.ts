@@ -1,20 +1,29 @@
-import type { OpencodeClient } from "@/context/sdk"
+import type { ModelInfo, ProviderV2Info } from "@opencode-ai/client"
 
-export type ProviderCatalogData = NonNullable<Awaited<ReturnType<OpencodeClient["provider"]["list"]>>["data"]>
-export type ProviderItem = ProviderCatalogData["all"][number]
-export type ProviderModel = ProviderItem["models"][string]
+export type ProviderItem = ProviderV2Info & { models: Record<string, ModelInfo> }
+export type ProviderModel = ModelInfo
+export type ProviderCatalogData = {
+  providers: ProviderV2Info[]
+  models: ModelInfo[]
+  defaultModel: ModelInfo | null
+}
 
 export type ProviderCatalog = {
   all: ProviderItem[]
   connected: ProviderItem[]
-  default: ProviderCatalogData["default"]
+  default: Record<string, string>
 }
 
 export function selectProviderCatalog(data: ProviderCatalogData): ProviderCatalog {
-  const connected = new Set(data.connected)
+  const all = data.providers.map((provider) => ({
+    ...provider,
+    models: Object.fromEntries(
+      data.models.filter((model) => model.providerID === provider.id).map((model) => [model.modelID, model]),
+    ),
+  }))
   return {
-    all: data.all,
-    connected: data.all.filter((provider) => connected.has(provider.id)),
-    default: data.default,
+    all,
+    connected: all.filter((provider) => !provider.disabled && Object.keys(provider.models).length > 0),
+    default: data.defaultModel ? { [data.defaultModel.providerID]: data.defaultModel.modelID } : {},
   }
 }

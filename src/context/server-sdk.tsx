@@ -1,10 +1,10 @@
-import { createOpencodeClient } from "@opencode-ai/sdk/client"
+import { OpenCode } from "@opencode-ai/client"
 import type { ServerInfo } from "@/context/server"
 import { serverAuthHeader } from "@/utils/server"
 
-export type ServerClientConfig = Omit<NonNullable<Parameters<typeof createOpencodeClient>[0]>, "baseUrl">
+export type ServerClientConfig = Omit<Parameters<typeof OpenCode.make>[0], "baseUrl">
 
-export type OpencodeClient = ReturnType<typeof createOpencodeClient>
+export type OpencodeClient = ReturnType<typeof OpenCode.make>
 
 export function createClientForServer({
   server,
@@ -13,7 +13,7 @@ export function createClientForServer({
   server: ServerInfo
 }): OpencodeClient {
   const auth = serverAuthHeader(server)
-  return createOpencodeClient({
+  return OpenCode.make({
     ...config,
     headers: {
       ...(config.headers instanceof Headers ? Object.fromEntries(config.headers.entries()) : config.headers),
@@ -34,7 +34,7 @@ export function createServerSdk(server: ServerInfo): ServerSdk {
   return {
     server,
     url: server.url,
-    client: createClientForServer({ server, throwOnError: true }),
+    client: createClientForServer({ server }),
     createClient(config: ServerClientConfig = {}) {
       return createClientForServer({
         server,

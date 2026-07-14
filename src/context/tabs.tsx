@@ -1,5 +1,5 @@
-import type { Session } from "@opencode-ai/sdk"
 import { recoverDeletedSession } from "@/context/session-recovery"
+import type { Session } from "@/context/session-directory"
 import { createServerSdk } from "@/context/server-sdk"
 import { setState, state } from "@/context/server-session"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync"

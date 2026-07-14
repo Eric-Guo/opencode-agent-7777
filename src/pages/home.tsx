@@ -1,5 +1,5 @@
-import type { Session } from "@opencode-ai/sdk"
 import { DEFAULT_RECENT_SESSION_TITLE, sessionUpdatedTime } from "@/context/directory-sync"
+import type { Session } from "@/context/session-directory"
 
 export function recentSessionTitle(session: Session) {
   return session.title.trim() || DEFAULT_RECENT_SESSION_TITLE

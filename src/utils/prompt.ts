@@ -1,4 +1,4 @@
-import type { Part } from "@opencode-ai/sdk"
+import type { Part } from "@opencode-ai/client"
 import type { PromptAttachment } from "@/context/prompt"
 
 export function extractPromptFromParts(parts: Part[]) {

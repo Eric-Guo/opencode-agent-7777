@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@opencode-ai/sdk"
+import type { SessionStatus } from "@opencode-ai/client"
 import { statusPopoverBodyText } from "@/components/status-popover-body"
 import type { TranslationKey, TranslationParams } from "@/context/language"
 import { state } from "@/context/server-session"

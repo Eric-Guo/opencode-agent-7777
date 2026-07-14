@@ -53,15 +53,27 @@ export function submitPrompt() {
     parts: parts.optimisticParts,
   })
 
-  void active.client.session
-    .promptAsync({
-      path: { id: active.sessionID },
-      body: {
-        agent: AGENT_ID,
-        model: state.selectedModel,
-        parts: parts.requestParts,
-      },
-    })
+  const configure = [
+    active.client.session.switchAgent({ sessionID: active.sessionID, agent: AGENT_ID }),
+    ...(state.selectedModel
+      ? [
+          active.client.session.switchModel({
+            sessionID: active.sessionID,
+            model: { id: state.selectedModel.modelID, providerID: state.selectedModel.providerID },
+          }),
+        ]
+      : []),
+    ...(previousRevert ? [active.client.session.revert.clear({ sessionID: active.sessionID })] : []),
+  ]
+
+  void Promise.all(configure)
+    .then(() =>
+      active.client.session.prompt({
+        sessionID: active.sessionID,
+        text,
+        files: parts.requestFiles,
+      }),
+    )
     .then(() => {
       scheduleRefresh(250)
       return refreshRecentSessions()
@@ -81,9 +93,7 @@ export function abortPrompt() {
   const active = currentSession()
   if (!active) return
   void active.client.session
-    .abort({
-      path: { id: active.sessionID },
-    })
+    .interrupt({ sessionID: active.sessionID })
     .catch((error) => setState("error", readableError(error)))
     .finally(() => {
       setState("submitting", false)
