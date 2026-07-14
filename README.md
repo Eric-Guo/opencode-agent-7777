@@ -1,4 +1,4 @@
-# @opencode-ai/7777
+# @opencode-ai/7777 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Eric-Guo/opencode-agent-7777)
 
 This package is the SolidJS/Vite UI for the `7777` agent.
 
