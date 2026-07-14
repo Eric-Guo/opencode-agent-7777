@@ -3,6 +3,7 @@ import type { SessionStatus } from "@opencode-ai/sdk"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 import { projectTimelineMessages, projectTimelineRows } from "./projection"
+import type { TimelineRow } from "./timeline-row"
 
 export function selectUserMessages(items: HistoryItem[]) {
   return items.filter((item) => item.info.role === "user")
@@ -30,8 +31,8 @@ export function createTimelineModel(input: {
     recentDialogMessages(selectVisibleUserMessages(userMessages(), input.revertMessageID?.())),
   )
   const visibleMessages = createMemo(() => projectTimelineMessages(input.messages(), visibleUserMessages()))
-  const visibleRows = createMemo(() =>
-    projectTimelineRows(input.messages(), visibleUserMessages(), input.status?.() ?? { type: "idle" }),
+  const visibleRows = createMemo((previous: TimelineRow.TimelineRow[] | undefined) =>
+    projectTimelineRows(input.messages(), visibleUserMessages(), input.status?.() ?? { type: "idle" }, previous),
   )
   const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
   const userDialogCount = createMemo(() => visibleUserMessages().length)

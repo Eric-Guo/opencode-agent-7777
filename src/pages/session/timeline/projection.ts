@@ -1,7 +1,10 @@
 import type { SessionStatus } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
+import { reuseTimelineRows } from "./row-reconciliation"
 import { createTimelineMessageRow } from "./rows"
 import { TimelineRow } from "./timeline-row"
+
+export { reuseTimelineRows } from "./row-reconciliation"
 
 type AssistantHistoryItem = HistoryItem & {
   info: HistoryItem["info"] & { role: "assistant"; parentID: string }
@@ -40,32 +43,36 @@ export function projectTimelineRows(
   messages: HistoryItem[],
   userMessages: HistoryItem[],
   status: SessionStatus = { type: "idle" },
+  previous?: TimelineRow.TimelineRow[],
 ) {
   const projected = projectTimelineMessages(messages, userMessages)
   const lastUserMessageID = userMessages.at(-1)?.info.id
 
-  return projected.flatMap<TimelineRow.TimelineRow>((item, index) => {
-    if (item.info.role === "user") {
-      const rows: TimelineRow.TimelineRow[] = []
-      if (index > 0) rows.push({ _tag: "TurnGap", userMessageID: item.info.id })
-      rows.push(createTimelineMessageRow(item))
-      if (item.parts.some((part) => part.type === "compaction")) {
-        rows.push({ _tag: "TurnDivider", userMessageID: item.info.id, label: "compaction" })
+  return reuseTimelineRows(
+    previous,
+    projected.flatMap<TimelineRow.TimelineRow>((item, index) => {
+      if (item.info.role === "user") {
+        const rows: TimelineRow.TimelineRow[] = []
+        if (index > 0) rows.push({ _tag: "TurnGap", userMessageID: item.info.id })
+        rows.push(createTimelineMessageRow(item))
+        if (item.parts.some((part) => part.type === "compaction")) {
+          rows.push({ _tag: "TurnDivider", userMessageID: item.info.id, label: "compaction" })
+        }
+        const next = projected[index + 1]
+        if (status.type === "retry" && item.info.id === lastUserMessageID && next?.info.role !== "assistant") {
+          rows.push({ _tag: "Retry", userMessageID: item.info.id })
+        }
+        return rows
       }
-      const next = projected[index + 1]
-      if (status.type === "retry" && item.info.id === lastUserMessageID && next?.info.role !== "assistant") {
-        rows.push({ _tag: "Retry", userMessageID: item.info.id })
+
+      const rows: TimelineRow.TimelineRow[] = [createTimelineMessageRow(item)]
+      if (item.info.error?.name === "MessageAbortedError") {
+        rows.push({ _tag: "TurnDivider", userMessageID: item.info.parentID, label: "interrupted" })
+      }
+      if (status.type === "retry" && index === projected.length - 1 && lastUserMessageID) {
+        rows.push({ _tag: "Retry", userMessageID: lastUserMessageID })
       }
       return rows
-    }
-
-    const rows: TimelineRow.TimelineRow[] = [createTimelineMessageRow(item)]
-    if (item.info.error?.name === "MessageAbortedError") {
-      rows.push({ _tag: "TurnDivider", userMessageID: item.info.parentID, label: "interrupted" })
-    }
-    if (status.type === "retry" && index === projected.length - 1 && lastUserMessageID) {
-      rows.push({ _tag: "Retry", userMessageID: lastUserMessageID })
-    }
-    return rows
-  })
+    }),
+  )
 }

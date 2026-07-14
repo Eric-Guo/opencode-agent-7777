@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import type { Message, Part } from "@opencode-ai/sdk"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
-import { projectTimelineMessages, projectTimelineRows } from "./projection"
+import { projectTimelineMessages, projectTimelineRows, reuseTimelineRows } from "./projection"
+import { createTimelineMessageRow } from "./rows"
 
 const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>
   ({
@@ -69,5 +70,36 @@ describe("timeline projection", () => {
         -1,
       )?._tag,
     ).toBe("Retry")
+  })
+
+  test("reuses unchanged rows and the previous array", () => {
+    const user = item("msg_1", "user")
+    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
+    const previous = projectTimelineRows([user, assistant], [user])
+    const refreshedUser = item("msg_1", "user")
+    const refreshedAssistant = item("msg_2", "assistant", { parentID: refreshedUser.info.id } as Partial<Message>)
+    const result = projectTimelineRows(
+      [refreshedUser, refreshedAssistant],
+      [refreshedUser],
+      { type: "idle" },
+      previous,
+    )
+
+    expect(result).toBe(previous)
+  })
+
+  test("reuses unaffected rows while replacing changed message rows", () => {
+    const user = item("msg_1", "user")
+    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
+    const previous = [createTimelineMessageRow(user), createTimelineMessageRow(assistant)]
+    const changed = item("msg_2", "assistant", {
+      parentID: user.info.id,
+      time: { created: 2 },
+    } as Partial<Message>)
+    const result = reuseTimelineRows(previous, [createTimelineMessageRow(user), createTimelineMessageRow(changed)])
+
+    expect(result).not.toBe(previous)
+    expect(result[0]).toBe(previous[0])
+    expect(result[1]).not.toBe(previous[1])
   })
 })
