@@ -5,13 +5,13 @@ import solidPlugin from "vite-plugin-solid"
 import { fileURLToPath } from "node:url"
 
 const theme = fileURLToPath(new URL("./public/oc-theme-preload.js", import.meta.url))
+const serverHost = process.env.VITE_OPENCODE_SERVER_HOST ?? "localhost"
+const serverPort = process.env.VITE_OPENCODE_SERVER_PORT ?? "4096"
+const serverPassword = process.env.OPENCODE_SERVER_PASSWORD
+const serverUsername = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
 
 export default defineConfig({
   base: "./",
-  define: {
-    "import.meta.env.OPENCODE_SERVER_USERNAME": JSON.stringify(process.env.OPENCODE_SERVER_USERNAME),
-    "import.meta.env.OPENCODE_SERVER_PASSWORD": JSON.stringify(process.env.OPENCODE_SERVER_PASSWORD),
-  },
   publicDir: "../app/public",
   plugins: [
     {
@@ -45,6 +45,15 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     port: 4777,
+    proxy: {
+      "/api": {
+        target: `http://${serverHost}:${serverPort}`,
+        changeOrigin: true,
+        headers: serverPassword
+          ? { Authorization: `Basic ${Buffer.from(`${serverUsername}:${serverPassword}`).toString("base64")}` }
+          : undefined,
+      },
+    },
   },
   build: {
     target: "esnext",

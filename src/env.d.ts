@@ -1,14 +1,5 @@
 /// <reference types="vite/client" />
 
-interface ImportMetaEnv {
-  readonly OPENCODE_SERVER_USERNAME?: string
-  readonly OPENCODE_SERVER_PASSWORD?: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-}
-
 type DesktopServerReadyData = {
   url: string
   username: string | null
