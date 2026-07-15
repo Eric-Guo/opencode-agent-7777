@@ -75,6 +75,7 @@ export function submitPrompt() {
       }),
     )
     .then(() => {
+      if (state.session?.id === active.sessionID) setState("sessionStatus", idleStatus)
       scheduleRefresh(250)
       return refreshRecentSessions()
     })
