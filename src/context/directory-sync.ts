@@ -23,12 +23,15 @@ export function refreshRecentSessions() {
   return client.session
     .list({
       directory: normalizeSessionDirectory(directory),
-      limit: RECENT_SESSION_LIMIT,
+      limit: RECENT_SESSION_LIMIT + 1,
       order: "desc",
     })
     .then((result) => {
       if (!state.session || sessionDirectory(state.session) !== directory) return
-      setState("recentSessions", result.data.slice(0, RECENT_SESSION_LIMIT))
+      setState(
+        "recentSessions",
+        result.data.filter((session) => session.id !== state.session?.id).slice(0, RECENT_SESSION_LIMIT),
+      )
     })
     .catch((error) => setState("error", readableError(error)))
     .finally(() => setState("recentSessionsLoading", false))
