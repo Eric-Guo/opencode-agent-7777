@@ -2,6 +2,32 @@
 
 This package is the SolidJS/Vite UI for the `7777` agent.
 
+## Direct Integration (Without an iframe)
+
+The app can mount directly inside another SolidJS web application. Add this package's source to the target
+application's workspace, use the same `solid-js` version for both applications, and make `solid-js/web` available to
+the target application's bundler. The target Vite configuration must also support this package's `@` alias,
+Tailwind plugin, and workspace dependencies; `vite.config.ts` is the reference configuration.
+
+Add the dedicated mount element where the agent should appear. Its parent must provide a usable height:
+
+```html
+<div id="oc-agent" style="height: 100%"></div>
+```
+
+Then import the package entry once from the target application's client entry:
+
+```ts
+import "<repo-root>/packages/7777/src/entry"
+```
+
+`src/entry.tsx` finds `#oc-agent`, loads the package styles through `src/app.tsx`, and mounts the SolidJS application.
+Load the entry after the mount element exists; it intentionally does nothing when `#oc-agent` is absent. The target
+application must also serve the shared assets from `<repo-root>/packages/app/public` at its public root.
+The package-owned rules in `src/index.css` are scoped below `#oc-agent`; the shared Tailwind and OpenCode UI styles
+remain global. Configure the target application's `/api` route or development proxy to reach the OpenCode server,
+matching the proxy setup in `vite.config.ts`.
+
 ## Open Source Notes
 
 This package should not depend on a contributor's local home directory or private company resources. Use
