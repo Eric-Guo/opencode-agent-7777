@@ -13,6 +13,7 @@ export function SessionComposerRegion(props: {
 
   return (
     <form
+      data-slot="session-composer"
       class="block bg-linear-to-b from-transparent from-0% to-[var(--oc-7777-page-bg)] to-[26%] px-11 pb-6 max-[720px]:px-3.5 max-[720px]:pb-3.5"
       onSubmit={(event) => {
         event.preventDefault()

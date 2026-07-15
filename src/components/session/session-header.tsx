@@ -30,12 +30,16 @@ export function SessionHeader(props: {
   const targetLocale = () => nextLocale(language.locale())
 
   return (
-    <header class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]">
+    <header
+      data-slot="session-header"
+      class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
+    >
       <div>
         <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">7777</h1>
         <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
       </div>
       <div
+        data-slot="session-header-controls"
         class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5"
         classList={{ "mr-[138px]": windowsElectron }}
       >
@@ -51,6 +55,7 @@ export function SessionHeader(props: {
         </button>
         <button
           type="button"
+          data-slot="session-header-mode-toggle"
           class="inline-flex h-[30px] min-w-[92px] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-[650] hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base max-[720px]:min-w-[30px] max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
           classList={{
             "border-v2-border-border-strong bg-v2-overlay-simple-overlay-hover text-v2-text-text-base":
@@ -64,10 +69,13 @@ export function SessionHeader(props: {
           onClick={props.onToggleReasoningSummaries}
         >
           <Icon name="brain" />
-          <span class="max-[720px]:hidden">{language.t("session.thinking")}</span>
+          <span data-slot="session-header-control-label" class="max-[720px]:hidden">
+            {language.t("session.thinking")}
+          </span>
         </button>
         <button
           type="button"
+          data-slot="session-header-mode-toggle"
           class="inline-flex h-[30px] min-w-[78px] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-[650] hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base max-[720px]:min-w-[30px] max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
           classList={{
             "border-v2-border-border-strong bg-v2-overlay-simple-overlay-hover text-v2-text-text-base":
@@ -81,7 +89,9 @@ export function SessionHeader(props: {
           onClick={props.onToggleToolsPart}
         >
           <Icon name="terminal" />
-          <span class="max-[720px]:hidden">{language.t("session.tools")}</span>
+          <span data-slot="session-header-control-label" class="max-[720px]:hidden">
+            {language.t("session.tools")}
+          </span>
         </button>
         <DropdownMenu gutter={4} placement="bottom-end">
           <DropdownMenu.Trigger

@@ -36,6 +36,8 @@ function copyToClipboard(value: string) {
 function TimelineRowFrame(props: ParentProps<{ role: "user" | "assistant" }>) {
   return (
     <article
+      data-slot="timeline-row"
+      data-role={props.role}
       class={`group mx-auto mb-2 flex max-w-[1120px] max-[720px]:mb-5 ${
         props.role === "user" ? "justify-end" : "justify-start"
       }`}
@@ -44,6 +46,7 @@ function TimelineRowFrame(props: ParentProps<{ role: "user" | "assistant" }>) {
         {props.role === "user" ? "U" : "7"}
       </div>
       <div
+        data-slot="timeline-row-content"
         class={`min-w-0 max-[720px]:max-w-[min(100%,84vw)] ${
           props.role === "user" ? "max-w-[min(520px,68vw)]" : "max-w-[min(760px,74vw)]"
         }`}

@@ -125,7 +125,7 @@ export function SessionPage() {
         onToggleToolsPart={toggleToolsPart}
       />
 
-      <main class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
+      <main data-slot="session-message-scroller" class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
         <Show
           when={state.status !== "loading" && timeline.ready()}
           fallback={
