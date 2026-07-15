@@ -9,8 +9,37 @@ import { readableError } from "@/utils/server-errors"
 
 let newSessionPromise: Promise<void> | undefined
 
+export function canReuseCurrentSession(input: {
+  hasSession: boolean
+  messagesLoading: boolean
+  messageCount: number
+  prompt: string
+  attachmentCount: number
+}) {
+  return (
+    input.hasSession &&
+    !input.messagesLoading &&
+    input.messageCount === 0 &&
+    input.prompt.trim().length === 0 &&
+    input.attachmentCount === 0
+  )
+}
+
 export function startNewSession() {
   if (newSessionPromise) return newSessionPromise
+
+  if (
+    canReuseCurrentSession({
+      hasSession: !!state.session,
+      messagesLoading: state.messagesLoading,
+      messageCount: state.messages.length,
+      prompt: state.prompt,
+      attachmentCount: state.attachments.length,
+    })
+  ) {
+    setState("welcomeSessionID", state.session!.id)
+    return Promise.resolve()
+  }
 
   const server = state.server
   const directory = state.session ? sessionDirectory(state.session) : undefined
