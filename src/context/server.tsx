@@ -6,6 +6,14 @@ export type ServerInfo = {
   password?: string
 }
 
+function configuredServerUrl() {
+  const port = import.meta.env.VITE_OPENCODE_SERVER_PORT
+  if (!port) return
+
+  const host = import.meta.env.VITE_OPENCODE_SERVER_HOST || location.hostname
+  return `http://${host}:${port}`
+}
+
 export function resolveServer(): Promise<ServerInfo> {
   const desktopInitialization = awaitDesktopInitialization()
   if (desktopInitialization) {
@@ -20,5 +28,5 @@ export function resolveServer(): Promise<ServerInfo> {
     return Promise.resolve({ url: location.origin })
   }
 
-  return Promise.resolve({ url: location.origin })
+  return Promise.resolve({ url: configuredServerUrl() ?? location.origin })
 }
