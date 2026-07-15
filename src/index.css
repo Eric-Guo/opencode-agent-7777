@@ -45,7 +45,7 @@
 
 #oc-agent {
   width: 100%;
-  height: 100%;
+  height: 100dvh;
   overflow: hidden;
   container-type: inline-size;
   background: var(--oc-7777-page-bg);
