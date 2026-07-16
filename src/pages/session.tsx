@@ -13,7 +13,7 @@ import {
   writeShowToolsPart,
 } from "@/context/settings-storage"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync-session"
-import { currentSession, setState, state } from "@/context/server-session-store"
+import { currentLocalAgent, currentSession, setState, state } from "@/context/server-session-store"
 import { ErrorBanner } from "@/pages/error-banner"
 import { AgentWelcome } from "@/pages/session/agent-welcome"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
@@ -132,7 +132,7 @@ export function SessionPage() {
           fallback={
             <div class={SESSION_LOADING_STATE_CLASS}>
               <Spinner class="h-6 w-6" />
-              <span>{layout.language.t("session.loading")}</span>
+              <span>{layout.language.t("session.loading", { agent: currentLocalAgent() })}</span>
             </div>
           }
         >
@@ -144,7 +144,7 @@ export function SessionPage() {
                   when={state.session?.id === state.welcomeSessionID}
                   fallback={
                     <>
-                      <div class={SESSION_EMPTY_BADGE_CLASS}>7777</div>
+                      <div class={SESSION_EMPTY_BADGE_CLASS}>{currentLocalAgent()}</div>
                       <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
                     </>
                   }

@@ -12,6 +12,7 @@ import {
   type ParentProps,
 } from "solid-js"
 import { useLanguage } from "@/context/language"
+import { currentLocalAgent } from "@/context/server-session-store"
 import { TimelineRow } from "./rows"
 
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
@@ -153,7 +154,9 @@ function AssistantMessageRow(props: {
           </Show>
         </div>
         <div class="mt-1.5 flex min-h-6 items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100">
-          <div class="min-w-0 text-xs font-semibold leading-none text-v2-text-text-faint">7777</div>
+          <div class="min-w-0 text-xs font-semibold leading-none text-v2-text-text-faint">
+            {currentLocalAgent()}
+          </div>
           <button
             type="button"
             class="inline-flex h-6 min-w-[32px] items-center justify-center gap-[5px] rounded-md border border-transparent bg-v2-background-bg-layer-01 px-2 py-0 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-45 [&_[data-component=icon]]:h-[14px] [&_[data-component=icon]]:w-[14px]"

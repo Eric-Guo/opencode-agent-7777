@@ -1,14 +1,16 @@
 import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { For, Show } from "solid-js"
 import { AGENT_WELCOME_CONFIG } from "@/context/agent-welcome-config"
+import { DEFAULT_LOCAL_AGENT } from "@/context/server-resolver"
+import { currentLocalAgent } from "@/context/server-session-store"
 import { setPrompt } from "@/context/prompt-actions"
 
 export function AgentWelcome() {
   return (
     <div class="mx-auto flex w-full max-w-[680px] flex-col items-center gap-6 text-center">
       <Markdown
-        text={AGENT_WELCOME_CONFIG.welcomeText}
-        cacheKey="7777-agent-welcome"
+        text={AGENT_WELCOME_CONFIG.welcomeText.replaceAll(DEFAULT_LOCAL_AGENT, currentLocalAgent())}
+        cacheKey={`${currentLocalAgent()}-agent-welcome`}
         class="w-full text-v2-text-text-base"
       />
       <Show when={AGENT_WELCOME_CONFIG.suggestedQuestions.length > 0}>

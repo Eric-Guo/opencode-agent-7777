@@ -1,6 +1,7 @@
 import { Show } from "solid-js"
 import { PromptInput } from "@/components/prompt-input"
 import { useLanguage } from "@/context/language"
+import { currentLocalAgent } from "@/context/server-session-store"
 import { SessionPermissionDock } from "@/pages/session/composer/session-permission-dock"
 import { SessionQuestionDock } from "@/pages/session/composer/session-question-dock"
 import type { SessionComposerRegionController } from "@/pages/session/composer/session-composer-region-controller"
@@ -45,7 +46,7 @@ export function SessionComposerRegion(props: {
         disabled={controller.disabled()}
         busy={controller.busy()}
         canSubmit={controller.canSubmit()}
-        placeholder={language.t("prompt.placeholder")}
+        placeholder={language.t("prompt.placeholder", { agent: currentLocalAgent() })}
         model={controller.model}
         modelStatus={controller.modelStatus()}
         onChange={controller.setPrompt}

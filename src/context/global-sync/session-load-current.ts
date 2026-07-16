@@ -16,7 +16,7 @@ export function createSession(baseClient: OpencodeClient, directory: string, loc
       location: { directory: normalizeSessionDirectory(directory) },
     })
     .catch((error) => {
-      throw error ?? new Error(translateSync("error.createSessionFailed"))
+      throw error ?? new Error(translateSync("error.createSessionFailed", { agent: localAgent }))
     })
 }
 

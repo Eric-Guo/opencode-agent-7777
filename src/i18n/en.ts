@@ -19,10 +19,10 @@ export const dict = {
   "session.recent.empty": "No recent sessions",
   "session.recovered.parent": "The selected session no longer exists. Opened its main session instead.",
   "session.recovered.new": "The selected session no longer exists. Started a new session instead.",
-  "session.loading": "Starting 7777",
+  "session.loading": "Starting {{agent}}",
   "session.empty": "Ready",
 
-  "prompt.placeholder": "Ask 7777",
+  "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
   "prompt.addContext": "Add context",
   "prompt.send": "Send",
@@ -76,7 +76,7 @@ export const dict = {
   "error.requestFailed": "Request failed",
   "error.modelListEmpty": "Model list response was empty",
   "error.loadServerPathFailed": "Failed to load server path",
-  "error.createSessionFailed": "Failed to create 7777 session",
+  "error.createSessionFailed": "Failed to create {{agent}} session",
   "error.permissionsLoadFailed": "Failed to load permissions: {{status}}",
   "error.permissionsReplyFailed": "Failed to respond to permission: {{status}}",
 }

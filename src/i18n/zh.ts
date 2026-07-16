@@ -23,10 +23,10 @@ export const dict = {
   "session.recent.empty": "暂无最近会话",
   "session.recovered.parent": "所选会话已不存在，已打开其主会话。",
   "session.recovered.new": "所选会话已不存在，已开始新会话。",
-  "session.loading": "正在启动 7777",
+  "session.loading": "正在启动 {{agent}}",
   "session.empty": "就绪",
 
-  "prompt.placeholder": "询问 7777",
+  "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",
   "prompt.addContext": "添加上下文",
   "prompt.send": "发送",
@@ -80,7 +80,7 @@ export const dict = {
   "error.requestFailed": "请求失败",
   "error.modelListEmpty": "模型列表响应为空",
   "error.loadServerPathFailed": "加载服务器路径失败",
-  "error.createSessionFailed": "创建 7777 会话失败",
+  "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
 } satisfies Partial<Record<Keys, string>>
