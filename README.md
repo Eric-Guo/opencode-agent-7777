@@ -2,6 +2,15 @@
 
 This package is the SolidJS/Vite UI for the `7777` agent.
 
+## Develop
+
+```bash
+export OPENCODE_SERVER_PASSWORD=here
+export VITE_OPENCODE_SERVER_PORT=4096
+bun run dev
+```
+
+
 ## Direct Integration (Without an iframe)
 
 The app can mount directly inside another SolidJS web application. Add this package's source to the target
