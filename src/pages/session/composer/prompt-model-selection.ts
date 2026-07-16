@@ -1,4 +1,4 @@
-import { writeModelSelection } from "@/context/local"
+import { writeModelSelection } from "@/context/local-storage"
 import {
   findModel,
   pushRecentModel,
@@ -6,8 +6,8 @@ import {
   updateProviderVisibility,
   visibleModel,
   type ModelSelectorState,
-} from "@/context/models"
-import { setState, state } from "@/context/server-session"
+} from "@/context/models-store"
+import { setState, state } from "@/context/server-session-store"
 
 export function createPromptModelSelection(): ModelSelectorState {
   return {

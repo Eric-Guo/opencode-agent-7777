@@ -1,7 +1,7 @@
-import { refreshRecentSessions } from "@/context/directory-sync"
-import { clearPromptDraft } from "@/context/prompt"
-import { scheduleRefresh } from "@/context/server-sync"
-import { currentSession, idleStatus, setState, state } from "@/context/server-session"
+import { refreshRecentSessions } from "@/context/directory-sync-recent-sessions"
+import { clearPromptDraft } from "@/context/prompt-state-storage"
+import { scheduleRefresh } from "@/context/server-sync-session"
+import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
 import { buildRequestParts, createOptimisticUserMessage } from "./build-request-parts"
 

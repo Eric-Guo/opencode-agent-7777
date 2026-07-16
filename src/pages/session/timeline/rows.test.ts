@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { Message, Part } from "@opencode-ai/client"
-import type { HistoryItem } from "@/context/global-sync/session-cache"
+import type { HistoryItem } from "@/context/global-sync/types"
 import { createTimelineMessageRow } from "./rows"
 
 const item = (role: Message["role"], parts: Part[] = []): HistoryItem => ({

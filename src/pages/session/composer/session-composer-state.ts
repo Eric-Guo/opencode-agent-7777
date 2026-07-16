@@ -1,8 +1,8 @@
 import { createMemo } from "solid-js"
-import { decidePermission } from "@/context/permission"
+import { decidePermission } from "@/context/permission-sync"
 import { rejectQuestion, replyQuestion } from "@/context/question"
-import { addAttachment, removeAttachment, setPrompt } from "@/context/prompt"
-import { setState, state } from "@/context/server-session"
+import { addAttachment, removeAttachment, setPrompt } from "@/context/prompt-actions"
+import { setState, state } from "@/context/server-session-store"
 import { createPromptModelSelection } from "@/pages/session/composer/prompt-model-selection"
 
 export function createSessionComposerController() {

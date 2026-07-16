@@ -1,5 +1,5 @@
 import type { SessionStatus } from "@opencode-ai/client"
-import type { HistoryItem } from "@/context/global-sync/session-cache"
+import type { HistoryItem } from "@/context/global-sync/types"
 import { reuseTimelineRows } from "./row-reconciliation"
 import { createTimelineMessageRow } from "./rows"
 import { TimelineRow } from "./timeline-row"

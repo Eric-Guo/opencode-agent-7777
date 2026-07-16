@@ -4,29 +4,30 @@ import type { UserActions } from "@opencode-ai/session-ui/message-part"
 import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { refreshMessages } from "@/context/global-sync/session-cache"
-import { writePromptDraft } from "@/context/prompt"
+import { refreshMessages } from "@/context/global-sync/session-cache-messages"
+import { writePromptDraft } from "@/context/prompt-state-storage"
 import {
   readShowReasoningSummaries,
   readShowToolsPart,
   writeShowReasoningSummaries,
   writeShowToolsPart,
-} from "@/context/settings"
-import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync"
-import { currentSession, setState, state } from "@/context/server-session"
-import { ErrorBanner } from "@/pages/error"
+} from "@/context/settings-storage"
+import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync-session"
+import { currentSession, setState, state } from "@/context/server-session-store"
+import { ErrorBanner } from "@/pages/error-banner"
 import { AgentWelcome } from "@/pages/session/agent-welcome"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
-import { NEW_SESSION_EMPTY_BADGE_CLASS, NEW_SESSION_EMPTY_STATE_CLASS } from "@/pages/session/new-session-layout"
 import {
+  SESSION_EMPTY_BADGE_CLASS,
+  SESSION_EMPTY_STATE_CLASS,
   SESSION_LOADING_STATE_CLASS,
   SESSION_MESSAGE_SCROLLER_CLASS,
   SESSION_ROUTE_FRAME_CLASS,
   useSessionLayout,
-} from "@/pages/session/session-layout"
+} from "@/pages/session/session-layout-compact"
 import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
-import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { useSessionHashScrollToEnd } from "@/pages/session/use-session-hash-scroll-to-end"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { readableError } from "@/utils/server-errors"
 import { sessionDirectory } from "@/context/session-directory"
@@ -81,7 +82,7 @@ export function SessionPage() {
     },
   }
 
-  useSessionHashScroll({
+  useSessionHashScrollToEnd({
     items: timeline.visibleMessages,
     container: () => messageList,
     shouldScrollToEnd: () => Date.now() - timelinePointerGesture >= timelinePointerGestureWindowMs,
@@ -138,12 +139,12 @@ export function SessionPage() {
           <Show
             when={timeline.visibleMessages().length > 0}
             fallback={
-              <div class={NEW_SESSION_EMPTY_STATE_CLASS}>
+              <div class={SESSION_EMPTY_STATE_CLASS}>
                 <Show
                   when={state.session?.id === state.welcomeSessionID}
                   fallback={
                     <>
-                      <div class={NEW_SESSION_EMPTY_BADGE_CLASS}>7777</div>
+                      <div class={SESSION_EMPTY_BADGE_CLASS}>7777</div>
                       <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
                     </>
                   }

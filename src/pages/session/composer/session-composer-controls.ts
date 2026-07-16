@@ -1,5 +1,5 @@
 import { createMemo } from "solid-js"
-import { state } from "@/context/server-session"
+import { state } from "@/context/server-session-store"
 
 export function createPromptInputController() {
   const busy = createMemo(() => state.submitting || state.sessionStatus.type !== "idle")

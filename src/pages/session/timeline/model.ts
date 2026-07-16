@@ -1,7 +1,7 @@
 import { createMemo, type Accessor } from "solid-js"
 import type { SessionStatus } from "@opencode-ai/client"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import type { HistoryItem } from "@/context/global-sync/session-cache"
+import type { HistoryItem } from "@/context/global-sync/types"
 import { projectTimelineMessages, projectTimelineRows } from "./projection"
 import type { TimelineRow } from "./timeline-row"
 

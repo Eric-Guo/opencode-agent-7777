@@ -7,7 +7,7 @@ import { FileComponentProvider } from "@opencode-ai/ui/context/file"
 import { MarkedProvider } from "@opencode-ai/ui/context/marked"
 import { ThemeProvider } from "@opencode-ai/ui/theme/context"
 import { type ParentProps } from "solid-js"
-import { syncPlatformBackgroundColor } from "@/context/platform"
+import { syncPlatformBackgroundColor } from "@/context/platform-bridge"
 import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
 import Session from "@/pages/session"
 

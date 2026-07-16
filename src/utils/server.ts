@@ -1,4 +1,4 @@
-import type { ServerInfo } from "@/context/server"
+import type { ServerInfo } from "@/context/server-resolver"
 
 export function authTokenFromCredentials(input: { username?: string; password: string }) {
   return btoa(`${input.username ?? "opencode"}:${input.password}`)

@@ -1,5 +1,5 @@
 import { onCleanup, onMount } from "solid-js"
-import type { PromptAttachment } from "@/context/prompt"
+import type { PromptAttachment } from "@/context/prompt-state-storage"
 import { uuid } from "@/utils/uuid"
 import { attachmentMime } from "./files"
 import { normalizePaste } from "./paste"

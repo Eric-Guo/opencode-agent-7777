@@ -3,13 +3,13 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { For, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
-import { windowsElectron } from "@/context/platform"
-import { state } from "@/context/server-session"
-import { openRecentSession } from "@/context/tabs"
+import { windowsElectron } from "@/context/platform-bridge"
+import { state } from "@/context/server-session-store"
+import { openRecentSession } from "@/context/tabs-session-switcher"
 import {
   recentSessionDescription,
   recentSessionTitle,
-} from "@/pages/home"
+} from "@/pages/home-recent-sessions"
 
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"

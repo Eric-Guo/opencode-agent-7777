@@ -1,7 +1,7 @@
 import { translateSync } from "@/context/language"
-import { createDefaultSession } from "@/context/global-sync/session-load"
+import { createDefaultSession } from "@/context/global-sync/session-load-current"
 import type { Session } from "@/context/session-directory"
-import type { OpencodeClient } from "@/context/server-sdk"
+import type { OpencodeClient } from "@/context/server-sdk-client"
 
 export async function recoverDeletedSession(baseClient: OpencodeClient, session: Session, localAgent: string) {
   const parent = await loadParentSession(baseClient, session)

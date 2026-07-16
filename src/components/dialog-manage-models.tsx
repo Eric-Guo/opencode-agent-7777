@@ -4,9 +4,9 @@ import { Dialog as DialogV2, DialogBody, DialogHeader, DialogTitleGroup } from "
 import { Switch as SwitchV2 } from "@opencode-ai/ui/v2/switch-v2"
 import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
 import { For, Show, type Component } from "solid-js"
-import type { ModelSelectorState } from "@/context/models"
+import type { ModelSelectorState } from "@/context/models-store"
 import { useLanguage } from "@/context/language"
-import { popularProviders } from "@/hooks/use-providers"
+import { popularProviders } from "@/hooks/use-providers-loader"
 
 type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
 
