@@ -68,7 +68,7 @@ export function initializeSessionSync() {
     setState("server", server)
     const baseClient = createServerSdk(server).client
     return restoreSession(baseClient, readSessionRecord())
-      .then((session) => session ?? createDefaultSession(baseClient))
+      .then((session) => session ?? createDefaultSession(baseClient, server.localAgent))
       .then((session) => activateSession(server, session, { restoreDraft: true }))
   })
 }

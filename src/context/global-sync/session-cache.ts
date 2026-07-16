@@ -7,8 +7,8 @@ import type {
   SessionMessageInfo,
   SessionMessageUser,
 } from "@opencode-ai/client"
-import { AGENT_ID } from "@/constants/session"
 import { currentSession, setState, state } from "@/context/server-session"
+import { DEFAULT_LOCAL_AGENT } from "@/context/server"
 import type { OpencodeClient } from "@/context/server-sdk"
 
 export type HistoryItem = {
@@ -85,7 +85,7 @@ function userHistoryItem(sessionID: string, message: SessionMessageUser): Histor
       sessionID,
       role: "user",
       time: message.time,
-      agent: state.session?.agent ?? AGENT_ID,
+      agent: state.session?.agent ?? state.server?.localAgent ?? DEFAULT_LOCAL_AGENT,
       model: sessionModel
         ? { providerID: sessionModel.providerID, modelID: sessionModel.id }
         : { providerID: "", modelID: "" },

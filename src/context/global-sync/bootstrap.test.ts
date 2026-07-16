@@ -76,7 +76,7 @@ describe("deleted session recovery", () => {
       },
     } as unknown as OpencodeClient
 
-    const result = await recoverDeletedSession(client, child)
+    const result = await recoverDeletedSession(client, child, "7777")
 
     expect(result.session).toEqual(parent)
     expect(requests).toEqual([{ sessionID: parent.id }])
@@ -93,7 +93,7 @@ describe("deleted session recovery", () => {
       },
     } as unknown as OpencodeClient
 
-    const result = await recoverDeletedSession(client, session("child"))
+    const result = await recoverDeletedSession(client, session("child"), "7777")
 
     expect(result.session).toEqual(next)
   })

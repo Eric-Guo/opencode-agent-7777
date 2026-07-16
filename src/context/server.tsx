@@ -1,7 +1,10 @@
 import { awaitDesktopInitialization } from "@/context/platform"
 
+export const DEFAULT_LOCAL_AGENT = "7777"
+
 export type ServerInfo = {
   url: string
+  localAgent: string
   username?: string
   password?: string
 }
@@ -19,14 +22,15 @@ export function resolveServer(): Promise<ServerInfo> {
   if (desktopInitialization) {
     return desktopInitialization.then((data) => ({
       url: data.url,
+      localAgent: data.localAgent ?? DEFAULT_LOCAL_AGENT,
       username: data.username ?? undefined,
       password: data.password ?? undefined,
     }))
   }
 
   if (import.meta.env.DEV) {
-    return Promise.resolve({ url: location.origin })
+    return Promise.resolve({ url: location.origin, localAgent: DEFAULT_LOCAL_AGENT })
   }
 
-  return Promise.resolve({ url: configuredServerUrl() ?? location.origin })
+  return Promise.resolve({ url: configuredServerUrl() ?? location.origin, localAgent: DEFAULT_LOCAL_AGENT })
 }

@@ -1,4 +1,3 @@
-export const AGENT_ID = "7777"
 export const DEFAULT_SESSION_DIRECTORY_NAME = "agent7777"
 export const HISTORY_DIALOG_LIMIT = 9
 export const FETCH_MESSAGE_LIMIT = HISTORY_DIALOG_LIMIT * 4

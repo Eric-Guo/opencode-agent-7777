@@ -6,7 +6,7 @@ import type { ModelLoadStatus, ModelOption } from "@/context/models"
 import type { PromptAttachment } from "@/context/prompt"
 import type { PermissionRequestView } from "@/pages/session/composer/session-request-tree"
 import type { OpencodeClient } from "@/context/server-sdk"
-import type { ServerInfo } from "@/context/server"
+import { DEFAULT_LOCAL_AGENT, type ServerInfo } from "@/context/server"
 import type { HistoryItem } from "@/context/global-sync/session-cache"
 import type { Session } from "@/context/session-directory"
 
@@ -67,6 +67,7 @@ let client: OpencodeClient | undefined
 export type ActiveSession = {
   client: OpencodeClient
   sessionID: string
+  localAgent: string
 }
 
 export function setSessionClient(next: OpencodeClient | undefined) {
@@ -81,5 +82,6 @@ export function currentSession(): ActiveSession | undefined {
   return {
     client,
     sessionID: state.session.id,
+    localAgent: state.server?.localAgent ?? state.session.agent ?? DEFAULT_LOCAL_AGENT,
   }
 }

@@ -50,7 +50,7 @@ export function startNewSession() {
 
   setState("error", "")
   const baseClient = createServerSdk(server).client
-  newSessionPromise = createSession(baseClient, directory)
+  newSessionPromise = createSession(baseClient, directory, server.localAgent)
     .then((session) =>
       activateSession(server, session).then(() => {
         setState("welcomeSessionID", session.id)

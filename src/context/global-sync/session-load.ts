@@ -8,10 +8,10 @@ export function restoreSession(baseClient: OpencodeClient, record: SessionRecord
   return baseClient.session.get({ sessionID: record.id }).catch(() => undefined)
 }
 
-export function createSession(baseClient: OpencodeClient, directory: string) {
+export function createSession(baseClient: OpencodeClient, directory: string, localAgent: string) {
   return baseClient.session
     .create({
-      agent: "7777",
+      agent: localAgent,
       location: { directory: normalizeSessionDirectory(directory) },
     })
     .catch((error) => {
@@ -19,9 +19,9 @@ export function createSession(baseClient: OpencodeClient, directory: string) {
     })
 }
 
-export function createDefaultSession(baseClient: OpencodeClient) {
+export function createDefaultSession(baseClient: OpencodeClient, localAgent: string) {
   return baseClient.location.get().then((location) => {
     if (typeof location.directory !== "string") throw new Error(translateSync("error.loadServerPathFailed"))
-    return createSession(baseClient, defaultSessionDirectory(location.directory))
+    return createSession(baseClient, defaultSessionDirectory(location.directory), localAgent)
   })
 }

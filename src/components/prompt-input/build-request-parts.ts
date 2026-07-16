@@ -1,5 +1,4 @@
 import type { Part, SessionPromptInput } from "@opencode-ai/client"
-import { AGENT_ID } from "@/constants/session"
 import type { ModelSelection } from "@/context/local"
 import type { PromptAttachment } from "@/context/prompt"
 
@@ -43,6 +42,7 @@ export function buildRequestParts(input: { text: string; attachments: PromptAtta
 export function createOptimisticUserMessage(input: {
   messageID: string
   sessionID: string
+  localAgent: string
   model: ModelSelection | undefined
   parts: Part[]
 }) {
@@ -52,7 +52,7 @@ export function createOptimisticUserMessage(input: {
       sessionID: input.sessionID,
       role: "user" as const,
       time: { created: Date.now() },
-      agent: AGENT_ID,
+      agent: input.localAgent,
       model: input.model ?? { providerID: "", modelID: "" },
     },
     parts: input.parts,

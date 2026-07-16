@@ -1,4 +1,3 @@
-import { AGENT_ID } from "@/constants/session"
 import { refreshRecentSessions } from "@/context/directory-sync"
 import { clearPromptDraft } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync"
@@ -19,6 +18,7 @@ function appendOptimisticMessage(input: {
     createOptimisticUserMessage({
       messageID: input.messageID,
       sessionID: input.sessionID,
+      localAgent: active.localAgent,
       model: state.selectedModel,
       parts: input.parts,
     }),
@@ -54,7 +54,7 @@ export function submitPrompt() {
   })
 
   const configure = [
-    active.client.session.switchAgent({ sessionID: active.sessionID, agent: AGENT_ID }),
+    active.client.session.switchAgent({ sessionID: active.sessionID, agent: active.localAgent }),
     ...(state.selectedModel
       ? [
           active.client.session.switchModel({

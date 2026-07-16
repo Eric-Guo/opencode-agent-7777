@@ -28,6 +28,10 @@ The package-owned rules in `src/index.css` are scoped below `#oc-agent`; the sha
 remain global. Configure the target application's `/api` route or development proxy to reach the OpenCode server,
 matching the proxy setup in `vite.config.ts`.
 
+When hosted in a desktop external tab, the app reads the tab's `localAgent` value from desktop initialization and uses
+it as the OpenCode agent ID for session creation, agent switching, and optimistic messages. If the desktop tab does
+not provide a value, the standalone app defaults to `7777`.
+
 ## Open Source Notes
 
 This package should not depend on a contributor's local home directory or private company resources. Use

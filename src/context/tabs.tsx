@@ -18,7 +18,7 @@ export function openRecentSession(session: Session) {
         setState("error", readableError(error))
         return
       }
-      return recoverDeletedSession(baseClient, session)
+      return recoverDeletedSession(baseClient, session, server.localAgent)
         .then((result) =>
           activateSession(server, result.session)
             .then(restartSessionEventStream)

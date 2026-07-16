@@ -13,6 +13,7 @@ type DesktopServerReadyData = {
   url: string
   username: string | null
   password: string | null
+  localAgent?: string
 }
 
 type DesktopPickedFile = {
