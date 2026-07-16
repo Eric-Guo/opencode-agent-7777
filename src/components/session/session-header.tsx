@@ -43,6 +43,12 @@ export function SessionHeader(props: {
         class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5"
         classList={{ "mr-[138px]": windowsElectron }}
       >
+        <div class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 px-2 text-xs font-[650] text-v2-text-text-muted select-none [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5">
+          <Icon name="speech-bubble" />
+          <span>{props.userDialogCount}</span>
+          <span>/</span>
+          <span>{HISTORY_DIALOG_LIMIT}</span>
+        </div>
         <button
           type="button"
           class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-55 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
@@ -151,12 +157,6 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
-        <div class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted select-none [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5">
-          <Icon name="speech-bubble" />
-          <span>{props.userDialogCount}</span>
-          <span>/</span>
-          <span>{HISTORY_DIALOG_LIMIT}</span>
-        </div>
       </div>
     </header>
   )
