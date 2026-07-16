@@ -13,6 +13,7 @@ import { createPromptAttachments } from "@/components/prompt-input/attachments"
 import { ACCEPTED_FILE_TYPES, pickAttachmentFiles } from "@/components/prompt-input/files"
 import { PromptDragOverlay } from "@/components/prompt-input/drag-overlay"
 import { PromptImageAttachments } from "@/components/prompt-input/image-attachments"
+import { currentLocalAgent } from "@/context/server-session-store"
 
 const attachmentPaths = new WeakMap<File, string>()
 
@@ -159,7 +160,7 @@ export function PromptInput(props: {
             <Icon name="plus" />
           </button>
           <span class="flex h-7 shrink-0 items-center rounded-sm px-2 text-[13px] font-[440] leading-5 text-[var(--oc-7777-composer-control-fg)]">
-            7777
+            {currentLocalAgent()}
           </span>
           <Show when={props.modelStatus !== "loading"}>
             <ModelSelectorPopoverV2

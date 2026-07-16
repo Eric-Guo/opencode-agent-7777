@@ -6,8 +6,6 @@ import { readableError } from "@/utils/server-errors"
 
 // Recent-session loading only; 7777 does not expose the main app's directory sync context.
 
-export const DEFAULT_RECENT_SESSION_TITLE = "7777"
-
 export function sessionUpdatedTime(session: Session) {
   return session.time.updated ?? session.time.created
 }

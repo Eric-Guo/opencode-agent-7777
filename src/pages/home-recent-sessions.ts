@@ -1,10 +1,11 @@
-import { DEFAULT_RECENT_SESSION_TITLE, sessionUpdatedTime } from "@/context/directory-sync-recent-sessions"
+import { sessionUpdatedTime } from "@/context/directory-sync-recent-sessions"
+import { currentLocalAgent } from "@/context/server-session-store"
 import type { Session } from "@/context/session-directory"
 
 // Presentation helpers for the header history menu; 7777 has no home route.
 
 export function recentSessionTitle(session: Session) {
-  return session.title.trim() || DEFAULT_RECENT_SESSION_TITLE
+  return session.title.trim() || currentLocalAgent()
 }
 
 export function recentSessionDescription(session: Session) {

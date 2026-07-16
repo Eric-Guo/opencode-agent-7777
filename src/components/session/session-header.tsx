@@ -4,7 +4,7 @@ import { For, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
 import { windowsElectron } from "@/context/platform-bridge"
-import { state } from "@/context/server-session-store"
+import { currentLocalAgent, state } from "@/context/server-session-store"
 import { openRecentSession } from "@/context/tabs-session-switcher"
 import {
   recentSessionDescription,
@@ -35,7 +35,9 @@ export function SessionHeader(props: {
       class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
     >
       <div>
-        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">7777</h1>
+        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">
+          {currentLocalAgent()}
+        </h1>
         <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
       </div>
       <div

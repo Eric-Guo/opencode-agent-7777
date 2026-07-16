@@ -47,6 +47,10 @@ export function setSessionClient(next: OpencodeClient | undefined) {
   client = next
 }
 
+export function currentLocalAgent() {
+  return state.server?.localAgent ?? state.session?.agent ?? DEFAULT_LOCAL_AGENT
+}
+
 export function currentSession(): ActiveSession | undefined {
   if (!client || !state.session) {
     setState("error", translateSync("error.sessionNotReady"))
@@ -55,6 +59,6 @@ export function currentSession(): ActiveSession | undefined {
   return {
     client,
     sessionID: state.session.id,
-    localAgent: state.server?.localAgent ?? state.session.agent ?? DEFAULT_LOCAL_AGENT,
+    localAgent: currentLocalAgent(),
   }
 }
