@@ -147,8 +147,8 @@ Then paste the copied JSON into the package script:
 bun run models:apply-localstorage <<'JSON'
 {
   "selection": {
-    "modelID": "deepseek-v4-flash",
-    "providerID": "deepseek"
+    "providerID": "kimi-for-coding",
+    "modelID": "k2p7"
   },
   "config": {
     "user": [
@@ -210,11 +210,6 @@ bun run models:apply-localstorage <<'JSON'
       {
         "providerID": "opencode",
         "modelID": "claude-sonnet-4-6",
-        "visibility": "hide"
-      },
-      {
-        "providerID": "opencode",
-        "modelID": "deepseek-v4-flash",
         "visibility": "hide"
       },
       {
@@ -391,6 +386,76 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "Qwen/Qwen3.5-27B",
         "providerID": "siliconflow-cn",
         "visibility": "show"
+      },
+      {
+        "modelID": "claude-haiku-4-5",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.3-codex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-nano",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-k2.6",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-k2.7-code",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "deepseek-v4-pro",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "mimo-v2.5",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "mimo-v2.5-pro",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "minimax-m3",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.7-max",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-for-coding-highspeed",
+        "providerID": "kimi-for-coding",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "deepseek-ai/DeepSeek-V4-Flash",
+        "providerID": "siliconflow-cn",
+        "visibility": "show"
+      },
+      {
+        "modelID": "zai-org/GLM-5.2",
+        "providerID": "siliconflow-cn",
+        "visibility": "show"
       }
     ],
     "disabledProviders": [
@@ -422,8 +487,8 @@ bun run models:apply-localstorage <<'JSON'
     ],
     "recent": [
       {
-        "modelID": "deepseek-v4-flash",
-        "providerID": "deepseek"
+        "modelID": "k2p7",
+        "providerID": "kimi-for-coding"
       }
     ]
   }
