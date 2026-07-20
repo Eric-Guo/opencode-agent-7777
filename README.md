@@ -82,17 +82,18 @@ This refresh also made three responsibility splits rather than only renaming fil
   `src/pages/session/new-session-layout.ts` file was removed because 7777 has no new-session page layout.
 
 Known 7777-only configuration and recovery source remains in `src/context/default-model-config.ts`,
-`src/context/default-model-config.json`, `src/context/agent-welcome-config.ts`,
-`src/context/agent-welcome-config.json`, `scripts/apply-model-config-dump.ts`, `src/context/session-directory.ts`,
+`src/context/default-model-config.json`, `src/context/agent-default-config.ts`,
+`src/context/agent-default-config.json`, `scripts/apply-model-config-dump.ts`, `src/context/session-directory.ts`,
 `src/context/session-recovery.ts`, `src/context/question.ts`, and 7777-specific session constants in
 `src/constants/session.ts`.
 
 ## Agent Welcome Content
 
-The welcome markdown and suggested questions shown after clicking **New session** live in
-`src/context/agent-welcome-config.json`. Suggested questions populate the composer when clicked. The welcome markdown
-is presentation-only and is never included in the prompt sent to the server. The 7777-only UI for this template
-feature lives in `src/pages/session/agent-welcome.tsx`.
+The fallback local agent, welcome markdown, and suggested questions shown after clicking **New session** live in
+`src/context/agent-default-config.json`. A desktop tab can override all three values during initialization. Suggested
+questions populate the composer when clicked. The welcome markdown is presentation-only and is never included in the
+prompt sent to the server. The 7777-only UI for this template feature lives in
+`src/pages/session/agent-welcome.tsx`.
 
 ## Model Selector Defaults
 

@@ -1,9 +1,9 @@
 import type { SessionStatus } from "@opencode-ai/client"
 import { createStore } from "solid-js/store"
 import type { State } from "@/context/global-sync/types"
+import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
 import { translateSync } from "@/context/language"
 import type { OpencodeClient } from "@/context/server-sdk-client"
-import { DEFAULT_LOCAL_AGENT } from "@/context/server-resolver"
 
 // Compact single-session UI store; the main app's server-session module owns a multi-session cache.
 
@@ -47,7 +47,7 @@ export function setSessionClient(next: OpencodeClient | undefined) {
 }
 
 export function currentLocalAgent() {
-  return state.server?.localAgent ?? state.session?.agent ?? DEFAULT_LOCAL_AGENT
+  return state.server?.localAgent ?? state.session?.agent ?? AGENT_DEFAULT_CONFIG.localAgent
 }
 
 export function currentSession(): ActiveSession | undefined {

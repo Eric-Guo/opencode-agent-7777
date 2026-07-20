@@ -1,12 +1,13 @@
 import { awaitDesktopInitialization } from "@/context/platform-bridge"
+import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
 
 // Resolves the single server used by 7777 rather than exposing the main app's server registry context.
-
-export const DEFAULT_LOCAL_AGENT = "7777"
 
 export type ServerInfo = {
   url: string
   localAgent: string
+  welcomeText: string
+  suggestedQuestions: string[]
   username?: string
   password?: string
 }
@@ -24,15 +25,17 @@ export function resolveServer(): Promise<ServerInfo> {
   if (desktopInitialization) {
     return desktopInitialization.then((data) => ({
       url: data.url,
-      localAgent: data.localAgent ?? DEFAULT_LOCAL_AGENT,
+      localAgent: data.localAgent ?? AGENT_DEFAULT_CONFIG.localAgent,
+      welcomeText: data.welcomeText ?? AGENT_DEFAULT_CONFIG.welcomeText,
+      suggestedQuestions: data.suggestedQuestions ?? AGENT_DEFAULT_CONFIG.suggestedQuestions,
       username: data.username ?? undefined,
       password: data.password ?? undefined,
     }))
   }
 
   if (import.meta.env.DEV) {
-    return Promise.resolve({ url: location.origin, localAgent: DEFAULT_LOCAL_AGENT })
+    return Promise.resolve({ url: location.origin, ...AGENT_DEFAULT_CONFIG })
   }
 
-  return Promise.resolve({ url: configuredServerUrl() ?? location.origin, localAgent: DEFAULT_LOCAL_AGENT })
+  return Promise.resolve({ url: configuredServerUrl() ?? location.origin, ...AGENT_DEFAULT_CONFIG })
 }

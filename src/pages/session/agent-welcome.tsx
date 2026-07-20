@@ -1,21 +1,23 @@
 import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { For, Show } from "solid-js"
-import { AGENT_WELCOME_CONFIG } from "@/context/agent-welcome-config"
-import { DEFAULT_LOCAL_AGENT } from "@/context/server-resolver"
-import { currentLocalAgent } from "@/context/server-session-store"
+import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
 import { setPrompt } from "@/context/prompt-actions"
+import { currentLocalAgent, state } from "@/context/server-session-store"
 
 export function AgentWelcome() {
+  const welcomeText = () => state.server?.welcomeText ?? AGENT_DEFAULT_CONFIG.welcomeText
+  const suggestedQuestions = () => state.server?.suggestedQuestions ?? AGENT_DEFAULT_CONFIG.suggestedQuestions
+
   return (
     <div class="mx-auto flex w-full max-w-[680px] flex-col items-center gap-6 text-center">
       <Markdown
-        text={AGENT_WELCOME_CONFIG.welcomeText.replaceAll(DEFAULT_LOCAL_AGENT, currentLocalAgent())}
+        text={welcomeText().replaceAll(AGENT_DEFAULT_CONFIG.localAgent, currentLocalAgent())}
         cacheKey={`${currentLocalAgent()}-agent-welcome`}
         class="w-full text-v2-text-text-base"
       />
-      <Show when={AGENT_WELCOME_CONFIG.suggestedQuestions.length > 0}>
+      <Show when={suggestedQuestions().length > 0}>
         <div class="flex w-full flex-wrap justify-center gap-2">
-          <For each={AGENT_WELCOME_CONFIG.suggestedQuestions}>
+          <For each={suggestedQuestions()}>
             {(question) => (
               <button
                 type="button"

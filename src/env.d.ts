@@ -14,6 +14,8 @@ type DesktopServerReadyData = {
   username: string | null
   password: string | null
   localAgent?: string
+  welcomeText?: string
+  suggestedQuestions?: string[]
 }
 
 type DesktopPickedFile = {
