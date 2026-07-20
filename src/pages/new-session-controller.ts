@@ -39,7 +39,6 @@ export function startNewSession() {
       attachmentCount: state.attachments.length,
     })
   ) {
-    setState("welcomeSessionID", state.session!.id)
     return Promise.resolve()
   }
 
@@ -53,11 +52,7 @@ export function startNewSession() {
   setState("error", "")
   const baseClient = createServerSdk(server).client
   newSessionPromise = createSession(baseClient, directory, server.localAgent)
-    .then((session) =>
-      activateSession(server, session).then(() => {
-        setState("welcomeSessionID", session.id)
-      }),
-    )
+    .then((session) => activateSession(server, session))
     .then(() => {
       restartSessionEventStream()
     })

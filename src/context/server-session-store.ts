@@ -31,7 +31,6 @@ export const [state, setState] = createStore<State>({
   prompt: "",
   attachments: [],
   submitting: false,
-  welcomeSessionID: undefined,
   error: "",
 })
 

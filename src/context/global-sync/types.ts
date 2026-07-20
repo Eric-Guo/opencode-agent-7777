@@ -33,6 +33,5 @@ export type State = {
   prompt: string
   attachments: PromptAttachment[]
   submitting: boolean
-  welcomeSessionID: string | undefined
   error: string
 }

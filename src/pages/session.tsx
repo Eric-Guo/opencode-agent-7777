@@ -18,7 +18,6 @@ import { ErrorBanner } from "@/pages/error-banner"
 import { AgentWelcome } from "@/pages/session/agent-welcome"
 import { createSessionComposerRegionController, SessionComposerRegion } from "@/pages/session/composer"
 import {
-  SESSION_EMPTY_BADGE_CLASS,
   SESSION_EMPTY_STATE_CLASS,
   SESSION_LOADING_STATE_CLASS,
   SESSION_MESSAGE_SCROLLER_CLASS,
@@ -140,17 +139,7 @@ export function SessionPage() {
             when={timeline.visibleMessages().length > 0}
             fallback={
               <div class={SESSION_EMPTY_STATE_CLASS}>
-                <Show
-                  when={state.session?.id === state.welcomeSessionID}
-                  fallback={
-                    <>
-                      <div class={SESSION_EMPTY_BADGE_CLASS}>{currentLocalAgent()}</div>
-                      <p class="m-0 text-[13px]">{layout.language.t("session.empty")}</p>
-                    </>
-                  }
-                >
-                  <AgentWelcome />
-                </Show>
+                <AgentWelcome />
               </div>
             }
           >
