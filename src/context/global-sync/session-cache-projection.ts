@@ -145,6 +145,16 @@ function assistantHistoryItem(
 ): HistoryItem {
   const parts = message.content.map((content, index): Part => {
     if (content.type === "tool") return toolPart(context.sessionID, message.id, content)
+    if (content.type === "file")
+      return {
+        id: `${message.id}-file-${index}`,
+        sessionID: context.sessionID,
+        messageID: message.id,
+        type: "file",
+        mime: content.mime,
+        filename: content.filename,
+        url: content.url,
+      } as Part
     return {
       id: `${message.id}-${content.type}-${index}`,
       sessionID: context.sessionID,
