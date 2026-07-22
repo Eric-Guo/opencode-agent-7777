@@ -167,11 +167,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "providerID": "kimi-for-coding",
-        "modelID": "k2p5",
-        "visibility": "hide"
-      },
-      {
         "providerID": "opencode",
         "modelID": "claude-fable-5",
         "visibility": "hide"
