@@ -4,7 +4,7 @@ import { refreshMessages } from "@/context/global-sync/session-cache-messages"
 import { readSessionRecord, writeSessionRecord } from "@/context/local-storage"
 import { refreshModels } from "@/context/models-store"
 import { refreshPermissions } from "@/context/permission-sync"
-import { clearPromptDraft, readPromptDraft } from "@/context/prompt-state-storage"
+import { prompt, readPromptDraft } from "@/context/prompt"
 import { refreshQuestions } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { createServerSdk, type OpencodeClient } from "@/context/server-sdk-client"
@@ -36,7 +36,6 @@ export function activateSession(
   options: { restoreDraft?: boolean } = {},
 ) {
   const draft = options.restoreDraft ? readPromptDraft() : undefined
-  if (!options.restoreDraft) clearPromptDraft()
   writeSessionRecord(session)
   const activeClient = createDirectorySdk(server, sessionDirectory(session)).client
   setSessionClient(activeClient)
@@ -47,8 +46,7 @@ export function activateSession(
   setState("permissionResponding", false)
   setState("questionRequest", undefined)
   setState("questionResponding", false)
-  setState("prompt", draft?.prompt ?? "")
-  setState("attachments", draft?.attachments ?? [])
+  prompt.restore(draft)
   setState("submitting", false)
   return Promise.all([
     refreshSessionStatus(activeClient, session).then(() => {

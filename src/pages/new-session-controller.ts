@@ -1,6 +1,7 @@
 import { createMemo, createSignal } from "solid-js"
 import { createSession } from "@/context/global-sync/session-load-current"
 import { translateSync } from "@/context/language"
+import { prompt } from "@/context/prompt"
 import { setState, state } from "@/context/server-session-store"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync-session"
 import { createServerSdk } from "@/context/server-sdk-client"
@@ -35,8 +36,8 @@ export function startNewSession() {
       hasSession: !!state.session,
       messagesLoading: state.messagesLoading,
       messageCount: state.messages.length,
-      prompt: state.prompt,
-      attachmentCount: state.attachments.length,
+      prompt: prompt.current(),
+      attachmentCount: prompt.attachments().length,
     })
   ) {
     return Promise.resolve()

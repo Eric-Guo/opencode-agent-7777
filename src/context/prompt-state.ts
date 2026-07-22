@@ -1,4 +1,5 @@
-// Persisted textarea/attachment draft shape; 7777 does not use the main app's structured prompt state.
+import { batch } from "solid-js"
+import { createStore } from "solid-js/store"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
 
 export type PromptAttachment = {
@@ -12,6 +13,56 @@ export type PromptAttachment = {
 export type PromptDraft = {
   prompt: string
   attachments: PromptAttachment[]
+}
+
+type PromptStateChange = (draft: PromptDraft) => void
+
+function cloneDraft(draft?: PromptDraft): PromptDraft {
+  return {
+    prompt: draft?.prompt ?? "",
+    attachments: draft?.attachments.map((attachment) => ({ ...attachment })) ?? [],
+  }
+}
+
+export function createPromptState(initial?: PromptDraft, onChange?: PromptStateChange) {
+  const [store, setStore] = createStore<PromptDraft>(cloneDraft(initial))
+
+  const capture = () => cloneDraft(store)
+  const changed = () => onChange?.(capture())
+
+  return {
+    current: () => store.prompt,
+    attachments: () => store.attachments,
+    dirty: () => store.prompt.trim().length > 0 || store.attachments.length > 0,
+    capture,
+    set(value: string) {
+      setStore("prompt", value)
+      changed()
+    },
+    addAttachment(attachment: PromptAttachment) {
+      setStore("attachments", (attachments) => [...attachments, { ...attachment }])
+      changed()
+    },
+    removeAttachment(id: string) {
+      setStore("attachments", (attachments) => attachments.filter((attachment) => attachment.id !== id))
+      changed()
+    },
+    restore(draft?: PromptDraft) {
+      const next = cloneDraft(draft)
+      batch(() => {
+        setStore("prompt", next.prompt)
+        setStore("attachments", next.attachments)
+      })
+      changed()
+    },
+    reset() {
+      batch(() => {
+        setStore("prompt", "")
+        setStore("attachments", [])
+      })
+      changed()
+    },
+  }
 }
 
 function storageGet() {

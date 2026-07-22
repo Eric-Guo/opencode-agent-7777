@@ -1,5 +1,5 @@
 import type { Part } from "@opencode-ai/client"
-import type { PromptAttachment } from "@/context/prompt-state-storage"
+import type { PromptAttachment } from "@/context/prompt"
 
 export function extractPromptFromParts(parts: Part[]) {
   const text = parts

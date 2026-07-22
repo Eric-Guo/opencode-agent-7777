@@ -1,7 +1,7 @@
 import { Markdown } from "@opencode-ai/session-ui/markdown"
 import { For, Show } from "solid-js"
 import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
-import { setPrompt } from "@/context/prompt-actions"
+import { setPrompt } from "@/context/prompt"
 import { currentLocalAgent, state } from "@/context/server-session-store"
 
 export function AgentWelcome() {

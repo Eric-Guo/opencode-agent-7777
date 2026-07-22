@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js"
 import { decidePermission } from "@/context/permission-sync"
+import { addAttachment, prompt, removeAttachment, setPrompt } from "@/context/prompt"
 import { rejectQuestion, replyQuestion } from "@/context/question"
-import { addAttachment, removeAttachment, setPrompt } from "@/context/prompt-actions"
 import { setState, state } from "@/context/server-session-store"
 import { createPromptModelSelection } from "@/pages/session/composer/prompt-model-selection"
 
@@ -9,8 +9,8 @@ export function createSessionComposerController() {
   const model = createPromptModelSelection()
 
   return {
-    prompt: () => state.prompt,
-    attachments: () => state.attachments,
+    prompt: prompt.current,
+    attachments: prompt.attachments,
     disabled: createMemo(() => state.status !== "ready" || !!state.questionRequest),
     model,
     modelStatus: () => state.modelStatus,

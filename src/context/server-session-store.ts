@@ -5,7 +5,7 @@ import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
 import { translateSync } from "@/context/language"
 import type { OpencodeClient } from "@/context/server-sdk-client"
 
-// Compact single-session UI store; the main app's server-session module owns a multi-session cache.
+// Compact single-session UI store; prompt draft state lives in context/prompt-state.ts.
 
 export type { LoadStatus } from "@/context/global-sync/types"
 
@@ -28,8 +28,6 @@ export const [state, setState] = createStore<State>({
   permissionResponding: false,
   questionRequest: undefined,
   questionResponding: false,
-  prompt: "",
-  attachments: [],
   submitting: false,
   error: "",
 })

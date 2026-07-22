@@ -5,7 +5,7 @@ import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache-messages"
-import { writePromptDraft } from "@/context/prompt-state-storage"
+import { prompt } from "@/context/prompt"
 import {
   readShowReasoningSummaries,
   readShowToolsPart,
@@ -70,11 +70,7 @@ export function SessionPage() {
         .stage({ sessionID: active.sessionID, messageID: input.messageID })
         .then((result) => {
           setState("session", "revert", result)
-          if (draft) {
-            setState("prompt", draft.text)
-            setState("attachments", draft.attachments)
-            writePromptDraft({ prompt: draft.text, attachments: draft.attachments })
-          }
+          if (draft) prompt.restore({ prompt: draft.text, attachments: draft.attachments })
           return refreshMessages(FETCH_MESSAGE_LIMIT)
         })
         .catch((error) => setState("error", readableError(error)))

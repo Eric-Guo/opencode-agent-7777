@@ -1,5 +1,5 @@
 import { refreshRecentSessions } from "@/context/directory-sync-recent-sessions"
-import { clearPromptDraft } from "@/context/prompt-state-storage"
+import { prompt } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
@@ -27,8 +27,8 @@ function appendOptimisticMessage(input: {
 
 export function submitPrompt() {
   const active = currentSession()
-  const text = state.prompt.trim()
-  const attachments = [...state.attachments]
+  const text = prompt.current().trim()
+  const attachments = [...prompt.attachments()]
   if (!active || state.submitting || (!text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
 
@@ -38,9 +38,7 @@ export function submitPrompt() {
     sessionID: active.sessionID,
   })
 
-  setState("prompt", "")
-  setState("attachments", [])
-  clearPromptDraft()
+  prompt.reset()
   setState("error", "")
   setState("submitting", true)
   setState("sessionStatus", { type: "busy" })
