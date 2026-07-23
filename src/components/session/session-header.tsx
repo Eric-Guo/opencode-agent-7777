@@ -49,7 +49,7 @@ export function SessionHeader(props: {
           <Icon name="speech-bubble" />
           <span>{props.userDialogCount}</span>
           <span>/</span>
-          <span>{HISTORY_DIALOG_LIMIT}</span>
+          <span title={state.server?.ssoJwtSecretKey}>{HISTORY_DIALOG_LIMIT}</span>
         </div>
         <button
           type="button"

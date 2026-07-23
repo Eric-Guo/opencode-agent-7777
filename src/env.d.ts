@@ -16,6 +16,7 @@ type DesktopServerReadyData = {
   localAgent?: string
   welcomeText?: string
   suggestedQuestions?: string[]
+  ssoJwtSecretKey?: string
 }
 
 type DesktopPickedFile = {
