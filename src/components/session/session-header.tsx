@@ -3,7 +3,7 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { createResource, For, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
-import { windowsElectron } from "@/context/platform-bridge"
+import { getDesktopCybrosCurrentUser, windowsElectron } from "@/context/platform-bridge"
 import { currentLocalAgent, state } from "@/context/server-session-store"
 import { openRecentSession } from "@/context/tabs-session-switcher"
 import {
@@ -23,6 +23,9 @@ function nextLocale(locale: Locale): Locale {
 }
 
 async function fetchCybrosCurrentUser(ssoJwtSecretKey: string) {
+  const desktopUser = getDesktopCybrosCurrentUser()
+  if (desktopUser) return desktopUser
+
   const response = await fetch(CYBROS_CURRENT_USER_URL, {
     headers: {
       Accept: "application/json",
