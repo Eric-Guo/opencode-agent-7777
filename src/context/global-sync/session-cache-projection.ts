@@ -92,10 +92,8 @@ function userHistoryItem(context: ProjectionContext, message: SessionMessageUser
   }
 }
 
-function toolOutput(tool: SessionMessageAssistantTool) {
-  return tool.state.status === "streaming"
-    ? tool.state.input
-    : tool.state.content.map((item) => (item.type === "text" ? item.text : item.uri)).join("\n")
+function toolOutput(state: Extract<SessionMessageAssistantTool["state"], { status: "completed" }>) {
+  return state.content.map((item) => (item.type === "text" ? item.text : item.uri)).join("\n")
 }
 
 function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssistantTool): Part {
@@ -130,7 +128,7 @@ function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssi
     state: {
       status: "completed",
       input: tool.state.input,
-      output: toolOutput(tool),
+      output: toolOutput(tool.state),
       title: tool.name,
       metadata: {},
       time: { start: time, end: tool.time.completed ?? time },
