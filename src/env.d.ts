@@ -20,6 +20,11 @@ type DesktopServerReadyData = {
   ssoJwtSecretKey?: string
 }
 
+type CybrosCurrentUser = {
+  chinese_name: string
+  clerk_code: string
+}
+
 type DesktopPickedFile = {
   path: string
   name: string
@@ -28,6 +33,7 @@ type DesktopPickedFile = {
 
 type DesktopAPI = {
   awaitInitialization: () => Promise<DesktopServerReadyData>
+  getCybrosCurrentUser?: () => Promise<CybrosCurrentUser | null>
   openFilePicker?: (opts?: {
     multiple?: boolean
     title?: string
