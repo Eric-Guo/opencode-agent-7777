@@ -1,6 +1,6 @@
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Icon } from "@opencode-ai/ui/icon"
-import { For, Show } from "solid-js"
+import { createResource, For, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
 import { windowsElectron } from "@/context/platform-bridge"
@@ -11,8 +11,28 @@ import {
   recentSessionTitle,
 } from "@/pages/home-recent-sessions"
 
+const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
+
+type CybrosCurrentUser = {
+  chinese_name: string
+  clerk_code: string
+}
+
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"
+}
+
+async function fetchCybrosCurrentUser(ssoJwtSecretKey: string) {
+  const response = await fetch(CYBROS_CURRENT_USER_URL, {
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${ssoJwtSecretKey}`,
+    },
+  })
+  if (!response.ok) throw new Error(`Failed to load Cybros user: ${response.status}`)
+
+  return response.json() as Promise<CybrosCurrentUser>
 }
 
 export function SessionHeader(props: {
@@ -28,6 +48,10 @@ export function SessionHeader(props: {
 }) {
   const language = useLanguage()
   const targetLocale = () => nextLocale(language.locale())
+  const [cybrosCurrentUser] = createResource(
+    () => state.server?.ssoJwtSecretKey,
+    fetchCybrosCurrentUser,
+  )
 
   return (
     <header
@@ -45,11 +69,18 @@ export function SessionHeader(props: {
         class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5"
         classList={{ "mr-[138px]": windowsElectron }}
       >
+        <Show when={cybrosCurrentUser()}>
+          {(user) => (
+            <div class="inline-flex h-[30px] items-center justify-center px-2 text-xs font-[650] text-v2-text-text-muted select-none">
+              {user().chinese_name} ({user().clerk_code})
+            </div>
+          )}
+        </Show>
         <div class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 px-2 text-xs font-[650] text-v2-text-text-muted select-none [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5">
           <Icon name="speech-bubble" />
           <span>{props.userDialogCount}</span>
           <span>/</span>
-          <span title={state.server?.ssoJwtSecretKey}>{HISTORY_DIALOG_LIMIT}</span>
+          <span>{HISTORY_DIALOG_LIMIT}</span>
         </div>
         <button
           type="button"
