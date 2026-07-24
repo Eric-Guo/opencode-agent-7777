@@ -7,6 +7,10 @@ export function awaitDesktopInitialization() {
   return window.api?.awaitInitialization?.()
 }
 
+export function getDesktopCybrosCurrentUser() {
+  return window.api?.getCybrosCurrentUser?.()
+}
+
 export function syncPlatformBackgroundColor(color: string) {
   void window.api?.setBackgroundColor?.(color)
 }
