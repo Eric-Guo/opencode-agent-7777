@@ -38,4 +38,27 @@ describe("compact prompt state", () => {
     expect(state.dirty()).toBe(false)
     expect(changes.at(-1)).toEqual({ prompt: "", attachments: [] })
   })
+
+  test("exposes the shared v2 store without changing the persisted draft shape", () => {
+    const state = createPromptState({ prompt: "hello", attachments: [attachment("first")] })
+
+    expect(state.store[0].prompt).toEqual([
+      { type: "text", content: "hello", start: 0, end: 5 },
+      {
+        type: "image",
+        id: "first",
+        filename: "first.png",
+        sourcePath: undefined,
+        mime: "image/png",
+        dataUrl: "data:image/png;base64,first",
+      },
+    ])
+
+    state.store[1]("prompt", (parts) =>
+      parts.map((part) => (part.type === "text" ? { ...part, content: "updated", end: 7 } : part)),
+    )
+    state.persist()
+
+    expect(state.capture()).toEqual({ prompt: "updated", attachments: [attachment("first")] })
+  })
 })

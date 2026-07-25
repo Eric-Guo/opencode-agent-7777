@@ -1,14 +1,12 @@
+import { createMemo } from "solid-js"
 import { abortPrompt, submitPrompt } from "@/components/prompt-input/submit"
-import { createPromptInputController } from "@/pages/session/composer/session-composer-controls"
+import { state } from "@/context/server-session-store"
 import { createSessionComposerController } from "@/pages/session/composer/session-composer-state"
 
 export function createSessionComposerRegionController() {
-  const promptInput = createPromptInputController()
-
   return {
     ...createSessionComposerController(),
-    busy: promptInput.busy,
-    canSubmit: promptInput.canSubmit,
+    busy: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
     submitPrompt,
     abortPrompt,
   }

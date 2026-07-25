@@ -25,11 +25,13 @@ export const dict = {
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
   "prompt.addContext": "Add context",
+  "prompt.attachFiles": "Add images and files",
   "prompt.send": "Send",
   "prompt.stop": "Stop",
   "prompt.dropzone.label": "Drop images, PDFs, or text files here",
   "prompt.unsupportedFiles": "Some selected files are not supported.",
   "prompt.removeAttachment": "Remove {{filename}}",
+  "prompt.removeAttachment.generic": "Remove attachment",
 
   "common.clear": "Clear",
   "common.close": "Close",

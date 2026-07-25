@@ -29,11 +29,13 @@ export const dict = {
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",
   "prompt.addContext": "添加上下文",
+  "prompt.attachFiles": "添加图片和文件",
   "prompt.send": "发送",
   "prompt.stop": "停止",
   "prompt.dropzone.label": "将图片、PDF 或文本文件拖放到此处",
   "prompt.unsupportedFiles": "部分所选文件不受支持。",
   "prompt.removeAttachment": "移除 {{filename}}",
+  "prompt.removeAttachment.generic": "移除附件",
 
   "common.clear": "清除",
   "common.close": "关闭",

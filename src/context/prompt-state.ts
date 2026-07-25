@@ -1,5 +1,10 @@
 import { batch } from "solid-js"
 import { createStore } from "solid-js/store"
+import type {
+  PromptInputV2Attachment,
+  PromptInputV2PersistedState,
+  PromptInputV2Prompt,
+} from "@opencode-ai/session-ui/v2/prompt-input"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
 
 export type PromptAttachment = {
@@ -17,49 +22,102 @@ export type PromptDraft = {
 
 type PromptStateChange = (draft: PromptDraft) => void
 
-function cloneDraft(draft?: PromptDraft): PromptDraft {
+function promptState(draft?: PromptDraft): PromptInputV2PersistedState {
+  const prompt: PromptInputV2Prompt = [
+    { type: "text", content: draft?.prompt ?? "", start: 0, end: draft?.prompt.length ?? 0 },
+    ...(draft?.attachments.map(
+      (attachment): PromptInputV2Attachment => ({
+        type: "image",
+        id: attachment.id,
+        filename: attachment.filename,
+        sourcePath: attachment.sourcePath,
+        mime: attachment.mime,
+        dataUrl: attachment.url,
+      }),
+    ) ?? []),
+  ]
   return {
-    prompt: draft?.prompt ?? "",
-    attachments: draft?.attachments.map((attachment) => ({ ...attachment })) ?? [],
+    prompt,
+    cursor: draft?.prompt.length ?? 0,
+    context: { items: [] },
+  }
+}
+
+function promptText(prompt: PromptInputV2Prompt) {
+  return prompt.map((part) => ("content" in part ? part.content : "")).join("")
+}
+
+function promptAttachments(prompt: PromptInputV2Prompt): PromptAttachment[] {
+  return prompt.flatMap((part) =>
+    part.type === "image"
+      ? [
+          {
+            id: part.id,
+            filename: part.filename,
+            sourcePath: part.sourcePath,
+            mime: part.mime,
+            url: part.dataUrl,
+          },
+        ]
+      : [],
+  )
+}
+
+function cloneDraft(state: PromptInputV2PersistedState): PromptDraft {
+  return {
+    prompt: promptText(state.prompt),
+    attachments: promptAttachments(state.prompt),
   }
 }
 
 export function createPromptState(initial?: PromptDraft, onChange?: PromptStateChange) {
-  const [store, setStore] = createStore<PromptDraft>(cloneDraft(initial))
+  const [state, setStore] = createStore(promptState(initial))
+  const store: [typeof state, typeof setStore] = [state, setStore]
 
-  const capture = () => cloneDraft(store)
+  const capture = () => cloneDraft(state)
   const changed = () => onChange?.(capture())
 
   return {
-    current: () => store.prompt,
-    attachments: () => store.attachments,
-    dirty: () => store.prompt.trim().length > 0 || store.attachments.length > 0,
+    store,
+    current: () => promptText(state.prompt),
+    attachments: () => promptAttachments(state.prompt),
+    dirty: () => promptText(state.prompt).trim().length > 0 || promptAttachments(state.prompt).length > 0,
     capture,
+    persist: changed,
     set(value: string) {
-      setStore("prompt", value)
+      batch(() => {
+        setStore("prompt", (parts) => [
+          { type: "text", content: value, start: 0, end: value.length },
+          ...parts.filter((part) => part.type === "image"),
+        ])
+        setStore("cursor", value.length)
+      })
       changed()
     },
     addAttachment(attachment: PromptAttachment) {
-      setStore("attachments", (attachments) => [...attachments, { ...attachment }])
+      setStore("prompt", (parts) => [
+        ...parts,
+        {
+          type: "image",
+          id: attachment.id,
+          filename: attachment.filename,
+          sourcePath: attachment.sourcePath,
+          mime: attachment.mime,
+          dataUrl: attachment.url,
+        },
+      ])
       changed()
     },
     removeAttachment(id: string) {
-      setStore("attachments", (attachments) => attachments.filter((attachment) => attachment.id !== id))
+      setStore("prompt", (parts) => parts.filter((part) => part.type !== "image" || part.id !== id))
       changed()
     },
     restore(draft?: PromptDraft) {
-      const next = cloneDraft(draft)
-      batch(() => {
-        setStore("prompt", next.prompt)
-        setStore("attachments", next.attachments)
-      })
+      setStore(promptState(draft))
       changed()
     },
     reset() {
-      batch(() => {
-        setStore("prompt", "")
-        setStore("attachments", [])
-      })
+      setStore(promptState())
       changed()
     },
   }
