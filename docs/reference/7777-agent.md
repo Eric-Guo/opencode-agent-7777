@@ -19,7 +19,6 @@ permission:
   write: deny
   edit: deny
   websearch: deny
-  codesearch: deny
   skill: deny
   "<private-or-custom-tool>_*": deny
 ---
