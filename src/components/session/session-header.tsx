@@ -101,7 +101,7 @@ export function SessionHeader(props: {
             {language.t("session.tools")}
           </span>
         </button>
-        <DropdownMenu gutter={4} placement="bottom-end">
+        <DropdownMenu gutter={4} placement="bottom-end" modal={false}>
           <DropdownMenu.Trigger
             class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base disabled:opacity-55 data-[expanded]:border-v2-border-border-strong data-[expanded]:bg-v2-overlay-simple-overlay-hover [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
             aria-label={language.t("session.recent")}
