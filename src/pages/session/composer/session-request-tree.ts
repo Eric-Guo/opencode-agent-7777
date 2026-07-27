@@ -1,4 +1,4 @@
-import type { OpenCodeEvent as OpencodeEvent, PermissionV2Request as V2PermissionRequest } from "@opencode-ai/client"
+import type { OpenCodeEvent as OpencodeEvent, PermissionRequest } from "@opencode-ai/client"
 import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
 
 export type PermissionRequestView = {
@@ -10,42 +10,17 @@ export type PermissionRequestView = {
   replyTarget: "respond" | "session"
 }
 
-export type V2PermissionLike = V2PermissionRequest & {
-  action?: string
-  resources?: string[]
+export function permissionAsked(event: OpencodeEvent): PermissionRequest | undefined {
+  if (event.type !== "permission.asked") return
+  return event.data
 }
 
-type V2PermissionAskedEvent = {
-  type: "permission.v2.asked"
-  data?: V2PermissionLike
-  properties?: V2PermissionLike
+export function permissionReplied(event: OpencodeEvent) {
+  if (event.type !== "permission.replied") return
+  return event.data
 }
 
-type V2PermissionRepliedEvent = {
-  type: "permission.v2.replied"
-  data?: V2PermissionReplyLike
-  properties?: V2PermissionReplyLike
-}
-
-export type V2PermissionReplyLike = {
-  sessionID?: string
-  requestID?: string
-  permissionID?: string
-}
-
-export function v2PermissionAsked(event: OpencodeEvent): V2PermissionLike | undefined {
-  const candidate = event as unknown as V2PermissionAskedEvent
-  if (candidate.type !== "permission.v2.asked") return
-  return candidate.data ?? candidate.properties
-}
-
-export function v2PermissionReplied(event: OpencodeEvent): V2PermissionReplyLike | undefined {
-  const candidate = event as unknown as V2PermissionRepliedEvent
-  if (candidate.type !== "permission.v2.replied") return
-  return candidate.data ?? candidate.properties
-}
-
-export function toV2PermissionView(permission: V2PermissionLike): PermissionRequestView {
+export function toV2PermissionView(permission: PermissionRequest): PermissionRequestView {
   return {
     id: permission.id,
     sessionID: permission.sessionID,

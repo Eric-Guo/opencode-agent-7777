@@ -5,12 +5,11 @@ import { showPlatformNotification } from "@/context/platform-bridge"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import {
+  permissionAsked,
   permissionDescription,
+  permissionReplied,
   toV2PermissionView,
-  v2PermissionAsked,
-  v2PermissionReplied,
   type PermissionRequestView,
-  type V2PermissionLike,
 } from "@/pages/session/composer/session-request-tree"
 import { readableError } from "@/utils/server-errors"
 
@@ -51,7 +50,7 @@ export function refreshPermissions() {
 }
 
 export function handlePermissionEvent(event: OpencodeEvent) {
-  const asked = v2PermissionAsked(event)
+  const asked = permissionAsked(event)
   if (asked && asked.sessionID === state.session?.id) {
     const request = toV2PermissionView(asked)
     setState("permissionRequest", request)
@@ -60,8 +59,8 @@ export function handlePermissionEvent(event: OpencodeEvent) {
     return true
   }
 
-  const replied = v2PermissionReplied(event)
-  const repliedID = replied?.requestID ?? replied?.permissionID
+  const replied = permissionReplied(event)
+  const repliedID = replied?.requestID
   if (replied?.sessionID === state.session?.id && repliedID) {
     alertedPermissionIDs.delete(repliedID)
     setState("permissionRequest", (current) => (current?.id === repliedID ? undefined : current))
