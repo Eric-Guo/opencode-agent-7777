@@ -1,5 +1,16 @@
+export function isElectronUserAgent(userAgent: string) {
+  const normalizedUserAgent = userAgent.toLowerCase()
+  const isWxWork = normalizedUserAgent.includes("wxwork") || normalizedUserAgent.includes("micromessenger")
+
+  return normalizedUserAgent.includes("electron") && !isWxWork
+}
+
+export function isAgent7777Enabled(userAgent: string, activateInElectronOnly: boolean) {
+  return !activateInElectronOnly || isElectronUserAgent(userAgent)
+}
+
 export const windowsElectron =
-  navigator.userAgent.includes("Electron") && navigator.platform.toLowerCase().startsWith("win")
+  isElectronUserAgent(navigator.userAgent) && navigator.platform.toLowerCase().startsWith("win")
 
 // Thin bridge to the embedding desktop shell; 7777 does not own a platform context provider.
 

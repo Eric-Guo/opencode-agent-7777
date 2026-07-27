@@ -37,6 +37,17 @@ The package-owned rules in `src/index.css` are scoped below `#oc-agent`; the sha
 remain global. Configure the target application's `/api` route or development proxy to reach the OpenCode server,
 matching the proxy setup in `vite.config.ts`.
 
+The `activateInElectronOnly` build option defaults to `true`, so the entry mounts agent7777 only in Electron. This
+prevents a copied `dist/` bundle from issuing OpenCode API requests when it is loaded by a normal browser. To build
+agent7777 for direct standalone browser use, disable the option at compile time:
+
+```bash
+VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
+```
+
+Electron-flavoured WeCom/WeChat user agents are treated as normal browsers, so they also require the standalone build
+option.
+
 When hosted in a desktop external tab, the app reads the tab's `localAgent` value from desktop initialization and uses
 it as the OpenCode agent ID for session creation, agent switching, and optimistic messages. If the desktop tab does
 not provide a value, the standalone app defaults to `7777`.
