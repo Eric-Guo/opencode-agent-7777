@@ -1,4 +1,4 @@
-import type { Part, SessionPromptInput } from "@opencode-ai/client"
+import type { SessionPromptInput, SessionV1Part as Part } from "@opencode-ai/client"
 import type { ModelSelection } from "@/context/local-storage"
 import type { PromptAttachment } from "@/context/prompt"
 

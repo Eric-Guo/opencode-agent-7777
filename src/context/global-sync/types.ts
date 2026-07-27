@@ -1,4 +1,4 @@
-import type { Message, Part, QuestionV2Request as QuestionRequest, SessionStatus } from "@opencode-ai/client"
+import type { QuestionRequest, SessionStatus, SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import type { ModelSelection } from "@/context/local-storage"
 import type { ModelLoadStatus, ModelOption } from "@/context/models-store"
 import type { ServerInfo } from "@/context/server-resolver"

@@ -1,7 +1,7 @@
 import type {
   OpenCodeEvent as OpencodeEvent,
-  QuestionV2Answer as QuestionAnswer,
-  QuestionV2Request as QuestionRequest,
+  QuestionAnswer,
+  QuestionRequest,
 } from "@opencode-ai/client"
 import { translateSync } from "@/context/language"
 import { scheduleRefresh } from "@/context/server-sync-session"

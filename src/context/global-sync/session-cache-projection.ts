@@ -1,7 +1,7 @@
 import type {
-  AssistantMessage,
-  Message,
-  Part,
+  SessionV1AssistantMessage as AssistantMessage,
+  SessionV1Message as Message,
+  SessionV1Part as Part,
   SessionMessageAssistant,
   SessionMessageAssistantTool,
   SessionMessageInfo,

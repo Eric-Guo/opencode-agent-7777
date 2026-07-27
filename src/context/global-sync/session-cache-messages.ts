@@ -1,5 +1,5 @@
 // Live message cache for the one active session; the adapter lives in session-cache-projection.ts.
-import type { Message, Part } from "@opencode-ai/client"
+import type { SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import {
   compareHistoryItem,
   comparePart,
