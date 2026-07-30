@@ -22,9 +22,10 @@ function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"
 }
 
-async function fetchCybrosCurrentUser(ssoJwtSecretKey: string) {
-  const desktopUser = getDesktopCybrosCurrentUser()
+async function fetchCybrosCurrentUser(ssoJwtSecretKey?: string) {
+  const desktopUser = await getDesktopCybrosCurrentUser()
   if (desktopUser) return desktopUser
+  if (!ssoJwtSecretKey) return
 
   const response = await fetch(CYBROS_CURRENT_USER_URL, {
     headers: {
@@ -52,8 +53,8 @@ export function SessionHeader(props: {
   const language = useLanguage()
   const targetLocale = () => nextLocale(language.locale())
   const [cybrosCurrentUser] = createResource(
-    () => state.server?.ssoJwtSecretKey,
-    fetchCybrosCurrentUser,
+    () => ({ ssoJwtSecretKey: state.server?.ssoJwtSecretKey }),
+    ({ ssoJwtSecretKey }) => fetchCybrosCurrentUser(ssoJwtSecretKey),
   )
 
   return (
