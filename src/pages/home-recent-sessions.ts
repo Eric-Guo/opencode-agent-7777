@@ -5,7 +5,7 @@ import type { Session } from "@/context/session-directory"
 // Presentation helpers for the header history menu; 7777 has no home route.
 
 export function recentSessionTitle(session: Session) {
-  return session.title.trim() || currentLocalAgent()
+  return session.title?.trim() || currentLocalAgent()
 }
 
 export function recentSessionDescription(session: Session) {
