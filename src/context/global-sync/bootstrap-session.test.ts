@@ -35,6 +35,16 @@ afterEach(() => {
 })
 
 describe("single-session bootstrap status hydration", () => {
+  test("does not mutate the shared idle status across transitions", () => {
+    setState("sessionStatus", { type: "busy" })
+
+    expect(idleStatus).toEqual({ type: "idle" })
+
+    setState("sessionStatus", idleStatus)
+
+    expect(state.sessionStatus).toEqual({ type: "idle" })
+  })
+
   test("seeds the active session status from the server", async () => {
     const activeSession = session()
     const client = statusClient({ [activeSession.id]: { type: "running" } })

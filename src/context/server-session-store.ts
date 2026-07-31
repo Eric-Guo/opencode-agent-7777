@@ -9,7 +9,7 @@ import type { OpencodeClient } from "@/context/server-sdk-client"
 
 export type { LoadStatus } from "@/context/global-sync/types"
 
-export const idleStatus = { type: "idle" } satisfies SessionStatus
+export const idleStatus = Object.freeze({ type: "idle" } satisfies SessionStatus)
 
 export const [state, setState] = createStore<State>({
   status: "loading",
@@ -19,7 +19,7 @@ export const [state, setState] = createStore<State>({
   recentSessions: [],
   recentSessionsLoading: false,
   recentSessionSwitchingID: undefined,
-  sessionStatus: idleStatus,
+  sessionStatus: { ...idleStatus },
   messages: [],
   messagesLoading: false,
   models: [],
