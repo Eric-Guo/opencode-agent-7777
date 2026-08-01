@@ -57,7 +57,7 @@ afterEach(() => {
 
 describe("single-session message cache", () => {
   test("projects current session messages into the timeline model", async () => {
-    const client = messageClient(messages)
+    const client = messageClient(messages.toReversed())
     setSessionClient(client)
     setState("session", session())
 
@@ -65,6 +65,11 @@ describe("single-session message cache", () => {
 
     expect(client.requests).toEqual([{ sessionID: "session", limit: 20, order: "desc" }])
     expect(state.messages.map((item) => item.info.id)).toEqual(["msg_user", "msg_assistant"])
+    expect(state.messages[0]?.info).toMatchObject({
+      role: "user",
+      agent: "7777",
+      model: { providerID: "provider", modelID: "model" },
+    })
     expect(state.messages[1]?.info).toMatchObject({ role: "assistant", parentID: "msg_user" })
     expect(state.messages[1]?.parts.map((part) => part.type)).toEqual(["reasoning", "text"])
   })

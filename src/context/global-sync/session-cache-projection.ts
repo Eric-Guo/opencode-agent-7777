@@ -1,14 +1,9 @@
-import type {
-  SessionV1AssistantMessage as AssistantMessage,
-  SessionV1Message as Message,
-  SessionV1Part as Part,
-  SessionMessageAssistant,
-  SessionMessageAssistantTool,
-  SessionMessageInfo,
-  SessionMessageUser,
-} from "@opencode-ai/client"
+import type { SessionV1Part as Part, SessionMessageInfo } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/types"
 import type { Session } from "@/context/session-directory"
+import { normalizeSessionMessages } from "@/utils/session-message"
+
+// Compact history-store adaptation around the shared current-message normalization boundary.
 
 function isTextPart(part: Part): part is Extract<Part, { type: "text" }> {
   return part.type === "text"
@@ -53,154 +48,30 @@ type ProjectionContext = {
   localAgent: string
 }
 
-function userHistoryItem(context: ProjectionContext, message: SessionMessageUser): HistoryItem {
-  const sessionModel = context.session?.model
-  const parts: Part[] = [
-    ...(message.text
-      ? [
-          {
-            id: `${message.id}-text`,
-            sessionID: context.sessionID,
-            messageID: message.id,
-            type: "text" as const,
-            text: message.text,
-          },
-        ]
-      : []),
-    ...(message.files ?? []).map((file, index) => ({
-      id: `${message.id}-file-${index}`,
-      sessionID: context.sessionID,
-      messageID: message.id,
-      type: "file" as const,
-      mime: file.mime,
-      filename: file.name,
-      url: file.source.type === "uri" ? file.source.uri : `data:${file.mime};base64,${file.data}`,
-    })),
-  ]
-  return {
-    info: {
-      id: message.id,
-      sessionID: context.sessionID,
-      role: "user",
-      time: message.time,
-      agent: context.session?.agent ?? context.localAgent,
-      model: sessionModel
-        ? { providerID: sessionModel.providerID, modelID: sessionModel.id }
-        : { providerID: "", modelID: "" },
-    },
-    parts,
-  }
-}
-
-function toolOutput(state: Extract<SessionMessageAssistantTool["state"], { status: "completed" }>) {
-  return state.content.map((item) => (item.type === "text" ? item.text : item.uri)).join("\n")
-}
-
-function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssistantTool): Part {
-  const time = tool.time.created
-  const base = {
-    id: tool.id,
-    sessionID,
-    messageID,
-    type: "tool" as const,
-    callID: tool.id,
-    tool: tool.name,
-  }
-  if (tool.state.status === "streaming") {
-    return { ...base, state: { status: "pending", input: {}, raw: tool.state.input } }
-  }
-  if (tool.state.status === "running") {
-    return { ...base, state: { status: "running", input: tool.state.input, time: { start: time } } }
-  }
-  if (tool.state.status === "error") {
-    return {
-      ...base,
-      state: {
-        status: "error",
-        input: tool.state.input,
-        error: tool.state.error.message,
-        time: { start: time, end: tool.time.completed ?? time },
-      },
-    }
-  }
-  return {
-    ...base,
-    state: {
-      status: "completed",
-      input: tool.state.input,
-      output: toolOutput(tool.state),
-      title: tool.name,
-      metadata: {},
-      time: { start: time, end: tool.time.completed ?? time },
-    },
-  }
-}
-
-function assistantHistoryItem(
-  context: ProjectionContext,
-  parentID: string,
-  message: SessionMessageAssistant,
-): HistoryItem {
-  const parts = message.content.map((content, index): Part => {
-    if (content.type === "tool") return toolPart(context.sessionID, message.id, content)
-    if (content.type === "file")
-      return {
-        id: `${message.id}-file-${index}`,
-        sessionID: context.sessionID,
-        messageID: message.id,
-        type: "file",
-        mime: content.mime,
-        filename: content.filename,
-        url: content.url,
-      } as Part
-    return {
-      id: `${message.id}-${content.type}-${index}`,
-      sessionID: context.sessionID,
-      messageID: message.id,
-      type: content.type,
-      text: content.text,
-      ...(content.type === "reasoning"
-        ? { time: { start: content.time?.created ?? message.time.created, end: content.time?.completed } }
-        : {}),
-    } as Part
-  })
-  const directory = context.session?.location.directory ?? ""
-  return {
-    info: {
-      id: message.id,
-      sessionID: context.sessionID,
-      role: "assistant",
-      time: message.time,
-      parentID,
-      modelID: message.model.id,
-      providerID: message.model.providerID,
-      mode: message.agent,
-      agent: message.agent,
-      path: { cwd: directory, root: directory },
-      cost: message.cost ?? 0,
-      tokens: message.tokens ?? { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-      finish: message.finish,
-      error: message.error
-        ? ({ name: message.error.type, data: { message: message.error.message } } as AssistantMessage["error"])
-        : undefined,
-    } as Message,
-    parts,
-  }
-}
-
 export function projectSessionMessages(input: ProjectionContext & { messages: SessionMessageInfo[] }) {
-  const result: HistoryItem[] = []
-  let parentID: string | undefined
   const ordered = input.messages.toSorted((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id))
-  for (const message of ordered) {
-    if (message.type === "user") {
-      parentID = message.id
-      result.push(userHistoryItem(input, message))
-      continue
-    }
-    if (message.type === "assistant" && parentID) result.push(assistantHistoryItem(input, parentID, message))
-  }
-  return normalizeHistory(result)
+  const normalized = normalizeSessionMessages(input.sessionID, ordered)
+  const directory = input.session?.location.directory ?? ""
+  const sessionModel = input.session?.model
+
+  return normalizeHistory(
+    normalized.messages.map(
+      (message): HistoryItem => ({
+        info:
+          message.role === "assistant"
+            ? { ...message, path: { cwd: directory, root: directory } }
+            : {
+                ...message,
+                agent: message.agent || input.session?.agent || input.localAgent,
+                model:
+                  message.model.providerID || !sessionModel
+                    ? message.model
+                    : { providerID: sessionModel.providerID, modelID: sessionModel.id, variant: sessionModel.variant },
+              },
+        parts: normalized.parts.get(message.id) ?? [],
+      }),
+    ),
+  )
 }
 
 export function mergeHistoryPart(existing: Part | undefined, incoming: Part, delta: string | undefined): Part {
