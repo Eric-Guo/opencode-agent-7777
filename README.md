@@ -173,8 +173,8 @@ Then paste the copied JSON into the package script:
 bun run models:apply-localstorage <<'JSON'
 {
   "selection": {
-    "providerID": "kimi-for-coding",
-    "modelID": "k2p7"
+    "providerID": "deepseek",
+    "modelID": "deepseek-v4-flash"
   },
   "config": {
     "user": [
@@ -429,16 +429,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "modelID": "kimi-k2.6",
-        "providerID": "opencode",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "kimi-k2.7-code",
-        "providerID": "opencode",
-        "visibility": "hide"
-      },
-      {
         "modelID": "deepseek-v4-pro",
         "providerID": "opencode",
         "visibility": "hide"
@@ -477,6 +467,41 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "zai-org/GLM-5.2",
         "providerID": "siliconflow-cn",
         "visibility": "show"
+      },
+      {
+        "modelID": "claude-sonnet-5",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.5-flash",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-mini",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.5-plus",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.5-flash-lite",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.1-flash-lite-image",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3-pro-image-preview",
+        "providerID": "google",
+        "visibility": "show"
       }
     ],
     "disabledProviders": [
@@ -506,12 +531,7 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       }
     ],
-    "recent": [
-      {
-        "modelID": "k2p7",
-        "providerID": "kimi-for-coding"
-      }
-    ]
+    "recent": []
   }
 }
 JSON
