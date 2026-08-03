@@ -5,8 +5,11 @@ This package is the SolidJS/Vite UI for the `7777` agent.
 ## Develop
 
 ```bash
+# get from service-dev.json
 export OPENCODE_SERVER_PASSWORD=here
+# get from opencode service status
 export VITE_OPENCODE_SERVER_PORT=4096
+export VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 bun run dev
 ```
 
