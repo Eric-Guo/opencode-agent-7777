@@ -1,5 +1,4 @@
 // Live message cache for the one active session; current-message normalization lives in utils/session-message.ts.
-import type { SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import {
   compareHistoryItem,
   comparePart,
@@ -7,6 +6,7 @@ import {
   projectSessionMessages,
 } from "@/context/global-sync/session-cache-projection"
 import { currentSession, setState, state } from "@/context/server-session-store"
+import type { Message, Part } from "@/types"
 
 let messageRefreshCount = 0
 

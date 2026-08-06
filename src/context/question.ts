@@ -1,12 +1,8 @@
-import type {
-  OpenCodeEvent as OpencodeEvent,
-  QuestionAnswer,
-  QuestionRequest,
-} from "@opencode-ai/client"
 import { translateSync } from "@/context/language"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
+import type { Event as OpencodeEvent, QuestionAnswer, QuestionRequest } from "@/types"
 
 type QuestionAskedEvent = {
   type: "question.v2.asked"

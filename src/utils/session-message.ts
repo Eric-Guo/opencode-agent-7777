@@ -1,16 +1,16 @@
 import type {
+  AssistantMessage,
+  FilePart,
+  Message,
+  Part,
   SessionMessageAssistant,
   SessionMessageAssistantTool,
   SessionMessageInfo,
   SessionMessageShell,
   SessionMessageUser,
-  SessionV1AssistantMessage as AssistantMessage,
-  SessionV1FilePart as FilePart,
-  SessionV1Message as Message,
-  SessionV1Part as Part,
-  SessionV1ToolPart as ToolPart,
-  SessionV1UserMessage as UserMessage,
-} from "@opencode-ai/client"
+  ToolPart,
+  UserMessage,
+} from "@/types"
 
 const emptyTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
 const emptyModel: { id: string; providerID: string; variant?: string } = { id: "", providerID: "" }

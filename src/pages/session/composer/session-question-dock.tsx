@@ -3,8 +3,8 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
 import { For, Show, createMemo, onCleanup, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
-import type { QuestionAnswer, QuestionRequest } from "@opencode-ai/client"
 import { useLanguage } from "@/context/language"
+import type { QuestionAnswer, QuestionRequest } from "@/types"
 
 function Mark(props: { multi: boolean; picked: boolean; onClick?: (event: MouseEvent) => void }) {
   return (

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { OpenCodeEvent as OpencodeEvent, PermissionRequest } from "@opencode-ai/client"
 import { permissionAsked, permissionReplied, toV2PermissionView } from "@/pages/session/composer/session-request-tree"
+import type { Event as OpencodeEvent, PermissionRequest } from "@/types"
 
 const request: PermissionRequest = {
   id: "per_test",

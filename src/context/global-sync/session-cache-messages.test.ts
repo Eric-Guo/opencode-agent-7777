@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { SessionMessageInfo } from "@opencode-ai/client"
 import { refreshMessages } from "@/context/global-sync/session-cache-messages"
 import { setSessionClient, setState, state } from "@/context/server-session-store"
 import type { OpencodeClient } from "@/context/server-sdk-client"
-import type { Session } from "@/context/session-directory"
+import type { Session, SessionMessageInfo } from "@/types"
 
 const session = (id = "session"): Session => ({
   id,

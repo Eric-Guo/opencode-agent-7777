@@ -2,7 +2,8 @@ import { translateSync } from "@/context/language"
 import type { SessionRecord } from "@/context/local-storage"
 // Creates or restores the current 7777 session rather than paging a directory session list.
 import type { OpencodeClient } from "@/context/sdk-directory-client"
-import { defaultSessionDirectory, normalizeSessionDirectory, type Session } from "@/context/session-directory"
+import { defaultSessionDirectory, normalizeSessionDirectory } from "@/context/session-directory"
+import type { Session } from "@/types"
 
 export function restoreSession(baseClient: OpencodeClient, record: SessionRecord | undefined) {
   if (!record) return Promise.resolve<Session | undefined>(undefined)

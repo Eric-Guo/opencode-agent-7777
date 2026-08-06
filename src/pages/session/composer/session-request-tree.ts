@@ -1,5 +1,5 @@
-import type { OpenCodeEvent as OpencodeEvent, PermissionRequest } from "@opencode-ai/client"
 import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
+import type { Event as OpencodeEvent, PermissionRequest } from "@/types"
 
 export type PermissionRequestView = {
   id: string

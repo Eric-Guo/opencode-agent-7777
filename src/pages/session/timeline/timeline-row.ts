@@ -1,5 +1,5 @@
-import type { SessionV1Part as SdkPart } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/types"
+import type { Part as SdkPart } from "@/types"
 
 export type TimelineMessageContent = {
   textParts: Extract<SdkPart, { type: "text" }>[]

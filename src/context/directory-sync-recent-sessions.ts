@@ -1,8 +1,9 @@
 import { RECENT_SESSION_LIMIT } from "@/constants/session"
 import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { setState, state } from "@/context/server-session-store"
-import { normalizeSessionDirectory, sessionDirectory, type Session } from "@/context/session-directory"
+import { normalizeSessionDirectory, sessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
+import type { Session } from "@/types"
 
 // Recent-session loading only; 7777 does not expose the main app's directory sync context.
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/types"
+import type { Message, Part } from "@/types"
 import { projectTimelineMessages, projectTimelineRows, reuseTimelineRows } from "./projection"
 import { createTimelineMessageRow } from "./rows"
 

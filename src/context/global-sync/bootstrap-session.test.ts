@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { Session } from "@/context/session-directory"
+import type { Session } from "@/types"
 import { refreshSessionStatus } from "@/context/global-sync/bootstrap-session"
 import { recoverDeletedSession } from "@/context/session-recovery"
 import { idleStatus, setState, state } from "@/context/server-session-store"

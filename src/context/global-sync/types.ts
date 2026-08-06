@@ -1,9 +1,8 @@
-import type { QuestionRequest, SessionStatus, SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import type { ModelSelection } from "@/context/local-storage"
 import type { ModelLoadStatus, ModelOption } from "@/context/models-store"
 import type { ServerInfo } from "@/context/server-resolver"
-import type { Session } from "@/context/session-directory"
 import type { PermissionRequestView } from "@/pages/session/composer/session-request-tree"
+import type { Message, Part, QuestionRequest, Session, SessionStatus } from "@/types"
 
 export type LoadStatus = "loading" | "ready" | "failed"
 

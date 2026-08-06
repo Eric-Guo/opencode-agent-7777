@@ -1,5 +1,4 @@
 // Single active-session SSE lifecycle, not the main app's multi-directory ServerSyncProvider.
-import type { OpenCodeEvent as OpencodeEvent } from "@opencode-ai/client"
 import {
   activateSession,
   initializeSessionSync as bootstrapSessionSync,
@@ -13,6 +12,7 @@ import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
 import { sessionDirectory } from "@/context/session-directory"
+import type { Event as OpencodeEvent } from "@/types"
 
 let streamAbort: AbortController | undefined
 

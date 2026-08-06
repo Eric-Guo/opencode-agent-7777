@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import type { SessionV1Message as Message, SessionV1Part as Part } from "@opencode-ai/client"
 import type { HistoryItem } from "@/context/global-sync/types"
+import type { Message, Part } from "@/types"
 import { isTimelineReady, selectUserMessages, selectVisibleUserMessages } from "./model"
 
 const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>

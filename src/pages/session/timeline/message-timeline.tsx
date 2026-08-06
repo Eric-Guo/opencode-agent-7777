@@ -1,4 +1,3 @@
-import type { SessionStatus } from "@opencode-ai/client"
 import { Message as SharedMessage, MessageDivider, Part, type UserActions } from "@opencode-ai/session-ui/message-part"
 import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -13,6 +12,7 @@ import {
 } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { currentLocalAgent } from "@/context/server-session-store"
+import type { SessionStatus } from "@/types"
 import { TimelineRow } from "./rows"
 
 type SharedMessageProps = ComponentProps<typeof SharedMessage>

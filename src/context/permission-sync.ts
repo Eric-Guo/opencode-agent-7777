@@ -1,5 +1,4 @@
 // Imperative permission request sync and replies for the one active session.
-import type { OpenCodeEvent as OpencodeEvent } from "@opencode-ai/client"
 import { translateSync } from "@/context/language"
 import { showPlatformNotification } from "@/context/platform-bridge"
 import { scheduleRefresh } from "@/context/server-sync-session"
@@ -12,6 +11,7 @@ import {
   type PermissionRequestView,
 } from "@/pages/session/composer/session-request-tree"
 import { readableError } from "@/utils/server-errors"
+import type { Event as OpencodeEvent } from "@/types"
 
 function permissionNotificationBody(permission: PermissionRequestView) {
   if (permission.title) return permission.title

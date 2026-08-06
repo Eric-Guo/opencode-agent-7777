@@ -1,7 +1,7 @@
-import type { SessionStatus } from "@opencode-ai/client"
 import { statusPopoverBodyText } from "@/components/status-popover-body-text"
 import type { TranslationKey, TranslationParams } from "@/context/language"
 import { state } from "@/context/server-session-store"
+import type { SessionStatus } from "@/types"
 
 // Header status text only; the compact shell does not render the main app's status popover.
 

@@ -1,5 +1,6 @@
 import { MODEL_SELECTION_KEY, SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
-import { sessionDirectory, type Session } from "@/context/session-directory"
+import { sessionDirectory } from "@/context/session-directory"
+import type { Session } from "@/types"
 
 // Narrow persistence helpers rather than the main app's reactive local-preferences context.
 

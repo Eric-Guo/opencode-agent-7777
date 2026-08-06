@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderInfo } from "@opencode-ai/client"
+import type { ModelInfo, ProviderInfo } from "@/types"
 
 export type ProviderItem = ProviderInfo & { models: Record<string, ModelInfo> }
 export type ProviderModel = ModelInfo

@@ -1,6 +1,6 @@
 import { sessionUpdatedTime } from "@/context/directory-sync-recent-sessions"
 import { currentLocalAgent } from "@/context/server-session-store"
-import type { Session } from "@/context/session-directory"
+import type { Session } from "@/types"
 
 // Presentation helpers for the header history menu; 7777 has no home route.
 

@@ -1,5 +1,5 @@
 import { recoverDeletedSession } from "@/context/session-recovery"
-import type { Session } from "@/context/session-directory"
+import type { Session } from "@/types"
 import { createServerSdk } from "@/context/server-sdk-client"
 import { setState, state } from "@/context/server-session-store"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync-session"

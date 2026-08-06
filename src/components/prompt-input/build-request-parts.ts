@@ -1,6 +1,6 @@
-import type { SessionPromptInput, SessionV1Part as Part } from "@opencode-ai/client"
 import type { ModelSelection } from "@/context/local-storage"
 import type { PromptAttachment } from "@/context/prompt"
+import type { Part, SessionPromptInput } from "@/types"
 
 export function buildRequestParts(input: { text: string; attachments: PromptAttachment[]; sessionID: string }) {
   const requestFiles: NonNullable<SessionPromptInput["files"]> = input.attachments.map((attachment) => ({

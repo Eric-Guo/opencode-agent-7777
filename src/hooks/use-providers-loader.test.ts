@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { OpencodeClient } from "@/context/sdk-directory-client"
-import type { Session } from "@/context/session-directory"
+import type { Session } from "@/types"
 import { loadProviderCatalog } from "./use-providers-loader"
 
 describe("provider catalog loader", () => {

@@ -1,9 +1,9 @@
-import type { SessionStatus } from "@opencode-ai/client"
 import { createStore } from "solid-js/store"
 import type { State } from "@/context/global-sync/types"
 import { AGENT_DEFAULT_CONFIG } from "@/context/agent-default-config"
 import { translateSync } from "@/context/language"
 import type { OpencodeClient } from "@/context/server-sdk-client"
+import type { SessionStatus } from "@/types"
 
 // Compact single-session UI store; prompt draft state lives in context/prompt-state.ts.
 
