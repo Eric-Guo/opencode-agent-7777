@@ -20,7 +20,7 @@ export function applySessionEvent(event: OpencodeEvent, input: { refresh: () => 
     input.refresh()
     return true
   }
-  if (event.type === "session.error" && (!data.sessionID || data.sessionID === state.session?.id)) {
+  if (event.type === "session.execution.failed" && (!data.sessionID || data.sessionID === state.session?.id)) {
     setState("error", readableError(data.error))
     return true
   }
