@@ -1,5 +1,5 @@
 import type { HistoryItem } from "@/context/global-sync/types"
-import type { SessionStatus } from "@/types"
+import type { SessionStatus } from "@opencode-ai/client/promise"
 import { reuseTimelineRows } from "./row-reconciliation"
 import { createTimelineMessageRow } from "./rows"
 import { TimelineRow } from "./timeline-row"

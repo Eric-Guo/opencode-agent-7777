@@ -1,6 +1,6 @@
 import type { TranslationKey, TranslationParams } from "@/context/language"
 import type { LoadStatus } from "@/context/global-sync/types"
-import type { SessionStatus } from "@/types"
+import type { SessionStatus } from "@opencode-ai/client/promise"
 
 // Pure text selection kept separate from the header-facing status adapter.
 

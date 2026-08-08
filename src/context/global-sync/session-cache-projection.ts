@@ -1,6 +1,7 @@
 import type { HistoryItem } from "@/context/global-sync/types"
 import { normalizeSessionMessages } from "@/utils/session-message"
-import type { Part, Session, SessionMessageInfo } from "@/types"
+import type { SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
+import type { Part } from "@/types"
 
 // Compact history-store adaptation around the shared current-message normalization boundary.
 

@@ -1,45 +1,74 @@
 import { describe, expect, test } from "bun:test"
-import { permissionAsked, permissionReplied, toV2PermissionView } from "@/pages/session/composer/session-request-tree"
-import type { Event as OpencodeEvent, PermissionRequest } from "@/types"
+import type { FormInfo, PermissionRequest, SessionInfo } from "@opencode-ai/client/promise"
+import { sessionPermissionRequest, sessionQuestionForm } from "@/pages/session/composer/session-request-tree"
 
-const request: PermissionRequest = {
-  id: "per_test",
-  sessionID: "ses_test",
-  action: "glob",
-  resources: ["/tmp/**"],
-}
+const session = (input: { id: string; parentID?: string }) =>
+  ({
+    id: input.id,
+    parentID: input.parentID,
+  }) as SessionInfo
 
-describe("permission event handling", () => {
-  test("reads permission.asked data", () => {
-    const event = {
-      id: "evt_asked",
-      created: 1,
-      type: "permission.asked",
-      data: request,
-    } satisfies Extract<OpencodeEvent, { type: "permission.asked" }>
+const permission = (id: string, sessionID: string) =>
+  ({
+    id,
+    sessionID,
+  }) as PermissionRequest
 
-    expect(permissionAsked(event)).toEqual(request)
-    expect(toV2PermissionView(request)).toEqual({
-      id: "per_test",
-      sessionID: "ses_test",
-      permission: "glob",
-      patterns: ["/tmp/**"],
-      replyTarget: "session",
-    })
+const question = (id: string, sessionID: string) =>
+  ({
+    id,
+    sessionID,
+    title: "Questions",
+    metadata: { kind: "question" },
+    fields: [{ key: "q0", type: "string" }],
+  }) as FormInfo
+
+describe("sessionPermissionRequest", () => {
+  test("prefers the current session permission", () => {
+    const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
+    const permissions = {
+      root: [permission("perm-root", "root")],
+      child: [permission("perm-child", "child")],
+    }
+
+    expect(sessionPermissionRequest(sessions, permissions, "root")?.id).toBe("perm-root")
   })
 
-  test("reads permission.replied data", () => {
-    const event = {
-      id: "evt_replied",
-      created: 2,
-      type: "permission.replied",
-      data: {
-        sessionID: "ses_test",
-        requestID: "per_test",
-        reply: "once",
-      },
-    } satisfies Extract<OpencodeEvent, { type: "permission.replied" }>
+  test("returns a nested child permission", () => {
+    const sessions = [
+      session({ id: "root" }),
+      session({ id: "child", parentID: "root" }),
+      session({ id: "grand", parentID: "child" }),
+      session({ id: "other" }),
+    ]
+    const permissions = {
+      grand: [permission("perm-grand", "grand")],
+      other: [permission("perm-other", "other")],
+    }
 
-    expect(permissionReplied(event)).toEqual(event.data)
+    expect(sessionPermissionRequest(sessions, permissions, "root")?.id).toBe("perm-grand")
+  })
+})
+
+describe("sessionQuestionForm", () => {
+  test("returns a nested child question", () => {
+    const sessions = [
+      session({ id: "root" }),
+      session({ id: "child", parentID: "root" }),
+      session({ id: "grand", parentID: "child" }),
+    ]
+    const questions = {
+      grand: [question("q-grand", "grand")],
+    }
+
+    expect(sessionQuestionForm(sessions, questions, "root")?.id).toBe("q-grand")
+  })
+
+  test("ignores forms that are not questions", () => {
+    const forms = {
+      root: [{ ...question("frm-other", "root"), metadata: { kind: "other" } }],
+    }
+
+    expect(sessionQuestionForm([session({ id: "root" })], forms, "root")).toBeUndefined()
   })
 })

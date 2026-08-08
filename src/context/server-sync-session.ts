@@ -12,7 +12,7 @@ import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
 import { sessionDirectory } from "@/context/session-directory"
-import type { Event as OpencodeEvent } from "@/types"
+import type { OpenCodeEvent } from "@opencode-ai/client/promise"
 
 let streamAbort: AbortController | undefined
 
@@ -24,7 +24,7 @@ export function scheduleRefresh(delay = 120) {
   scheduleMessageRefresh(delay)
 }
 
-function handleEvent(event: OpencodeEvent) {
+function handleEvent(event: OpenCodeEvent) {
   if (handlePermissionEvent(event)) return
   if (handleQuestionEvent(event)) return
   applySessionEvent(event, { refresh: scheduleMessageRefresh })

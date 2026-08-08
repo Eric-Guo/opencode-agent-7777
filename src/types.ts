@@ -1,38 +1,4 @@
-import type {
-  FileDiffInfo,
-  ModelInfo,
-  OpenCodeEvent,
-  PermissionRequest,
-  ProviderInfo,
-  QuestionAnswer,
-  QuestionRequest,
-  SessionInfo,
-  SessionMessageAssistant,
-  SessionMessageAssistantTool,
-  SessionMessageInfo,
-  SessionMessageShell,
-  SessionMessageUser,
-  SessionPromptInput,
-  SessionStatus,
-} from "@opencode-ai/client"
-
-export type {
-  ModelInfo,
-  PermissionRequest,
-  ProviderInfo,
-  QuestionAnswer,
-  QuestionRequest,
-  SessionMessageAssistant,
-  SessionMessageAssistantTool,
-  SessionMessageInfo,
-  SessionMessageShell,
-  SessionMessageUser,
-  SessionPromptInput,
-  SessionStatus,
-}
-
-export type Event = OpenCodeEvent
-export type Session = SessionInfo
+import type { FileDiffInfo } from "@opencode-ai/client/promise"
 
 type MessageError =
   | { name: "ProviderAuthError"; data: { providerID: string; message: string } }

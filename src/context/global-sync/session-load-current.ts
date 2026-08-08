@@ -3,7 +3,7 @@ import type { SessionRecord } from "@/context/local-storage"
 // Creates or restores the current 7777 session rather than paging a directory session list.
 import type { OpencodeClient } from "@/context/sdk-directory-client"
 import { defaultSessionDirectory, normalizeSessionDirectory } from "@/context/session-directory"
-import type { Session } from "@/types"
+import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 
 export function restoreSession(baseClient: OpencodeClient, record: SessionRecord | undefined) {
   if (!record) return Promise.resolve<Session | undefined>(undefined)

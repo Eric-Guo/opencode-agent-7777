@@ -1,107 +1,84 @@
-import { translateSync } from "@/context/language"
+import type { FormInfo, OpenCodeEvent } from "@opencode-ai/client/promise"
+import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
+import { sessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
-import type { Event as OpencodeEvent, QuestionAnswer, QuestionRequest } from "@/types"
+import { isQuestionForm, questionFormAnswer, type QuestionForm } from "@/utils/question-form"
 
-type QuestionAskedEvent = {
-  type: "question.v2.asked"
-  data?: QuestionRequest
-  properties?: QuestionRequest
-}
-
-type QuestionFinishedEvent = {
-  type: "question.v2.replied" | "question.v2.rejected"
-  data?: QuestionFinishedPayload
-  properties?: QuestionFinishedPayload
-}
-
-type QuestionFinishedPayload = {
-  sessionID?: string
-  requestID?: string
-}
-
-function questionAsked(event: OpencodeEvent) {
-  const candidate = event as unknown as QuestionAskedEvent
-  if (candidate.type !== "question.v2.asked") return
-  return candidate.data ?? candidate.properties
-}
-
-function questionFinished(event: OpencodeEvent) {
-  const candidate = event as unknown as QuestionFinishedEvent
-  if (candidate.type !== "question.v2.replied" && candidate.type !== "question.v2.rejected") return
-  return candidate.data ?? candidate.properties
+function groupForms(forms: FormInfo[]) {
+  return forms.reduce<Record<string, FormInfo[]>>((result, form) => {
+    const current = result[form.sessionID]
+    if (current) current.push(form)
+    if (!current) result[form.sessionID] = [form]
+    return result
+  }, {})
 }
 
 export function refreshQuestions() {
   const active = currentSession()
-  if (!active) return Promise.resolve()
+  const session = state.session
+  if (!active || !session) return Promise.resolve()
 
-  return active.client.question.list({ sessionID: active.sessionID }).then((result) => {
-    setState(
-      "questionRequest",
-      result.find((request) => request.sessionID === active.sessionID),
-    )
-    setState("questionResponding", false)
-  })
+  return active.client.form.request
+    .list({ location: { directory: sessionDirectory(session) } })
+    .then((result) => setState("form", reconcile(groupForms(result.data))))
+    .finally(() => setState("questionResponding", undefined))
 }
 
-export function handleQuestionEvent(event: OpencodeEvent) {
-  const asked = questionAsked(event)
-  if (asked && asked.sessionID === state.session?.id) {
-    setState("questionRequest", asked)
-    setState("questionResponding", false)
+export function handleQuestionEvent(event: OpenCodeEvent) {
+  if (event.type === "form.created" && isQuestionForm(event.data.form)) {
+    const form = event.data.form
+    setState("form", form.sessionID, (current = []) => [form, ...current.filter((item) => item.id !== form.id)])
     return true
   }
 
-  const finished = questionFinished(event)
-  if (finished && finished.sessionID === state.session?.id && finished.requestID) {
-    setState("questionRequest", (current) => (current?.id === finished.requestID ? undefined : current))
-    setState("questionResponding", false)
+  if (event.type === "form.replied" || event.type === "form.cancelled") {
+    const finished = event.data
+    setState("form", finished.sessionID, (current = []) => current.filter((item) => item.id !== finished.id))
+    setState("questionResponding", (current) => (current === finished.id ? undefined : current))
     return true
   }
 
   return false
 }
 
-export function replyQuestion(answers: QuestionAnswer[]) {
-  const request = state.questionRequest
+export function replyQuestion(request: QuestionForm, answers: string[][]) {
   const active = currentSession()
   if (!request || !active || state.questionResponding) return
 
   setState("error", "")
-  setState("questionResponding", true)
-  void active.client.question
-    .reply({ sessionID: request.sessionID, requestID: request.id, answers })
+  setState("questionResponding", request.id)
+  void active.client.form
+    .reply({ sessionID: request.sessionID, formID: request.id, answer: questionFormAnswer(request, answers) })
     .then(() => {
-      setState("questionRequest", (current) => (current?.id === request.id ? undefined : current))
+      setState("form", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
       scheduleRefresh(120)
     })
     .catch((error) => {
       setState("error", readableError(error))
     })
     .finally(() => {
-      setState("questionResponding", false)
+      setState("questionResponding", (current) => (current === request.id ? undefined : current))
     })
 }
 
-export function rejectQuestion() {
-  const request = state.questionRequest
+export function rejectQuestion(request: QuestionForm) {
   const active = currentSession()
   if (!request || !active || state.questionResponding) return
 
   setState("error", "")
-  setState("questionResponding", true)
-  void active.client.question
-    .reject({ sessionID: request.sessionID, requestID: request.id })
+  setState("questionResponding", request.id)
+  void active.client.form
+    .cancel({ sessionID: request.sessionID, formID: request.id })
     .then(() => {
-      setState("questionRequest", (current) => (current?.id === request.id ? undefined : current))
+      setState("form", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
       scheduleRefresh(120)
     })
     .catch((error) => {
       setState("error", readableError(error))
     })
     .finally(() => {
-      setState("questionResponding", false)
+      setState("questionResponding", (current) => (current === request.id ? undefined : current))
     })
 }

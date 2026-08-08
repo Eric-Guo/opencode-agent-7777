@@ -1,47 +1,54 @@
-import { translateSync, type TranslationKey, type TranslationParams } from "@/context/language"
-import type { Event as OpencodeEvent, PermissionRequest } from "@/types"
+import type { SessionInfo } from "@opencode-ai/client/promise"
+import type { FormInfo, PermissionRequest } from "@opencode-ai/client/promise"
+import { isQuestionForm } from "@/utils/question-form"
 
-export type PermissionRequestView = {
-  id: string
-  sessionID: string
-  permission: string
-  patterns: string[]
-  title?: string
-  replyTarget: "respond" | "session"
-}
+function sessionTreeRequest<T>(
+  session: SessionInfo[],
+  request: Record<string, T[] | undefined>,
+  sessionID?: string,
+  include: (item: T) => boolean = () => true,
+) {
+  if (!sessionID) return
 
-export function permissionAsked(event: OpencodeEvent): PermissionRequest | undefined {
-  if (event.type !== "permission.asked") return
-  return event.data
-}
+  const map = session.reduce((acc, item) => {
+    if (!item.parentID) return acc
+    const list = acc.get(item.parentID)
+    if (list) list.push(item.id)
+    if (!list) acc.set(item.parentID, [item.id])
+    return acc
+  }, new Map<string, string[]>())
 
-export function permissionReplied(event: OpencodeEvent) {
-  if (event.type !== "permission.replied") return
-  return event.data
-}
-
-export function toV2PermissionView(permission: PermissionRequest): PermissionRequestView {
-  return {
-    id: permission.id,
-    sessionID: permission.sessionID,
-    permission: permission.action,
-    patterns: permission.resources,
-    replyTarget: "session",
+  const seen = new Set([sessionID])
+  const ids = [sessionID]
+  for (const id of ids) {
+    const list = map.get(id)
+    if (!list) continue
+    for (const child of list) {
+      if (seen.has(child)) continue
+      seen.add(child)
+      ids.push(child)
+    }
   }
+
+  const id = ids.find((id) => request[id]?.some(include))
+  if (!id) return
+  return request[id]?.find(include)
 }
 
-type Translator = (key: TranslationKey, params?: TranslationParams) => string
-
-function permissionDescriptionKey(permission: string): TranslationKey {
-  if (permission === "external_directory") return "permission.description.externalDirectory"
-  if (permission === "grep") return "permission.description.grep"
-  if (permission === "glob") return "permission.description.glob"
-  if (permission === "list") return "permission.description.list"
-  if (permission === "read") return "permission.description.read"
-  if (permission === "bash") return "permission.description.bash"
-  return "permission.description.default"
+export function sessionPermissionRequest(
+  session: SessionInfo[],
+  request: Record<string, PermissionRequest[] | undefined>,
+  sessionID?: string,
+  include?: (item: PermissionRequest) => boolean,
+) {
+  return sessionTreeRequest(session, request, sessionID, include)
 }
 
-export function permissionDescription(permission: string, t: Translator = translateSync) {
-  return t(permissionDescriptionKey(permission))
+export function sessionQuestionForm(
+  session: SessionInfo[],
+  request: Record<string, FormInfo[] | undefined>,
+  sessionID?: string,
+) {
+  const form = sessionTreeRequest(session, request, sessionID, isQuestionForm)
+  if (form && isQuestionForm(form)) return form
 }

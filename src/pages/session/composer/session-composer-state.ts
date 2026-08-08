@@ -3,22 +3,35 @@ import { decidePermission } from "@/context/permission-sync"
 import { rejectQuestion, replyQuestion } from "@/context/question"
 import { setState, state } from "@/context/server-session-store"
 import { createPromptModelSelection } from "@/pages/session/composer/prompt-model-selection"
+import { sessionPermissionRequest, sessionQuestionForm } from "@/pages/session/composer/session-request-tree"
 
 export function createSessionComposerController() {
   const model = createPromptModelSelection()
+  const sessions = createMemo(() => (state.session ? [state.session, ...state.recentSessions] : state.recentSessions))
+  const permissionRequest = createMemo(() => sessionPermissionRequest(sessions(), state.permission, state.session?.id))
+  const questionRequest = createMemo(() => sessionQuestionForm(sessions(), state.form, state.session?.id))
 
   return {
-    disabled: createMemo(() => state.status !== "ready" || !!state.questionRequest),
+    disabled: createMemo(() => state.status !== "ready" || !!questionRequest()),
     model,
     modelStatus: () => state.modelStatus,
-    permissionRequest: () => state.permissionRequest,
-    permissionResponding: () => state.permissionResponding,
-    questionRequest: () => state.questionRequest,
-    questionResponding: () => state.questionResponding,
+    permissionRequest,
+    permissionResponding: () => state.permissionResponding === permissionRequest()?.id,
+    questionRequest,
+    questionResponding: () => state.questionResponding === questionRequest()?.id,
     setAttachmentError: (message: string) => setState("error", message),
-    decidePermission,
-    replyQuestion,
-    rejectQuestion,
+    decidePermission(response: "once" | "always" | "reject") {
+      const request = permissionRequest()
+      if (request) decidePermission(request, response)
+    },
+    replyQuestion(answers: string[][]) {
+      const request = questionRequest()
+      if (request) replyQuestion(request, answers)
+    },
+    rejectQuestion() {
+      const request = questionRequest()
+      if (request) rejectQuestion(request)
+    },
   }
 }
 

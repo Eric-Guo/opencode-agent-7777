@@ -4,7 +4,7 @@ import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
 import { For, Show, createMemo, onCleanup, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
-import type { QuestionAnswer, QuestionRequest } from "@/types"
+import type { QuestionForm } from "@/utils/question-form"
 
 function Mark(props: { multi: boolean; picked: boolean; onClick?: (event: MouseEvent) => void }) {
   return (
@@ -52,16 +52,16 @@ function Option(props: {
 }
 
 export const SessionQuestionDock: Component<{
-  request: QuestionRequest
+  request: QuestionForm
   responding: boolean
-  onReply: (answers: QuestionAnswer[]) => void
+  onReply: (answers: string[][]) => void
   onReject: () => void
 }> = (props) => {
   const language = useLanguage()
 
   const [store, setStore] = createStore({
     tab: 0,
-    answers: [] as QuestionAnswer[],
+    answers: [] as string[][],
     custom: [] as string[],
     customOn: [] as boolean[],
     editing: false,
@@ -76,7 +76,16 @@ export const SessionQuestionDock: Component<{
     if (focusFrame !== undefined) cancelAnimationFrame(focusFrame)
   })
 
-  const questions = createMemo(() => props.request.questions)
+  const questions = createMemo(() =>
+    props.request.fields.map((field) => ({
+      question: field.description ?? field.title ?? props.request.title,
+      options: (field.options ?? []).map((option) => ({
+        label: option.label,
+        description: option.description,
+      })),
+      multiple: field.type === "multiselect",
+    })),
+  )
   const total = createMemo(() => questions().length)
   const question = createMemo(() => questions()[store.tab])
   const options = createMemo(() => question()?.options ?? [])

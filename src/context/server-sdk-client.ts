@@ -1,4 +1,4 @@
-import { OpenCode } from "@opencode-ai/client"
+import { OpenCode } from "@opencode-ai/client/promise"
 import type { ServerInfo } from "@/context/server-resolver"
 import { serverAuthHeader } from "@/utils/server"
 

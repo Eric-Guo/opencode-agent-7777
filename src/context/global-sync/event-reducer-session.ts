@@ -1,9 +1,9 @@
 // Reduces events for the one active session and delegates message hydration to the refresh queue.
+import type { OpenCodeEvent, SessionStatus } from "@opencode-ai/client/promise"
 import { idleStatus, setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/server-errors"
-import type { Event as OpencodeEvent, SessionStatus } from "@/types"
 
-export function applySessionEvent(event: OpencodeEvent, input: { refresh: () => void }) {
+export function applySessionEvent(event: OpenCodeEvent, input: { refresh: () => void }) {
   const data = event.data as {
     sessionID?: string
     status?: SessionStatus

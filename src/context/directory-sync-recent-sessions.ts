@@ -3,7 +3,7 @@ import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { setState, state } from "@/context/server-session-store"
 import { normalizeSessionDirectory, sessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/server-errors"
-import type { Session } from "@/types"
+import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 
 // Recent-session loading only; 7777 does not expose the main app's directory sync context.
 

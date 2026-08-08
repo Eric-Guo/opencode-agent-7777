@@ -8,7 +8,7 @@ import { setState, state } from "@/context/server-session-store"
 import type { ProviderCatalog, ProviderItem, ProviderModel } from "@/hooks/provider-catalog"
 import { loadProviderCatalog, popularProviders } from "@/hooks/use-providers-loader"
 import { readableError } from "@/utils/server-errors"
-import type { Session } from "@/types"
+import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 
 // Module-level model store for the single-session app; 7777 does not mount a ModelsProvider.
 

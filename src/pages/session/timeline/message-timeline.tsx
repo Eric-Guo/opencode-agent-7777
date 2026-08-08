@@ -12,7 +12,7 @@ import {
 } from "solid-js"
 import { useLanguage } from "@/context/language"
 import { currentLocalAgent } from "@/context/server-session-store"
-import type { SessionStatus } from "@/types"
+import type { SessionStatus } from "@opencode-ai/client/promise"
 import { TimelineRow } from "./rows"
 
 type SharedMessageProps = ComponentProps<typeof SharedMessage>
