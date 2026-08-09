@@ -1,6 +1,6 @@
 // Debounced message refresh queue, not the main app's directory bootstrap queue.
 import { setState } from "@/context/server-session-store"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 
 let refreshTimer: ReturnType<typeof setTimeout> | undefined
 

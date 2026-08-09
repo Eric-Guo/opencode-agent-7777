@@ -20,6 +20,7 @@ export const [state, setState] = createStore<State>({
   recentSessionsLoading: false,
   recentSessionSwitchingID: undefined,
   sessionStatus: { ...idleStatus },
+  sessionMessages: [],
   messages: [],
   messagesLoading: false,
   models: [],

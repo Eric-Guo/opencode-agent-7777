@@ -1,7 +1,13 @@
 import type { ModelSelection } from "@/context/local-storage"
 import type { ModelLoadStatus, ModelOption } from "@/context/models-store"
 import type { ServerInfo } from "@/context/server-resolver"
-import type { FormInfo, PermissionRequest, SessionInfo, SessionStatus } from "@opencode-ai/client/promise"
+import type {
+  FormInfo,
+  PermissionRequest,
+  SessionInfo,
+  SessionMessageInfo,
+  SessionStatus,
+} from "@opencode-ai/client/promise"
 import type { Message, Part } from "@/types"
 
 export type LoadStatus = "loading" | "ready" | "failed"
@@ -20,6 +26,7 @@ export type State = {
   recentSessionsLoading: boolean
   recentSessionSwitchingID: string | undefined
   sessionStatus: SessionStatus
+  sessionMessages: SessionMessageInfo[]
   messages: HistoryItem[]
   messagesLoading: boolean
   models: ModelOption[]

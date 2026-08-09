@@ -1,7 +1,18 @@
-import { describe, expect, test } from "bun:test"
+import { describe, expect, mock, test } from "bun:test"
 import type { HistoryItem } from "@/context/global-sync/types"
 import type { Message, Part } from "@/types"
-import { isTimelineReady, selectUserMessages, selectVisibleUserMessages } from "./model"
+
+mock.module("@opencode-ai/session-ui/message-part", () => ({
+  renderable: () => true,
+  groupParts: (refs: Array<{ messageID: string; part: { id: string } }>) =>
+    refs.map((ref) => ({
+      type: "part" as const,
+      key: ref.part.id,
+      ref: { messageID: ref.messageID, partID: ref.part.id },
+    })),
+}))
+
+const { isTimelineReady, selectUserMessages, selectVisibleUserMessages } = await import("./model")
 
 const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>
   ({

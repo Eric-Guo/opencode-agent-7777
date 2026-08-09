@@ -1,105 +1,96 @@
 import { describe, expect, test } from "bun:test"
-import type { HistoryItem } from "@/context/global-sync/types"
-import type { Message, Part } from "@/types"
-import { projectTimelineMessages, projectTimelineRows, reuseTimelineRows } from "./projection"
-import { createTimelineMessageRow } from "./rows"
+import type { PartGroup } from "@opencode-ai/session-ui/message-part"
+import { reuseTimelineRows } from "./row-reconciliation"
+import { TimelineRow } from "./timeline-row"
 
-const item = (id: string, role: Message["role"], input: Partial<Message> = {}): HistoryItem =>
-  ({
-    info: {
-      id,
-      role,
-      time: { created: 1 },
-      ...input,
-    } as Message,
-    parts: [] as Part[],
-  }) satisfies HistoryItem
-
-describe("timeline projection", () => {
-  test("projects assistant messages under visible user parents", () => {
-    const parent = item("msg_1", "user")
-    const child = item("msg_2", "assistant", { parentID: parent.info.id } as Partial<Message>)
-    const orphan = item("msg_3", "assistant", { parentID: "missing" } as Partial<Message>)
-
-    expect(projectTimelineMessages([child, orphan, parent], [parent]).map((message) => message.info.id)).toEqual([
-      "msg_1",
-      "msg_2",
-    ])
+const context = (key: string, partIDs: string[], userMessageID = "user-1") =>
+  new TimelineRow.AssistantPart({
+    userMessageID,
+    group: {
+      key,
+      type: "context",
+      refs: partIDs.map((partID) => ({ messageID: "assistant-1", partID })),
+    } satisfies PartGroup,
+    previousAssistantPart: false,
   })
 
-  test("projects assistant parent chains under visible user parents", () => {
-    const user = item("msg_1", "user")
-    const parent = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
-    const child = item("msg_3", "assistant", { parentID: parent.info.id } as Partial<Message>)
+const user = (userMessageID = "user-1") => new TimelineRow.UserMessage({ userMessageID, anchor: true })
+const keys = (rows: TimelineRow.TimelineRow[]) => rows.map(TimelineRow.key)
 
-    expect(projectTimelineMessages([child, parent, user], [user]).map((message) => message.info.id)).toEqual([
-      "msg_1",
-      "msg_2",
-      "msg_3",
-    ])
-  })
+describe("reuseTimelineRows", () => {
+  test.each([
+    {
+      name: "reuses an unchanged context group",
+      previous: [context("context:a", ["a", "b"])],
+      rows: [context("context:a", ["a", "b"])],
+      expected: ["assistant-part:user-1:context:a"],
+      reused: [[0, 0]],
+    },
+    {
+      name: "preserves the group key when a member is appended",
+      previous: [context("context:a", ["a"])],
+      rows: [context("context:a", ["a", "b"])],
+      expected: ["assistant-part:user-1:context:a"],
+      reused: [],
+    },
+    {
+      name: "preserves the group key when the first member is removed",
+      previous: [context("context:a", ["a", "b"])],
+      rows: [context("context:b", ["b"])],
+      expected: ["assistant-part:user-1:context:a"],
+      reused: [],
+    },
+    {
+      name: "lets only the natural owner retain an old key after a split",
+      previous: [context("context:a", ["a", "b"])],
+      rows: [context("context:a", ["a"]), context("context:b", ["b"])],
+      expected: ["assistant-part:user-1:context:a", "assistant-part:user-1:context:b"],
+      reused: [],
+    },
+    {
+      name: "chooses the earliest prior key when groups merge",
+      previous: [context("context:a", ["a"]), context("context:b", ["b"])],
+      rows: [context("context:b", ["b", "a"])],
+      expected: ["assistant-part:user-1:context:a"],
+      reused: [],
+    },
+    {
+      name: "reserves an old key for its natural owner when two new groups compete",
+      previous: [context("context:a", ["a", "b"])],
+      rows: [context("context:b", ["b"]), context("context:a", ["a"])],
+      expected: ["assistant-part:user-1:context:b", "assistant-part:user-1:context:a"],
+      reused: [],
+    },
+    {
+      name: "does not reuse context identity across user messages",
+      previous: [context("context:a", ["a", "b"], "user-1")],
+      rows: [context("context:b", ["b"], "user-2")],
+      expected: ["assistant-part:user-2:context:b"],
+      reused: [],
+    },
+    {
+      name: "reuses an unaffected ordinary row",
+      previous: [user()],
+      rows: [user()],
+      expected: ["user-message:user-1"],
+      reused: [[0, 0]],
+    },
+    {
+      name: "does not create accidental key collisions",
+      previous: [context("context:a", ["a", "b", "c"])],
+      rows: [context("context:b", ["b"]), context("context:a", ["a"]), context("context:c", ["c"])],
+      expected: [
+        "assistant-part:user-1:context:b",
+        "assistant-part:user-1:context:a",
+        "assistant-part:user-1:context:c",
+      ],
+      reused: [],
+    },
+  ])("$name", ({ previous, rows, expected, reused }) => {
+    const result = reuseTimelineRows([...previous], [...rows])
 
-  test("adds gaps between turns and dividers for compaction and interruption", () => {
-    const first = item("msg_1", "user")
-    const second = item("msg_2", "user")
-    second.parts = [{ type: "compaction" } as Part]
-    const aborted = item("msg_3", "assistant", {
-      parentID: second.info.id,
-      error: { name: "MessageAbortedError" },
-    } as Partial<Message>)
-
-    expect(projectTimelineRows([first, second, aborted], [first, second]).map((row) => row._tag)).toEqual([
-      "UserMessage",
-      "TurnGap",
-      "UserMessage",
-      "TurnDivider",
-      "AssistantMessage",
-      "TurnDivider",
-    ])
-  })
-
-  test("adds retry to the active turn with or without an assistant response", () => {
-    const user = item("msg_1", "user")
-    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
-
-    expect(projectTimelineRows([user], [user], { type: "retry", attempt: 1, message: "retrying", next: 1 }).at(-1)?._tag).toBe(
-      "Retry",
-    )
-    expect(
-      projectTimelineRows([user, assistant], [user], { type: "retry", attempt: 1, message: "retrying", next: 1 }).at(
-        -1,
-      )?._tag,
-    ).toBe("Retry")
-  })
-
-  test("reuses unchanged rows and the previous array", () => {
-    const user = item("msg_1", "user")
-    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
-    const previous = projectTimelineRows([user, assistant], [user])
-    const refreshedUser = item("msg_1", "user")
-    const refreshedAssistant = item("msg_2", "assistant", { parentID: refreshedUser.info.id } as Partial<Message>)
-    const result = projectTimelineRows(
-      [refreshedUser, refreshedAssistant],
-      [refreshedUser],
-      { type: "idle" },
-      previous,
-    )
-
-    expect(result).toBe(previous)
-  })
-
-  test("reuses unaffected rows while replacing changed message rows", () => {
-    const user = item("msg_1", "user")
-    const assistant = item("msg_2", "assistant", { parentID: user.info.id } as Partial<Message>)
-    const previous = [createTimelineMessageRow(user), createTimelineMessageRow(assistant)]
-    const changed = item("msg_2", "assistant", {
-      parentID: user.info.id,
-      time: { created: 2 },
-    } as Partial<Message>)
-    const result = reuseTimelineRows(previous, [createTimelineMessageRow(user), createTimelineMessageRow(changed)])
-
-    expect(result).not.toBe(previous)
-    expect(result[0]).toBe(previous[0])
-    expect(result[1]).not.toBe(previous[1])
+    expect(keys(result)).toEqual([...expected])
+    expect(new Set(keys(result)).size).toBe(result.length)
+    reused.forEach(([resultIndex, previousIndex]) => expect(result[resultIndex]).toBe(previous[previousIndex]))
   })
 })

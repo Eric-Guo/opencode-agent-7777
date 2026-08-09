@@ -6,12 +6,7 @@ import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/context/global-sync/session-cache-messages"
 import { prompt } from "@/context/prompt"
-import {
-  readShowReasoningSummaries,
-  readShowToolsPart,
-  writeShowReasoningSummaries,
-  writeShowToolsPart,
-} from "@/context/settings-storage"
+import { readShowReasoningSummaries, writeShowReasoningSummaries } from "@/context/settings-storage"
 import { disposeSessionSync, initializeSessionSync } from "@/context/server-sync-session"
 import { currentLocalAgent, currentSession, setState, state } from "@/context/server-session-store"
 import { ErrorBanner } from "@/pages/error-banner"
@@ -28,7 +23,7 @@ import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
 import { createTimelineModel } from "@/pages/session/timeline/model"
 import { useSessionHashScrollToEnd } from "@/pages/session/use-session-hash-scroll-to-end"
 import { extractPromptFromParts } from "@/utils/prompt"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 import { sessionDirectory } from "@/context/session-directory"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
@@ -37,15 +32,16 @@ export function SessionPage() {
   let messageList: HTMLDivElement | undefined
   let timelinePointerGesture = 0
   const timelinePointerGestureWindowMs = 250
+  const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
   const timeline = createTimelineModel({
     messages: () => state.messages,
+    sessionMessages: () => state.sessionMessages,
     loading: () => state.messagesLoading,
+    showReasoningSummaries,
     revertMessageID: () => state.session?.revert?.messageID,
     status: () => state.sessionStatus,
   })
   const composer = createSessionComposerRegionController()
-  const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
-  const [showToolsPart, setShowToolsPart] = createSignal(readShowToolsPart())
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
@@ -100,12 +96,6 @@ export function SessionPage() {
     writeShowReasoningSummaries(next)
   }
 
-  const toggleToolsPart = () => {
-    const next = !showToolsPart()
-    setShowToolsPart(next)
-    writeShowToolsPart(next)
-  }
-
   onMount(() => {
     void initializeSessionSync()
     onCleanup(disposeSessionSync)
@@ -116,9 +106,7 @@ export function SessionPage() {
       <SessionHeader
         {...layout.header()}
         showReasoningSummaries={showReasoningSummaries()}
-        showToolsPart={showToolsPart()}
         onToggleReasoningSummaries={toggleReasoningSummaries}
-        onToggleToolsPart={toggleToolsPart}
       />
 
       <main data-slot="session-message-scroller" class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
@@ -142,9 +130,10 @@ export function SessionPage() {
             <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
               <MessageTimeline
                 rows={timeline.visibleRows()}
+                items={state.messages}
+                activeMessageID={timeline.activeMessageID()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
-                showToolsPart={showToolsPart()}
                 sessionStatus={state.sessionStatus}
                 onPointerGesture={markTimelinePointerGesture}
               />

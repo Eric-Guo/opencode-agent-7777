@@ -1,78 +1,81 @@
-import type { HistoryItem } from "@/context/global-sync/types"
-import type { SessionStatus } from "@opencode-ai/client/promise"
+import type { SessionMessageInfo, SessionStatus } from "@opencode-ai/client/promise"
+import type { AssistantMessage, Message, Part, UserMessage } from "@/types"
+import { createMemo, type Accessor } from "solid-js"
 import { reuseTimelineRows } from "./row-reconciliation"
-import { createTimelineMessageRow } from "./rows"
-import { TimelineRow } from "./timeline-row"
+import { Timeline, TimelineRow } from "./rows"
 
 export { reuseTimelineRows } from "./row-reconciliation"
 
-type AssistantHistoryItem = HistoryItem & {
-  info: HistoryItem["info"] & { role: "assistant"; parentID: string }
-}
-
-const emptyHistoryItems: HistoryItem[] = []
-
-function isAssistantMessage(item: HistoryItem): item is AssistantHistoryItem {
-  return item.info.role === "assistant"
-}
-
-export function projectTimelineMessages(messages: HistoryItem[], userMessages: HistoryItem[]) {
-  const assistantMessagesByParent = messages.filter(isAssistantMessage).reduce((result, item) => {
-    const items = result.get(item.info.parentID)
-    if (items) {
-      items.push(item)
-      return result
-    }
-    result.set(item.info.parentID, [item])
-    return result
-  }, new Map<string, HistoryItem[]>())
-
-  const assistantChain = (parentID: string, seen = new Set<string>()): HistoryItem[] => {
-    const assistants = assistantMessagesByParent.get(parentID) ?? emptyHistoryItems
-    return assistants.flatMap((assistant) => {
-      if (seen.has(assistant.info.id)) return emptyHistoryItems
-      seen.add(assistant.info.id)
-      return [assistant, ...assistantChain(assistant.info.id, seen)]
+export function createTimelineProjection(input: {
+  messages: Accessor<Message[]>
+  userMessages: Accessor<UserMessage[]>
+  sessionMessages: Accessor<SessionMessageInfo[]>
+  parts: (messageID: string) => Part[]
+  status: Accessor<SessionStatus>
+  showReasoningSummaries: Accessor<boolean>
+  inlineComments: Accessor<boolean>
+}) {
+  const messageByID = createMemo(() => new Map(input.messages().map((message) => [message.id, message] as const)))
+  const assistantMessagesByParent = createMemo(() => {
+    const result = new Map<string, AssistantMessage[]>()
+    input.messages().forEach((message) => {
+      if (message.role !== "assistant") return
+      const messages = result.get(message.parentID)
+      if (messages) {
+        messages.push(message)
+        return
+      }
+      result.set(message.parentID, [message])
     })
-  }
-
-  return userMessages.flatMap((item) => [item, ...assistantChain(item.info.id)])
-}
-
-export function projectTimelineRows(
-  messages: HistoryItem[],
-  userMessages: HistoryItem[],
-  status: SessionStatus = { type: "idle" },
-  previous?: TimelineRow.TimelineRow[],
-) {
-  const projected = projectTimelineMessages(messages, userMessages)
-  const lastUserMessageID = userMessages.at(-1)?.info.id
-
-  return reuseTimelineRows(
-    previous,
-    projected.flatMap<TimelineRow.TimelineRow>((item, index) => {
-      if (item.info.role === "user") {
-        const rows: TimelineRow.TimelineRow[] = []
-        if (index > 0) rows.push({ _tag: "TurnGap", userMessageID: item.info.id })
-        rows.push(createTimelineMessageRow(item))
-        if (item.parts.some((part) => part.type === "compaction")) {
-          rows.push({ _tag: "TurnDivider", userMessageID: item.info.id, label: "compaction" })
-        }
-        const next = projected[index + 1]
-        if (status.type === "retry" && item.info.id === lastUserMessageID && next?.info.role !== "assistant") {
-          rows.push({ _tag: "Retry", userMessageID: item.info.id })
-        }
-        return rows
-      }
-
-      const rows: TimelineRow.TimelineRow[] = [createTimelineMessageRow(item)]
-      if (item.info.error?.name === "MessageAbortedError") {
-        rows.push({ _tag: "TurnDivider", userMessageID: item.info.parentID, label: "interrupted" })
-      }
-      if (status.type === "retry" && index === projected.length - 1 && lastUserMessageID) {
-        rows.push({ _tag: "Retry", userMessageID: lastUserMessageID })
-      }
-      return rows
-    }),
+    return result
+  })
+  const projection = createMemo(() =>
+    Timeline.constructSessionMessageRows(
+      input.sessionMessages(),
+      (messageID) => messageByID().get(messageID) as UserMessage | AssistantMessage | undefined,
+      input.parts,
+      input.showReasoningSummaries(),
+      input.status().type,
+      input.inlineComments(),
+      input.userMessages(),
+    ),
   )
+  const activeMessageID = createMemo(() => projection().activeMessageID)
+  const rows = createMemo((previous: TimelineRow.TimelineRow[] | undefined) =>
+    reuseTimelineRows(previous, projection().rows),
+  )
+  const rowByKey = createMemo(() => new Map(rows().map((row) => [TimelineRow.key(row), row] as const)))
+  const messageRowIndex = createMemo(() => {
+    const result = new Map<string, number>()
+    rows().forEach((row, index) => {
+      if (!("userMessageID" in row) || result.has(row.userMessageID)) return
+      result.set(row.userMessageID, index)
+    })
+    return result
+  })
+  const messageLastRowIndex = createMemo(() => {
+    const result = new Map<string, number>()
+    rows().forEach((row, index) => {
+      if ("userMessageID" in row) result.set(row.userMessageID, index)
+    })
+    return result
+  })
+  const lastAssistantGroupKey = createMemo(() => {
+    const result = new Map<string, string>()
+    rows().forEach((row) => {
+      if (row._tag === "AssistantPart") result.set(row.userMessageID, row.group.key)
+    })
+    return result
+  })
+
+  return {
+    activeMessageID,
+    assistantMessagesByParent,
+    lastAssistantGroupKey,
+    messageByID,
+    messageRowIndex,
+    messageLastRowIndex,
+    rowByKey,
+    rows,
+  }
 }

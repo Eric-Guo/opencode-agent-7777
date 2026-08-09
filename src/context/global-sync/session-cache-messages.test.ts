@@ -50,6 +50,7 @@ function messageClient(data: SessionMessageInfo[]) {
 afterEach(() => {
   setSessionClient(undefined)
   setState("session", undefined)
+  setState("sessionMessages", [])
   setState("messages", [])
   setState("messagesLoading", false)
 })
@@ -63,6 +64,7 @@ describe("single-session message cache", () => {
     await refreshMessages(20)
 
     expect(client.requests).toEqual([{ sessionID: "session", limit: 20, order: "desc" }])
+    expect(state.sessionMessages.map((message) => message.id)).toEqual(["msg_user", "msg_assistant"])
     expect(state.messages.map((item) => item.info.id)).toEqual(["msg_user", "msg_assistant"])
     expect(state.messages[0]?.info).toMatchObject({
       role: "user",
@@ -82,6 +84,7 @@ describe("single-session message cache", () => {
 
     await refresh
 
+    expect(state.sessionMessages).toEqual([])
     expect(state.messages).toEqual([])
   })
 })

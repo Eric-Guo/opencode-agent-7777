@@ -169,14 +169,6 @@
     padding: 12px 14px 16px;
   }
 
-  #oc-agent [data-slot="timeline-row-content"] {
-    max-width: 100%;
-  }
-
-  #oc-agent [data-slot="timeline-row"][data-role="user"] [data-slot="timeline-row-content"] {
-    max-width: 88%;
-  }
-
   #oc-agent [data-slot="session-composer"] {
     padding-right: 14px;
     padding-bottom: 14px;

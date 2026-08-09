@@ -2,7 +2,7 @@ import { refreshRecentSessions } from "@/context/directory-sync-recent-sessions"
 import { prompt } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 import { buildRequestParts, createOptimisticUserMessage } from "./build-request-parts"
 
 function appendOptimisticMessage(input: {

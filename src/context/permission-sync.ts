@@ -7,7 +7,7 @@ import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import { sessionDirectory } from "@/context/session-directory"
 import { sessionPermissionRequest } from "@/pages/session/composer/session-request-tree"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 
 function permissionDescription(permission: string) {
   const key = `settings.permissions.tool.${permission}.description` as TranslationKey

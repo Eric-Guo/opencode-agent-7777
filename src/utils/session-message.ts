@@ -6,21 +6,14 @@ import type {
   SessionMessageUser,
 } from "@opencode-ai/client/promise"
 import type { AssistantMessage, FilePart, Message, Part, ToolPart, UserMessage } from "@/types"
+import { Option, Schema } from "effect"
 
 const emptyTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
 const emptyModel: { id: string; providerID: string; variant?: string } = { id: "", providerID: "" }
+const decodeToolInput = Schema.decodeUnknownOption(Schema.UnknownFromJsonString)
 
 function record(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function decodeToolInput(value: string) {
-  try {
-    const input = JSON.parse(value)
-    return record(input) ? input : {}
-  } catch {
-    return {}
-  }
 }
 
 function normalizeToolInput(name: string, input: Record<string, unknown>) {
@@ -203,7 +196,7 @@ function userMessage(
 
 function userParts(sessionID: string, message: SessionMessageUser): Part[] {
   return [
-    textPart(sessionID, message.id, 0, message.text),
+    ...(message.text ? [textPart(sessionID, message.id, 0, message.text)] : []),
     ...(message.files ?? []).map(
       (file, index): FilePart => ({
         id: `${message.id}:file:${index}`,
@@ -316,16 +309,15 @@ function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssi
   const start = tool.time.ran ?? tool.time.created
   const state = (() => {
     if (tool.state.status === "streaming") {
-      return {
-        status: "pending" as const,
-        input: normalizeToolInput(tool.name, decodeToolInput(tool.state.input)),
-        raw: tool.state.input,
-      }
+      const value = Option.getOrUndefined(decodeToolInput(tool.state.input))
+      const input = normalizeToolInput(tool.name, record(value) ? value : {})
+      return { status: "pending" as const, input, raw: tool.state.input }
     }
     if (tool.state.status === "running") {
       return {
         status: "running" as const,
         input: normalizeToolInput(tool.name, tool.state.input),
+        // metadata: normalizeToolMetadata(tool.name, tool.state.structured),
         metadata: normalizeToolMetadata(tool.name, tool.state.metadata ?? {}),
         time: { start },
       }
@@ -335,6 +327,7 @@ function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssi
         status: "error" as const,
         input: normalizeToolInput(tool.name, tool.state.input),
         error: tool.state.error.message,
+        // metadata: normalizeToolMetadata(tool.name, tool.state.structured),
         metadata: normalizeToolMetadata(tool.name, tool.state.metadata ?? {}),
         time: { start, end: tool.time.completed ?? start },
       }
@@ -359,6 +352,7 @@ function toolPart(sessionID: string, messageID: string, tool: SessionMessageAssi
       input: normalizeToolInput(tool.name, tool.state.input),
       output: tool.state.content.flatMap((item) => (item.type === "text" ? [item.text] : [])).join("\n"),
       title: tool.name,
+      // metadata: normalizeToolMetadata(tool.name, tool.state.structured),
       metadata: normalizeToolMetadata(tool.name, tool.state.metadata ?? {}),
       time: { start, end: tool.time.completed ?? start },
       attachments: attachments.length ? attachments : undefined,

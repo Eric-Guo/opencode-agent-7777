@@ -3,7 +3,7 @@ import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import { sessionDirectory } from "@/context/session-directory"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 import { isQuestionForm, questionFormAnswer, type QuestionForm } from "@/utils/question-form"
 
 function groupForms(forms: FormInfo[]) {

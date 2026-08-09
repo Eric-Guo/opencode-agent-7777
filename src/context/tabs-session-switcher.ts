@@ -3,7 +3,8 @@ import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 import { createServerSdk } from "@/context/server-sdk-client"
 import { setState, state } from "@/context/server-session-store"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync-session"
-import { isSessionNotFoundError, readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
+import { isSessionNotFoundError } from "@/utils/server-errors"
 
 // Header-driven session switching only; 7777 has no tab router or tabs context.
 

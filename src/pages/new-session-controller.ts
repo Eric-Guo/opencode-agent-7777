@@ -6,7 +6,7 @@ import { setState, state } from "@/context/server-session-store"
 import { activateSession, restartSessionEventStream } from "@/context/server-sync-session"
 import { createServerSdk } from "@/context/server-sdk-client"
 import { sessionDirectory } from "@/context/session-directory"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 
 // Controller for the header action; 7777 has no standalone new-session page.
 

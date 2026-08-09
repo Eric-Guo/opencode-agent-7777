@@ -20,16 +20,23 @@ export function refreshMessages(limit: number) {
     .then((result) => {
       const session = state.session
       if (session?.id !== active.sessionID) return
-      return projectSessionMessages({
-        sessionID: active.sessionID,
-        session,
-        localAgent: active.localAgent,
-        messages: result.data,
-      })
+      const sessionMessages = result.data.toSorted(
+        (a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id),
+      )
+      return {
+        sessionMessages,
+        messages: projectSessionMessages({
+          sessionID: active.sessionID,
+          session,
+          localAgent: active.localAgent,
+          messages: sessionMessages,
+        }),
+      }
     })
-    .then((messages) => {
-      if (!messages || state.session?.id !== active.sessionID) return
-      setState("messages", messages)
+    .then((result) => {
+      if (!result || state.session?.id !== active.sessionID) return
+      setState("sessionMessages", result.sessionMessages)
+      setState("messages", result.messages)
     })
     .finally(() => {
       messageRefreshCount = Math.max(0, messageRefreshCount - 1)
@@ -66,6 +73,7 @@ export function upsertPart(part: Part, delta: string | undefined, refresh: () =>
 }
 
 export function removeMessage(messageID: string) {
+  setState("sessionMessages", (items) => items.filter((item) => item.id !== messageID))
   setState("messages", (items) => items.filter((item) => item.info.id !== messageID))
 }
 

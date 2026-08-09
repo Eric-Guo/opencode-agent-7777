@@ -1,6 +1,6 @@
-import { SHOW_REASONING_SUMMARIES_KEY, SHOW_TOOLS_PART_KEY } from "@/constants/session"
+import { SHOW_REASONING_SUMMARIES_KEY } from "@/constants/session"
 
-// Persistence for the two 7777 display toggles, not the main app's settings context.
+// Persistence for the compact reasoning display toggle, not the main app's settings context.
 
 function storageGet(key: string) {
   if (typeof localStorage !== "object") return null
@@ -26,12 +26,4 @@ export function readShowReasoningSummaries() {
 
 export function writeShowReasoningSummaries(value: boolean) {
   storageSet(SHOW_REASONING_SUMMARIES_KEY, value ? "true" : "false")
-}
-
-export function readShowToolsPart() {
-  return storageGet(SHOW_TOOLS_PART_KEY) === "true"
-}
-
-export function writeShowToolsPart(value: boolean) {
-  storageSet(SHOW_TOOLS_PART_KEY, value ? "true" : "false")
 }

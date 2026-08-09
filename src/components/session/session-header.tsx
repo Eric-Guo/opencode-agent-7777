@@ -6,10 +6,7 @@ import { useLanguage, type Locale } from "@/context/language"
 import { windowsElectron } from "@/context/platform-bridge"
 import { currentLocalAgent, state } from "@/context/server-session-store"
 import { openRecentSession } from "@/context/tabs-session-switcher"
-import {
-  recentSessionDescription,
-  recentSessionTitle,
-} from "@/pages/home-recent-sessions"
+import { recentSessionDescription, recentSessionTitle } from "@/pages/home-recent-sessions"
 
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"
@@ -19,11 +16,9 @@ export function SessionHeader(props: {
   status: string
   userDialogCount: number
   showReasoningSummaries: boolean
-  showToolsPart: boolean
   newSessionPending: boolean
   newSessionDisabled: boolean
   onToggleReasoningSummaries: () => void
-  onToggleToolsPart: () => void
   onNewSession: () => void
 }) {
   const language = useLanguage()
@@ -35,9 +30,7 @@ export function SessionHeader(props: {
       class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
     >
       <div>
-        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">
-          {currentLocalAgent()}
-        </h1>
+        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
         <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
       </div>
       <div
@@ -79,26 +72,6 @@ export function SessionHeader(props: {
           <Icon name="brain" />
           <span data-slot="session-header-control-label" class="max-[720px]:hidden">
             {language.t("session.thinking")}
-          </span>
-        </button>
-        <button
-          type="button"
-          data-slot="session-header-mode-toggle"
-          class="inline-flex h-[30px] min-w-[78px] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-[650] hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base max-[720px]:min-w-[30px] max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
-          classList={{
-            "border-v2-border-border-strong bg-v2-overlay-simple-overlay-hover text-v2-text-text-base":
-              props.showToolsPart,
-            "border-v2-border-border-base bg-v2-background-bg-layer-01 text-v2-text-text-muted":
-              !props.showToolsPart,
-          }}
-          aria-label={language.t("session.tools.toggle")}
-          aria-pressed={props.showToolsPart}
-          title={language.t("session.tools.toggle")}
-          onClick={props.onToggleToolsPart}
-        >
-          <Icon name="terminal" />
-          <span data-slot="session-header-control-label" class="max-[720px]:hidden">
-            {language.t("session.tools")}
           </span>
         </button>
         <DropdownMenu gutter={4} placement="bottom-end" modal={false}>

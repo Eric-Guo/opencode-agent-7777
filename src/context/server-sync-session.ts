@@ -10,7 +10,7 @@ import { handlePermissionEvent } from "@/context/permission-sync"
 import { handleQuestionEvent } from "@/context/question"
 import { createDirectorySdk } from "@/context/sdk-directory-client"
 import { setState, state } from "@/context/server-session-store"
-import { readableError } from "@/utils/server-errors"
+import { readableError } from "@/utils/readable-error"
 import { sessionDirectory } from "@/context/session-directory"
 import type { OpenCodeEvent } from "@opencode-ai/client/promise"
 

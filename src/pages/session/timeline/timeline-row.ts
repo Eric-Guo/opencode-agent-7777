@@ -1,74 +1,80 @@
-import type { HistoryItem } from "@/context/global-sync/types"
-import type { Part as SdkPart } from "@/types"
+import type { FileDiffInfo } from "@opencode-ai/client/promise"
+import type { PartGroup } from "@opencode-ai/session-ui/message-part"
+import { Data, Equal } from "effect"
 
-export type TimelineMessageContent = {
-  textParts: Extract<SdkPart, { type: "text" }>[]
-  reasoningParts: Extract<SdkPart, { type: "reasoning" }>[]
-  tools: Extract<SdkPart, { type: "tool" }>[]
-  files: Extract<SdkPart, { type: "file" }>[]
-  text: string
-  reasoning: string[]
-}
+export type SummaryDiff = FileDiffInfo
 
 export namespace TimelineRow {
-  export type TurnGap = {
-    _tag: "TurnGap"
+  export class TurnGap extends Data.TaggedClass("TurnGap")<{
     userMessageID: string
-  }
-
-  export type UserMessage = {
-    _tag: "UserMessage"
-    item: HistoryItem
-  }
-
-  export type AssistantMessage = {
-    _tag: "AssistantMessage"
-    item: HistoryItem
-    content: TimelineMessageContent
-  }
-
-  export type TurnDivider = {
-    _tag: "TurnDivider"
+  }> {}
+  export class CommentStrip extends Data.TaggedClass("CommentStrip")<{
+    userMessageID: string
+  }> {}
+  export class UserMessage extends Data.TaggedClass("UserMessage")<{
+    userMessageID: string
+    anchor: boolean
+  }> {}
+  export class TurnDivider extends Data.TaggedClass("TurnDivider")<{
     userMessageID: string
     label: "compaction" | "interrupted"
-  }
-
-  export type Retry = {
-    _tag: "Retry"
+  }> {}
+  export class AssistantPart extends Data.TaggedClass("AssistantPart")<{
     userMessageID: string
-  }
+    group: PartGroup
+    previousAssistantPart: boolean
+  }> {}
+  export class Thinking extends Data.TaggedClass("Thinking")<{
+    userMessageID: string
+    reasoningHeading?: string
+  }> {}
+  export class DiffSummary extends Data.TaggedClass("DiffSummary")<{
+    userMessageID: string
+    diffs: SummaryDiff[]
+  }> {}
+  export class Error extends Data.TaggedClass("Error")<{
+    userMessageID: string
+    text: string
+  }> {}
+  export class Retry extends Data.TaggedClass("Retry")<{
+    userMessageID: string
+  }> {}
 
-  export type TimelineRow = TurnGap | UserMessage | TurnDivider | AssistantMessage | Retry
+  export type TimelineRow =
+    | TurnGap
+    | CommentStrip
+    | UserMessage
+    | TurnDivider
+    | AssistantPart
+    | Thinking
+    | DiffSummary
+    | Error
+    | Retry
 
-  export function key(row: TimelineRow) {
+  export const key = (row: TimelineRow) => {
     switch (row._tag) {
       case "TurnGap":
         return `turn-gap:${row.userMessageID}`
+      case "CommentStrip":
+        return `comment-strip:${row.userMessageID}`
       case "UserMessage":
-      case "AssistantMessage":
-        return `${row._tag}:${row.item.info.id}`
+        return `user-message:${row.userMessageID}`
       case "TurnDivider":
         return `turn-divider:${row.userMessageID}:${row.label}`
+      case "AssistantPart":
+        return `assistant-part:${row.userMessageID}:${row.group.key}`
+      case "Thinking":
+        return `thinking:${row.userMessageID}`
+      case "DiffSummary":
+        return `diff-summary:${row.userMessageID}`
+      case "Error":
+        return `error:${row.userMessageID}`
       case "Retry":
         return `retry:${row.userMessageID}`
     }
   }
 
   export function equals(a: TimelineRow, b: TimelineRow) {
-    if (a._tag !== b._tag) return false
-    return equalsValue(a, b)
+    return Equal.equals(a, b)
   }
-}
-
-function equalsValue(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true
-  if (typeof a !== "object" || typeof b !== "object" || !a || !b) return false
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false
-    return a.every((value, index) => equalsValue(value, b[index]))
-  }
-  const left = a as Record<string, unknown>
-  const right = b as Record<string, unknown>
-  const keys = Object.keys(left)
-  return keys.length === Object.keys(right).length && keys.every((key) => key in right && equalsValue(left[key], right[key]))
 }

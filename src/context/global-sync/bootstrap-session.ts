@@ -42,6 +42,7 @@ export function activateSession(
   setSessionClient(activeClient)
   setState("session", session)
   setState("sessionStatus", idleStatus)
+  setState("sessionMessages", [])
   setState("messages", [])
   setState("permission", reconcile({}))
   setState("permissionResponding", undefined)

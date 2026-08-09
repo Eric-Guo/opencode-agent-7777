@@ -102,6 +102,11 @@ describe("normalizeSessionMessages", () => {
       "file_1",
       "call_1",
     ])
+    expect(result.parts.get("msg_4")?.[2]).toMatchObject({
+      type: "file",
+      mime: "image/png",
+      filename: "chart.png",
+    })
     expect(result.parts.get("msg_4")?.[3]).toMatchObject({
       type: "tool",
       tool: "read",
@@ -124,7 +129,7 @@ describe("normalizeSessionMessages", () => {
     expect(normalizeSessionMessages("ses_1", source).messages).toEqual([])
   })
 
-  test("projects a shell message into a renderable standalone turn", () => {
+  test("projects a current shell message into a renderable standalone turn", () => {
     const source = [
       {
         id: "msg_shell",
@@ -144,11 +149,17 @@ describe("normalizeSessionMessages", () => {
       expect.objectContaining({ id: "msg_shell", role: "user" }),
       expect.objectContaining({ id: "msg_shell:assistant", role: "assistant", parentID: "msg_shell" }),
     ])
+    expect(result.parts.get("msg_shell")).toEqual([expect.objectContaining({ type: "text", text: "printf hello" })])
     expect(result.parts.get("msg_shell:assistant")).toEqual([
       expect.objectContaining({
         type: "tool",
         tool: "bash",
-        state: expect.objectContaining({ status: "completed", output: "hello", title: "Shell" }),
+        state: expect.objectContaining({
+          status: "completed",
+          input: { command: "printf hello" },
+          output: "hello",
+          title: "Shell",
+        }),
       }),
     ])
   })
@@ -180,6 +191,7 @@ describe("normalizeSessionMessages", () => {
                     status: "modified",
                   },
                 ],
+                replacements: 1,
               },
             },
             time: { created: 2, ran: 3, completed: 4 },
