@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { refreshMessages } from "@/context/global-sync/session-cache-messages"
+import type { SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
+import { loadRecentMessageWindow, refreshMessages } from "@/context/global-sync/session-cache-messages"
 import { setSessionClient, setState, state } from "@/context/server-session-store"
 import type { OpencodeClient } from "@/context/server-sdk-client"
-import type { SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
 
 const session = (id = "session"): Session => ({
   id,
@@ -47,6 +47,20 @@ function messageClient(data: SessionMessageInfo[]) {
   return Object.assign(client, { requests })
 }
 
+function pagedMessageClient(pages: Record<string, { data: SessionMessageInfo[]; next?: string }>) {
+  const requests: unknown[] = []
+  const client = {
+    message: {
+      list: (input: { cursor?: string }) => {
+        requests.push(input)
+        const page = pages[input.cursor ?? "first"] ?? { data: [] }
+        return Promise.resolve({ data: page.data, cursor: { previous: undefined, next: page.next } })
+      },
+    },
+  } as unknown as OpencodeClient
+  return Object.assign(client, { requests })
+}
+
 afterEach(() => {
   setSessionClient(undefined)
   setState("session", undefined)
@@ -56,6 +70,52 @@ afterEach(() => {
 })
 
 describe("single-session message cache", () => {
+  test("follows older cursors until the bounded dialog window is hydrated", async () => {
+    const newer = [
+      { id: "user-3", type: "user", text: "third", time: { created: 5 } },
+      {
+        id: "assistant-3",
+        type: "assistant",
+        agent: "7777",
+        model: { id: "model", providerID: "provider" },
+        content: [{ type: "text", text: "third answer" }],
+        time: { created: 6 },
+      },
+    ] satisfies SessionMessageInfo[]
+    const older = [
+      { id: "user-1", type: "user", text: "first", time: { created: 1 } },
+      { id: "user-2", type: "user", text: "second", time: { created: 3 } },
+    ] satisfies SessionMessageInfo[]
+    const client = pagedMessageClient({
+      first: { data: newer.toReversed(), next: "older" },
+      older: { data: older.toReversed(), next: "oldest" },
+      oldest: { data: [], next: "oldest" },
+    })
+
+    const result = await loadRecentMessageWindow({ client, sessionID: "session", limit: 2, dialogLimit: 3 })
+
+    expect(client.requests).toEqual([
+      { sessionID: "session", limit: 2, order: "desc" },
+      { sessionID: "session", limit: 2, cursor: "older" },
+    ])
+    expect(result.map((message) => message.id)).toEqual(["user-1", "user-2", "user-3", "assistant-3"])
+  })
+
+  test("stops cursor loading when history is exhausted before the dialog limit", async () => {
+    const client = pagedMessageClient({
+      first: { data: messages.toReversed(), next: "older" },
+      older: { data: [], next: "older" },
+    })
+
+    const result = await loadRecentMessageWindow({ client, sessionID: "session", limit: 20, dialogLimit: 9 })
+
+    expect(client.requests).toEqual([
+      { sessionID: "session", limit: 20, order: "desc" },
+      { sessionID: "session", limit: 20, cursor: "older" },
+    ])
+    expect(result.map((message) => message.id)).toEqual(["msg_user", "msg_assistant"])
+  })
+
   test("projects current session messages into the timeline model", async () => {
     const client = messageClient(messages.toReversed())
     setSessionClient(client)

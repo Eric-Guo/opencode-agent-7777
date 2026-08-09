@@ -1,28 +1,78 @@
 // Live message cache for the one active session; current-message normalization lives in utils/session-message.ts.
+import type { SessionMessageInfo } from "@opencode-ai/client/promise"
 import {
   compareHistoryItem,
   comparePart,
   mergeHistoryPart,
   projectSessionMessages,
 } from "@/context/global-sync/session-cache-projection"
+import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { currentSession, setState, state } from "@/context/server-session-store"
+import type { OpencodeClient } from "@/context/server-sdk-client"
 import type { Message, Part } from "@/types"
 
 let messageRefreshCount = 0
+
+function isDialogRoot(message: SessionMessageInfo) {
+  return (
+    message.type === "user" ||
+    message.type === "shell" ||
+    (message.type === "synthetic" && !!message.description?.trim())
+  )
+}
+
+function chronologicalMessages(messages: SessionMessageInfo[]) {
+  return [
+    ...messages
+      .reduce((byID, message) => {
+        byID.set(message.id, message)
+        return byID
+      }, new Map<string, SessionMessageInfo>())
+      .values(),
+  ].sort((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id))
+}
+
+export async function loadRecentMessageWindow(input: {
+  client: OpencodeClient
+  sessionID: string
+  limit: number
+  dialogLimit?: number
+}) {
+  const dialogLimit = input.dialogLimit ?? HISTORY_DIALOG_LIMIT
+  const messages: SessionMessageInfo[] = []
+  const dialogRoots = new Set<string>()
+  const cursors = new Set<string>()
+  let cursor: string | undefined
+
+  while (true) {
+    const page = await input.client.message.list(
+      cursor
+        ? { sessionID: input.sessionID, limit: input.limit, cursor }
+        : { sessionID: input.sessionID, limit: input.limit, order: "desc" },
+    )
+    messages.push(...page.data)
+    page.data.forEach((message) => {
+      if (isDialogRoot(message)) dialogRoots.add(message.id)
+    })
+
+    const next = page.cursor.next ?? undefined
+    if (dialogRoots.size >= dialogLimit || !next || page.data.length === 0 || cursors.has(next)) break
+    cursors.add(next)
+    cursor = next
+  }
+
+  return chronologicalMessages(messages)
+}
 
 export function refreshMessages(limit: number) {
   const active = currentSession()
   if (!active || !state.session) return Promise.resolve()
   messageRefreshCount += 1
   setState("messagesLoading", true)
-  return active.client.message
-    .list({ sessionID: active.sessionID, limit, order: "desc" })
-    .then((result) => {
+  return loadRecentMessageWindow({ client: active.client, sessionID: active.sessionID, limit })
+    .then((sessionMessages) => {
       const session = state.session
       if (session?.id !== active.sessionID) return
-      const sessionMessages = result.data.toSorted(
-        (a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id),
-      )
       return {
         sessionMessages,
         messages: projectSessionMessages({

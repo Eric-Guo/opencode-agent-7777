@@ -48,3 +48,11 @@ When a UI status disagrees with the server response, inspect the network result 
 When moving, splitting, or adding a feature that also exists in `<repo-root>/packages/app`, follow the main app filename and module boundary for that feature. If the 7777 implementation intentionally remains in a different file or is 7777-only, update the `Code Layout Parity Review` section in `README.md` in the same change.
 
 For public-facing docs and reference configs, use placeholders such as `<repo-root>`, `<knowledge-base-folder>`, and `<optional-secondary-search-tool>` instead of personal home directories, private company names, internal network paths, credentials, or proprietary tool names.
+
+## Intentional Product Constraints
+
+Some compact-app decisions are deployment requirements rather than removable parity gaps:
+
+- Keep the `SET_DOCUMENT_TITLE` control. 7777 is embedded in another web app, whose document title must remain under the embedding host's control; the default `false` value is intentional rather than dead configuration.
+- Keep the `manageModels` source configuration. 7777 deployments intentionally decide whether users can open the model manager while retaining source-controlled model defaults and visibility.
+- Keep `HISTORY_DIALOG_LIMIT` at nine and preserve the header's `current/9` counter. The latest-nine dialog window is an intentional bounded experience. Cursor-based message loading may fetch older server pages to fully hydrate that window, but must not expand or remove the visible limit and counter without an explicit product decision.
