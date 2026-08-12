@@ -13,7 +13,11 @@ import Session from "@/pages/session"
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
-  return <I18nProvider value={{ locale: language.intl, t: language.t }}>{props.children}</I18nProvider>
+  return (
+    <I18nProvider value={{ locale: language.intl, t: language.t, plural: language.plural }}>
+      {props.children}
+    </I18nProvider>
+  )
 }
 
 export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {

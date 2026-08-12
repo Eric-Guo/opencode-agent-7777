@@ -50,15 +50,25 @@ describe("compact prompt state", () => {
         filename: "first.png",
         sourcePath: undefined,
         mime: "image/png",
-        dataUrl: "data:image/png;base64,first",
+        blob: {
+          id: "data:image/png;base64,first",
+          url: "data:image/png;base64,first",
+        },
       },
     ])
 
     state.store[1]("prompt", (parts) =>
-      parts.map((part) => (part.type === "text" ? { ...part, content: "updated", end: 7 } : part)),
+      parts.map((part) => {
+        if (part.type === "text") return { ...part, content: "updated", end: 7 }
+        if (part.type === "image") return { ...part, blob: { ...part.blob, id: "sha256:first" } }
+        return part
+      }),
     )
     state.persist()
 
-    expect(state.capture()).toEqual({ prompt: "updated", attachments: [attachment("first")] })
+    expect(state.capture()).toEqual({
+      prompt: "updated",
+      attachments: [{ ...attachment("first"), blobID: "sha256:first" }],
+    })
   })
 })

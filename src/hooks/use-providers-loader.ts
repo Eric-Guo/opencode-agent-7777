@@ -1,6 +1,6 @@
 import type { OpencodeClient } from "@/context/sdk-directory-client"
 import { sessionDirectory } from "@/context/session-directory"
-import { selectProviderCatalog } from "@/hooks/provider-catalog"
+import { selectProviderCatalog } from "@/hooks/provider-catalog-client"
 import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 
 // Imperative catalog loader for the compact store, not the main app's reactive useProviders hook.

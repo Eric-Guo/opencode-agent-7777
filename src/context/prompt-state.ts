@@ -6,6 +6,7 @@ import type {
   PromptInputV2Prompt,
 } from "@opencode-ai/session-ui/v2/prompt-input"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
+import { createLegacyBlobReference } from "@/utils/draft-store-local"
 
 export type PromptAttachment = {
   id: string
@@ -13,6 +14,7 @@ export type PromptAttachment = {
   sourcePath?: string
   mime: string
   url: string
+  blobID?: string
 }
 
 export type PromptDraft = {
@@ -32,7 +34,9 @@ function promptState(draft?: PromptDraft): PromptInputV2PersistedState {
         filename: attachment.filename,
         sourcePath: attachment.sourcePath,
         mime: attachment.mime,
-        dataUrl: attachment.url,
+        blob: attachment.blobID
+          ? { id: attachment.blobID, url: attachment.url }
+          : createLegacyBlobReference(attachment.url),
       }),
     ) ?? []),
   ]
@@ -56,7 +60,8 @@ function promptAttachments(prompt: PromptInputV2Prompt): PromptAttachment[] {
             filename: part.filename,
             sourcePath: part.sourcePath,
             mime: part.mime,
-            url: part.dataUrl,
+            url: part.blob.url,
+            ...(part.blob.id === part.blob.url ? {} : { blobID: part.blob.id }),
           },
         ]
       : [],
@@ -103,7 +108,9 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
           filename: attachment.filename,
           sourcePath: attachment.sourcePath,
           mime: attachment.mime,
-          dataUrl: attachment.url,
+          blob: attachment.blobID
+            ? { id: attachment.blobID, url: attachment.url }
+            : createLegacyBlobReference(attachment.url),
         },
       ])
       changed()
@@ -158,12 +165,14 @@ function readPromptAttachment(value: unknown): PromptAttachment | undefined {
   if (typeof attachment.mime !== "string") return undefined
   if (typeof attachment.url !== "string") return undefined
   const sourcePath = typeof attachment.sourcePath === "string" ? attachment.sourcePath : undefined
+  const blobID = typeof attachment.blobID === "string" ? attachment.blobID : undefined
   return {
     id: attachment.id,
     filename: attachment.filename,
     mime: attachment.mime,
     url: attachment.url,
     ...(sourcePath ? { sourcePath } : {}),
+    ...(blobID ? { blobID } : {}),
   }
 }
 

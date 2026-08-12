@@ -1,4 +1,5 @@
 import { createSimpleContext } from "@opencode-ai/ui/context"
+import { pluralCategory, pluralKey, type UiI18nPluralKey } from "@opencode-ai/ui/context/i18n"
 import { dict as uiEn } from "@opencode-ai/ui/i18n/en"
 import { dict as uiZh } from "@opencode-ai/ui/i18n/zh"
 import { createEffect, createMemo } from "solid-js"
@@ -120,6 +121,8 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
       key: TranslationKey,
       params?: TranslationParams,
     ) => string
+    const plural = (key: UiI18nPluralKey, count: number, params?: TranslationParams) =>
+      t(pluralKey(key, pluralCategory(intl(), count)), { ...params, count })
 
     createEffect(() => {
       const next = locale()
@@ -137,6 +140,7 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
         return t(LABEL_KEY[value])
       },
       t,
+      plural,
       setLocale(next: Locale) {
         setStore("locale", normalizeLocale(next))
       },

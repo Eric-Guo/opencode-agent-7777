@@ -32,6 +32,7 @@ export const dict = {
   "prompt.stop": "停止",
   "prompt.dropzone.label": "将图片、PDF 或文本文件拖放到此处",
   "prompt.unsupportedFiles": "部分所选文件不受支持。",
+  "prompt.attachmentDuplicate": "此文件已上传",
   "prompt.removeAttachment": "移除 {{filename}}",
   "prompt.removeAttachment.generic": "移除附件",
 

@@ -28,6 +28,7 @@ export const dict = {
   "prompt.stop": "Stop",
   "prompt.dropzone.label": "Drop images, PDFs, or text files here",
   "prompt.unsupportedFiles": "Some selected files are not supported.",
+  "prompt.attachmentDuplicate": "This file has already been uploaded",
   "prompt.removeAttachment": "Remove {{filename}}",
   "prompt.removeAttachment.generic": "Remove attachment",
 

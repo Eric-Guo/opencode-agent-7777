@@ -12,6 +12,7 @@ import { useLanguage } from "@/context/language"
 import type { ModelLoadStatus, ModelSelectorState } from "@/context/models-store"
 import { prompt } from "@/context/prompt"
 import { currentLocalAgent, state } from "@/context/server-session-store"
+import { createPersistedBlobReference } from "@/utils/draft-store-local"
 
 const attachmentPaths = new WeakMap<File, string>()
 
@@ -94,9 +95,11 @@ export function PromptInputV2Composer(props: {
       directory: () => "",
       isDialogActive: () => props.disabled || !!dialog.active,
       warn: () => props.onAttachmentError(language.t("prompt.unsupportedFiles")),
+      duplicate: () => props.onAttachmentError(language.t("prompt.attachmentDuplicate")),
       onError: (error) => props.onAttachmentError(error instanceof Error ? error.message : String(error)),
       readClipboardImage: window.api?.readClipboardImage ? readDesktopClipboardImage : undefined,
       getPathForFile: window.api?.getPathForFile ? getDesktopPathForFile : undefined,
+      store: createPersistedBlobReference,
     },
     view: {
       placeholder: () => props.placeholder,

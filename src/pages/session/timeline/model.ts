@@ -3,25 +3,15 @@ import type { SessionMessageInfo, SessionStatus } from "@opencode-ai/client/prom
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import type { HistoryItem } from "@/context/global-sync/types"
 import type { Message, UserMessage } from "@/types"
+import { selectSessionUserMessages, selectVisibleSessionUserMessages } from "../session-domain"
 import { createTimelineProjection } from "./projection"
-
-type UserHistoryItem = HistoryItem & { info: UserMessage }
 
 const emptyParts: HistoryItem["parts"] = []
 
-export function selectUserMessages(items: HistoryItem[]) {
-  return items.filter((item): item is UserHistoryItem => item.info.role === "user")
-}
-
-export function selectVisibleUserMessages(items: UserHistoryItem[], revertMessageID?: string) {
-  if (!revertMessageID) return items
-  return items.filter((item) => item.info.id < revertMessageID)
-}
-
-function recentDialogMessages(items: UserHistoryItem[]) {
+function recentDialogMessages(items: UserMessage[]) {
   if (items.length <= HISTORY_DIALOG_LIMIT) return items
   const firstVisible = items[items.length - HISTORY_DIALOG_LIMIT]
-  return items.filter((item) => item.info.time.created >= firstVisible.info.time.created)
+  return items.filter((item) => item.time.created >= firstVisible.time.created)
 }
 
 export function createTimelineModel(input: {
@@ -32,22 +22,22 @@ export function createTimelineModel(input: {
   revertMessageID?: Accessor<string | undefined>
   status?: Accessor<SessionStatus>
 }) {
-  const userMessages = createMemo(() => selectUserMessages(input.messages()))
-  const visibleUserMessages = createMemo(() =>
-    recentDialogMessages(selectVisibleUserMessages(userMessages(), input.revertMessageID?.())),
-  )
   const messages = createMemo(() => input.messages().map((item) => item.info) as Message[])
+  const userMessages = createMemo(() => selectSessionUserMessages(messages()))
+  const visibleUserMessages = createMemo(() =>
+    recentDialogMessages(selectVisibleSessionUserMessages(userMessages(), input.revertMessageID?.())),
+  )
   const itemByID = createMemo(() => new Map(input.messages().map((item) => [item.info.id, item] as const)))
   const projection = createTimelineProjection({
     messages,
-    userMessages: () => visibleUserMessages().map((item) => item.info),
+    userMessages: visibleUserMessages,
     sessionMessages: input.sessionMessages,
     parts: (messageID) => itemByID().get(messageID)?.parts ?? emptyParts,
     status: () => input.status?.() ?? { type: "idle" },
     showReasoningSummaries: input.showReasoningSummaries,
     inlineComments: () => true,
   })
-  const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
+  const ready = createMemo(() => isTimelineReady(messages(), input.loading()))
   const userDialogCount = createMemo(() => visibleUserMessages().length)
 
   return {
@@ -61,6 +51,6 @@ export function createTimelineModel(input: {
   }
 }
 
-export function isTimelineReady(items: HistoryItem[], loading: boolean) {
-  return items.some((item) => item.info.role === "user") || !loading
+export function isTimelineReady(messages: Message[] | undefined, loading: boolean) {
+  return messages !== undefined && (messages.some((message) => message.role === "user") || !loading)
 }

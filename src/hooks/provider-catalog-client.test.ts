@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { selectProviderCatalog, type ProviderCatalogData } from "./provider-catalog"
+import { selectProviderCatalog, type ProviderCatalogData } from "./provider-catalog-client"
 
 const provider = (id: string) => ({ id, name: id, package: `package:${id}` })
 
