@@ -1,4 +1,5 @@
 import { createMemo } from "solid-js"
+import type { FormAnswer } from "@opencode-ai/client/promise"
 import { decidePermission } from "@/context/permission-sync"
 import { rejectQuestion, replyQuestion } from "@/context/question"
 import { setState, state } from "@/context/server-session-store"
@@ -24,9 +25,9 @@ export function createSessionComposerController() {
       const request = permissionRequest()
       if (request) decidePermission(request, response)
     },
-    replyQuestion(answers: string[][]) {
+    replyQuestion(answer: FormAnswer) {
       const request = questionRequest()
-      if (request) replyQuestion(request, answers)
+      if (request) replyQuestion(request, answer)
     },
     rejectQuestion() {
       const request = questionRequest()

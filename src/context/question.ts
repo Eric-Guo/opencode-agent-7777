@@ -1,10 +1,9 @@
-import type { FormInfo, OpenCodeEvent } from "@opencode-ai/client/promise"
+import type { FormAnswer, FormInfo, OpenCodeEvent } from "@opencode-ai/client/promise"
 import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import { sessionDirectory } from "@/context/session-directory"
 import { readableError } from "@/utils/readable-error"
-import { isQuestionForm, questionFormAnswer, type QuestionForm } from "@/utils/question-form"
 
 function groupForms(forms: FormInfo[]) {
   return forms.reduce<Record<string, FormInfo[]>>((result, form) => {
@@ -27,7 +26,7 @@ export function refreshQuestions() {
 }
 
 export function handleQuestionEvent(event: OpenCodeEvent) {
-  if (event.type === "form.created" && isQuestionForm(event.data.form)) {
+  if (event.type === "form.created" && event.data.form.metadata?.kind === "question") {
     const form = event.data.form
     setState("form", form.sessionID, (current = []) => [form, ...current.filter((item) => item.id !== form.id)])
     return true
@@ -43,14 +42,14 @@ export function handleQuestionEvent(event: OpenCodeEvent) {
   return false
 }
 
-export function replyQuestion(request: QuestionForm, answers: string[][]) {
+export function replyQuestion(request: FormInfo, answer: FormAnswer) {
   const active = currentSession()
   if (!request || !active || state.questionResponding) return
 
   setState("error", "")
   setState("questionResponding", request.id)
   void active.client.form
-    .reply({ sessionID: request.sessionID, formID: request.id, answer: questionFormAnswer(request, answers) })
+    .reply({ sessionID: request.sessionID, formID: request.id, answer })
     .then(() => {
       setState("form", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
       scheduleRefresh(120)
@@ -63,7 +62,7 @@ export function replyQuestion(request: QuestionForm, answers: string[][]) {
     })
 }
 
-export function rejectQuestion(request: QuestionForm) {
+export function rejectQuestion(request: FormInfo) {
   const active = currentSession()
   if (!request || !active || state.questionResponding) return
 

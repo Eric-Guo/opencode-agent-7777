@@ -13,6 +13,9 @@ export const dict = {
   "session.thinking": "Thinking",
   "session.thinking.toggle": "Show or hide reasoning summaries",
   "session.question.progress": "{{current}} of {{total}} questions",
+  "session.timeline.notice.finished": "{{actor}} finished",
+  "session.timeline.notice.failed": "{{actor}} failed",
+  "session.timeline.notice.cancelled": "{{actor}} cancelled",
   "session.recent": "Recent sessions",
   "session.recent.empty": "No recent sessions",
   "session.recovered.parent": "The selected session no longer exists. Opened its main session instead.",
@@ -36,6 +39,8 @@ export const dict = {
   "common.close": "Close",
   "common.loading": "Loading",
   "common.loading.ellipsis": "...",
+
+  "command.category.model": "Model",
 
   "ui.messagePart.option.typeOwnAnswer": "Type your own answer",
   "ui.question.custom.placeholder": "Write an answer",

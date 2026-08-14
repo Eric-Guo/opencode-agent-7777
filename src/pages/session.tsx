@@ -131,6 +131,7 @@ export function SessionPage() {
               <MessageTimeline
                 rows={timeline.visibleRows()}
                 items={state.messages}
+                sessionMessageByID={timeline.sessionMessageByID()}
                 activeMessageID={timeline.activeMessageID()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}

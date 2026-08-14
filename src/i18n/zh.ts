@@ -17,6 +17,9 @@ export const dict = {
   "session.thinking": "思考",
   "session.thinking.toggle": "显示或隐藏推理摘要",
   "session.question.progress": "{{current}}/{{total}} 个问题",
+  "session.timeline.notice.finished": "{{actor}} 已完成",
+  "session.timeline.notice.failed": "{{actor}} 失败",
+  "session.timeline.notice.cancelled": "{{actor}} 已取消",
   "session.recent": "最近会话",
   "session.recent.empty": "暂无最近会话",
   "session.recovered.parent": "所选会话已不存在，已打开其主会话。",
@@ -40,6 +43,8 @@ export const dict = {
   "common.close": "关闭",
   "common.loading": "加载中",
   "common.loading.ellipsis": "...",
+
+  "command.category.model": "模型",
 
   "ui.messagePart.option.typeOwnAnswer": "输入自己的答案",
   "ui.question.custom.placeholder": "填写答案",

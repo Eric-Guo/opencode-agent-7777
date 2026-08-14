@@ -1,10 +1,16 @@
 import { Button } from "@opencode-ai/ui/button"
 import { Icon } from "@opencode-ai/ui/icon"
 import { DockPrompt } from "@opencode-ai/session-ui/dock-prompt"
+import type { FormAnswer, FormInfo, FormMultiselectField, FormStringField } from "@opencode-ai/client/promise"
 import { For, Show, createMemo, onCleanup, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/context/language"
-import type { QuestionForm } from "@/utils/question-form"
+
+type QuestionField = FormStringField | FormMultiselectField
+
+function questionField(field: FormInfo["fields"][number]): field is QuestionField {
+  return field.type === "string" || field.type === "multiselect"
+}
 
 function Mark(props: { multi: boolean; picked: boolean; onClick?: (event: MouseEvent) => void }) {
   return (
@@ -52,9 +58,9 @@ function Option(props: {
 }
 
 export const SessionQuestionDock: Component<{
-  request: QuestionForm
+  request: FormInfo
   responding: boolean
-  onReply: (answers: string[][]) => void
+  onReply: (answer: FormAnswer) => void
   onReject: () => void
 }> = (props) => {
   const language = useLanguage()
@@ -77,12 +83,10 @@ export const SessionQuestionDock: Component<{
   })
 
   const questions = createMemo(() =>
-    props.request.fields.map((field) => ({
+    props.request.fields.filter(questionField).map((field) => ({
+      field,
       question: field.description ?? field.title ?? props.request.title,
-      options: (field.options ?? []).map((option) => ({
-        label: option.label,
-        description: option.description,
-      })),
+      options: field.type === "string" ? (field.options ?? []) : field.options,
       multiple: field.type === "multiselect",
     })),
   )
@@ -130,7 +134,7 @@ export const SessionQuestionDock: Component<{
     if (store.customOn[tab] === true) return list.length
     return Math.max(
       0,
-      list.findIndex((item) => store.answers[tab]?.includes(item.label) ?? false),
+      list.findIndex((item) => store.answers[tab]?.includes(item.value) ?? false),
     )
   }
 
@@ -146,7 +150,16 @@ export const SessionQuestionDock: Component<{
     })
   }
 
-  const submit = () => props.onReply(questions().map((_, i) => store.answers[i] ?? []))
+  const submit = () =>
+    props.onReply(
+      Object.fromEntries(
+        questions().flatMap((question, index) => {
+          const answers = store.answers[index] ?? []
+          if (answers.length === 0) return []
+          return [[question.field.key, question.multiple ? answers : answers[0]]]
+        }),
+      ),
+    )
 
   const answered = (i: number) => {
     if ((store.answers[i]?.length ?? 0) > 0) return true
@@ -265,10 +278,10 @@ export const SessionQuestionDock: Component<{
     if (!opt) return
     if (multi()) {
       setStore("editing", false)
-      toggle(opt.label)
+      toggle(opt.value)
       return
     }
-    pick(opt.label)
+    pick(opt.value)
   }
 
   const commitCustom = () => {
@@ -388,7 +401,7 @@ export const SessionQuestionDock: Component<{
             {(opt, i) => (
               <Option
                 multi={multi()}
-                picked={picked(opt.label)}
+                picked={picked(opt.value)}
                 label={opt.label}
                 description={opt.description}
                 disabled={sending()}
