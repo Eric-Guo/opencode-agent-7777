@@ -1,5 +1,5 @@
 // Live message cache for the one active session; current-message normalization lives in utils/session-message.ts.
-import type { SessionMessageInfo } from "@opencode-ai/client/promise"
+import type { SessionInboxInfo, SessionMessageInfo } from "@opencode-ai/client/promise"
 import {
   compareHistoryItem,
   comparePart,
@@ -30,6 +30,72 @@ function chronologicalMessages(messages: SessionMessageInfo[]) {
       }, new Map<string, SessionMessageInfo>())
       .values(),
   ].sort((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id))
+}
+
+// Admitted-but-undelivered inbox items never appear in message.list, so the live cache unions them
+// (and locally echoed submissions) into the session message list until the server delivers them.
+const echoes = new Map<string, SessionMessageInfo>()
+
+export function inboxItemMessage(item: SessionInboxInfo): SessionMessageInfo | undefined {
+  if (item.type === "user")
+    return {
+      id: item.id,
+      type: "user",
+      metadata: item.payload.metadata,
+      text: item.payload.text,
+      files: item.payload.files,
+      agents: item.payload.agents,
+      skills: item.payload.skills,
+      time: { created: item.timeCreated },
+    }
+  if (item.type === "synthetic")
+    return {
+      id: item.id,
+      type: "synthetic",
+      metadata: item.payload.metadata,
+      text: item.payload.text,
+      description: item.payload.description,
+      time: { created: item.timeCreated },
+    }
+  return undefined
+}
+
+export function mergeInboxMessages(input: {
+  delivered: SessionMessageInfo[]
+  admitted: SessionInboxInfo[]
+  echoes: SessionMessageInfo[]
+}) {
+  const admitted = input.admitted.flatMap((item) => {
+    const message = inboxItemMessage(item)
+    return message ? [message] : []
+  })
+  return chronologicalMessages([...input.echoes, ...admitted, ...input.delivered])
+}
+
+export function echoPendingUserMessage(message: SessionMessageInfo) {
+  const active = currentSession()
+  echoes.set(message.id, message)
+  if (!active) return
+  const sessionMessages = chronologicalMessages([...state.sessionMessages, message])
+  setState("sessionMessages", sessionMessages)
+  setState(
+    "messages",
+    projectSessionMessages({
+      sessionID: active.sessionID,
+      session: state.session,
+      localAgent: active.localAgent,
+      messages: sessionMessages,
+    }),
+  )
+}
+
+export function dropPendingEcho(messageID: string) {
+  if (!echoes.delete(messageID)) return
+  removeMessage(messageID)
+}
+
+export function resetPendingEchoes() {
+  echoes.clear()
 }
 
 export async function loadRecentMessageWindow(input: {
@@ -69,10 +135,30 @@ export function refreshMessages(limit: number) {
   if (!active || !state.session) return Promise.resolve()
   messageRefreshCount += 1
   setState("messagesLoading", true)
-  return loadRecentMessageWindow({ client: active.client, sessionID: active.sessionID, limit })
-    .then((sessionMessages) => {
+  return Promise.all([
+    loadRecentMessageWindow({ client: active.client, sessionID: active.sessionID, limit }),
+    active.client.session.inbox.list({ sessionID: active.sessionID }),
+  ])
+    .then(([delivered, inbox]) => {
       const session = state.session
       if (session?.id !== active.sessionID) return
+      // message.list only returns durable completed messages; assistant turns, compactions, and shells
+      // still streaming through session events must survive the refresh while the session is busy.
+      const inflight =
+        state.sessionStatus.type === "busy"
+          ? state.sessionMessages.filter((message) => {
+              if (message.type === "assistant") return !message.time.completed
+              if (message.type === "compaction" || message.type === "shell") return message.status === "running"
+              return false
+            })
+          : []
+      const sessionMessages = mergeInboxMessages({
+        delivered,
+        admitted: inbox,
+        echoes: [...echoes.values(), ...inflight],
+      })
+      const covered = new Set([...delivered.map((message) => message.id), ...inbox.map((item) => item.id)])
+      for (const id of [...echoes.keys()]) if (covered.has(id)) echoes.delete(id)
       return {
         sessionMessages,
         messages: projectSessionMessages({
@@ -96,10 +182,9 @@ export function refreshMessages(limit: number) {
 
 export function upsertMessage(info: Message) {
   setState("messages", (items) => {
-    const withoutLocal = info.role === "user" ? items.filter((item) => !item.info.id.startsWith("local-")) : items
-    const index = withoutLocal.findIndex((item) => item.info.id === info.id)
-    if (index === -1) return [...withoutLocal, { info, parts: [] }].sort(compareHistoryItem)
-    return withoutLocal.map((item, itemIndex) => (itemIndex === index ? { ...item, info } : item))
+    const index = items.findIndex((item) => item.info.id === info.id)
+    if (index === -1) return [...items, { info, parts: [] }].sort(compareHistoryItem)
+    return items.map((item, itemIndex) => (itemIndex === index ? { ...item, info } : item))
   })
 }
 

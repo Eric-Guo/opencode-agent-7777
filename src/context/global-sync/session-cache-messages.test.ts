@@ -1,6 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
-import { loadRecentMessageWindow, refreshMessages } from "@/context/global-sync/session-cache-messages"
+import type { SessionInboxInfo, SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
+import {
+  inboxItemMessage,
+  loadRecentMessageWindow,
+  mergeInboxMessages,
+  refreshMessages,
+  resetPendingEchoes,
+} from "@/context/global-sync/session-cache-messages"
 import { setSessionClient, setState, state } from "@/context/server-session-store"
 import type { OpencodeClient } from "@/context/server-sdk-client"
 
@@ -34,13 +40,18 @@ const messages: SessionMessageInfo[] = [
   },
 ]
 
-function messageClient(data: SessionMessageInfo[]) {
+function messageClient(data: SessionMessageInfo[], inbox: SessionInboxInfo[] = []) {
   const requests: unknown[] = []
   const client = {
     message: {
       list: (input: unknown) => {
         requests.push(input)
         return Promise.resolve({ data, cursor: { previous: null, next: null } })
+      },
+    },
+    session: {
+      inbox: {
+        list: () => Promise.resolve(inbox),
       },
     },
   } as unknown as OpencodeClient
@@ -67,6 +78,109 @@ afterEach(() => {
   setState("sessionMessages", [])
   setState("messages", [])
   setState("messagesLoading", false)
+  resetPendingEchoes()
+})
+
+const userMessage = (id: string, created: number, text: string): SessionMessageInfo => ({
+  id,
+  type: "user",
+  text,
+  time: { created },
+})
+
+const inboxUser = (id: string, timeCreated: number, text: string): SessionInboxInfo => ({
+  id,
+  sessionID: "ses_test",
+  timeCreated,
+  type: "user",
+  payload: { text },
+  delivery: "steer",
+})
+
+describe("inboxItemMessage", () => {
+  test("maps a user inbox item to a user message", () => {
+    expect(inboxItemMessage(inboxUser("msg_1", 1000, "hello"))).toEqual({
+      id: "msg_1",
+      type: "user",
+      metadata: undefined,
+      text: "hello",
+      files: undefined,
+      agents: undefined,
+      skills: undefined,
+      time: { created: 1000 },
+    })
+  })
+
+  test("maps a synthetic inbox item with description", () => {
+    const item: SessionInboxInfo = {
+      id: "msg_2",
+      sessionID: "ses_test",
+      timeCreated: 2000,
+      type: "synthetic",
+      payload: { text: "note", description: "compaction" },
+      delivery: "queue",
+    }
+    expect(inboxItemMessage(item)).toEqual({
+      id: "msg_2",
+      type: "synthetic",
+      metadata: undefined,
+      text: "note",
+      description: "compaction",
+      time: { created: 2000 },
+    })
+  })
+
+  test("ignores non-message inbox items", () => {
+    const item: SessionInboxInfo = {
+      id: "msg_3",
+      sessionID: "ses_test",
+      timeCreated: 3000,
+      type: "compaction",
+      payload: {},
+      delivery: "steer",
+    }
+    expect(inboxItemMessage(item)).toBeUndefined()
+  })
+})
+
+describe("mergeInboxMessages", () => {
+  test("unions delivered, admitted, and echoed messages in chronological order", () => {
+    const merged = mergeInboxMessages({
+      delivered: [userMessage("msg_2", 2000, "delivered")],
+      admitted: [inboxUser("msg_3", 3000, "admitted")],
+      echoes: [userMessage("msg_1", 1000, "echo")],
+    })
+    expect(merged.map((message) => message.id)).toEqual(["msg_1", "msg_2", "msg_3"])
+  })
+
+  test("delivered messages win over admitted items and echoes with the same id", () => {
+    const merged = mergeInboxMessages({
+      delivered: [userMessage("msg_1", 1000, "delivered")],
+      admitted: [inboxUser("msg_1", 1000, "admitted")],
+      echoes: [userMessage("msg_1", 1000, "echo")],
+    })
+    expect(merged).toEqual([userMessage("msg_1", 1000, "delivered")])
+  })
+
+  test("admitted items win over echoes with the same id", () => {
+    const merged = mergeInboxMessages({
+      delivered: [],
+      admitted: [inboxUser("msg_1", 1000, "admitted")],
+      echoes: [userMessage("msg_1", 1000, "echo")],
+    })
+    expect(merged).toEqual([
+      {
+        id: "msg_1",
+        type: "user",
+        metadata: undefined,
+        text: "admitted",
+        files: undefined,
+        agents: undefined,
+        skills: undefined,
+        time: { created: 1000 },
+      },
+    ])
+  })
 })
 
 describe("single-session message cache", () => {
@@ -133,6 +247,21 @@ describe("single-session message cache", () => {
     })
     expect(state.messages[1]?.info).toMatchObject({ role: "assistant", parentID: "msg_user" })
     expect(state.messages[1]?.parts.map((part) => part.type)).toEqual(["reasoning", "text"])
+  })
+
+  test("keeps admitted-but-undelivered inbox items through message-list refreshes", async () => {
+    const client = messageClient(messages.toReversed(), [inboxUser("msg_pending", 4000, "queued while busy")])
+    setSessionClient(client)
+    setState("session", session())
+
+    await refreshMessages(20)
+
+    expect(state.sessionMessages.map((message) => message.id)).toEqual([
+      "msg_user",
+      "msg_assistant",
+      "msg_pending",
+    ])
+    expect(state.messages.map((item) => item.info.id)).toEqual(["msg_user", "msg_assistant", "msg_pending"])
   })
 
   test("does not apply a response after the active session changes", async () => {

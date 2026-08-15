@@ -1,29 +1,10 @@
 import { refreshRecentSessions } from "@/context/directory-sync-recent-sessions"
+import { dropPendingEcho, echoPendingUserMessage } from "@/context/global-sync/session-cache-messages"
 import { prompt } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
+import { Identifier } from "@/utils/id"
 import { readableError } from "@/utils/readable-error"
-import { buildRequestParts, createOptimisticUserMessage } from "./build-request-parts"
-
-function appendOptimisticMessage(input: {
-  messageID: string
-  sessionID: string
-  parts: ReturnType<typeof buildRequestParts>["optimisticParts"]
-}) {
-  const active = currentSession()
-  if (!active) return
-
-  setState("messages", (items) => [
-    ...items,
-    createOptimisticUserMessage({
-      messageID: input.messageID,
-      sessionID: input.sessionID,
-      localAgent: active.localAgent,
-      model: state.selectedModel,
-      parts: input.parts,
-    }),
-  ])
-}
 
 export function submitPrompt() {
   const active = currentSession()
@@ -32,11 +13,11 @@ export function submitPrompt() {
   if (!active || state.submitting || (!text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
 
-  const parts = buildRequestParts({
-    text,
-    attachments,
-    sessionID: active.sessionID,
-  })
+  const messageID = Identifier.ascending("message")
+  const requestFiles = attachments.map((attachment) => ({
+    uri: attachment.url,
+    name: attachment.sourcePath ?? attachment.filename,
+  }))
 
   prompt.reset()
   setState("error", "")
@@ -45,10 +26,17 @@ export function submitPrompt() {
   if (state.session?.revert) {
     setState("session", (session) => (session ? { ...session, revert: undefined } : session))
   }
-  appendOptimisticMessage({
-    messageID: parts.localMessageID,
-    sessionID: active.sessionID,
-    parts: parts.optimisticParts,
+  echoPendingUserMessage({
+    id: messageID,
+    type: "user",
+    text,
+    files: attachments.map((attachment) => ({
+      data: "",
+      mime: attachment.mime,
+      name: attachment.sourcePath ?? attachment.filename,
+      source: { type: "uri" as const, uri: attachment.url },
+    })),
+    time: { created: Date.now() },
   })
 
   const configure = [
@@ -68,8 +56,9 @@ export function submitPrompt() {
     .then(() =>
       active.client.session.prompt({
         sessionID: active.sessionID,
+        id: messageID,
         text,
-        files: parts.requestFiles,
+        files: requestFiles,
       }),
     )
     .then(() => {
@@ -78,6 +67,7 @@ export function submitPrompt() {
       return refreshRecentSessions()
     })
     .catch((error) => {
+      dropPendingEcho(messageID)
       if (previousRevert && state.session?.id === active.sessionID && !state.session.revert) {
         setState("session", (session) => (session ? { ...session, revert: previousRevert } : session))
       }

@@ -1,7 +1,7 @@
 // Single-session bootstrap variant of the main app's global/directory bootstrap boundary.
 import { reconcile } from "solid-js/store"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { refreshMessages } from "@/context/global-sync/session-cache-messages"
+import { refreshMessages, resetPendingEchoes } from "@/context/global-sync/session-cache-messages"
 import { readSessionRecord, writeSessionRecord } from "@/context/local-storage"
 import { refreshModels } from "@/context/models-store"
 import { refreshPermissions } from "@/context/permission-sync"
@@ -44,6 +44,7 @@ export function activateSession(
   setState("sessionStatus", idleStatus)
   setState("sessionMessages", [])
   setState("messages", [])
+  resetPendingEchoes()
   setState("permission", reconcile({}))
   setState("permissionResponding", undefined)
   setState("form", reconcile({}))
