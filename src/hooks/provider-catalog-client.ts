@@ -23,7 +23,7 @@ export function selectProviderCatalog(data: ProviderCatalogData): ProviderCatalo
   }))
   return {
     all,
-    connected: all.filter((provider) => !provider.disabled && Object.keys(provider.models).length > 0),
+    connected: all.filter((provider) => provider.activation !== "disabled" && Object.keys(provider.models).length > 0),
     default: data.defaultModel ? { [data.defaultModel.providerID]: data.defaultModel.modelID } : {},
   }
 }

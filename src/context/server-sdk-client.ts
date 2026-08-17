@@ -1,12 +1,17 @@
 import { OpenCode } from "@opencode-ai/client/promise"
 import type { ServerInfo } from "@/context/server-resolver"
-import { serverAuthHeader } from "@/utils/server"
 
 // 7777 creates clients directly instead of providing the main app's reactive server SDK context.
 
 export type ServerClientConfig = Omit<Parameters<typeof OpenCode.make>[0], "baseUrl">
 
 export type OpencodeClient = ReturnType<typeof OpenCode.make>
+
+function serverAuthHeader(server: ServerInfo): Record<string, string> | undefined {
+  if (!server.password) return
+  const token = btoa(`${server.username ?? "opencode"}:${server.password}`)
+  return { Authorization: `Basic ${token}` }
+}
 
 export function createClientForServer({
   server,
