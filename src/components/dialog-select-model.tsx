@@ -1,7 +1,7 @@
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
-import { Tag as TagV2 } from "@opencode-ai/ui/v2/badge-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
-import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
+import { Badge } from "@opencode-ai/ui/badge"
+import { Icon } from "@opencode-ai/ui/icon"
+import { Menu } from "@opencode-ai/ui/menu"
 import {
   type ComponentProps,
   createEffect,
@@ -24,7 +24,7 @@ const isFree = (provider: string, cost: { input: number } | undefined) =>
   provider === "opencode" && (!cost || cost.input === 0)
 
 type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
-type ModelSelectorTriggerProps = Omit<ComponentProps<typeof MenuV2.Trigger>, "as" | "ref">
+type ModelSelectorTriggerProps = Omit<ComponentProps<typeof Menu.Trigger>, "as" | "ref">
 
 const modelKey = (model: ModelItem) => `${model.provider.id}:${model.id}`
 const manageKey = "action:manage"
@@ -164,12 +164,12 @@ export function ModelSelectorPopoverV2(props: {
   })
 
   return (
-    <MenuV2 open={store.open} modal={false} placement="top-start" gutter={6} onOpenChange={setOpen}>
-      <MenuV2.Trigger as={props.triggerAs ?? "div"} {...props.triggerProps}>
+    <Menu open={store.open} modal={false} placement="top-start" gutter={6} onOpenChange={setOpen}>
+      <Menu.Trigger as={props.triggerAs ?? "div"} {...props.triggerProps}>
         {props.children}
-      </MenuV2.Trigger>
-      <MenuV2.Portal>
-        <MenuV2.Content
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Content
           ref={(el: HTMLDivElement) => (contentRef = el)}
           class="w-[284px] overflow-hidden rounded-md border-0 bg-v2-background-bg-layer-01 !p-0 shadow-[var(--v2-elevation-floating)] focus:outline-none"
           onPointerDownOutside={() => (restoreTrigger = false)}
@@ -244,14 +244,14 @@ export function ModelSelectorPopoverV2(props: {
               >
                 <For each={groups()}>
                   {(group) => (
-                    <MenuV2.Group>
-                      <MenuV2.GroupLabel class="gap-2 px-3">
+                    <Menu.Group>
+                      <Menu.GroupLabel class="gap-2 px-3">
                         <span class="min-w-0 truncate">{group.items[0].provider.name}</span>
-                      </MenuV2.GroupLabel>
-                      <MenuV2.RadioGroup value={current()}>
+                      </Menu.GroupLabel>
+                      <Menu.RadioGroup value={current()}>
                         <For each={group.items}>
                           {(item) => (
-                            <MenuV2.RadioItem
+                            <Menu.RadioItem
                               value={modelKey(item)}
                               data-option-key={modelKey(item)}
                               data-selected-model={current() === modelKey(item) ? true : undefined}
@@ -265,16 +265,16 @@ export function ModelSelectorPopoverV2(props: {
                             >
                               <span class="min-w-0 truncate">{item.name}</span>
                               <Show when={isFree(item.provider.id, item.cost)}>
-                                <TagV2 class="shrink-0">{language.t("model.tag.free")}</TagV2>
+                                <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
                               </Show>
                               <Show when={item.latest}>
-                                <TagV2 class="shrink-0">{language.t("model.tag.latest")}</TagV2>
+                                <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
                               </Show>
-                            </MenuV2.RadioItem>
+                            </Menu.RadioItem>
                           )}
                         </For>
-                      </MenuV2.RadioGroup>
-                    </MenuV2.Group>
+                      </Menu.RadioGroup>
+                    </Menu.Group>
                   )}
                 </For>
               </Show>
@@ -283,7 +283,7 @@ export function ModelSelectorPopoverV2(props: {
           <Show when={canManage()}>
             <div class="h-px bg-v2-border-border-muted" />
             <div class="flex flex-col p-0.5">
-              <MenuV2.Item
+              <Menu.Item
                 data-option-key={manageKey}
                 classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === manageKey }}
                 onMouseEnter={() => {
@@ -294,11 +294,11 @@ export function ModelSelectorPopoverV2(props: {
               >
                 <Icon name="outline-sliders" size="small" />
                 <span class="min-w-0 flex-1 truncate leading-5">{language.t("dialog.model.manage")}</span>
-              </MenuV2.Item>
+              </Menu.Item>
             </div>
           </Show>
-        </MenuV2.Content>
-      </MenuV2.Portal>
-    </MenuV2>
+        </Menu.Content>
+      </Menu.Portal>
+    </Menu>
   )
 }

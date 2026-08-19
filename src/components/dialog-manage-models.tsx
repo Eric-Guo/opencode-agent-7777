@@ -1,8 +1,8 @@
 import { useFilteredList } from "@opencode-ai/ui/hooks"
 import { Icon } from "@opencode-ai/ui/icon"
-import { Dialog as DialogV2, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode-ai/ui/v2/dialog-v2"
-import { Switch as SwitchV2 } from "@opencode-ai/ui/v2/switch-v2"
-import { TextInputV2 } from "@opencode-ai/ui/v2/text-input-v2"
+import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode-ai/ui/dialog"
+import { Switch } from "@opencode-ai/ui/switch"
+import { TextInput } from "@opencode-ai/ui/text-input"
 import { For, Show, type Component } from "solid-js"
 import type { ModelSelectorState } from "@/context/models-store"
 import { useLanguage } from "@/context/language"
@@ -41,7 +41,7 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
   })
 
   return (
-    <DialogV2 size="large" variant="settings" class="max-h-[min(720px,calc(100vh-48px))]">
+    <Dialog size="large" variant="settings" class="max-h-[min(720px,calc(100vh-48px))]">
       <DialogHeader closeLabel={language.t("common.close")}>
         <DialogTitleGroup
           title={language.t("dialog.model.manage")}
@@ -50,7 +50,7 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
       </DialogHeader>
       <DialogBody class="flex min-h-0 flex-1 flex-col">
         <div class="px-4 pb-3 pt-px">
-          <TextInputV2
+          <TextInput
             type="search"
             appearance="base"
             class="!w-full self-stretch"
@@ -100,7 +100,7 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
                             {group.items[0].provider.name}
                           </h3>
                         </div>
-                        <SwitchV2
+                        <Switch
                           checked={group.items.every((item) =>
                             props.model.visible({ modelID: item.id, providerID: item.provider.id }),
                           )}
@@ -110,7 +110,7 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
                           {language.t("dialog.model.manage.provider.toggle", {
                             provider: group.items[0].provider.name,
                           })}
-                        </SwitchV2>
+                        </Switch>
                       </div>
                       <div class="overflow-hidden rounded-md border border-v2-border-border-base bg-v2-background-bg-layer-01">
                         <For each={group.items}>
@@ -119,13 +119,13 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
                               <span class="min-w-0 truncate text-[13px] font-[440] text-v2-text-text-base">
                                 {item.name}
                               </span>
-                              <SwitchV2
+                              <Switch
                                 checked={props.model.visible({ modelID: item.id, providerID: item.provider.id })}
                                 onChange={(checked) => setModelVisibility(item, checked)}
                                 hideLabel
                               >
                                 {item.name}
-                              </SwitchV2>
+                              </Switch>
                             </div>
                           )}
                         </For>
@@ -138,6 +138,6 @@ export const DialogManageModelsV2: Component<{ model: ModelSelectorState }> = (p
           </Show>
         </div>
       </DialogBody>
-    </DialogV2>
+    </Dialog>
   )
 }

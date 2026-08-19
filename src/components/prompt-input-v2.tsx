@@ -2,8 +2,8 @@ import { PromptInputV2 } from "@opencode-ai/session-ui/v2/prompt-input"
 import { createPromptInputV2Controller } from "@opencode-ai/session-ui/v2/prompt-input/interaction"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
-import { ButtonV2 } from "@opencode-ai/ui/v2/button-v2"
-import { Icon } from "@opencode-ai/ui/v2/icon"
+import { Button } from "@opencode-ai/ui/button"
+import { Icon } from "@opencode-ai/ui/icon"
 import { createMemo, Show } from "solid-js"
 import { DialogManageModelsV2 } from "@/components/dialog-manage-models"
 import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
@@ -136,7 +136,7 @@ export function PromptInputV2Composer(props: {
         <Show when={props.modelStatus !== "loading"}>
           <ModelSelectorPopoverV2
             model={props.model}
-            triggerAs={ButtonV2}
+            triggerAs={Button}
             triggerProps={{
               variant: "ghost-muted",
               size: "normal",

@@ -1,6 +1,6 @@
-import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Icon } from "@opencode-ai/ui/icon"
 import { For, Show } from "solid-js"
+import { Menu } from "@opencode-ai/ui/menu"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/context/language"
 import { windowsElectron } from "@/context/platform-bridge"
@@ -74,30 +74,28 @@ export function SessionHeader(props: {
             {language.t("session.thinking")}
           </span>
         </button>
-        <DropdownMenu gutter={4} placement="bottom-end" modal={false}>
-          <DropdownMenu.Trigger
+        <Menu gutter={4} placement="bottom-end" modal={false}>
+          <Menu.Trigger
             class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base disabled:opacity-55 data-[expanded]:border-v2-border-border-strong data-[expanded]:bg-v2-overlay-simple-overlay-hover [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
             aria-label={language.t("session.recent")}
             title={language.t("session.recent")}
             disabled={state.recentSessionsLoading && state.recentSessions.length === 0}
           >
             <Icon name="bullet-list" />
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content class="w-[276px] [&_[data-slot=dropdown-menu-item]]:min-h-[42px] [&_[data-slot=dropdown-menu-item]]:items-start [&_[data-slot=dropdown-menu-item]]:gap-2 [&_[data-slot=dropdown-menu-item]]:px-2 [&_[data-slot=dropdown-menu-item]]:py-1.5">
-              <DropdownMenu.Group>
-                <DropdownMenu.GroupLabel>{language.t("session.recent")}</DropdownMenu.GroupLabel>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Content class="w-[276px] [&_[data-component=menu-v2-item]]:min-h-[42px] [&_[data-component=menu-v2-item]]:items-start [&_[data-component=menu-v2-item]]:gap-2 [&_[data-component=menu-v2-item]]:px-2 [&_[data-component=menu-v2-item]]:py-1.5">
+              <Menu.Group>
+                <Menu.GroupLabel>{language.t("session.recent")}</Menu.GroupLabel>
                 <Show
                   when={state.recentSessions.length > 0}
                   fallback={
-                    <DropdownMenu.Item disabled>
-                      <DropdownMenu.ItemLabel>{language.t("session.recent.empty")}</DropdownMenu.ItemLabel>
-                    </DropdownMenu.Item>
+                    <Menu.Item disabled>{language.t("session.recent.empty")}</Menu.Item>
                   }
                 >
                   <For each={state.recentSessions}>
                     {(session, index) => (
-                      <DropdownMenu.Item
+                      <Menu.Item
                         disabled={!!state.recentSessionSwitchingID}
                         onSelect={() => void openRecentSession(session)}
                       >
@@ -105,25 +103,21 @@ export function SessionHeader(props: {
                           {index() + 1}
                         </span>
                         <span class="min-w-0 flex-1">
-                          <DropdownMenu.ItemLabel>
-                            <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                              {recentSessionTitle(session)}
-                            </span>
-                          </DropdownMenu.ItemLabel>
-                          <DropdownMenu.ItemDescription>
-                            <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                              {recentSessionDescription(session)}
-                            </span>
-                          </DropdownMenu.ItemDescription>
+                          <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                            {recentSessionTitle(session)}
+                          </span>
+                          <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                            {recentSessionDescription(session)}
+                          </span>
                         </span>
-                      </DropdownMenu.Item>
+                      </Menu.Item>
                     )}
                   </For>
                 </Show>
-              </DropdownMenu.Group>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu>
+              </Menu.Group>
+            </Menu.Content>
+          </Menu.Portal>
+        </Menu>
         <button
           type="button"
           class="inline-flex h-[30px] min-w-[48px] items-center justify-center gap-1.5 rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"

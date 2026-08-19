@@ -375,13 +375,13 @@ export const SessionQuestionDock: Component<{
             </Button>
             <div data-slot="question-footer-actions">
               <Show when={store.tab > 0}>
-                <Button type="button" variant="secondary" size="large" disabled={sending()} onClick={back}>
+                <Button type="button" variant="neutral" size="large" disabled={sending()} onClick={back}>
                   {language.t("ui.common.back")}
                 </Button>
               </Show>
               <Button
                 type="button"
-                variant={last() ? "primary" : "secondary"}
+                variant={last() ? "contrast" : "neutral"}
                 size="large"
                 disabled={sending()}
                 onClick={next}
