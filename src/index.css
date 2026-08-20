@@ -63,6 +63,10 @@
   max-width: 640px;
 }
 
+#oc-agent .session-timeline-compact [data-slot="session-turn-message-container"] {
+  padding-inline: 0;
+}
+
 #oc-agent [data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-body"] {
   gap: 8px;
   padding: 4px 4px 0;

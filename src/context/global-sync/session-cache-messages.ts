@@ -1,24 +1,13 @@
-// Live message cache for the one active session; current-message normalization lives in utils/session-message.ts.
+// Live current-message cache for the one active session.
 import type { SessionInboxInfo, SessionMessageInfo } from "@opencode-ai/client/promise"
-import {
-  compareHistoryItem,
-  comparePart,
-  mergeHistoryPart,
-  projectSessionMessages,
-} from "@/context/global-sync/session-cache-projection"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { currentSession, setState, state } from "@/context/server-session-store"
 import type { OpencodeClient } from "@/context/server-sdk-client"
-import type { Message, Part } from "@/types"
 
 let messageRefreshCount = 0
 
 function isDialogRoot(message: SessionMessageInfo) {
-  return (
-    message.type === "user" ||
-    message.type === "shell" ||
-    (message.type === "synthetic" && !!message.description?.trim())
-  )
+  return message.type === "user" || message.type === "shell"
 }
 
 function chronologicalMessages(messages: SessionMessageInfo[]) {
@@ -78,15 +67,6 @@ export function echoPendingUserMessage(message: SessionMessageInfo) {
   if (!active) return
   const sessionMessages = chronologicalMessages([...state.sessionMessages, message])
   setState("sessionMessages", sessionMessages)
-  setState(
-    "messages",
-    projectSessionMessages({
-      sessionID: active.sessionID,
-      session: state.session,
-      localAgent: active.localAgent,
-      messages: sessionMessages,
-    }),
-  )
 }
 
 export function dropPendingEcho(messageID: string) {
@@ -159,20 +139,11 @@ export function refreshMessages(limit: number) {
       })
       const covered = new Set([...delivered.map((message) => message.id), ...inbox.map((item) => item.id)])
       for (const id of [...echoes.keys()]) if (covered.has(id)) echoes.delete(id)
-      return {
-        sessionMessages,
-        messages: projectSessionMessages({
-          sessionID: active.sessionID,
-          session,
-          localAgent: active.localAgent,
-          messages: sessionMessages,
-        }),
-      }
+      return sessionMessages
     })
-    .then((result) => {
-      if (!result || state.session?.id !== active.sessionID) return
-      setState("sessionMessages", result.sessionMessages)
-      setState("messages", result.messages)
+    .then((sessionMessages) => {
+      if (!sessionMessages || state.session?.id !== active.sessionID) return
+      setState("sessionMessages", sessionMessages)
     })
     .finally(() => {
       messageRefreshCount = Math.max(0, messageRefreshCount - 1)
@@ -180,42 +151,6 @@ export function refreshMessages(limit: number) {
     })
 }
 
-export function upsertMessage(info: Message) {
-  setState("messages", (items) => {
-    const index = items.findIndex((item) => item.info.id === info.id)
-    if (index === -1) return [...items, { info, parts: [] }].sort(compareHistoryItem)
-    return items.map((item, itemIndex) => (itemIndex === index ? { ...item, info } : item))
-  })
-}
-
-export function upsertPart(part: Part, delta: string | undefined, refresh: () => void) {
-  const hasMessage = state.messages.some((item) => item.info.id === part.messageID)
-  if (!hasMessage) {
-    refresh()
-    return
-  }
-  setState("messages", (items) =>
-    items.map((item) => {
-      if (item.info.id !== part.messageID) return item
-      const index = item.parts.findIndex((current) => current.id === part.id)
-      if (index === -1) return { ...item, parts: [...item.parts, part].sort(comparePart) }
-      const parts = item.parts.map((current, partIndex) =>
-        partIndex === index ? mergeHistoryPart(current, part, delta) : current,
-      )
-      return { ...item, parts: parts.sort(comparePart) }
-    }),
-  )
-}
-
 export function removeMessage(messageID: string) {
   setState("sessionMessages", (items) => items.filter((item) => item.id !== messageID))
-  setState("messages", (items) => items.filter((item) => item.info.id !== messageID))
-}
-
-export function removePart(messageID: string, partID: string) {
-  setState("messages", (items) =>
-    items.map((item) =>
-      item.info.id === messageID ? { ...item, parts: item.parts.filter((part) => part.id !== partID) } : item,
-    ),
-  )
 }

@@ -1,27 +1,21 @@
-import type { PromptAttachment } from "@/context/prompt"
-import type { Part } from "@/types"
+import type { SessionMessageUser } from "@opencode-ai/client/promise"
+import type { PromptDraft } from "@/context/prompt"
+import { readPromptPresentation } from "./comment-note"
 
-export function extractPromptFromParts(parts: Part[]) {
-  const text = parts
-    .filter((part): part is Extract<Part, { type: "text" }> => part.type === "text")
-    .filter((part) => !part.synthetic && !part.ignored)
-    .reduce((best: Extract<Part, { type: "text" }> | undefined, part) => {
-      if (!best) return part
-      return part.text.length > best.text.length ? part : best
-    }, undefined)
-
-  const attachments: PromptAttachment[] = parts
-    .filter((part): part is Extract<Part, { type: "file" }> => part.type === "file")
-    .filter((part) => !part.source)
-    .map((part) => ({
-      id: part.id,
-      filename: part.filename ?? "attachment",
-      mime: part.mime,
-      url: part.url,
-    }))
-
+export function extractPromptFromMessage(message: SessionMessageUser): PromptDraft {
   return {
-    text: text?.text ?? "",
-    attachments,
+    prompt: readPromptPresentation(message.metadata)?.displayText ?? message.text,
+    attachments: (message.files ?? []).flatMap((file, index) => {
+      if (file.mention) return []
+      const url = file.source.type === "uri" ? file.source.uri : `data:${file.mime};base64,${file.data}`
+      return [
+        {
+          id: `${message.id}:file:${index}`,
+          filename: file.name ?? "attachment",
+          mime: file.mime,
+          url,
+        },
+      ]
+    }),
   }
 }

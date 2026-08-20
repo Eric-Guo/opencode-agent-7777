@@ -76,7 +76,6 @@ afterEach(() => {
   setSessionClient(undefined)
   setState("session", undefined)
   setState("sessionMessages", [])
-  setState("messages", [])
   setState("messagesLoading", false)
   resetPendingEchoes()
 })
@@ -230,7 +229,7 @@ describe("single-session message cache", () => {
     expect(result.map((message) => message.id)).toEqual(["msg_user", "msg_assistant"])
   })
 
-  test("projects current session messages into the timeline model", async () => {
+  test("loads current session messages for the timeline", async () => {
     const client = messageClient(messages.toReversed())
     setSessionClient(client)
     setState("session", session())
@@ -239,14 +238,11 @@ describe("single-session message cache", () => {
 
     expect(client.requests).toEqual([{ sessionID: "session", limit: 20, order: "desc" }])
     expect(state.sessionMessages.map((message) => message.id)).toEqual(["msg_user", "msg_assistant"])
-    expect(state.messages.map((item) => item.info.id)).toEqual(["msg_user", "msg_assistant"])
-    expect(state.messages[0]?.info).toMatchObject({
-      role: "user",
-      agent: "7777",
-      model: { providerID: "provider", modelID: "model" },
+    expect(state.sessionMessages[0]).toMatchObject({ type: "user", text: "hello" })
+    expect(state.sessionMessages[1]).toMatchObject({
+      type: "assistant",
+      content: [{ type: "reasoning" }, { type: "text" }],
     })
-    expect(state.messages[1]?.info).toMatchObject({ role: "assistant", parentID: "msg_user" })
-    expect(state.messages[1]?.parts.map((part) => part.type)).toEqual(["reasoning", "text"])
   })
 
   test("keeps admitted-but-undelivered inbox items through message-list refreshes", async () => {
@@ -256,12 +252,7 @@ describe("single-session message cache", () => {
 
     await refreshMessages(20)
 
-    expect(state.sessionMessages.map((message) => message.id)).toEqual([
-      "msg_user",
-      "msg_assistant",
-      "msg_pending",
-    ])
-    expect(state.messages.map((item) => item.info.id)).toEqual(["msg_user", "msg_assistant", "msg_pending"])
+    expect(state.sessionMessages.map((message) => message.id)).toEqual(["msg_user", "msg_assistant", "msg_pending"])
   })
 
   test("does not apply a response after the active session changes", async () => {
@@ -274,6 +265,5 @@ describe("single-session message cache", () => {
     await refresh
 
     expect(state.sessionMessages).toEqual([])
-    expect(state.messages).toEqual([])
   })
 })

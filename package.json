@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "@opencode-ai/client": "workspace:*",
+    "@opencode-ai/schema": "workspace:*",
     "@opencode-ai/session-ui": "workspace:*",
     "@opencode-ai/ui": "workspace:*",
     "dompurify": "catalog:",
-    "effect": "catalog:",
     "marked": "catalog:",
     "solid-js": "catalog:"
   },

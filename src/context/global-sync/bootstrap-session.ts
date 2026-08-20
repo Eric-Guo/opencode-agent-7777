@@ -43,7 +43,6 @@ export function activateSession(
   setState("session", session)
   setState("sessionStatus", idleStatus)
   setState("sessionMessages", [])
-  setState("messages", [])
   resetPendingEchoes()
   setState("permission", reconcile({}))
   setState("permissionResponding", undefined)
