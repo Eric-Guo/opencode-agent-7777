@@ -1,31 +1,37 @@
+import { Timeline, TimelineRow } from "@opencode-ai/session-ui/timeline/projection"
 import {
-  ContextToolGroup,
-  Message as SharedMessage,
   MessageDivider,
-  Part as MessagePart,
-  partDefaultOpen,
-  type UserActions,
-} from "@opencode-ai/session-ui/message-part"
+  SessionAssistantContent,
+  SessionContextToolGroup,
+  SessionShellMessage,
+  SessionUserMessage,
+  currentContentDefaultOpen,
+  type SessionUserActions,
+  type SessionUserComment,
+} from "@opencode-ai/session-ui/message"
 import { SessionRetry } from "@opencode-ai/session-ui/session-retry"
 import { Card } from "@opencode-ai/ui/card"
 import { TextReveal } from "@opencode-ai/ui/text-reveal"
 import { TextShimmer } from "@opencode-ai/ui/text-shimmer"
-import { createMemo, For, Show, type Accessor, type ComponentProps, type JSX } from "solid-js"
+import { createMemo, For, Show, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
-import type { SessionMessageInfo, SessionStatus } from "@opencode-ai/client/promise"
+import type {
+  ModelRef,
+  SessionMessageAssistant,
+  SessionMessageAssistantTool,
+  SessionMessageInfo,
+  SessionMessageUser,
+  SessionStatus,
+} from "@opencode-ai/client/promise"
 import { useLanguage } from "@/context/language"
-import type { HistoryItem } from "@/context/global-sync/types"
-import type { AssistantMessage, ToolPart } from "@/types"
-import { TimelineRow, type TimelineRowMap } from "./rows"
+import { parseCommentNote, readCommentMetadata } from "@/utils/comment-note"
+import type { MessageTimelineRow } from "./model"
+import { TimelineDiffSummary } from "./timeline-row"
 
-type SharedMessageProps = ComponentProps<typeof SharedMessage>
-type SharedPartProps = ComponentProps<typeof MessagePart>
-type SharedContextProps = ComponentProps<typeof ContextToolGroup>
-type FramedTimelineRow = Exclude<TimelineRow.TimelineRow, { _tag: "TurnGap" }>
-type TimelineRowByTag<T extends TimelineRow.TimelineRow["_tag"]> = Extract<TimelineRow.TimelineRow, { _tag: T }>
+const emptyAssistantMessages: SessionMessageAssistant[] = []
+const emptyTools: SessionMessageAssistantTool[] = []
 
-const emptyAssistantMessages: AssistantMessage[] = []
-const emptyTools: ToolPart[] = []
+type RowByTag<T extends TimelineRow.TimelineRow["_tag"]> = Extract<TimelineRow.TimelineRow, { _tag: T }>
 
 function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSummaries: boolean }) {
   const language = useLanguage()
@@ -41,11 +47,14 @@ function TimelineThinkingRow(props: { reasoningHeading?: string; showReasoningSu
 }
 
 type MessageTimelineProps = {
-  rows: TimelineRow.TimelineRow[]
-  items: HistoryItem[]
-  sessionMessageByID: ReadonlyMap<string, SessionMessageInfo>
+  rows: MessageTimelineRow[]
+  sessionID: string
+  messageByID: ReadonlyMap<string, SessionMessageInfo>
+  userContextByID: ReadonlyMap<string, { agent: string; model: ModelRef }>
+  assistantMessagesByParent: ReadonlyMap<string, SessionMessageAssistant[]>
+  lastAssistantGroupKey: ReadonlyMap<string, string>
   activeMessageID?: string
-  actions?: UserActions
+  actions?: SessionUserActions
   showReasoningSummaries: boolean
   sessionStatus: SessionStatus
   onPointerGesture?: (target?: EventTarget | null) => void
@@ -54,32 +63,6 @@ type MessageTimelineProps = {
 export function MessageTimeline(props: MessageTimelineProps) {
   const language = useLanguage()
   const [toolOpen, setToolOpen] = createStore<Record<string, boolean | undefined>>({})
-  const itemByID = createMemo(() => new Map(props.items.map((item) => [item.info.id, item] as const)))
-  const messageByID = createMemo(() => new Map(props.items.map((item) => [item.info.id, item.info] as const)))
-  const assistantMessagesByParent = createMemo(() => {
-    const result = new Map<string, AssistantMessage[]>()
-    props.items.forEach((item) => {
-      if (item.info.role !== "assistant") return
-      const messages = result.get(item.info.parentID)
-      if (messages) {
-        messages.push(item.info)
-        return
-      }
-      result.set(item.info.parentID, [item.info])
-    })
-    return result
-  })
-  const lastAssistantGroupKey = createMemo(() => {
-    const result = new Map<string, string>()
-    props.rows.forEach((row) => {
-      if (row._tag === "AssistantPart") result.set(row.userMessageID, row.group.key)
-    })
-    return result
-  })
-
-  const getMessageParts = (messageID: string) => itemByID().get(messageID)?.parts ?? []
-  const getMessagePart = (messageID: string, partID: string) =>
-    getMessageParts(messageID).find((part) => part.id === partID)
   const workingTurn = (userMessageID: string) =>
     props.sessionStatus.type !== "idle" && props.activeMessageID === userMessageID
 
@@ -120,93 +103,100 @@ export function MessageTimeline(props: MessageTimelineProps) {
   }
 
   const turnDurationMs = (userMessageID: string) => {
-    const message = messageByID().get(userMessageID)
-    if (!message || message.role !== "user") return
-    const end = (assistantMessagesByParent().get(userMessageID) ?? emptyAssistantMessages).reduce<number | undefined>(
-      (max, item) => {
-        const completed = item.time.completed
-        if (typeof completed !== "number") return max
-        if (max === undefined) return completed
-        return Math.max(max, completed)
-      },
-      undefined,
-    )
+    const message = props.messageByID.get(userMessageID)
+    if (!message || message.type !== "user") return
+    const end = (props.assistantMessagesByParent.get(userMessageID) ?? emptyAssistantMessages).reduce<
+      number | undefined
+    >((max, item) => {
+      const completed = item.time.completed
+      if (typeof completed !== "number") return max
+      if (max === undefined) return completed
+      return Math.max(max, completed)
+    }, undefined)
     if (typeof end !== "number" || end < message.time.created) return
     return end - message.time.created
   }
 
-  const assistantCopyPartID = (userMessageID: string) => {
+  const assistantCopyContentID = (userMessageID: string) => {
     if (workingTurn(userMessageID)) return null
-    const messages = assistantMessagesByParent().get(userMessageID) ?? emptyAssistantMessages
-
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i]
-      if (!message) continue
-      const parts = getMessageParts(message.id)
-      for (let j = parts.length - 1; j >= 0; j--) {
-        const part = parts[j]
-        if (!part || part.type !== "text" || !part.text?.trim()) continue
-        return part.id
-      }
-    }
+    return (props.assistantMessagesByParent.get(userMessageID) ?? emptyAssistantMessages)
+      .toReversed()
+      .flatMap((message) => Timeline.contentEntries(message).toReversed())
+      .find((entry) => entry.content.type === "text" && !!entry.content.text.trim())?.id
   }
 
-  const renderAssistantPartGroup = (row: Accessor<TimelineRowMap["AssistantPart"]>) => {
+  const userComments = (message: SessionMessageUser): SessionUserComment[] => {
+    const comment = readCommentMetadata(message.metadata) ?? parseCommentNote(message.text)
+    if (!comment) return []
+    return [
+      {
+        path: comment.path,
+        comment: comment.comment,
+        selection: comment.selection
+          ? { startLine: comment.selection.startLine, endLine: comment.selection.endLine }
+          : undefined,
+      },
+    ]
+  }
+
+  const renderAssistantPartGroup = (row: Accessor<RowByTag<"AssistantPart">>) => {
     if (row().group.type === "context") {
-      const parts = createMemo(() => {
+      const tools = createMemo(() => {
         const group = row().group
         if (group.type !== "context") return emptyTools
-        return group.refs
-          .map((ref) => getMessagePart(ref.messageID, ref.partID))
-          .filter((part): part is ToolPart => part?.type === "tool")
+        return group.refs.flatMap((ref) => {
+          const message = props.messageByID.get(ref.messageID)
+          const content = Timeline.resolveContent(message, ref.partID)
+          return message?.type === "assistant" && content?.type === "tool" ? [content] : []
+        })
       })
       const contextOpenKey = () => `context:${row().group.key}`
-      const open = createMemo(() => toolOpen[contextOpenKey()] === true)
 
       return (
-        <ContextToolGroup
-          parts={parts() as SharedContextProps["parts"]}
-          open={open()}
+        <SessionContextToolGroup
+          tools={tools()}
+          open={toolOpen[contextOpenKey()] === true}
           onOpenChange={(value) => setToolOpen(contextOpenKey(), value)}
           busy={
-            workingTurn(row().userMessageID) && lastAssistantGroupKey().get(row().userMessageID) === row().group.key
+            workingTurn(row().userMessageID) && props.lastAssistantGroupKey.get(row().userMessageID) === row().group.key
           }
         />
       )
     }
 
-    const message = createMemo(() => {
+    const ref = createMemo(() => {
       const group = row().group
-      if (group.type !== "part") return
-      return messageByID().get(group.ref.messageID)
+      return group.type === "part" ? group.ref : undefined
     })
-    const part = createMemo(() => {
-      const group = row().group
-      if (group.type !== "part") return
-      return getMessagePart(group.ref.messageID, group.ref.partID)
+    const message = createMemo(() => {
+      const current = ref()
+      const value = current ? props.messageByID.get(current.messageID) : undefined
+      return value?.type === "assistant" ? value : undefined
+    })
+    const content = createMemo(() => {
+      const current = ref()
+      return current ? Timeline.resolveContent(message(), current.partID) : undefined
     })
     const defaultOpen = createMemo(() => {
-      const item = part()
+      const item = content()
       if (!item) return
-      return partDefaultOpen(item as SharedPartProps["part"])
+      return currentContentDefaultOpen(item, false, false)
     })
 
     return (
       <Show when={message()}>
         {(message) => (
-          <Show when={part()}>
-            {(part) => (
-              <MessagePart
-                part={part() as SharedPartProps["part"]}
-                message={message() as SharedPartProps["message"]}
-                showAssistantCopyPartID={assistantCopyPartID(row().userMessageID)}
+          <Show when={content()}>
+            {(content) => (
+              <SessionAssistantContent
+                message={message()}
+                content={content()}
+                contentID={ref()!.partID}
+                showAssistantCopyPartID={assistantCopyContentID(row().userMessageID)}
                 turnDurationMs={turnDurationMs(row().userMessageID)}
-                useV2Actions
                 defaultOpen={defaultOpen()}
-                toolOpen={toolOpen[part().id] ?? defaultOpen()}
-                onToolOpenChange={(open) => setToolOpen(part().id, open)}
-                deferToolContent
-                virtualizeDiff={false}
+                toolOpen={toolOpen[row().group.key] ?? defaultOpen()}
+                onToolOpenChange={(open) => setToolOpen(row().group.key, open)}
               />
             )}
           </Show>
@@ -215,7 +205,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
     )
   }
 
-  function TimelineRowFrame(input: { row: Accessor<FramedTimelineRow>; children: JSX.Element }) {
+  function TimelineRowFrame(input: { row: Accessor<Exclude<MessageTimelineRow, TimelineRow.TurnGap>>; children: JSX.Element }) {
     const previousAssistantPart = () => {
       const row = input.row()
       return row._tag === "AssistantPart" && row.previousAssistantPart
@@ -238,26 +228,30 @@ export function MessageTimeline(props: MessageTimelineProps) {
     )
   }
 
-  const renderTimelineRow = (row: Accessor<TimelineRow.TimelineRow>) => {
+  const renderTimelineRow = (row: Accessor<MessageTimelineRow>) => {
     switch (row()._tag) {
       case "TurnGap":
         return <div data-timeline-row="TurnGap" aria-hidden="true" class="h-6" />
-      case "CommentStrip":
-        return null
       case "UserMessage": {
-        const userMessageRow = row as Accessor<TimelineRowByTag<"UserMessage">>
-        const item = createMemo(() => itemByID().get(userMessageRow().userMessageID))
+        const userMessageRow = row as Accessor<RowByTag<"UserMessage">>
+        const message = createMemo(() => {
+          const value = props.messageByID.get(userMessageRow().userMessageID)
+          return value?.type === "user" ? value : undefined
+        })
+        const context = createMemo(() => props.userContextByID.get(userMessageRow().userMessageID))
         return (
           <TimelineRowFrame row={userMessageRow}>
-            <Show when={item()}>
-              {(item) => (
+            <Show when={message()}>
+              {(message) => (
                 <div data-slot="session-turn-message-container" class="w-full">
                   <div data-slot="session-turn-message-content" aria-live="off">
-                    <SharedMessage
-                      message={item().info as SharedMessageProps["message"]}
-                      parts={item().parts as SharedMessageProps["parts"]}
+                    <SessionUserMessage
+                      sessionID={props.sessionID}
+                      message={message()}
+                      comments={userComments(message())}
+                      historicalAgent={context()?.agent ?? ""}
+                      historicalModel={context()?.model ?? { id: "", providerID: "" }}
                       actions={props.actions}
-                      useV2Actions
                     />
                   </div>
                 </div>
@@ -266,10 +260,33 @@ export function MessageTimeline(props: MessageTimelineProps) {
           </TimelineRowFrame>
         )
       }
+      case "Shell": {
+        const shellRow = row as Accessor<RowByTag<"Shell">>
+        const message = createMemo(() => {
+          const value = props.messageByID.get(shellRow().messageID)
+          return value?.type === "shell" ? value : undefined
+        })
+        return (
+          <TimelineRowFrame row={shellRow}>
+            <Show when={message()}>
+              {(message) => (
+                <div data-slot="session-turn-message-container" class="w-full">
+                  <SessionShellMessage
+                    message={message()}
+                    defaultOpen={false}
+                    open={toolOpen[message().id]}
+                    onOpenChange={(open) => setToolOpen(message().id, open)}
+                  />
+                </div>
+              )}
+            </Show>
+          </TimelineRowFrame>
+        )
+      }
       case "Notice": {
-        const noticeRow = row as Accessor<TimelineRowByTag<"Notice">>
+        const noticeRow = row as Accessor<RowByTag<"Notice">>
         const content = createMemo(() => {
-          const message = props.sessionMessageByID.get(noticeRow().messageID)
+          const message = props.messageByID.get(noticeRow().messageID)
           return message ? noticeContent(message) : undefined
         })
         return (
@@ -286,23 +303,19 @@ export function MessageTimeline(props: MessageTimelineProps) {
         )
       }
       case "TurnDivider": {
-        const turnDividerRow = row as Accessor<TimelineRowByTag<"TurnDivider">>
+        const turnDividerRow = row as Accessor<RowByTag<"TurnDivider">>
         return (
           <TimelineRowFrame row={turnDividerRow}>
             <div data-slot="session-turn-message-container" class="w-full">
               <div data-slot="session-turn-compaction">
-                <MessageDivider
-                  label={language.t(
-                    turnDividerRow().label === "compaction" ? "ui.messagePart.compaction" : "ui.message.interrupted",
-                  )}
-                />
+                <MessageDivider label={language.t("ui.message.interrupted")} />
               </div>
             </div>
           </TimelineRowFrame>
         )
       }
       case "AssistantPart": {
-        const assistantPartRow = row as Accessor<TimelineRowByTag<"AssistantPart">>
+        const assistantPartRow = row as Accessor<RowByTag<"AssistantPart">>
         return (
           <TimelineRowFrame row={assistantPartRow}>
             <div data-slot="session-turn-message-container" class="w-full">
@@ -317,7 +330,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
         )
       }
       case "Thinking": {
-        const thinkingRow = row as Accessor<TimelineRowByTag<"Thinking">>
+        const thinkingRow = row as Accessor<RowByTag<"Thinking">>
         return (
           <TimelineRowFrame row={thinkingRow}>
             <div data-slot="session-turn-message-container" class="w-full">
@@ -330,7 +343,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
         )
       }
       case "Retry": {
-        const retryRow = row as Accessor<TimelineRowByTag<"Retry">>
+        const retryRow = row as Accessor<RowByTag<"Retry">>
         return (
           <TimelineRowFrame row={retryRow}>
             <div data-slot="session-turn-message-container" class="w-full">
@@ -340,7 +353,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
         )
       }
       case "DiffSummary": {
-        const diffSummaryRow = row as Accessor<TimelineRowByTag<"DiffSummary">>
+        const diffSummaryRow = row as Accessor<TimelineDiffSummary>
         return (
           <TimelineRowFrame row={diffSummaryRow}>
             <div data-slot="session-turn-message-container" class="w-full">
@@ -357,7 +370,7 @@ export function MessageTimeline(props: MessageTimelineProps) {
         )
       }
       case "Error": {
-        const errorRow = row as Accessor<TimelineRowByTag<"Error">>
+        const errorRow = row as Accessor<RowByTag<"Error">>
         return (
           <TimelineRowFrame row={errorRow}>
             <div data-slot="session-turn-message-container" class="w-full">

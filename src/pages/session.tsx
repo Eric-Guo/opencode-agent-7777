@@ -1,6 +1,6 @@
 import { Spinner } from "@opencode-ai/ui/spinner"
 import { DataProvider } from "@opencode-ai/session-ui/context"
-import type { UserActions } from "@opencode-ai/session-ui/message-part"
+import type { SessionUserActions } from "@opencode-ai/session-ui/actions"
 import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/components/session"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
@@ -46,16 +46,13 @@ export function SessionPage() {
     userDialogCount: timeline.userDialogCount,
   })
   const sessionUiData = createMemo(
-    () =>
-      ({
-        session: state.session ? [state.session] : [],
-        session_status: state.session ? { [state.session.id]: state.sessionStatus } : {},
-        session_diff: {},
-        message: state.session ? { [state.session.id]: state.messages.map((item) => item.info) } : {},
-        part: Object.fromEntries(state.messages.map((item) => [item.info.id, item.parts])),
-      }) as unknown as SessionUiData,
+    (): SessionUiData => ({
+      session: state.session ? [state.session] : [],
+      session_status: state.session ? { [state.session.id]: state.sessionStatus } : {},
+      session_diff: {},
+    }),
   )
-  const actions: UserActions = {
+  const actions: SessionUserActions = {
     revert: (input) => {
       const active = currentSession()
       if (!active) return
@@ -130,8 +127,11 @@ export function SessionPage() {
             <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
               <MessageTimeline
                 rows={timeline.visibleRows()}
-                items={state.messages}
-                sessionMessageByID={timeline.sessionMessageByID()}
+                sessionID={state.session?.id ?? ""}
+                messageByID={timeline.messageByID()}
+                userContextByID={timeline.userContextByID()}
+                assistantMessagesByParent={timeline.assistantMessagesByParent()}
+                lastAssistantGroupKey={timeline.lastAssistantGroupKey()}
                 activeMessageID={timeline.activeMessageID()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
