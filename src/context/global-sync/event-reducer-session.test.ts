@@ -27,7 +27,6 @@ afterEach(() => {
   setSessionClient(undefined)
   setState("session", undefined)
   setState("sessionMessages", [])
-  setState("messages", [])
   setState("error", "")
 })
 
@@ -84,16 +83,8 @@ describe("applySessionEvent", () => {
     )
 
     expect(refreshes).toBe(0)
-    const assistant = state.messages.find((item) => item.info.id === "msg_assistant")
-    expect(assistant?.parts).toEqual([
-      {
-        id: "msg_assistant:text:0",
-        sessionID: "session",
-        messageID: "msg_assistant",
-        type: "text",
-        text: "hello",
-      },
-    ])
+    const assistant = state.sessionMessages.find((item) => item.id === "msg_assistant")
+    expect(assistant).toMatchObject({ type: "assistant", content: [{ type: "text", text: "hello" }] })
   })
 
   test("ignores events for other sessions", () => {
@@ -113,7 +104,7 @@ describe("applySessionEvent", () => {
 
     expect(handled).toBe(false)
     expect(refreshes).toBe(0)
-    expect(state.messages).toEqual([])
+    expect(state.sessionMessages).toEqual([])
   })
 
   test("refreshes for session events the reducer does not project", () => {

@@ -1,7 +1,5 @@
-// Reduces events for the one active session; streams V2 content deltas through the shared main-app reducer
-// and delegates message hydration to the refresh queue.
+// Reduces current-message events for the one active session and delegates missed hydration to the refresh queue.
 import type { OpenCodeEvent, SessionStatus } from "@opencode-ai/client/promise"
-import { projectSessionMessages } from "@/context/global-sync/session-cache-projection"
 import { createV2SessionReducer } from "@/context/server-session-v2-reducer"
 import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
 import { readableError } from "@/utils/readable-error"
@@ -14,15 +12,6 @@ function applyReduction(event: OpenCodeEvent) {
   const reduction = reducer.reduce(state.sessionMessages, event, state.session)
   if (!reduction) return false
   setState("sessionMessages", reduction.messages)
-  setState(
-    "messages",
-    projectSessionMessages({
-      sessionID: active.sessionID,
-      session: state.session,
-      localAgent: active.localAgent,
-      messages: reduction.messages,
-    }),
-  )
   return true
 }
 

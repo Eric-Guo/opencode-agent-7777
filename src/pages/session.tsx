@@ -19,10 +19,10 @@ import {
   SESSION_ROUTE_FRAME_CLASS,
   useSessionLayout,
 } from "@/pages/session/session-layout-compact"
-import { MessageTimeline } from "@/pages/session/timeline/message-timeline"
-import { createTimelineModel } from "@/pages/session/timeline/model"
+import { CompactMessageTimeline } from "@/pages/session/timeline/message-timeline-compact"
+import { createCompactTimelineModel } from "@/pages/session/timeline/model-compact"
 import { useSessionHashScrollToEnd } from "@/pages/session/use-session-hash-scroll-to-end"
-import { extractPromptFromParts } from "@/utils/prompt"
+import { extractPromptFromMessage } from "@/utils/prompt"
 import { readableError } from "@/utils/readable-error"
 import { sessionDirectory } from "@/context/session-directory"
 
@@ -33,11 +33,10 @@ export function SessionPage() {
   let timelinePointerGesture = 0
   const timelinePointerGestureWindowMs = 250
   const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
-  const timeline = createTimelineModel({
-    messages: () => state.messages,
-    sessionMessages: () => state.sessionMessages,
+  const timeline = createCompactTimelineModel({
+    sessionID: () => state.session?.id ?? "",
+    messages: () => state.sessionMessages,
     loading: () => state.messagesLoading,
-    showReasoningSummaries,
     revertMessageID: () => state.session?.revert?.messageID,
     status: () => state.sessionStatus,
   })
@@ -56,14 +55,14 @@ export function SessionPage() {
     revert: (input) => {
       const active = currentSession()
       if (!active) return
-      const message = state.messages.find((item) => item.info.id === input.messageID)
-      const draft = message ? extractPromptFromParts(message.parts) : undefined
+      const message = state.sessionMessages.find((item) => item.id === input.messageID)
+      const draft = message?.type === "user" ? extractPromptFromMessage(message) : undefined
       setState("error", "")
       return active.client.session.revert
         .stage({ sessionID: active.sessionID, messageID: input.messageID })
         .then((result) => {
           setState("session", "revert", result)
-          if (draft) prompt.restore({ prompt: draft.text, attachments: draft.attachments })
+          if (draft) prompt.restore(draft)
           return refreshMessages(FETCH_MESSAGE_LIMIT)
         })
         .catch((error) => setState("error", readableError(error)))
@@ -125,17 +124,10 @@ export function SessionPage() {
             }
           >
             <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
-              <MessageTimeline
-                rows={timeline.visibleRows()}
-                sessionID={state.session?.id ?? ""}
-                messageByID={timeline.messageByID()}
-                userContextByID={timeline.userContextByID()}
-                assistantMessagesByParent={timeline.assistantMessagesByParent()}
-                lastAssistantGroupKey={timeline.lastAssistantGroupKey()}
-                activeMessageID={timeline.activeMessageID()}
+              <CompactMessageTimeline
+                document={timeline.document()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
-                sessionStatus={state.sessionStatus}
                 onPointerGesture={markTimelinePointerGesture}
               />
             </DataProvider>

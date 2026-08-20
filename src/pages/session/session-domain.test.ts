@@ -1,17 +1,25 @@
 import { describe, expect, test } from "bun:test"
-import type { AssistantMessage, Message, UserMessage } from "@/types"
+import type { SessionMessageAssistant, SessionMessageInfo, SessionMessageUser } from "@opencode-ai/client/promise"
 import { selectSessionUserMessages, selectVisibleSessionUserMessages } from "./session-domain"
 
-const user = (id: string) => ({ id, role: "user" }) as UserMessage
-const assistant = (id: string) => ({ id, role: "assistant" }) as AssistantMessage
+const user = (id: string): SessionMessageUser => ({ id, type: "user", text: id, time: { created: 0 } })
+const assistant = {
+  id: "msg_2",
+  type: "assistant",
+  time: { created: 0 },
+  agent: "build",
+  model: { id: "model", providerID: "provider" },
+  content: [],
+} as SessionMessageAssistant
 
 describe("session domain", () => {
-  test("selects users and applies the revert boundary by message order", () => {
-    const messages: Message[] = [user("msg_z"), assistant("msg_a"), user("msg_b"), user("msg_c")]
+  test("selects users and applies the ordered revert boundary", () => {
+    const messages: SessionMessageInfo[] = [user("msg_a"), assistant, user("msg_b"), user("msg_c")]
     const users = selectSessionUserMessages(messages)
 
-    expect(users.map((message) => message.id)).toEqual(["msg_z", "msg_b", "msg_c"])
-    expect(selectVisibleSessionUserMessages(users, "msg_b").map((message) => message.id)).toEqual(["msg_z"])
+    expect(users.map((message) => message.id)).toEqual(["msg_a", "msg_b", "msg_c"])
+    expect(selectVisibleSessionUserMessages(users, "msg_b").map((message) => message.id)).toEqual(["msg_a"])
+    expect(selectVisibleSessionUserMessages(users.slice(2), "msg_b")).toEqual([])
     expect(selectVisibleSessionUserMessages(users)).toBe(users)
   })
 })

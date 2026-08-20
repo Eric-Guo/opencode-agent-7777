@@ -1,9 +1,9 @@
+import { SessionMessage } from "@opencode-ai/schema/session-message"
 import { refreshRecentSessions } from "@/context/directory-sync-recent-sessions"
 import { dropPendingEcho, echoPendingUserMessage } from "@/context/global-sync/session-cache-messages"
 import { prompt } from "@/context/prompt"
 import { scheduleRefresh } from "@/context/server-sync-session"
 import { currentSession, idleStatus, setState, state } from "@/context/server-session-store"
-import { Identifier } from "@/utils/id"
 import { readableError } from "@/utils/readable-error"
 
 export function submitPrompt() {
@@ -13,7 +13,7 @@ export function submitPrompt() {
   if (!active || state.submitting || (!text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
 
-  const messageID = Identifier.ascending("message")
+  const messageID = SessionMessage.ID.create()
   const requestFiles = attachments.map((attachment) => ({
     uri: attachment.url,
     name: attachment.sourcePath ?? attachment.filename,

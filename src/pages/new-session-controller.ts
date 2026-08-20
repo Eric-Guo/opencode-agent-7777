@@ -35,7 +35,8 @@ export function startNewSession() {
     canReuseCurrentSession({
       hasSession: !!state.session,
       messagesLoading: state.messagesLoading,
-      messageCount: state.messages.length,
+      messageCount: state.sessionMessages.filter((message) => message.type === "user" || message.type === "shell")
+        .length,
       prompt: prompt.current(),
       attachmentCount: prompt.attachments().length,
     })

@@ -8,14 +8,8 @@ import type {
   SessionMessageInfo,
   SessionStatus,
 } from "@opencode-ai/client/promise"
-import type { Message, Part } from "@/types"
 
 export type LoadStatus = "loading" | "ready" | "failed"
-
-export type HistoryItem = {
-  info: Message
-  parts: Part[]
-}
 
 export type State = {
   status: LoadStatus
@@ -27,7 +21,6 @@ export type State = {
   recentSessionSwitchingID: string | undefined
   sessionStatus: SessionStatus
   sessionMessages: SessionMessageInfo[]
-  messages: HistoryItem[]
   messagesLoading: boolean
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
