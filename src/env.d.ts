@@ -42,9 +42,14 @@ type DesktopAPI = {
   showNotification?: (title: string, body?: string) => void
 }
 
+type ElectronNative = {
+  getPathForFile: (file: File) => string
+}
+
 declare global {
   interface Window {
     api?: DesktopAPI
+    electron: ElectronNative
   }
 }
 
