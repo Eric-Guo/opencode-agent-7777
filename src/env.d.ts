@@ -33,7 +33,7 @@ type DesktopPickedFile = {
 
 type DesktopAPI = {
   awaitInitialization: () => Promise<DesktopServerReadyData>
-  getCybrosCurrentUser?: () => Promise<CybrosCurrentUser>
+  getCybrosCurrentUser?: () => Promise<CybrosCurrentUser | null>
   openFilePicker?: (opts?: {
     multiple?: boolean
     title?: string
@@ -48,9 +48,14 @@ type DesktopAPI = {
   showNotification?: (title: string, body?: string) => void
 }
 
+type ElectronNative = {
+  getPathForFile: (file: File) => string
+}
+
 declare global {
   interface Window {
     api?: DesktopAPI
+    electron: ElectronNative
   }
 }
 
