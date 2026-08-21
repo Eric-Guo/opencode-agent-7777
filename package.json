@@ -11,6 +11,7 @@
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
+    "@opencode-ai/app": "workspace:*",
     "@opencode-ai/client": "workspace:*",
     "@opencode-ai/schema": "workspace:*",
     "@opencode-ai/session-ui": "workspace:*",
