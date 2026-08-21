@@ -1,5 +1,5 @@
-import { PromptInputV2 } from "@opencode-ai/session-ui/v2/prompt-input"
-import { createPromptInputV2Controller } from "@opencode-ai/session-ui/v2/prompt-input/interaction"
+import { ComposerEditor } from "@opencode-ai/app/composer/editor"
+import { createComposerEditor } from "@opencode-ai/app/composer/editor/interaction"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
 import { Button } from "@opencode-ai/ui/button"
@@ -78,7 +78,7 @@ export function PromptInputV2Composer(props: {
       props.modelStatus !== "ready" ||
       !props.model.list().some((item) => props.model.visible({ modelID: item.id, providerID: item.provider.id })),
   )
-  const controller = createPromptInputV2Controller({
+  const controller = createComposerEditor({
     store: prompt.store,
     identity: () => state.session?.id,
     onChange: prompt.persist,
@@ -113,7 +113,7 @@ export function PromptInputV2Composer(props: {
   })
 
   return (
-    <PromptInputV2
+    <ComposerEditor
       controller={controller}
       disabled={props.disabled}
       class="mx-auto max-w-[1120px]"

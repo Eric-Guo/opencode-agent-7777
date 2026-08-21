@@ -1,10 +1,6 @@
 import { batch } from "solid-js"
-import { createStore } from "solid-js/store"
-import type {
-  PromptInputV2Attachment,
-  PromptInputV2PersistedState,
-  PromptInputV2Prompt,
-} from "@opencode-ai/session-ui/v2/prompt-input"
+import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
+import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@opencode-ai/app/composer/editor"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
 import { createLegacyBlobReference } from "@/utils/draft-store-local"
 
@@ -24,11 +20,25 @@ export type PromptDraft = {
 
 type PromptStateChange = (draft: PromptDraft) => void
 
-function promptState(draft?: PromptDraft): PromptInputV2PersistedState {
-  const prompt: PromptInputV2Prompt = [
+export type PromptState = {
+  store: [Store<ComposerPersistedState>, SetStoreFunction<ComposerPersistedState>]
+  current: () => string
+  attachments: () => PromptAttachment[]
+  dirty: () => boolean
+  capture: () => PromptDraft
+  persist: () => void
+  set: (value: string) => void
+  addAttachment: (attachment: PromptAttachment) => void
+  removeAttachment: (id: string) => void
+  restore: (draft?: PromptDraft) => void
+  reset: () => void
+}
+
+function promptState(draft?: PromptDraft): ComposerPersistedState {
+  const prompt: ComposerPrompt = [
     { type: "text", content: draft?.prompt ?? "", start: 0, end: draft?.prompt.length ?? 0 },
     ...(draft?.attachments.map(
-      (attachment): PromptInputV2Attachment => ({
+      (attachment): ComposerAttachment => ({
         type: "image",
         id: attachment.id,
         filename: attachment.filename,
@@ -47,11 +57,11 @@ function promptState(draft?: PromptDraft): PromptInputV2PersistedState {
   }
 }
 
-function promptText(prompt: PromptInputV2Prompt) {
+function promptText(prompt: ComposerPrompt) {
   return prompt.map((part) => ("content" in part ? part.content : "")).join("")
 }
 
-function promptAttachments(prompt: PromptInputV2Prompt): PromptAttachment[] {
+function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
   return prompt.flatMap((part) =>
     part.type === "image"
       ? [
@@ -68,14 +78,14 @@ function promptAttachments(prompt: PromptInputV2Prompt): PromptAttachment[] {
   )
 }
 
-function cloneDraft(state: PromptInputV2PersistedState): PromptDraft {
+function cloneDraft(state: ComposerPersistedState): PromptDraft {
   return {
     prompt: promptText(state.prompt),
     attachments: promptAttachments(state.prompt),
   }
 }
 
-export function createPromptState(initial?: PromptDraft, onChange?: PromptStateChange) {
+export function createPromptState(initial?: PromptDraft, onChange?: PromptStateChange): PromptState {
   const [state, setStore] = createStore(promptState(initial))
   const store: [typeof state, typeof setStore] = [state, setStore]
 
