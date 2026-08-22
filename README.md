@@ -5,7 +5,7 @@ This package is the SolidJS/Vite UI for the `7777` agent.
 ## Develop
 
 ```bash
-# get from service-dev.json
+# get from cat /Users/guochunzhong/.local/state/opencode/service.json
 export OPENCODE_SERVER_PASSWORD=here
 # get from opencode service status
 export VITE_OPENCODE_SERVER_PORT=4096
@@ -65,61 +65,27 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-Target root: `<repo-root>/packages/app`. Target paths below are relative to that root.
-
-This review was refreshed against `packages/app` commit `7eb56b5bf6df0c4d44e6d0337573ee7a4e9e6e4d` on
-2026-08-23. The main app now uses feature-oriented roots such as `composer`, `providers`, `runtime`, `session`, and
-`shell`; 7777 follows those current boundaries instead of retaining the deleted `components`, `context`, `hooks`,
-`pages`, and general-purpose `utils` layout. Story-only sources and product surfaces that 7777 does not expose are
-not parity targets. An unsuffixed filename claims the same responsibility as the main app; a narrower implementation
-uses a descriptive name such as `client-compact.ts`, `state-compact.ts`, or `message-timeline-compact.tsx`.
-
-There are now 33 regular 7777 source-tree files with a same-relative-path main-app counterpart, 12 of which are byte-for-byte
-identical. Immediately before this layout pass, the reorganized main app shared only four relative source paths with
-7777; the previous 37/11 result described the older `647e9da…` layout and is not comparable. No path-based source
-import, symlink, public-directory setting, or runtime read reaches into `../app`; the existing declared
-`@opencode-ai/app` composer exports remain a package dependency.
+Target root: `<repo-root>/packages/app`, refreshed against commit `7eb56b5` on 2026-08-23. Story-only sources and
+surfaces 7777 does not expose are not parity targets. An unsuffixed filename claims the same responsibility as the
+main app; a narrower implementation uses a descriptive `-compact` name. Nothing imports from or reads `../app` —
+shared code arrives through the `@opencode-ai/app` package dependency. 33 source files share a relative path with
+the main app, 12 byte-for-byte identical.
 
 | Feature/source area | Same-responsibility 7777 boundaries | Descriptive or 7777-only boundaries | Remaining intentional difference |
 | --- | --- | --- | --- |
-| App runtime, language, and platform | `src/app.tsx`, `src/entry.tsx`, `src/runtime/i18n/language.tsx`, `src/runtime/i18n/en.ts`, `src/runtime/i18n/zh.ts`, `src/index.css`, `src/env.d.ts`, `public/oc-theme-preload.js`, `public/assets/Inter.ttf` | `src/runtime/platform/desktop-rpc-client.ts`, `src/runtime/platform/platform-bridge.ts`, `src/runtime/server/resolver-compact.ts`, package-local favicon copies | 7777 mounts below `#oc-agent`, exposes English and Chinese, resolves one server, and uses a narrow embedding-shell bridge. It does not reproduce the router, server registry, full platform context, or full locale catalog. |
-| Server clients, sync, and current-session state | `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session files under `src/runtime/server/global-sync/` | The main app uses the shared reactive data layer for multiple servers and locations. 7777 keeps one direct client, SSE stream, session, and ordered current-message list. |
-| Provider catalog and model selection | `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/composer/selection.ts` | `src/providers/catalog/client-compact.ts`, `src/providers/catalog/loader-compact.ts`, `src/providers/models/store-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | 7777 loads the catalog imperatively and retains source-controlled defaults. It omits global/directory provider stores, provider contexts, and model variants. |
-| Prompt input and composer | `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/composer-compact.tsx`, `src/composer/state-compact.ts`, `src/composer/persistence-singleton.ts`, `src/composer/submit-compact.ts`, `src/runtime/persistence/drafts-local.ts` | 7777 uses the shared `@opencode-ai/app` composer editor with commands, context, shell mode, and routed/per-tab state disabled. Its one draft remains reload-safe in localStorage. |
-| Session requests | `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts` | `src/session/requests/model-compact.ts`, `src/session/requests/permission-sync-compact.ts`, `src/session/requests/question-sync-compact.ts` | Permission and question state is scoped to the compact session tree rather than the main app's multi-location data and request models. |
-| Session shell and timeline | `src/session/screen.tsx`, `src/session/header/session-header.tsx`, shared `@opencode-ai/session-ui/timeline`, and `src/session/session-domain.ts` | `src/session/screen-layout-compact.ts`, `src/session/timeline/model-compact.ts`, `src/session/timeline/message-timeline-compact.tsx`, `src/session/use-session-hash-scroll-to-end.ts`, `src/shell/errors/banner-compact.tsx` | 7777 renders one compact pane and the latest nine dialogs. It omits routing, paging, virtualization, status popovers, terminal, review/file panels, and layout settings. |
-| Recent and new sessions | Main-app `home/sessions`, `new-session`, and `session/header` feature boundaries | `src/home/sessions/directory-sync-recent-compact.ts`, `src/home/sessions/recent-compact.ts`, `src/home/sessions/switcher-compact.ts`, `src/new-session/controller-compact.ts`, `src/session/recovery-compact.ts` | History and creation live in the compact header; there is no home route, project grouping, search, workspace selection, or background open. |
-| Shared leaf utilities | `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, shared `@opencode-ai/schema/session-message` | `src/shell/errors/readable.ts` | File-picker, search-keydown, server-error, and UUID sources are identical. The shared schema mints explicit IDs for the direct promise client. |
+| App runtime, language, and platform | `src/app.tsx`, `src/entry.tsx`, `src/runtime/i18n/language.tsx`, `src/runtime/i18n/en.ts`, `src/runtime/i18n/zh.ts`, `src/index.css`, `src/env.d.ts`, `public/oc-theme-preload.js`, `public/assets/Inter.ttf` | `src/runtime/platform/desktop-rpc-client.ts`, `src/runtime/platform/platform-bridge.ts`, `src/runtime/server/resolver-compact.ts`, package-local favicon copies | Single embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. |
+| Server clients, sync, and current-session state | `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session files under `src/runtime/server/global-sync/` | One direct client, SSE stream, and session instead of the multi-server reactive data layer. |
+| Provider catalog and model selection | `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/composer/selection.ts` | `src/providers/catalog/client-compact.ts`, `src/providers/catalog/loader-compact.ts`, `src/providers/models/store-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | Imperative catalog load with source-controlled defaults; no provider stores/contexts or model variants. |
+| Prompt input and composer | `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/composer-compact.tsx`, `src/composer/state-compact.ts`, `src/composer/persistence-singleton.ts`, `src/composer/submit-compact.ts`, `src/runtime/persistence/drafts-local.ts` | Shared composer editor with commands, context, shell mode, and routed/per-tab state disabled; one localStorage draft. |
+| Session requests | `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts` | `src/session/requests/model-compact.ts`, `src/session/requests/permission-sync-compact.ts`, `src/session/requests/question-sync-compact.ts` | Scoped to the compact session tree, not multi-location data models. |
+| Session shell and timeline | `src/session/screen.tsx`, `src/session/header/session-header.tsx`, shared `@opencode-ai/session-ui/timeline`, and `src/session/session-domain.ts` | `src/session/screen-layout-compact.ts`, `src/session/timeline/model-compact.ts`, `src/session/timeline/message-timeline-compact.tsx`, `src/session/use-session-hash-scroll-to-end.ts`, `src/shell/errors/banner-compact.tsx` | One compact pane showing the latest nine dialogs; no routing, paging, virtualization, popovers, terminal, or review/file panels. |
+| Recent and new sessions | Main-app `home/sessions`, `new-session`, and `session/header` feature boundaries | `src/home/sessions/directory-sync-recent-compact.ts`, `src/home/sessions/recent-compact.ts`, `src/home/sessions/switcher-compact.ts`, `src/new-session/controller-compact.ts`, `src/session/recovery-compact.ts` | Compact header only; no home route, grouping, search, workspace selection, or background open. |
+| Shared leaf utilities | `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, shared `@opencode-ai/schema/session-message` | `src/shell/errors/readable.ts` | Identical leaf sources; the shared schema mints explicit message IDs. |
 
-The concrete responsibility splits are:
-
-- Native session, provider, request, status, message, and event types come from `@opencode-ai/client`. The compact store
-  retains only `SessionMessageInfo[]`; there is no duplicate legacy message/part store or adapter.
-- `src/session/timeline/message-timeline-compact.tsx` is only the compact width/pointer wrapper around the shared
-  `SessionTimeline`; `src/session/timeline/model-compact.ts` owns the intentional latest-nine window, shell-turn
-  counting, readiness,
-  and revert filtering. The message cache still follows opaque cursors until that bounded window is hydrated or
-  history ends. 7777 intentionally has no review/diff panel.
-- Prompt submission merges local echoes and admitted inbox messages into the current-message cache. The direct promise
-  client requires an explicit ID, minted by the same `SessionMessage.ID.create()` schema API used by the main app.
-- Revert draft restoration reads the current user message directly, including presentation text and uploaded files.
-  `src/composer/comment-note.ts` also reads the main app's prompt-presentation metadata shape.
-- The 12 exact regular files are the Inter font, model search and its test, UUID and its test, file-picker constants,
-  server errors and its test, the permission dock, the request tree, the session domain, and search-keydown.
-- The main app moved event folding into `@opencode-ai/client/solid`; 7777 retains its imperative
-  `src/runtime/server/session-reducer-compact.ts` because it does not instantiate the multi-location reactive data
-  layer. Busy refreshes preserve in-flight assistants, compactions, and shells that `message.list` cannot return yet.
-- `src/composer/composer-compact.tsx` remains a compact wrapper over the shared `@opencode-ai/app` composer editor.
-  Draft state lives in `src/composer/state-compact.ts`, while `src/composer/persistence-singleton.ts` exposes the one
-  active instance.
-- Empty-session classes remain in `src/session/screen-layout-compact.ts`, and header status selection stays with
-  that compact layout. 7777 does not keep page-layout or status-popover filenames for surfaces it does not render.
-
-Known 7777-only configuration and recovery source remains in `src/providers/models/default-config.ts`,
-`src/providers/models/default-config.json`, `src/new-session/agent-default-config.ts`,
-`src/new-session/agent-default-config.json`, `scripts/apply-model-config-dump.ts`, `src/session/directory.ts`,
-`src/session/recovery-compact.ts`, the compact request sync under `src/session/requests/`, and 7777-specific constants
-in `src/constants/session.ts`.
+7777-only configuration and recovery sources: `src/providers/models/default-config.*`,
+`src/new-session/agent-default-config.*`, `scripts/apply-model-config-dump.ts`, `src/session/directory.ts`,
+`src/session/recovery-compact.ts`, the compact request sync under `src/session/requests/`, and
+`src/constants/session.ts`.
 
 ## Agent Welcome Content
 
@@ -343,21 +309,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "show"
       },
       {
-        "providerID": "openai",
-        "modelID": "gpt-5.5",
-        "visibility": "show"
-      },
-      {
-        "providerID": "openai",
-        "modelID": "gpt-5.4-mini",
-        "visibility": "show"
-      },
-      {
-        "providerID": "openai",
-        "modelID": "gpt-5.4",
-        "visibility": "show"
-      },
-      {
         "providerID": "github-copilot",
         "modelID": "claude-sonnet-5",
         "visibility": "show"
@@ -365,11 +316,6 @@ bun run models:apply-localstorage <<'JSON'
       {
         "providerID": "github-copilot",
         "modelID": "kimi-k2.7-code",
-        "visibility": "show"
-      },
-      {
-        "providerID": "github-copilot",
-        "modelID": "mai-code-1-flash-picker",
         "visibility": "show"
       },
       {
@@ -511,6 +457,56 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "gemini-3-pro-image-preview",
         "providerID": "google",
         "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3.1-pro",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.6-flash",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "grok-4.5",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "muse-spark-1.2",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "glm-5.2",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-k2.6",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "mai-code-1.1-flash",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-5.6-luna",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-5.6-luna",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-oss-120b",
+        "providerID": "cerebras",
+        "visibility": "show"
       }
     ],
     "disabledProviders": [
@@ -540,7 +536,12 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       }
     ],
-    "recent": []
+    "recent": [
+      {
+        "modelID": "deepseek-v4-flash-free",
+        "providerID": "opencode"
+      }
+    ]
   }
 }
 JSON
