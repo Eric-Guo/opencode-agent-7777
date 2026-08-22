@@ -7,9 +7,9 @@ import { FileComponentProvider } from "@opencode-ai/ui/context/file"
 import { MarkedProvider } from "@opencode-ai/ui/context/marked"
 import { ThemeProvider } from "@opencode-ai/ui/theme/context"
 import { type ParentProps } from "solid-js"
-import { syncPlatformBackgroundColor } from "@/context/platform-bridge"
-import { LanguageProvider, type Locale, useLanguage } from "@/context/language"
-import Session from "@/pages/session"
+import { syncPlatformBackgroundColor } from "@/runtime/platform/platform-bridge"
+import { LanguageProvider, type Locale, useLanguage } from "@/runtime/i18n/language"
+import Session from "@/session/screen"
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()

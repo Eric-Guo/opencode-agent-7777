@@ -2,8 +2,8 @@ import { createEffect } from "solid-js"
 import { render } from "solid-js/web"
 import { AppBaseProviders, AppInterface } from "@/app"
 import { SET_DOCUMENT_TITLE } from "@/constants/session"
-import { isAgent7777Enabled } from "@/context/platform-bridge"
-import { currentLocalAgent } from "@/context/server-session-store"
+import { isAgent7777Enabled } from "@/runtime/platform/platform-bridge"
+import { currentLocalAgent } from "@/runtime/server/session-store-compact"
 
 function Root() {
   createEffect(() => {

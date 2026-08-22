@@ -14,7 +14,7 @@ type DefaultModelConfig = {
 
 const MODEL_CONFIG_KEY = "opencode.7777.model.config"
 const MODEL_SELECTION_KEY = "opencode.7777.model.selection"
-const configFile = new URL("../src/context/default-model-config.json", import.meta.url)
+const configFile = new URL("../src/providers/models/default-config.json", import.meta.url)
 
 function parseMaybeJson(value: unknown) {
   if (typeof value !== "string") return value

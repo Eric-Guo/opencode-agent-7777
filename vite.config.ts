@@ -12,7 +12,6 @@ const serverUsername = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
 
 export default defineConfig({
   base: "./",
-  publicDir: "../app/public",
   plugins: [
     {
       name: "opencode-7777:config",

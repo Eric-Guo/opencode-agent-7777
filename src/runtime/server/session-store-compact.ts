@@ -1,0 +1,61 @@
+import { createStore } from "solid-js/store"
+import type { State } from "@/runtime/server/global-sync/types"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { translateSync } from "@/runtime/i18n/language"
+import type { OpencodeClient } from "@/runtime/server/client-compact"
+import type { SessionStatus } from "@opencode-ai/client/promise"
+
+// Compact single-session UI store; prompt draft state lives in composer/state-compact.ts.
+
+export type { LoadStatus } from "@/runtime/server/global-sync/types"
+
+export const idleStatus = Object.freeze({ type: "idle" } satisfies SessionStatus)
+
+export const [state, setState] = createStore<State>({
+  status: "loading",
+  modelStatus: "loading",
+  server: undefined,
+  session: undefined,
+  recentSessions: [],
+  recentSessionsLoading: false,
+  recentSessionSwitchingID: undefined,
+  sessionStatus: { ...idleStatus },
+  sessionMessages: [],
+  messagesLoading: false,
+  models: [],
+  selectedModel: undefined,
+  permission: {},
+  permissionResponding: undefined,
+  form: {},
+  questionResponding: undefined,
+  submitting: false,
+  error: "",
+})
+
+let client: OpencodeClient | undefined
+
+export type ActiveSession = {
+  client: OpencodeClient
+  sessionID: string
+  localAgent: string
+}
+
+export function setSessionClient(next: OpencodeClient | undefined) {
+  client = next
+}
+
+export function currentLocalAgent() {
+  return state.server?.localAgent ?? state.session?.agent ?? AGENT_DEFAULT_CONFIG.localAgent
+}
+
+export function currentSession(): ActiveSession | undefined {
+  if (!client || !state.session) {
+    setState("error", translateSync("error.sessionNotReady"))
+    return
+  }
+  return {
+    client,
+    sessionID: state.session.id,
+    localAgent: currentLocalAgent(),
+  }
+}
