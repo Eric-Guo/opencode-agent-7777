@@ -4,7 +4,8 @@
 
 This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Build output goes to `dist/`; generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `node_modules/`, or `.turbo/`.
 
-The Vite config uses `@` as an alias for `./src` and serves shared public assets from `../app/public`.
+The Vite config uses `@` as an alias for `./src` and serves package-owned assets from `./public`. Keep those assets
+local; this nested repository must not require files from `../app` at runtime or build time.
 
 ## Build, Test, and Development Commands
 

@@ -1,26 +1,21 @@
-import { createMemo } from "solid-js"
 import type { FormAnswer } from "@opencode-ai/client/promise"
+import { createMemo } from "solid-js"
+import { state } from "@/runtime/server/session-store-compact"
 import { decidePermission } from "@/session/requests/permission-sync-compact"
 import { rejectQuestion, replyQuestion } from "@/session/requests/question-sync-compact"
-import { setState, state } from "@/runtime/server/session-store-compact"
-import { createPromptModelSelection } from "@/composer/selection"
 import { sessionPermissionRequest, sessionQuestionForm } from "@/session/requests/session-request-tree"
 
-export function createSessionComposerController() {
-  const model = createPromptModelSelection()
+export function createSessionRequestModel() {
   const sessions = createMemo(() => (state.session ? [state.session, ...state.recentSessions] : state.recentSessions))
   const permissionRequest = createMemo(() => sessionPermissionRequest(sessions(), state.permission, state.session?.id))
   const questionRequest = createMemo(() => sessionQuestionForm(sessions(), state.form, state.session?.id))
 
   return {
-    disabled: createMemo(() => state.status !== "ready" || !!questionRequest()),
-    model,
-    modelStatus: () => state.modelStatus,
+    blocked: createMemo(() => !!permissionRequest() || !!questionRequest()),
     permissionRequest,
     permissionResponding: () => state.permissionResponding === permissionRequest()?.id,
     questionRequest,
     questionResponding: () => state.questionResponding === questionRequest()?.id,
-    setAttachmentError: (message: string) => setState("error", message),
     decidePermission(response: "once" | "always" | "reject") {
       const request = permissionRequest()
       if (request) decidePermission(request, response)
@@ -36,4 +31,4 @@ export function createSessionComposerController() {
   }
 }
 
-export type SessionComposerController = ReturnType<typeof createSessionComposerController>
+export type SessionRequestModel = ReturnType<typeof createSessionRequestModel>

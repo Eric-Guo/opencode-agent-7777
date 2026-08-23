@@ -5,7 +5,7 @@ This package is the SolidJS/Vite UI for the `7777` agent.
 ## Develop
 
 ```bash
-# get from cat /Users/guochunzhong/.local/state/opencode/service.json
+# read <opencode-state-folder>/service.json
 export OPENCODE_SERVER_PASSWORD=here
 # get from opencode service status
 export VITE_OPENCODE_SERVER_PORT=4096
@@ -65,22 +65,23 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-Target root: `<repo-root>/packages/app`, refreshed against commit `7eb56b5` on 2026-08-23. Story-only sources and
+Target root: `<repo-root>/packages/app`, refreshed against commit `a224d8986` on 2026-08-23. Story-only sources and
 surfaces 7777 does not expose are not parity targets. An unsuffixed filename claims the same responsibility as the
-main app; a narrower implementation uses a descriptive `-compact` name. Nothing imports from or reads `../app` —
-shared code arrives through the `@opencode-ai/app` package dependency. 33 source files share a relative path with
-the main app, 12 byte-for-byte identical.
+main app; a narrower implementation uses a descriptive `-compact` name. Runtime and package code do not import from
+or read `../app` — shared code arrives through the `@opencode-ai/app` package dependency. 36 source files share a
+relative path with the main app, 14 byte-for-byte identical. All five public files with shared relative paths are
+also byte-for-byte identical; the favicon files are package-owned copies rather than links into the main app.
 
 | Feature/source area | Same-responsibility 7777 boundaries | Descriptive or 7777-only boundaries | Remaining intentional difference |
 | --- | --- | --- | --- |
 | App runtime, language, and platform | `src/app.tsx`, `src/entry.tsx`, `src/runtime/i18n/language.tsx`, `src/runtime/i18n/en.ts`, `src/runtime/i18n/zh.ts`, `src/index.css`, `src/env.d.ts`, `public/oc-theme-preload.js`, `public/assets/Inter.ttf` | `src/runtime/platform/desktop-rpc-client.ts`, `src/runtime/platform/platform-bridge.ts`, `src/runtime/server/resolver-compact.ts`, package-local favicon copies | Single embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. |
-| Server clients, sync, and current-session state | `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session files under `src/runtime/server/global-sync/` | One direct client, SSE stream, and session instead of the multi-server reactive data layer. |
-| Provider catalog and model selection | `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/composer/selection.ts` | `src/providers/catalog/client-compact.ts`, `src/providers/catalog/loader-compact.ts`, `src/providers/models/store-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | Imperative catalog load with source-controlled defaults; no provider stores/contexts or model variants. |
+| Server clients, sync, and current-session state | `src/runtime/server/api.ts`, `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session files under `src/runtime/server/global-sync/` | One direct client, SSE stream, and session instead of the multi-server reactive data layer. |
+| Provider catalog and model selection | `src/providers/catalog/order.ts`, `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/composer/selection.ts` | `src/providers/catalog/client-compact.ts`, `src/providers/catalog/loader-compact.ts`, `src/providers/models/store-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | Imperative catalog load with source-controlled defaults; no provider stores/contexts or model variants. |
 | Prompt input and composer | `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/composer-compact.tsx`, `src/composer/state-compact.ts`, `src/composer/persistence-singleton.ts`, `src/composer/submit-compact.ts`, `src/runtime/persistence/drafts-local.ts` | Shared composer editor with commands, context, shell mode, and routed/per-tab state disabled; one localStorage draft. |
-| Session requests | `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts` | `src/session/requests/model-compact.ts`, `src/session/requests/permission-sync-compact.ts`, `src/session/requests/question-sync-compact.ts` | Scoped to the compact session tree, not multi-location data models. |
+| Session requests | `src/session/requests/model.ts`, `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts` | `src/session/requests/permission-sync-compact.ts`, `src/session/requests/question-sync-compact.ts` | The request model has the main-app responsibility boundary, backed by compact single-session sync rather than multi-location data contexts. |
 | Session shell and timeline | `src/session/screen.tsx`, `src/session/header/session-header.tsx`, shared `@opencode-ai/session-ui/timeline`, and `src/session/session-domain.ts` | `src/session/screen-layout-compact.ts`, `src/session/timeline/model-compact.ts`, `src/session/timeline/message-timeline-compact.tsx`, `src/session/use-session-hash-scroll-to-end.ts`, `src/shell/errors/banner-compact.tsx` | One compact pane showing the latest nine dialogs; no routing, paging, virtualization, popovers, terminal, or review/file panels. |
 | Recent and new sessions | Main-app `home/sessions`, `new-session`, and `session/header` feature boundaries | `src/home/sessions/directory-sync-recent-compact.ts`, `src/home/sessions/recent-compact.ts`, `src/home/sessions/switcher-compact.ts`, `src/new-session/controller-compact.ts`, `src/session/recovery-compact.ts` | Compact header only; no home route, grouping, search, workspace selection, or background open. |
-| Shared leaf utilities | `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, shared `@opencode-ai/schema/session-message` | `src/shell/errors/readable.ts` | Identical leaf sources; the shared schema mints explicit message IDs. |
+| Shared leaf utilities | `src/runtime/persistence/base64.ts`, `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, shared `@opencode-ai/schema/session-message` | `src/shell/errors/readable.ts` | Shared leaf boundaries stay local; the shared schema mints explicit message IDs. |
 
 7777-only configuration and recovery sources: `src/providers/models/default-config.*`,
 `src/new-session/agent-default-config.*`, `scripts/apply-model-config-dump.ts`, `src/session/directory.ts`,
