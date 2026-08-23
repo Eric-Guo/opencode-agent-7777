@@ -62,7 +62,6 @@ export function submitPrompt() {
       }),
     )
     .then(() => {
-      if (state.session?.id === active.sessionID) setState("sessionStatus", idleStatus)
       scheduleRefresh(250)
       return refreshRecentSessions()
     })
@@ -82,7 +81,7 @@ export function abortPrompt() {
   const active = currentSession()
   if (!active) return
   void active.client.session
-    .interrupt({ sessionID: active.sessionID })
+    .interrupt({ sessionID: active.sessionID, continue: true })
     .catch((error) => setState("error", readableError(error)))
     .finally(() => {
       setState("submitting", false)

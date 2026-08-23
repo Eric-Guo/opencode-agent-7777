@@ -23,6 +23,17 @@ export function applySessionEvent(event: OpenCodeEvent, input: { refresh: () => 
     title?: string
     revert?: unknown
   }
+  if (event.type === "session.execution.started" && data.sessionID === state.session?.id) {
+    setState("sessionStatus", { type: "busy" })
+  }
+  if (
+    (event.type === "session.execution.succeeded" ||
+      event.type === "session.execution.failed" ||
+      event.type === "session.execution.interrupted") &&
+    data.sessionID === state.session?.id
+  ) {
+    setState("sessionStatus", idleStatus)
+  }
   if (event.type === "session.status" && data.sessionID === state.session?.id && data.status) {
     setState("sessionStatus", data.status)
     return true

@@ -27,10 +27,34 @@ afterEach(() => {
   setSessionClient(undefined)
   setState("session", undefined)
   setState("sessionMessages", [])
+  setState("sessionStatus", { type: "idle" })
   setState("error", "")
 })
 
 describe("applySessionEvent", () => {
+  test("tracks execution lifecycle for the active session", () => {
+    setSessionClient(client)
+    setState("session", session())
+    const refresh = () => undefined
+
+    applySessionEvent(
+      event({ ...base, id: "evt_started", type: "session.execution.started", data: { sessionID: "session" } }),
+      { refresh },
+    )
+    expect(state.sessionStatus).toEqual({ type: "busy" })
+
+    applySessionEvent(
+      event({
+        ...base,
+        id: "evt_interrupted",
+        type: "session.execution.interrupted",
+        data: { sessionID: "session", reason: "user" },
+      }),
+      { refresh },
+    )
+    expect(state.sessionStatus).toEqual({ type: "idle" })
+  })
+
   test("streams text deltas into the projected timeline without refreshing", () => {
     setSessionClient(client)
     setState("session", session())
