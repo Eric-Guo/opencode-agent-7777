@@ -11,37 +11,49 @@ alwaysApply: true
 
 | Layer | Role |
 |-------|------|
-| `src/context/` | Providers, global stores, server/SDK wiring, sync |
-| `src/pages/` | Route-level shells and feature composition |
-| `src/components/` | Reusable UI; no route or global-store ownership |
-| `src/hooks/` | Derived data and side-effect hooks |
-| `src/utils/` | Pure helpers (prompt parsing, server URL, UUID) |
+| `src/runtime/` | Language, persistence, platform bridges, server clients, sync, and the compact session store |
+| `src/providers/` | Provider catalog loading plus model selection and visibility |
+| `src/composer/` | Shared-editor integration, compact draft state, submission, and model selection |
+| `src/session/` | Session screen, header, composer region, requests, and compact timeline composition |
+| `src/home/sessions/` | Recent-session loading, presentation, and switching for the header menu |
+| `src/new-session/` | New-session defaults and the compact header action controller |
+| `src/shell/` | Shell-level commands and error presentation |
 | `src/constants/` | Shared constants only |
 
 ## Sync & Session Boundaries
 
-- **Server lifecycle**: `server-sync.tsx` owns one active-session SSE lifecycle.
-- **Global sync**: `global-sync/bootstrap.ts`, `session-load.ts`, `session-cache.ts`, `event-reducer.ts`, `queue.ts` — keep message cache, event reduction, and refresh timers here, not in `server-session.ts`.
-- **UI store**: `server-session.ts` holds global UI state and current-session lookup only.
-- **Prompt/composer**: draft state in `context/prompt.tsx`; submit/abort in `components/prompt-input/submit.ts`; composer orchestration under `pages/session/composer/`.
-- **Timeline**: projection in `timeline/projection.ts`, rows in `timeline/rows.ts`, types in `timeline/timeline-row.ts`, rendering in `message-timeline.tsx`. No virtualization layer (7777-only omission).
+- **Server lifecycle**: `runtime/server/sync-session-compact.ts` owns the single active-session SSE lifecycle.
+- **Global sync**: the files under `runtime/server/global-sync/` own bootstrap, current-session hydration, the message
+  cache, event reduction, and refresh scheduling. Keep those concerns out of `session-store-compact.ts`.
+- **UI store**: `runtime/server/session-store-compact.ts` holds compact UI state and current-session lookup only.
+- **Prompt/composer**: draft state lives in `composer/state-compact.ts`; submit/abort lives in
+  `composer/submit-compact.ts`; session composition lives under `session/composer/`.
+- **Requests**: `session/requests/model.ts` exposes the UI request model. The `permission-sync-compact.ts` and
+  `question-sync-compact.ts` files own single-session server synchronization and replies.
+- **Timeline**: `@opencode-ai/session-ui/timeline` owns shared projection and rendering. Local bounded-window logic
+  stays in `session/timeline/model-compact.ts` and `message-timeline-compact.tsx`.
 
 ## Parity Rules
 
-When adding or moving a feature that exists in `packages/app`:
+When adding or moving a feature that exists in `<repo-root>/packages/app`:
 
 1. **Match app filenames and module boundaries** for that feature.
-2. **Keep 7777-only code** in place when the compact architecture requires it (e.g. `session-recovery.ts`, `default-model-config.*`, `question.tsx`).
+2. **Keep narrower code descriptive** with a `-compact` suffix when it does not claim the main app's full
+   responsibility.
 3. **Update `README.md` parity table** in the same change if layout intentionally differs or a new 7777-only module is added.
+4. **Keep this repository self-contained**: do not import or serve files through `../app`. Use an exported package
+   API when one exists; otherwise keep the implementation or asset local.
 
 ```text
-# ❌ BAD — message cache logic in server-session.ts
-# ✅ GOOD — mutate cache via global-sync/session-cache.ts; reducer dispatches from event-reducer.ts
+# ❌ BAD — message cache logic in session-store-compact.ts
+# ✅ GOOD — mutate the cache through runtime/server/global-sync/session-cache-messages.ts
 
-# ❌ BAD — new shared feature as src/lib/my-feature.ts while app uses src/context/my-feature.tsx
-# ✅ GOOD — mirror app path: src/context/my-feature.tsx
+# ❌ BAD — new shared feature as src/lib/my-feature.ts while the main app has a feature boundary for it
+# ✅ GOOD — mirror the main-app relative path when the responsibility is the same
 ```
 
 ## Intentional 7777 Differences
 
-Do not port app-only multi-session infrastructure: tab router, `session-route.ts`, timeline virtualization (`row-reconciliation`, `virtual-items`, `measure`), command palette (`use-composer-commands`), or `model-variant.ts`.
+Do not port app-only infrastructure without an explicit product decision: the tab router, multi-server registry,
+full home route, workspace selection, file/review/terminal panels, timeline virtualization, composer commands/context,
+or model variants. Keep the visible history window at nine dialogs.

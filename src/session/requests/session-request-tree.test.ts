@@ -48,9 +48,50 @@ describe("sessionPermissionRequest", () => {
 
     expect(sessionPermissionRequest(sessions, permissions, "root")?.id).toBe("perm-grand")
   })
+
+  test("returns undefined without a matching tree permission", () => {
+    const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
+    const permissions = {
+      other: [permission("perm-other", "other")],
+    }
+
+    expect(sessionPermissionRequest(sessions, permissions, "root")).toBeUndefined()
+  })
+
+  test("skips filtered permissions in the current tree", () => {
+    const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
+    const permissions = {
+      root: [permission("perm-root", "root")],
+      child: [permission("perm-child", "child")],
+    }
+
+    expect(sessionPermissionRequest(sessions, permissions, "root", (item) => item.id !== "perm-root"))?.toMatchObject({
+      id: "perm-child",
+    })
+  })
+
+  test("returns undefined when all tree permissions are filtered out", () => {
+    const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
+    const permissions = {
+      root: [permission("perm-root", "root")],
+      child: [permission("perm-child", "child")],
+    }
+
+    expect(sessionPermissionRequest(sessions, permissions, "root", () => false)).toBeUndefined()
+  })
 })
 
 describe("sessionQuestionForm", () => {
+  test("prefers the current session question", () => {
+    const sessions = [session({ id: "root" }), session({ id: "child", parentID: "root" })]
+    const questions = {
+      root: [question("q-root", "root")],
+      child: [question("q-child", "child")],
+    }
+
+    expect(sessionQuestionForm(sessions, questions, "root")?.id).toBe("q-root")
+  })
+
   test("returns a nested child question", () => {
     const sessions = [
       session({ id: "root" }),
@@ -64,11 +105,12 @@ describe("sessionQuestionForm", () => {
     expect(sessionQuestionForm(sessions, questions, "root")?.id).toBe("q-grand")
   })
 
-  test("ignores forms that are not questions", () => {
+  test("skips forms that are not questions", () => {
+    const sessions = [session({ id: "root" })]
     const forms = {
-      root: [{ ...question("frm-other", "root"), metadata: { kind: "other" } }],
+      root: [{ ...question("form", "root"), metadata: { kind: "integration" } }],
     }
 
-    expect(sessionQuestionForm([session({ id: "root" })], forms, "root")).toBeUndefined()
+    expect(sessionQuestionForm(sessions, forms, "root")).toBeUndefined()
   })
 })

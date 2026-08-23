@@ -1,20 +1,11 @@
+import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import { selectProviderCatalog } from "@/providers/catalog/client-compact"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { sessionDirectory } from "@/session/directory"
-import { selectProviderCatalog } from "@/providers/catalog/client-compact"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
 
 // Imperative catalog loader for the compact store, not the main app's reactive useProviders hook.
 
-export const popularProviders = [
-  "opencode",
-  "opencode-go",
-  "anthropic",
-  "github-copilot",
-  "openai",
-  "google",
-  "openrouter",
-  "vercel",
-]
+export { popularProviders } from "@/providers/catalog/order"
 
 export async function loadProviderCatalog(client: OpencodeClient, session: Session) {
   const location = { directory: sessionDirectory(session) }
