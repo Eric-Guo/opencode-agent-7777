@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { SessionMessageAssistant, SessionMessageInfo, SessionMessageUser } from "@opencode-ai/client/promise"
-import { selectSessionUserMessages, selectVisibleSessionUserMessages } from "./session-domain"
+import { removedSessionIDs, selectSessionUserMessages, selectVisibleSessionUserMessages } from "./session-domain"
 
 const user = (id: string): SessionMessageUser => ({ id, type: "user", text: id, time: { created: 0 } })
 const assistant = {
@@ -21,5 +21,16 @@ describe("session domain", () => {
     expect(selectVisibleSessionUserMessages(users, "msg_b").map((message) => message.id)).toEqual(["msg_a"])
     expect(selectVisibleSessionUserMessages(users.slice(2), "msg_b")).toEqual([])
     expect(selectVisibleSessionUserMessages(users)).toBe(users)
+  })
+
+  test("collects a removed session and all descendants", () => {
+    const sessions = [
+      { id: "root" },
+      { id: "child", parentID: "root" },
+      { id: "grandchild", parentID: "child" },
+      { id: "other" },
+    ]
+
+    expect([...removedSessionIDs(sessions, "root")]).toEqual(["root", "child", "grandchild"])
   })
 })

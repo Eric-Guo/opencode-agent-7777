@@ -1,6 +1,6 @@
 import { batch } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
-import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@opencode-ai/app/composer/editor"
+import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts-local"
 
