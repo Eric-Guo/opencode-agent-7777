@@ -1,5 +1,5 @@
-import { ComposerEditor } from "@opencode-ai/app/composer/editor"
-import { createComposerEditor } from "@opencode-ai/app/composer/editor/interaction"
+import { ComposerEditor } from "@/composer/editor/editor"
+import { createComposerEditor } from "@/composer/editor/interaction"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { ProviderIcon } from "@opencode-ai/ui/provider-icon"
 import { Button } from "@opencode-ai/ui/button"
