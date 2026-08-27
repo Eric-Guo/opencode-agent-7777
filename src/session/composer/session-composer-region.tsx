@@ -1,7 +1,9 @@
 import { Show } from "solid-js"
-import { PromptInputV2Composer } from "@/composer/composer-compact"
+import { Composer } from "@/composer/composer"
+import { createComposerModel } from "@/composer/model"
+import { prompt } from "@/composer/persistence-singleton"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentLocalAgent } from "@/runtime/server/session-store-compact"
+import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { SessionPermissionDock } from "@/session/requests/session-permission-dock"
 import { SessionQuestionDock } from "@/session/requests/session-question-dock"
 import type { SessionComposerRegionController } from "@/session/composer/session-composer-region-controller"
@@ -9,6 +11,20 @@ import type { SessionComposerRegionController } from "@/session/composer/session
 export function SessionComposerRegion(props: { controller: SessionComposerRegionController }) {
   const language = useLanguage()
   const controller = props.controller
+  const model = createComposerModel({
+    state: prompt,
+    identity: () => state.session?.id,
+    controls: () => ({
+      agent: currentLocalAgent(),
+      model: { selection: controller.model, status: controller.modelStatus() },
+    }),
+    disabled: controller.disabled,
+    working: controller.busy,
+    placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
+    onAttachmentError: controller.setAttachmentError,
+    submit: controller.submitPrompt,
+    interrupt: controller.abortPrompt,
+  })
 
   return (
     <div
@@ -34,16 +50,7 @@ export function SessionComposerRegion(props: { controller: SessionComposerRegion
           />
         )}
       </Show>
-      <PromptInputV2Composer
-        disabled={controller.disabled()}
-        busy={controller.busy()}
-        placeholder={language.t("prompt.placeholder", { agent: currentLocalAgent() })}
-        model={controller.model}
-        modelStatus={controller.modelStatus()}
-        onAttachmentError={controller.setAttachmentError}
-        onSubmit={controller.submitPrompt}
-        onAbort={controller.abortPrompt}
-      />
+      <Composer model={model} />
     </div>
   )
 }

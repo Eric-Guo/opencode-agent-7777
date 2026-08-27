@@ -1,3 +1,63 @@
+import { ACCEPTED_FILE_EXTENSIONS } from "./file-picker"
+
+type DesktopAttachmentAPI = Pick<
+  NonNullable<Window["api"]>,
+  "openFilePicker" | "readPickedFile" | "releasePickedFiles" | "getPathForFile" | "readClipboardImage"
+>
+
+type AttachmentPlatform = {
+  openAttachmentPickerDialog?: (
+    options: { defaultPath?: string; multiple?: boolean; accept?: string[] },
+    onFile: (file: File) => Promise<unknown>,
+  ) => Promise<void>
+  getPathForFile?: (file: File) => string
+  readClipboardImage?: () => Promise<File | null>
+}
+
+export function createPlatformAttachments(
+  api: DesktopAttachmentAPI | undefined = typeof window === "undefined" ? undefined : window.api,
+): AttachmentPlatform {
+  const attachmentPaths = new WeakMap<File, string>()
+  const openFilePicker = api?.openFilePicker?.bind(api)
+  const readPickedFile = api?.readPickedFile?.bind(api)
+  const releasePickedFiles = api?.releasePickedFiles?.bind(api)
+  const readClipboardImage = api?.readClipboardImage?.bind(api)
+  const canPick = openFilePicker && readPickedFile && releasePickedFiles
+
+  return {
+    openAttachmentPickerDialog: canPick
+      ? async (options, onFile) => {
+          const result = await openFilePicker({
+            multiple: options.multiple ?? false,
+            defaultPath: options.defaultPath,
+            extensions: ACCEPTED_FILE_EXTENSIONS,
+          })
+          if (!result) return
+          try {
+            for (const file of result.files) {
+              const selected = new File([await readPickedFile(result.token, file.path)], file.name)
+              attachmentPaths.set(selected, file.path)
+              await onFile(selected)
+            }
+          } finally {
+            await releasePickedFiles(result.token)
+          }
+        }
+      : undefined,
+    getPathForFile:
+      canPick || api?.getPathForFile
+        ? (file) => attachmentPaths.get(file) ?? api?.getPathForFile?.(file) ?? ""
+        : undefined,
+    readClipboardImage: readClipboardImage
+      ? async () => {
+          const image = await readClipboardImage().catch(() => null)
+          if (!image) return null
+          return new File([image.buffer], `pasted-image-${Date.now()}.png`, { type: "image/png" })
+        }
+      : undefined,
+  }
+}
+
 export function isElectronUserAgent(userAgent: string) {
   const normalizedUserAgent = userAgent.toLowerCase()
   const isWxWork = normalizedUserAgent.includes("wxwork") || normalizedUserAgent.includes("micromessenger")
@@ -19,8 +79,7 @@ const desktopRpcPort =
     ? waitForDesktopRpcPort()
     : undefined
 const desktopRpcClient = desktopRpcPort ? await import("@/runtime/platform/desktop-rpc-client") : undefined
-const desktopApi =
-  desktopRpcPort && desktopRpcClient ? desktopRpcClient.createDesktopApi(desktopRpcPort) : undefined
+const desktopApi = desktopRpcPort && desktopRpcClient ? desktopRpcClient.createDesktopApi(desktopRpcPort) : undefined
 
 if (desktopApi && !window.api) window.api = desktopApi
 

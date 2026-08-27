@@ -43,7 +43,7 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
         document={props.document}
         presentation={presentation()}
         actions={props.actions}
-        showReasoningSummaries={props.showReasoningSummaries}
+        reasoningMode={props.showReasoningSummaries ? "compact" : "hidden"}
         class="session-timeline-compact mx-auto w-full max-w-[1000px]"
       />
     </div>
