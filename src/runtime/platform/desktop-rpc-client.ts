@@ -133,6 +133,7 @@ function clientProtocol(value: MessagePort) {
             }),
           supportsAck: true,
           supportsTransferables: false,
+          codecFor: serialization.codecFor,
         }
       }),
     ),
