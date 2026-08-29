@@ -3,12 +3,9 @@ import { DataProvider } from "@opencode-ai/session-ui/context"
 import type { SessionUserActions } from "@opencode-ai/session-ui/actions"
 import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
-import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { refreshMessages } from "@/runtime/server/global-sync/session-cache-messages"
-import { prompt } from "@/composer/persistence-singleton"
 import { readShowReasoningSummaries, writeShowReasoningSummaries } from "@/runtime/persistence/settings-storage-compact"
 import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync-session-compact"
-import { currentLocalAgent, currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
 import { AgentWelcome } from "@/session/agent-welcome-compact"
 import { createSessionComposerRegionController } from "@/session/composer/session-composer-region-controller"
@@ -23,9 +20,8 @@ import {
 import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { useSessionHashScrollToEnd } from "@/session/use-session-hash-scroll-to-end"
-import { extractPromptFromMessage } from "@/composer/prompt"
-import { readableError } from "@/shell/errors/readable"
 import { sessionDirectory } from "@/session/directory"
+import { createSessionRevert } from "@/session/revert"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
 
@@ -45,6 +41,7 @@ export function SessionPage() {
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
+  const revert = createSessionRevert()
   const sessionUiData = createMemo(
     (): SessionUiData => ({
       session: state.session ? [state.session] : [],
@@ -53,21 +50,7 @@ export function SessionPage() {
     }),
   )
   const actions: SessionUserActions = {
-    revert: (input) => {
-      const active = currentSession()
-      if (!active) return
-      const message = state.sessionMessages.find((item) => item.id === input.messageID)
-      const draft = message?.type === "user" ? extractPromptFromMessage(message) : undefined
-      setState("error", "")
-      return active.client.session.revert
-        .stage({ sessionID: active.sessionID, messageID: input.messageID })
-        .then((result) => {
-          setState("session", "revert", result)
-          if (draft) prompt.restore(draft)
-          return refreshMessages(FETCH_MESSAGE_LIMIT)
-        })
-        .catch((error) => setState("error", readableError(error)))
-    },
+    revert: (input) => revert.to(input.messageID),
   }
 
   useSessionHashScrollToEnd({

@@ -1,30 +1,14 @@
 import { Show } from "solid-js"
 import { Composer } from "@/composer/composer"
 import { createComposerModel } from "@/composer/model"
-import { prompt } from "@/composer/persistence-singleton"
-import { useLanguage } from "@/runtime/i18n/language"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { SessionPermissionDock } from "@/session/requests/session-permission-dock"
 import { SessionQuestionDock } from "@/session/requests/session-question-dock"
+import { createActiveComposerAdapter } from "@/session/composer/adapter"
 import type { SessionComposerRegionController } from "@/session/composer/session-composer-region-controller"
 
 export function SessionComposerRegion(props: { controller: SessionComposerRegionController }) {
-  const language = useLanguage()
   const controller = props.controller
-  const model = createComposerModel({
-    state: prompt,
-    identity: () => state.session?.id,
-    controls: () => ({
-      agent: currentLocalAgent(),
-      model: { selection: controller.model, status: controller.modelStatus() },
-    }),
-    disabled: controller.disabled,
-    working: controller.busy,
-    placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
-    onAttachmentError: controller.setAttachmentError,
-    submit: controller.submitPrompt,
-    interrupt: controller.abortPrompt,
-  })
+  const model = createComposerModel(createActiveComposerAdapter(controller))
 
   return (
     <div

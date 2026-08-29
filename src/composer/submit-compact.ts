@@ -2,22 +2,19 @@ import { SessionMessage } from "@opencode-ai/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
 import { dropPendingEcho, echoPendingUserMessage } from "@/runtime/server/global-sync/session-cache-messages"
 import { prompt } from "@/composer/persistence-singleton"
+import { buildPromptRequest } from "@/composer/request"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 
 export function submitPrompt() {
   const active = currentSession()
-  const text = prompt.current().trim()
   const attachments = [...prompt.attachments()]
-  if (!active || state.submitting || (!text && attachments.length === 0)) return
+  const request = buildPromptRequest({ prompt: prompt.current(), attachments })
+  if (!active || state.submitting || (!request.text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
 
   const messageID = SessionMessage.ID.create()
-  const requestFiles = attachments.map((attachment) => ({
-    uri: attachment.url,
-    name: attachment.sourcePath ?? attachment.filename,
-  }))
 
   prompt.reset()
   setState("error", "")
@@ -29,7 +26,7 @@ export function submitPrompt() {
   echoPendingUserMessage({
     id: messageID,
     type: "user",
-    text,
+    text: request.text,
     files: attachments.map((attachment) => ({
       data: "",
       mime: attachment.mime,
@@ -57,8 +54,8 @@ export function submitPrompt() {
       active.client.session.prompt({
         sessionID: active.sessionID,
         id: messageID,
-        text,
-        files: requestFiles,
+        text: request.text,
+        files: request.files,
       }),
     )
     .then(() => {
