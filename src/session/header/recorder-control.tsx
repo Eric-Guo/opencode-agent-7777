@@ -3,9 +3,11 @@ import { Icon } from "@opencode-ai/ui/icon"
 import { SegmentedControl, SegmentedControlItem } from "@opencode-ai/ui/segmented-control"
 import { createEffect, createMemo, untrack, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
+import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createServerSdk } from "@/runtime/server/client-compact"
-import { state, setState } from "@/runtime/server/session-store-compact"
+import { refreshMessages } from "@/runtime/server/global-sync/session-cache-messages"
+import { currentSession, state, setState } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 
 export type RecorderRecordingClient = {
@@ -19,6 +21,7 @@ type RecorderAction = "start" | "stop" | "status"
 export function createRecorderController(
   client: Accessor<RecorderRecordingClient | undefined>,
   onError: (error: unknown) => void,
+  onStopped: (audio: Uint8Array) => Promise<unknown> = () => Promise.resolve(),
 ) {
   const [recorder, setRecorder] = createStore<{
     status: AudioStatus | undefined
@@ -58,9 +61,10 @@ export function createRecorderController(
       }
       if (!status.recordingID) return
 
-      await recording.stop({ recordingID: status.recordingID })
+      const audio = await recording.stop({ recordingID: status.recordingID })
       const result = await recording.status()
       setRecorder("status", { ...result })
+      await onStopped(audio)
     } catch (error) {
       onError(error)
     } finally {
@@ -88,7 +92,16 @@ export function RecorderControl(props: { onStatusSummaryChange?: (summary: strin
     if (!server) return
     return createServerSdk(server).client.audio.recording
   })
-  const recorder = createRecorderController(recordingClient, (error) => setState("error", readableError(error)))
+  const recorder = createRecorderController(
+    recordingClient,
+    (error) => setState("error", readableError(error)),
+    async (audio) => {
+      const active = currentSession()
+      if (!active) throw new Error(state.error)
+      await active.client.audio.transcriptions({ sessionID: active.sessionID, payload: audio })
+      await refreshMessages(FETCH_MESSAGE_LIMIT)
+    },
+  )
   let initializedServerUrl: string | undefined
 
   createEffect(() => {
