@@ -5,6 +5,7 @@ import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
+import { RecorderControl } from "@/session/header/recorder-control"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
 import { SessionContextUsage } from "@/session/header/session-context-usage-compact"
 import type { SessionRevert } from "@/session/revert"
@@ -124,6 +125,7 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
+        <RecorderControl />
       </div>
     </header>
   )
