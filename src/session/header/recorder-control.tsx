@@ -81,7 +81,7 @@ export function createRecorderController(
   }
 }
 
-export function RecorderControl() {
+export function RecorderControl(props: { onStatusSummaryChange?: (summary: string) => void }) {
   const language = useLanguage()
   const recordingClient = createMemo(() => {
     const server = state.server
@@ -109,6 +109,8 @@ export function RecorderControl() {
       progress: status.progress,
     })
   }
+
+  createEffect(() => props.onStatusSummaryChange?.(statusSummary()))
 
   return (
     <div title={statusSummary()}>
