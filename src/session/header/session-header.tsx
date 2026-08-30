@@ -7,6 +7,7 @@ import type { CybrosCurrentUser } from "@/runtime/platform/desktop-api"
 import { currentLocalAgent, currentRuntime, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import { SessionOptions } from "./session-options"
+import { RecorderControl } from "@/session/header/recorder-control"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
 import { SessionContextUsage } from "@/context/indicator"
 import type { SessionRevert } from "@/session/revert"
@@ -126,6 +127,7 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
+        <RecorderControl />
       </div>
     </header>
   )
