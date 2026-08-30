@@ -1,5 +1,5 @@
 import { Icon } from "@opencode-ai/ui/icon"
-import { For, Show } from "solid-js"
+import { createSignal, For, Show } from "solid-js"
 import { Menu } from "@opencode-ai/ui/menu"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
@@ -24,6 +24,7 @@ export function SessionHeader(props: {
 }) {
   const language = useLanguage()
   const targetLocale = () => nextLocale(language.locale())
+  const [recorderStatusSummary, setRecorderStatusSummary] = createSignal(language.t("recorder.status.fetch"))
 
   return (
     <header
@@ -32,7 +33,9 @@ export function SessionHeader(props: {
     >
       <div>
         <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
-        <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
+        <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">
+          {props.status} · {recorderStatusSummary()}
+        </p>
       </div>
       <div
         data-slot="session-header-controls"
@@ -127,7 +130,7 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
-        <RecorderControl />
+        <RecorderControl onStatusSummaryChange={setRecorderStatusSummary} />
       </div>
     </header>
   )
