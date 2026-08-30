@@ -50,6 +50,7 @@ export function SessionHeader(props: {
 }) {
   const language = useLanguage()
   const targetLocale = () => nextLocale(language.locale())
+  const [recorderStatusSummary, setRecorderStatusSummary] = createSignal(language.t("recorder.status.fetch"))
   const [cybrosCurrentUser] = createResource(
     () => ({ ssoJwtSecretKey: state.server?.ssoJwtSecretKey }),
     ({ ssoJwtSecretKey }) => fetchCybrosCurrentUser(ssoJwtSecretKey),
@@ -62,7 +63,9 @@ export function SessionHeader(props: {
     >
       <div class="min-w-0 max-[720px]:w-full">
         <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
-        <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
+        <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">
+          {props.status} · {recorderStatusSummary()}
+        </p>
       </div>
       <div
         data-slot="session-header-controls"
@@ -123,7 +126,7 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
-        <RecorderControl />
+        <RecorderControl onStatusSummaryChange={setRecorderStatusSummary} />
       </div>
     </header>
   )
