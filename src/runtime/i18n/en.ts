@@ -23,6 +23,14 @@ export const dict = {
   "session.loading": "Starting {{agent}}",
   "session.empty": "Ready",
 
+  "recorder.label": "Recorder",
+  "recorder.start": "Start",
+  "recorder.recording": "Recording",
+  "recorder.stop": "Stop",
+  "recorder.status": "Status",
+  "recorder.status.fetch": "Get recorder status",
+  "recorder.status.summary": "State: {{state}} · Duration: {{duration}}s · {{progress}}",
+
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
   "prompt.addContext": "Add context",

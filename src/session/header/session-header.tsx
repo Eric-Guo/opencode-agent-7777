@@ -7,6 +7,7 @@ import { windowsElectron } from "@/runtime/platform/platform-bridge"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { openRecentSession } from "@/home/sessions/switcher-compact"
 import { recentSessionDescription, recentSessionTitle } from "@/home/sessions/recent-compact"
+import { RecorderControl } from "@/session/header/recorder-control"
 
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"
@@ -126,6 +127,7 @@ export function SessionHeader(props: {
         >
           {language.locale().toUpperCase()}
         </button>
+        <RecorderControl />
       </div>
     </header>
   )
