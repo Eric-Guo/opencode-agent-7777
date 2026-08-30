@@ -187,6 +187,14 @@ export const dict = {
   "settings.general.row.shellToolPartsExpanded.title": "展开 Shell 工具调用",
   "settings.general.row.editToolPartsExpanded.title": "展开编辑工具调用",
 
+  "recorder.label": "录音器",
+  "recorder.start": "开始",
+  "recorder.recording": "录音中",
+  "recorder.stop": "停止",
+  "recorder.status": "状态",
+  "recorder.status.fetch": "获取录音器状态",
+  "recorder.status.summary": "状态：{{state}} · 时长：{{duration}} 秒 · {{progress}}",
+
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",
   "prompt.addContext": "添加上下文",
