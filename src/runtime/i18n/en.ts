@@ -91,6 +91,14 @@ export const dict = {
   "settings.general.row.followUpBehavior.queue": "Queue",
   "settings.general.row.followUpBehavior.steer": "Steer",
 
+  "recorder.label": "Recorder",
+  "recorder.start": "Start",
+  "recorder.recording": "Recording",
+  "recorder.stop": "Stop",
+  "recorder.status": "Status",
+  "recorder.status.fetch": "Get recorder status",
+  "recorder.status.summary": "State: {{state}} · Duration: {{duration}}s · {{progress}}",
+
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
   "prompt.addContext": "Add context",
