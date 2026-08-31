@@ -20,7 +20,7 @@ import {
   type ComposerInteractionEvent,
 } from "../suggestions/machine"
 import { clonePrompt, promptLength } from "../prompt-parts"
-import type { ComposerQueue } from "../adapter-compact"
+import type { ComposerQueue } from "../adapter"
 
 export type ComposerSelectControl = {
   options: Accessor<ComposerOption[]>

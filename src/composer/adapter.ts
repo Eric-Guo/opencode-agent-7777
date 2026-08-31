@@ -1,6 +1,6 @@
 import type { Accessor } from "solid-js"
 import type { ModelLoadStatus, ModelSelectorState } from "@/providers/models/store-compact"
-import type { PromptState } from "./state-compact"
+import type { PromptState } from "./state"
 
 export type ComposerControls = {
   agent: string

@@ -1,4 +1,5 @@
-import { onCleanup, onMount } from "solid-js"
+import { onMount } from "solid-js"
+import { makeEventListener } from "@solid-primitives/event-listener"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 
 const accepted = [
@@ -189,25 +190,17 @@ export function createComposerAttachments(
     if (files) await addAttachments(Array.from(files))
   }
 
-  const handleDocumentDragOver = (event: DragEvent) => {
-    if (input.isDialogActive()) return
-    event.preventDefault()
-    if (event.dataTransfer?.types.includes("Files")) input.setDraggingType("image")
-    else if (event.dataTransfer?.types.includes("text/plain")) input.setDraggingType("@mention")
-  }
-  const handleDocumentDragLeave = (event: DragEvent) => {
-    if (!input.isDialogActive() && !event.relatedTarget) input.setDraggingType(null)
-  }
-
   onMount(() => {
-    document.addEventListener("dragover", handleDocumentDragOver)
-    document.addEventListener("dragleave", handleDocumentDragLeave)
-    document.addEventListener("drop", handleDrop)
-    onCleanup(() => {
-      document.removeEventListener("dragover", handleDocumentDragOver)
-      document.removeEventListener("dragleave", handleDocumentDragLeave)
-      document.removeEventListener("drop", handleDrop)
+    makeEventListener(document, "dragover", (event) => {
+      if (input.isDialogActive()) return
+      event.preventDefault()
+      if (event.dataTransfer?.types.includes("Files")) input.setDraggingType("image")
+      else if (event.dataTransfer?.types.includes("text/plain")) input.setDraggingType("@mention")
     })
+    makeEventListener(document, "dragleave", (event) => {
+      if (!input.isDialogActive() && !event.relatedTarget) input.setDraggingType(null)
+    })
+    makeEventListener(document, "drop", handleDrop)
   })
 
   return {

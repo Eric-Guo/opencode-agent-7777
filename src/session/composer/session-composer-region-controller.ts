@@ -1,5 +1,5 @@
 import { createMemo } from "solid-js"
-import { abortPrompt, submitPrompt } from "@/composer/submit-compact"
+import { abortPrompt, submitPrompt } from "@/composer/submit"
 import { createPromptModelSelection } from "@/composer/selection"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import { createSessionRequestModel } from "@/session/requests/model"

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { createPromptState, type PromptAttachment } from "./state-compact"
+import { createPromptState, type PromptAttachment } from "./state"
 
 const attachment = (id: string): PromptAttachment => ({
   id,
@@ -8,7 +8,7 @@ const attachment = (id: string): PromptAttachment => ({
   url: `data:image/png;base64,${id}`,
 })
 
-describe("compact prompt state", () => {
+describe("prompt state", () => {
   test("initializes and captures an isolated draft", () => {
     const initial = { prompt: "hello", attachments: [attachment("first")] }
     const state = createPromptState(initial)

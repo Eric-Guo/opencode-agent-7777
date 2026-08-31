@@ -1,7 +1,7 @@
 import { useLanguage } from "@/runtime/i18n/language"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { prompt } from "@/composer/persistence-singleton"
-import type { ComposerAdapter } from "@/composer/adapter-compact"
+import type { ComposerAdapter } from "@/composer/adapter"
 import type { SessionComposerRegionController } from "./session-composer-region-controller"
 
 export function createActiveComposerAdapter(controller: SessionComposerRegionController): ComposerAdapter {

@@ -5,7 +5,7 @@ import { translateSync } from "@/runtime/i18n/language"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import type { SessionStatus } from "@opencode-ai/client/promise"
 
-// Compact single-session UI store; prompt draft state lives in composer/state-compact.ts.
+// Compact single-session UI store; prompt draft state lives in composer/state.ts.
 
 export type { LoadStatus } from "@/runtime/server/global-sync/types"
 
