@@ -9,7 +9,6 @@ export type ServerInfo = {
   welcomeText: string
   suggestedQuestions: string[]
   ssoJwtSecretKey?: string
-  username?: string
   password?: string
 }
 
@@ -30,7 +29,6 @@ export function resolveServer(): Promise<ServerInfo> {
       welcomeText: data.welcomeText ?? AGENT_DEFAULT_CONFIG.welcomeText,
       suggestedQuestions: data.suggestedQuestions ?? AGENT_DEFAULT_CONFIG.suggestedQuestions,
       ssoJwtSecretKey: data.ssoJwtSecretKey,
-      username: data.username ?? undefined,
       password: data.password ?? undefined,
     }))
   }

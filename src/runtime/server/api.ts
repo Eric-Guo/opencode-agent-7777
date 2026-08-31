@@ -4,8 +4,8 @@ import type { ServerInfo } from "@/runtime/server/resolver-compact"
 
 export type ServerClientConfig = Omit<Parameters<typeof OpenCode.make>[0], "baseUrl">
 
-export function authTokenFromCredentials(input: { username?: string; password: string }) {
-  return btoa(`${input.username ?? "opencode"}:${input.password}`)
+export function authTokenFromCredentials(input: { password: string }) {
+  return btoa(`opencode:${input.password}`)
 }
 
 export function authFromToken(token: string | null) {
@@ -14,7 +14,6 @@ export function authFromToken(token: string | null) {
   const separator = decoded.indexOf(":")
   if (separator === -1) return
   return {
-    username: decoded.slice(0, separator) || "opencode",
     password: decoded.slice(separator + 1),
   }
 }
@@ -33,7 +32,6 @@ export function createApiForServer({
       ...(server.password
         ? {
             Authorization: `Basic ${authTokenFromCredentials({
-              username: server.username,
               password: server.password,
             })}`,
           }
