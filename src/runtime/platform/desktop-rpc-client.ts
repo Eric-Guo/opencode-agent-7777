@@ -3,7 +3,6 @@ import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage, RpcSerialization 
 
 const ServerReadyData = Schema.Struct({
   url: Schema.String,
-  username: Schema.NullOr(Schema.String),
   password: Schema.NullOr(Schema.String),
   ssoJwtSecretKey: Schema.optionalKey(Schema.String),
   localAgent: Schema.optionalKey(Schema.String),
