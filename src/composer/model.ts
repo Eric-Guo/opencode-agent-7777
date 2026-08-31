@@ -1,8 +1,8 @@
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
-import { createPersistedBlobReference } from "@/runtime/persistence/drafts-local"
+import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
-import type { ComposerAdapter, ComposerControls } from "./adapter-compact"
+import type { ComposerAdapter, ComposerControls } from "./adapter"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 
 export type ComposerModel = ComposerEditorModel & {

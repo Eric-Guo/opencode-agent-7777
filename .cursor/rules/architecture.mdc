@@ -26,9 +26,9 @@ alwaysApply: true
 - **Global sync**: the files under `runtime/server/global-sync/` own bootstrap, current-session hydration, the message
   cache, event reduction, and refresh scheduling. Keep those concerns out of `session-store-compact.ts`.
 - **UI store**: `runtime/server/session-store-compact.ts` holds compact UI state and current-session lookup only.
-- **Prompt/composer**: draft state lives in `composer/state-compact.ts`; request shaping lives in
-  `composer/request.ts`; submit/abort lives in `composer/submit-compact.ts`; active-session adapter construction and
-  session composition live under `session/composer/`.
+- **Prompt/composer**: draft state lives in `composer/state.ts`; local draft and blob persistence live in
+  `runtime/persistence/drafts.ts`; request shaping lives in `composer/request.ts`; submit/abort lives in
+  `composer/submit.ts`; active-session adapter construction and session composition live under `session/composer/`.
 - **Requests**: `session/requests/model.ts` exposes the UI request model. The `permission-sync-compact.ts` and
   `question-sync-compact.ts` files own single-session server synchronization and replies.
 - **Timeline**: `@opencode-ai/session-ui/timeline` owns shared projection and rendering. Local bounded-window logic

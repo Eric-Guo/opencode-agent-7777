@@ -15,10 +15,13 @@
     "@opencode-ai/schema": "workspace:*",
     "@opencode-ai/session-ui": "workspace:*",
     "@opencode-ai/ui": "workspace:*",
+    "@opencode-ai/util": "workspace:*",
+    "@solid-primitives/event-listener": "catalog:",
     "dompurify": "catalog:",
     "effect": "catalog:",
     "marked": "catalog:",
-    "solid-js": "catalog:"
+    "solid-js": "catalog:",
+    "solid-presence": "0.2.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",

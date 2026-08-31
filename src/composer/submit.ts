@@ -7,6 +7,8 @@ import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 
+// Compact single-session submit orchestration for the shared composer boundary.
+
 export function submitPrompt() {
   const active = currentSession()
   const attachments = [...prompt.attachments()]
