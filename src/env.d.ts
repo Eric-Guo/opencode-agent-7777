@@ -12,7 +12,6 @@ interface ImportMeta {
 
 type DesktopServerReadyData = {
   url: string
-  username: string | null
   password: string | null
   localAgent?: string
   welcomeText?: string
