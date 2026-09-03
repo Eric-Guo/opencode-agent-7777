@@ -3,6 +3,8 @@ import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
 
+export type { Prompt } from "@/composer/types"
+
 export type PromptAttachment = {
   id: string
   filename: string

@@ -65,14 +65,14 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-Target root: `<repo-root>/packages/app`, refreshed against commit `50296a3e1a` on 2026-08-31. Story-only sources and
+Target root: `<repo-root>/packages/app`, refreshed against commit `c4c1a904fa` on 2026-09-03. Story-only sources and
 surfaces 7777 does not expose are not parity targets. An unsuffixed filename claims the same responsibility as the
 main app even when the compact product supports fewer cases; a narrower responsibility uses a descriptive `-compact`
 name. Runtime and package code do not import from or read `../app`, and the package does not depend on
 `@opencode-ai/app`. Shared editor sources are package-owned local
-copies. 61 source files share a relative path with the main app, 28 byte-for-byte identical. All five public files
-with shared relative paths are also byte-for-byte identical; the favicon files remain package-owned assets rather
-than links into the main app.
+copies. 62 source files share a relative path with the main app, 28 byte-for-byte identical. Both public files with
+shared relative paths are also byte-for-byte identical; the favicon files remain package-owned assets rather than
+links into the main app.
 
 | Feature/source area | Same-responsibility 7777 boundaries | Descriptive or 7777-only boundaries | Remaining intentional difference |
 | --- | --- | --- | --- |
