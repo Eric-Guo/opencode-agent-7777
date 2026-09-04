@@ -70,6 +70,7 @@ export type ComposerEditorProps = {
   attachKeybind?: string[]
   attachShortcut?: string
   alternateKeybind?: string[]
+  exitShellKeybind?: string[]
   labels?: Partial<ComposerLabels>
 }
 
@@ -160,7 +161,6 @@ export function ComposerEditor(props: ComposerEditorProps) {
         class="group/composer relative min-h-[96px] w-full overflow-clip rounded-xl bg-v2-background-bg-base"
         classList={{
           "shadow-[var(--v2-elevation-raised)]": !props.borderUnderlay,
-          "border border-v2-icon-icon-info border-dashed": state.drag === "active",
         }}
         onSubmit={(event) => {
           event.preventDefault()
@@ -324,6 +324,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
                       title={labels().chooseVariant}
                       keybind={["Shift", "Mod", "D"]}
                       control={control}
+                      class={control.current() === "default" ? "composer-variant-default" : undefined}
                     />
                   </Show>
                 )}
@@ -335,6 +336,24 @@ export function ComposerEditor(props: ComposerEditorProps) {
               controller={props.controller}
               keybind={props.alternateKeybind ?? ["Mod", "Enter"]}
             />
+          </Show>
+          <Show when={state.mode === "shell"}>
+            <Button
+              data-action="composer-exit-shell"
+              type="button"
+              variant="ghost-faint"
+              size="small"
+              class="me-3 gap-1.5 px-1.5"
+              onClick={() => {
+                props.controller.dispatch({ type: "mode.normal" })
+                props.controller.restoreFocus()
+              }}
+            >
+              {i18n.t("ui.promptInput.exitShell")}
+              <span class="hidden sm:block">
+                <Keybind keys={props.exitShellKeybind ?? ["ESC"]} variant="neutral" />
+              </span>
+            </Button>
           </Show>
           <ComposerEditorSubmitButton
             mode={state.mode}
@@ -614,7 +633,7 @@ export function ComposerEditorAddMenu(props: {
         />
         <Menu.Portal>
           <Menu.Content
-            class="[&_[data-slot=menu-v2-item-shortcut]]:w-8 [&_[data-slot=menu-v2-item-shortcut]]:justify-center"
+            class="[&_[data-slot=menu-v2-item-shortcut]]:w-5 [&_[data-slot=menu-v2-item-shortcut]]:justify-center"
             style={{ "min-width": "180px" }}
           >
             <Menu.Item onSelect={props.onAttach} shortcut={props.attachShortcut}>
@@ -656,12 +675,14 @@ function ComposerEditorConfiguredSelect(props: {
   keybind?: string[]
   control: ComposerSelectControl
   model?: boolean
+  class?: string
 }) {
   const current = () => props.control.current()
   const providerID = () => props.control.options().find((option) => option.id === current())?.providerID
   return (
     <ComposerEditorSelect
       title={props.title}
+      class={props.class}
       keybind={props.control.keybind?.() ?? props.keybind}
       options={props.control.options()}
       current={current()}
@@ -745,6 +766,7 @@ export function ComposerEditorPopover(props: {
 }) {
   return (
     <div
+      data-component="composer-suggestions"
       class="absolute inset-x-0 -top-2 z-40 flex max-h-80 -translate-y-full flex-col overflow-auto rounded-xl bg-v2-background-bg-base p-2 shadow-[var(--v2-elevation-raised)] no-scrollbar"
       onMouseDown={(event) => event.preventDefault()}
     >
@@ -773,6 +795,7 @@ export function ComposerEditorPopover(props: {
             <button
               type="button"
               data-suggestion-id={item.id}
+              data-active={props.activeID === item.id ? "" : undefined}
               class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
               classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
               onPointerMove={() => props.onActiveChange(item)}
@@ -821,9 +844,9 @@ function ComposerEditorAlternateDelivery(props: { controller: ComposerEditorMode
             ref={setButton}
             data-action="composer-alternate-delivery"
             type="button"
-            variant="ghost-muted"
+            variant="ghost-faint"
             size="small"
-            class="me-3 gap-1.5 px-1.5 text-v2-text-text-muted ![font-weight:530] duration-150 motion-reduce:animate-none"
+            class="me-3 gap-1.5 px-1.5 ![font-weight:530] duration-150 motion-reduce:animate-none"
             classList={{
               "animate-in fade-in": presence.animate() && presence.show(),
               "animate-out fade-out fill-mode-forwards": presence.animate() && !presence.show(),
