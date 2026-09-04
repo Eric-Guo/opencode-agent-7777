@@ -3,6 +3,7 @@ import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-com
 import { dropPendingEcho, echoPendingUserMessage } from "@/runtime/server/global-sync/session-cache-messages"
 import { prompt } from "@/composer/persistence-singleton"
 import { buildPromptRequest } from "@/composer/request"
+import { createComposerSubmission } from "@/composer/submission-state"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
@@ -11,14 +12,15 @@ import { readableError } from "@/shell/errors/readable"
 
 export function submitPrompt() {
   const active = currentSession()
-  const attachments = [...prompt.attachments()]
-  const request = buildPromptRequest({ prompt: prompt.current(), attachments })
+  const submission = createComposerSubmission({ target: prompt })
+  const attachments = submission.prompt.attachments
+  const request = buildPromptRequest(submission.prompt)
   if (!active || state.submitting || (!request.text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
 
   const messageID = SessionMessage.ID.create()
 
-  prompt.reset()
+  submission.clear()
   setState("error", "")
   setState("submitting", true)
   setState("sessionStatus", { type: "busy" })
@@ -51,7 +53,7 @@ export function submitPrompt() {
     ...(previousRevert ? [active.client.session.revert.clear({ sessionID: active.sessionID })] : []),
   ]
 
-  void Promise.all(configure)
+  return Promise.all(configure)
     .then(() =>
       active.client.session.prompt({
         sessionID: active.sessionID,
@@ -61,19 +63,25 @@ export function submitPrompt() {
       }),
     )
     .then(() => {
+      if (state.session?.id !== active.sessionID) return
       scheduleRefresh(250)
       return refreshRecentSessions()
     })
     .catch((error) => {
+      if (state.session?.id !== active.sessionID) return
       dropPendingEcho(messageID)
-      if (previousRevert && state.session?.id === active.sessionID && !state.session.revert) {
+      const restored = submission.restore()
+      if (restored) restored.target.restore(restored.prompt)
+      if (previousRevert && !state.session.revert) {
         setState("session", (session) => (session ? { ...session, revert: previousRevert } : session))
       }
       setState("error", readableError(error))
       setState("sessionStatus", idleStatus)
       scheduleRefresh(0)
     })
-    .finally(() => setState("submitting", false))
+    .finally(() => {
+      if (state.session?.id === active.sessionID) setState("submitting", false)
+    })
 }
 
 export function abortPrompt() {
