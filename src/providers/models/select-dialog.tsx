@@ -14,7 +14,7 @@ import {
 } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
-import type { ModelSelectorState } from "@/providers/models/store-compact"
+import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
 import { popularProviders } from "@/providers/catalog/loader-compact"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"

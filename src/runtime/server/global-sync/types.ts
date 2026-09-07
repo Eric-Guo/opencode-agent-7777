@@ -1,5 +1,6 @@
 import type { ModelSelection } from "@/runtime/persistence/storage-compact"
-import type { ModelLoadStatus, ModelOption } from "@/providers/models/store-compact"
+import type { ModelLoadStatus } from "@/providers/models/selection"
+import type { ModelOption } from "@/providers/models/models"
 import type { ServerInfo } from "@/runtime/server/resolver-compact"
 import type {
   FormInfo,
