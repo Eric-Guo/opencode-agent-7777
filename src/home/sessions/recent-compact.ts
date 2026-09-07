@@ -1,6 +1,6 @@
 import { sessionUpdatedTime } from "@/home/sessions/directory-sync-recent-compact"
 import { currentLocalAgent } from "@/runtime/server/session-store-compact"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { sessionTitle } from "@/session/title"
 
 // Presentation helpers for the header history menu; 7777 has no home route.

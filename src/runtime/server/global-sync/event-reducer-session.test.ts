@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { OpenCodeEvent, SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { OpenCodeEvent, SessionInfo as Session } from "@opencode/client/promise"
 import { applySessionEvent } from "@/runtime/server/global-sync/event-reducer-session"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"

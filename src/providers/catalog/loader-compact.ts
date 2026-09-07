@@ -1,4 +1,4 @@
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { selectProviderCatalog } from "@/providers/catalog/client-compact"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { sessionDirectory } from "@/session/directory"

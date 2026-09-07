@@ -1,5 +1,5 @@
-import type { SessionDocument } from "@opencode-ai/session-ui/document"
-import type { SessionMessageInfo, SessionStatus } from "@opencode-ai/client/promise"
+import type { SessionDocument } from "@opencode/session-ui/document"
+import type { SessionMessageInfo, SessionStatus } from "@opencode/client/promise"
 import { createMemo, type Accessor } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { selectSessionUserMessages, selectVisibleSessionUserMessages } from "../session-domain"

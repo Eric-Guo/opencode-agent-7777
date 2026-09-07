@@ -1,6 +1,6 @@
-import type { SessionDocument } from "@opencode-ai/session-ui/document"
-import type { SessionUserActions } from "@opencode-ai/session-ui/actions"
-import { SessionTimeline, type SessionUserPresentation } from "@opencode-ai/session-ui/timeline"
+import type { SessionDocument } from "@opencode/session-ui/document"
+import type { SessionUserActions } from "@opencode/session-ui/actions"
+import { SessionTimeline, type SessionUserPresentation } from "@opencode/session-ui/timeline"
 import { createMemo } from "solid-js"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
 

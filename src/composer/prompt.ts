@@ -1,4 +1,4 @@
-import type { SessionMessageUser } from "@opencode-ai/client/promise"
+import type { SessionMessageUser } from "@opencode/client/promise"
 import type { PromptDraft } from "@/composer/persistence-singleton"
 import { readPromptPresentation } from "./comment-note"
 

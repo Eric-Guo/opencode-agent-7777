@@ -1,5 +1,5 @@
 {
-  "name": "@opencode-ai/7777",
+  "name": "@opencode/7777",
   "version": "1.18.24",
   "private": true,
   "type": "module",
@@ -11,11 +11,11 @@
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
-    "@opencode-ai/client": "workspace:*",
-    "@opencode-ai/schema": "workspace:*",
-    "@opencode-ai/session-ui": "workspace:*",
-    "@opencode-ai/ui": "workspace:*",
-    "@opencode-ai/util": "workspace:*",
+    "@opencode/client": "workspace:*",
+    "@opencode/schema": "workspace:*",
+    "@opencode/session-ui": "workspace:*",
+    "@opencode/ui": "workspace:*",
+    "@opencode/util": "workspace:*",
     "@solid-primitives/event-listener": "catalog:",
     "dompurify": "catalog:",
     "effect": "catalog:",

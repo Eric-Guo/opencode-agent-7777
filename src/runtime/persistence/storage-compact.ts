@@ -1,6 +1,6 @@
 import { MODEL_SELECTION_KEY, SESSION_DIRECTORY_KEY, SESSION_ID_KEY } from "@/constants/session"
 import { sessionDirectory } from "@/session/directory"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 
 // Narrow persistence helpers rather than the main app's reactive local-preferences context.
 

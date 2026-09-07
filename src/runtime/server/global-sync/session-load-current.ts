@@ -3,7 +3,7 @@ import type { SessionRecord } from "@/runtime/persistence/storage-compact"
 // Creates or restores the current 7777 session rather than paging a directory session list.
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { defaultSessionDirectory, normalizeSessionDirectory } from "@/session/directory"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 
 export function restoreSession(baseClient: OpencodeClient, record: SessionRecord | undefined) {
   if (!record) return Promise.resolve<Session | undefined>(undefined)

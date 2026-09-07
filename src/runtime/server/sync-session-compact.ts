@@ -12,7 +12,7 @@ import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { sessionDirectory } from "@/session/directory"
-import type { OpenCodeEvent } from "@opencode-ai/client/promise"
+import type { OpenCodeEvent } from "@opencode/client/promise"
 
 let streamAbort: AbortController | undefined
 

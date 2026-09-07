@@ -1,4 +1,4 @@
-import { Markdown } from "@opencode-ai/session-ui/markdown"
+import { Markdown } from "@opencode/session-ui/markdown"
 import { For, Show } from "solid-js"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import { setPrompt } from "@/composer/persistence-singleton"

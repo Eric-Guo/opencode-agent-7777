@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { SessionMessageInfo, SessionMessageUser, SessionStatus } from "@opencode-ai/client/promise"
+import type { SessionMessageInfo, SessionMessageUser, SessionStatus } from "@opencode/client/promise"
 import { createCompactTimelineModel, isTimelineReady } from "./model-compact"
 
 const sessionUser = (id: string, created: number): SessionMessageUser => ({

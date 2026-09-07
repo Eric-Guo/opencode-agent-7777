@@ -1,4 +1,4 @@
-import type { FormAnswer } from "@opencode-ai/client/promise"
+import type { FormAnswer } from "@opencode/client/promise"
 import { createMemo } from "solid-js"
 import { state } from "@/runtime/server/session-store-compact"
 import { decidePermission } from "@/session/requests/permission-sync-compact"

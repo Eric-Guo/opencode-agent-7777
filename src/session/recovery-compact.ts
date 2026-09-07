@@ -1,6 +1,6 @@
 import { translateSync } from "@/runtime/i18n/language"
 import { createDefaultSession } from "@/runtime/server/global-sync/session-load-current"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 
 export async function recoverDeletedSession(baseClient: OpencodeClient, session: Session, localAgent: string) {

@@ -31,7 +31,7 @@ alwaysApply: true
   `composer/submit.ts`; active-session adapter construction and session composition live under `session/composer/`.
 - **Requests**: `session/requests/model.ts` exposes the UI request model. The `permission-sync-compact.ts` and
   `question-sync-compact.ts` files own single-session server synchronization and replies.
-- **Timeline**: `@opencode-ai/session-ui/timeline` owns shared projection and rendering. Local bounded-window logic
+- **Timeline**: `@opencode/session-ui/timeline` owns shared projection and rendering. Local bounded-window logic
   stays in `session/timeline/model-compact.ts` and `message-timeline-compact.tsx`.
 - **Revert**: `session/revert.ts` owns compact revert staging and composer restoration; the screen only wires it to
   timeline actions.

@@ -1,5 +1,5 @@
 // Reduces current-message events for the one active session and delegates missed hydration to the refresh queue.
-import type { OpenCodeEvent, SessionStatus } from "@opencode-ai/client/promise"
+import type { OpenCodeEvent, SessionStatus } from "@opencode/client/promise"
 import { createV2SessionReducer } from "@/runtime/server/session-reducer-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"

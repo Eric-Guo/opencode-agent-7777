@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import type { SessionInfo } from "@opencode-ai/client/promise"
+import type { SessionInfo } from "@opencode/client/promise"
 import { prompt } from "./persistence-singleton"
 import { submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
