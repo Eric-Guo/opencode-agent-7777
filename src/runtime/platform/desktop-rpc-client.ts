@@ -1,9 +1,10 @@
 import { Context, Effect, Layer, ManagedRuntime, Queue, Schema, Stream } from "effect"
 import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage, RpcSerialization } from "effect/unstable/rpc"
 
-const ServerReadyData = Schema.Struct({
+export const ServerReadyData = Schema.Struct({
   url: Schema.String,
-  password: Schema.NullOr(Schema.String),
+  // Current desktop hosts omit credentials; older hosts may still send a password or null.
+  password: Schema.optionalKey(Schema.NullOr(Schema.String)),
   ssoJwtSecretKey: Schema.optionalKey(Schema.String),
   localAgent: Schema.optionalKey(Schema.String),
   welcomeText: Schema.optionalKey(Schema.String),
