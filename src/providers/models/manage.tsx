@@ -4,7 +4,7 @@ import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode-ai
 import { Switch } from "@opencode-ai/ui/switch"
 import { TextInput } from "@opencode-ai/ui/text-input"
 import { For, Show, type Component } from "solid-js"
-import type { ModelSelectorState } from "@/providers/models/store-compact"
+import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
 import { popularProviders } from "@/providers/catalog/loader-compact"
 
