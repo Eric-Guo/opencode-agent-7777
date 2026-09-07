@@ -1,5 +1,5 @@
 // Imperative directory request sync and replies for the compact session tree.
-import type { OpenCodeEvent, PermissionRequest } from "@opencode-ai/client/promise"
+import type { OpenCodeEvent, PermissionRequest } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { translateSync, type TranslationKey } from "@/runtime/i18n/language"
 import { showPlatformNotification } from "@/runtime/platform/platform-bridge"

@@ -1,5 +1,5 @@
 import { DEFAULT_SESSION_DIRECTORY_NAME } from "@/constants/session"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 
 export function sessionDirectory(session: Session) {
   return session.location.directory

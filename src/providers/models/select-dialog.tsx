@@ -1,7 +1,7 @@
-import { ScrollView } from "@opencode-ai/ui/scroll-view"
-import { Badge } from "@opencode-ai/ui/badge"
-import { Icon } from "@opencode-ai/ui/icon"
-import { Menu } from "@opencode-ai/ui/menu"
+import { ScrollView } from "@opencode/ui/scroll-view"
+import { Badge } from "@opencode/ui/badge"
+import { Icon } from "@opencode/ui/icon"
+import { Menu } from "@opencode/ui/menu"
 import {
   type ComponentProps,
   createEffect,

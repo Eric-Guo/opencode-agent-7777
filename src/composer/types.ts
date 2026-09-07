@@ -1,5 +1,5 @@
-import type { SessionMessage } from "@opencode-ai/schema/session-message"
-import type { Skill } from "@opencode-ai/schema/skill"
+import type { SessionMessage } from "@opencode/schema/session-message"
+import type { Skill } from "@opencode/schema/skill"
 
 interface PartBase {
   content: string

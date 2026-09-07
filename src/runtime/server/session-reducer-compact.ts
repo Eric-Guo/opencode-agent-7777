@@ -4,7 +4,7 @@ import type {
   SessionInboxItem,
   SessionInfo,
   SessionMessageInfo,
-} from "@opencode-ai/client/promise"
+} from "@opencode/client/promise"
 
 type Assistant = Extract<SessionMessageInfo, { type: "assistant" }>
 type Compaction = Extract<SessionMessageInfo, { type: "compaction" }>

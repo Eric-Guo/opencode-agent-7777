@@ -1,5 +1,5 @@
 // Live current-message cache for the one active session.
-import type { SessionInboxInfo, SessionMessageInfo } from "@opencode-ai/client/promise"
+import type { SessionInboxInfo, SessionMessageInfo } from "@opencode/client/promise"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"

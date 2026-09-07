@@ -1,5 +1,5 @@
 // Compact shell classes and header composition, not the main app's route-keyed panel layout.
-import type { SessionStatus } from "@opencode-ai/client/promise"
+import type { SessionStatus } from "@opencode/client/promise"
 import { createMemo } from "solid-js"
 import type { LoadStatus } from "@/runtime/server/global-sync/types"
 import { useLanguage, type TranslationKey, type TranslationParams } from "@/runtime/i18n/language"

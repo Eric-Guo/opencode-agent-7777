@@ -3,7 +3,7 @@ import type { State } from "@/runtime/server/global-sync/types"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import { translateSync } from "@/runtime/i18n/language"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
-import type { SessionStatus } from "@opencode-ai/client/promise"
+import type { SessionStatus } from "@opencode/client/promise"
 
 // Compact single-session UI store; prompt draft state lives in composer/state.ts.
 

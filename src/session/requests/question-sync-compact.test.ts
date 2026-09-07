@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { FormInfo, OpenCodeEvent } from "@opencode-ai/client/promise"
+import type { FormInfo, OpenCodeEvent } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { handleQuestionEvent } from "@/session/requests/question-sync-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"

@@ -1,5 +1,5 @@
 // Inline session notices; 7777 has no routed error page.
-import { Icon } from "@opencode-ai/ui/icon"
+import { Icon } from "@opencode/ui/icon"
 
 export function ErrorBanner(props: { error: string }) {
   return (

@@ -1,4 +1,4 @@
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useDialog } from "@opencode/ui/context/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"

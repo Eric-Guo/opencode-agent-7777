@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import type { OpenCodeEvent, SessionMessageInfo } from "@opencode-ai/client/promise"
+import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
 import { createV2SessionReducer } from "./session-reducer-compact"
 
 const event = (input: object) => input as OpenCodeEvent

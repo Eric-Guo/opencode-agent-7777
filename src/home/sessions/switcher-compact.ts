@@ -1,5 +1,5 @@
 import { recoverDeletedSession } from "@/session/recovery-compact"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { createServerSdk } from "@/runtime/server/client-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"

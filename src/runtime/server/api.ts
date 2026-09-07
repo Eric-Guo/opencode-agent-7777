@@ -1,4 +1,4 @@
-import { OpenCode, type OpenCodeClient } from "@opencode-ai/client/promise"
+import { OpenCode, type OpenCodeClient } from "@opencode/client/promise"
 import { decode64 } from "@/runtime/persistence/base64"
 import type { ServerInfo } from "@/runtime/server/resolver-compact"
 

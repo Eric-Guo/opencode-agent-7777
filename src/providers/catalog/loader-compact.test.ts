@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
-import type { SessionInfo as Session } from "@opencode-ai/client/promise"
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { loadProviderCatalog } from "./loader-compact"
 
 describe("provider catalog loader", () => {

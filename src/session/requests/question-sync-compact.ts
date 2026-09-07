@@ -1,4 +1,4 @@
-import type { FormAnswer, FormInfo, OpenCodeEvent } from "@opencode-ai/client/promise"
+import type { FormAnswer, FormInfo, OpenCodeEvent } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, setState, state } from "@/runtime/server/session-store-compact"

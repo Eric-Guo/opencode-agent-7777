@@ -8,7 +8,7 @@ import type {
   SessionInfo,
   SessionMessageInfo,
   SessionStatus,
-} from "@opencode-ai/client/promise"
+} from "@opencode/client/promise"
 
 export type LoadStatus = "loading" | "ready" | "failed"
 

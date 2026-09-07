@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import type { AudioStatus } from "@opencode-ai/client/promise"
+import type { AudioStatus } from "@opencode/client/promise"
 import { createRecorderController, type RecorderRecordingClient } from "./recorder-control"
 
 function audioStatus(state: AudioStatus["state"], active = false): AudioStatus {

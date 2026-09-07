@@ -1,6 +1,6 @@
-import { Icon } from "@opencode-ai/ui/icon"
+import { Icon } from "@opencode/ui/icon"
 import { createSignal, For, Show } from "solid-js"
-import { Menu } from "@opencode-ai/ui/menu"
+import { Menu } from "@opencode/ui/menu"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { windowsElectron } from "@/runtime/platform/platform-bridge"

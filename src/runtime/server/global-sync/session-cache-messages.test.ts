@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { SessionInboxInfo, SessionInfo as Session, SessionMessageInfo } from "@opencode-ai/client/promise"
+import type { SessionInboxInfo, SessionInfo as Session, SessionMessageInfo } from "@opencode/client/promise"
 import {
   inboxItemMessage,
   loadRecentMessageWindow,

@@ -1,4 +1,4 @@
-import { SessionMessage } from "@opencode-ai/schema/session-message"
+import { SessionMessage } from "@opencode/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
 import { dropPendingEcho, echoPendingUserMessage } from "@/runtime/server/global-sync/session-cache-messages"
 import { prompt } from "@/composer/persistence-singleton"
