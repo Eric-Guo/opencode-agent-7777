@@ -173,6 +173,18 @@ export function ComposerEditor(props: ComposerEditorProps) {
           onSelect={(item) => props.controller.dispatch({ type: "popover.select", item })}
         />
       </Show>
+      <Show when={view.notice?.()}>
+        {(notice) => (
+          <div
+            data-component="composer-notice"
+            class="mb-2 flex items-start gap-2 rounded-lg bg-v2-background-bg-base px-3 py-2 text-[13px] leading-text-base text-v2-text-text-muted"
+            role="status"
+          >
+            <Icon name="warning" size="small" class="mt-0.5 shrink-0 text-icon-warning-base" />
+            <span>{notice()}</span>
+          </div>
+        )}
+      </Show>
       <form
         data-component="composer"
         data-dock-border-underlay={props.borderUnderlay ? "true" : undefined}
@@ -919,8 +931,8 @@ export function ComposerEditorSubmitButton(props: {
         disabled={!props.stopping && props.disabled}
         tabIndex={props.mode === "normal" ? undefined : -1}
         icon={<Icon name={props.stopping ? "stop" : props.mode === "shell" ? "arrow-undo-down" : "arrow-up"} />}
-        variant="contrast"
-        class="size-7 rounded-md p-[6px] disabled:opacity-50"
+        variant="submit"
+        class="size-7 rounded-md p-[6px]"
         aria-label={props.stopping ? props.stopLabel : props.sendLabel}
         onClick={(event) => {
           event.preventDefault()
