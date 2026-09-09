@@ -4,7 +4,10 @@ import { PROMPT_DRAFT_KEY } from "@/constants/session"
 export type BlobReference = { id: string; url: string }
 
 async function blobID(blob: Blob) {
-  const id = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())))
+  const bytes = crypto.subtle
+    ? new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()))
+    : crypto.getRandomValues(new Uint8Array(16))
+  const id = Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("")
   return id
@@ -19,9 +22,12 @@ function dataUrl(blob: Blob) {
   })
 }
 
-export async function createPersistedBlobReference(blob: Blob): Promise<BlobReference> {
+// The compact draft stores data URLs, so every reference survives a reload without a separate blob store.
+export async function createBlobReference(blob: Blob): Promise<BlobReference> {
   return { id: await blobID(blob), url: await dataUrl(blob) }
 }
+
+export const createPersistedBlobReference = createBlobReference
 
 export async function blobDataUrl(blob: BlobReference, mime: string) {
   const data = await fetch(blob.url).then((response) => response.blob())

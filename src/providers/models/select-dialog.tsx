@@ -2,6 +2,7 @@ import { ScrollView } from "@opencode/ui/scroll-view"
 import { Badge } from "@opencode/ui/badge"
 import { Icon } from "@opencode/ui/icon"
 import { Menu } from "@opencode/ui/menu"
+import { Tooltip } from "@opencode/ui/tooltip"
 import {
   type ComponentProps,
   createEffect,
@@ -18,7 +19,9 @@ import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
 import { popularProviders } from "@/providers/catalog/loader-compact"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"
+import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import { matchesModelSearch } from "./search"
+import { ModelTooltip } from "./tooltip"
 
 const isFree = (provider: string, cost: { input: number } | undefined) =>
   provider === "opencode" && (!cost || cost.input === 0)
@@ -54,7 +57,7 @@ export function ModelSelectorPopoverV2(props: {
   const [store, setStore] = createStore({ open: false, search: "", active: "" })
   let searchRef: HTMLInputElement | undefined
   let contentRef: HTMLDivElement | undefined
-  let restoreTrigger = true
+  const dismiss = createMenuDismissController(() => contentRef)
   const canManage = () => DEFAULT_MODEL_CONFIG.manageModels && !!props.onManage
 
   const allModels = createMemo(() =>
@@ -91,19 +94,9 @@ export function ModelSelectorPopoverV2(props: {
   }
   const activeItem = () =>
     store.active ? contentRef?.querySelector<HTMLElement>(`[data-option-key="${CSS.escape(store.active)}"]`) : undefined
-  const afterClose = (callback: () => void) => {
-    const complete = () => {
-      if (contentRef?.isConnected) {
-        requestAnimationFrame(complete)
-        return
-      }
-      requestAnimationFrame(() => requestAnimationFrame(callback))
-    }
-    requestAnimationFrame(complete)
-  }
   const setOpen = (open: boolean) => {
     if (open) {
-      restoreTrigger = true
+      dismiss.allowTriggerRestore()
       setStore({ open: true, active: initialActive() })
       setTimeout(() =>
         requestAnimationFrame(() => {
@@ -120,14 +113,14 @@ export function ModelSelectorPopoverV2(props: {
     props.onClose?.()
   }
   const selectModel = (item: ModelItem) => {
-    restoreTrigger = false
+    dismiss.preventTriggerRestore()
     setOpen(false)
-    afterClose(() => select(item))
+    dismiss.afterClose(() => select(item))
   }
   const manage = () => {
-    restoreTrigger = false
+    dismiss.preventTriggerRestore()
     setOpen(false)
-    afterClose(() => {
+    dismiss.afterClose(() => {
       props.onManage?.()
       props.onClose?.()
     })
@@ -172,11 +165,9 @@ export function ModelSelectorPopoverV2(props: {
         <Menu.Content
           ref={(el: HTMLDivElement) => (contentRef = el)}
           class="w-[284px] overflow-hidden rounded-md border-0 bg-v2-background-bg-layer-01 !p-0 shadow-[var(--v2-elevation-floating)] focus:outline-none"
-          onPointerDownOutside={() => (restoreTrigger = false)}
-          onFocusOutside={() => (restoreTrigger = false)}
-          onCloseAutoFocus={(event) => {
-            if (!restoreTrigger) event.preventDefault()
-          }}
+          onPointerDownOutside={dismiss.preventTriggerRestore}
+          onFocusOutside={dismiss.preventTriggerRestore}
+          onCloseAutoFocus={dismiss.onCloseAutoFocus}
         >
           <div class="flex flex-col p-0.5">
             <div class="flex h-7 items-center gap-2 rounded-sm pl-3 pr-2.5 text-v2-icon-icon-muted">
@@ -196,9 +187,9 @@ export function ModelSelectorPopoverV2(props: {
                   event.stopPropagation()
                   if (event.key === "Escape") {
                     event.preventDefault()
-                    restoreTrigger = false
+                    dismiss.preventTriggerRestore()
                     setOpen(false)
-                    afterClose(() => props.onClose?.())
+                    dismiss.afterClose(() => props.onClose?.())
                     return
                   }
                   if (event.altKey || event.metaKey) return
@@ -251,26 +242,41 @@ export function ModelSelectorPopoverV2(props: {
                       <Menu.RadioGroup value={current()}>
                         <For each={group.items}>
                           {(item) => (
-                            <Menu.RadioItem
-                              value={modelKey(item)}
-                              data-option-key={modelKey(item)}
-                              data-selected-model={current() === modelKey(item) ? true : undefined}
-                              class="scroll-my-6"
-                              classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item) }}
-                              onMouseEnter={() => {
-                                setStore("active", modelKey(item))
-                                setTimeout(() => searchRef?.focus())
-                              }}
-                              onSelect={() => selectModel(item)}
+                            <Tooltip
+                              class="w-full"
+                              placement="right-start"
+                              gutter={6}
+                              openDelay={0}
+                              value={
+                                <ModelTooltip
+                                  model={item}
+                                  latest={item.latest}
+                                  free={isFree(item.provider.id, item.cost)}
+                                  v2
+                                />
+                              }
                             >
-                              <span class="min-w-0 truncate">{item.name}</span>
-                              <Show when={isFree(item.provider.id, item.cost)}>
-                                <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
-                              </Show>
-                              <Show when={item.latest}>
-                                <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
-                              </Show>
-                            </Menu.RadioItem>
+                              <Menu.RadioItem
+                                value={modelKey(item)}
+                                data-option-key={modelKey(item)}
+                                data-selected-model={current() === modelKey(item) ? true : undefined}
+                                class="scroll-my-6 w-full"
+                                classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item) }}
+                                onMouseEnter={() => {
+                                  setStore("active", modelKey(item))
+                                  setTimeout(() => searchRef?.focus())
+                                }}
+                                onSelect={() => selectModel(item)}
+                              >
+                                <span class="min-w-0 truncate">{item.name}</span>
+                                <Show when={isFree(item.provider.id, item.cost)}>
+                                  <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
+                                </Show>
+                                <Show when={item.latest}>
+                                  <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
+                                </Show>
+                              </Menu.RadioItem>
+                            </Tooltip>
                           )}
                         </For>
                       </Menu.RadioGroup>
