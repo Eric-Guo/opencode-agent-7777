@@ -14,6 +14,7 @@ export type LoadStatus = "loading" | "ready" | "failed"
 
 export type State = {
   status: LoadStatus
+  eventsConnected: boolean
   modelStatus: ModelLoadStatus
   server: ServerInfo | undefined
   session: SessionInfo | undefined

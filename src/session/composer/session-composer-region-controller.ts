@@ -8,7 +8,7 @@ export function createSessionComposerRegionController() {
   const request = createSessionRequestModel()
   return {
     ...request,
-    disabled: createMemo(() => state.status !== "ready" || !!request.questionRequest()),
+    disabled: createMemo(() => state.status !== "ready" || request.blocked()),
     busy: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
     model: createPromptModelSelection(),
     modelStatus: () => state.modelStatus,

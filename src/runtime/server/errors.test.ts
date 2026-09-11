@@ -68,6 +68,23 @@ describe("parseReadableConfigInvalidError", () => {
 })
 
 describe("formatServerError", () => {
+  test.each([
+    { type: "quota_exceeded", message: "All configured Kimi accounts are cooling down.", status: 429 },
+    { _tag: "SessionBusyError", message: "Session is running" },
+    { name: "UnknownError", data: { message: "Server failed" } },
+  ])("preserves structured and legacy messages, including SDK causes", (body) => {
+    const message = body.message ?? body.data?.message ?? ""
+    expect(formatServerError(body)).toBe(message)
+    expect(formatServerError(new Error("Unknown error", { cause: body }))).toBe(message)
+    expect(formatServerError(new Error("Request failed", { cause: { body, status: 429 } }))).toBe(message)
+  })
+
+  test("uses the fallback for empty or malformed message payloads", () => {
+    for (const error of [{ message: "" }, { message: 1 }, { data: { message: null } }]) {
+      expect(formatServerError(error, undefined, "Request failed")).toBe("Request failed")
+    }
+  })
+
   test("formats config invalid errors", () => {
     const error = {
       name: "ConfigInvalidError",

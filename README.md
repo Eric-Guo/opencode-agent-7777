@@ -65,12 +65,12 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-Target root: `<repo-root>/packages/app`, refreshed against commit `817e0a1be3` on 2026-09-09. Story-only sources and
+Target root: `<repo-root>/packages/app`, refreshed against commit `2fdc64c71e` on 2026-09-11. Story-only sources and
 surfaces 7777 does not expose are not parity targets. An unsuffixed filename claims the same responsibility as the
 main app even when the compact product supports fewer cases; a narrower responsibility uses a descriptive `-compact`
 name. Runtime and package code do not import from or read `../app`, and the package does not depend on
 `@opencode/app`. Shared editor sources are package-owned local copies.
-68 source files (including tests) share a relative path with the main app, 26 byte-for-byte identical. All
+72 source files (including tests) share a relative path with the main app, 28 byte-for-byte identical. All
 five public files with shared relative paths are also byte-for-byte identical; the favicon files remain
 package-owned assets rather than links into the main app.
 
@@ -80,20 +80,31 @@ package-owned assets rather than links into the main app.
 | Server clients, sync, and current-session state | `src/runtime/server/api.ts`, `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session files under `src/runtime/server/global-sync/` | One direct client, SSE stream, and session instead of the multi-server reactive data layer. |
 | Provider catalog and model selection | `src/providers/catalog/order.ts`, `src/providers/models/models.tsx`, `src/providers/models/selection.tsx`, `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/providers/models/tooltip.tsx`, `src/composer/selection.ts` | `src/providers/catalog/client-compact.ts`, `src/providers/catalog/loader-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | Catalog shaping, visibility, and recency belong to `models.tsx`; active-session selection and fallback belong to `selection.tsx`. The composer delegates to that selection. Model details use the main-app tooltip boundary, accepting the direct client's input arrays and omitting reasoning when the API does not report it. Imperative loading and load status stay in the compact catalog loader. Source-controlled defaults, provider visibility, and the `manageModels` gate remain; no provider contexts or model variants. |
 | Prompt input and composer | `src/composer/adapter.ts`, `src/composer/composer.tsx`, `src/composer/model.ts`, `src/composer/request.ts`, `src/composer/state.ts`, `src/composer/submission-state.ts`, `src/composer/submit.ts`, `src/composer/attachments/`, `src/composer/editor/`, `src/composer/suggestions/machine.ts`, `src/composer/types.ts`, `src/composer/prompt-parts.ts`, `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/runtime/persistence/drafts.ts`, `src/session/composer/adapter.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/persistence-singleton.ts` | State, submission capture/clear/restore, draft persistence, the editor, and the active-session adapter follow the main-app responsibility boundaries. Failed sends restore untouched drafts with attachments, and old-session completions do not change the active session. The implementations remain single-session: commands, context, shell mode, routed/per-tab state, and a prompt queue are disabled; one localStorage draft stores data-URL attachments. Submission retargeting and retry admission IDs remain outside the compact implementation. |
-| Session requests | `src/session/requests/model.ts`, `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts` | `src/session/requests/permission-sync-compact.ts`, `src/session/requests/question-sync-compact.ts` | The request model has the main-app responsibility boundary, backed by compact single-session sync rather than multi-location data contexts. |
+| Session requests | `src/session/requests/model.ts`, `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts`, `src/session/requests/websearch.ts`, `src/session/requests/session-websearch-dock.tsx`, `src/session/requests/session-websearch-dock.css` | `src/session/requests/permission-sync-compact.ts`, `src/session/requests/form-sync-compact.ts` | The request model and tree cover permissions, questions, and web-search consent/provider forms. Web-search selection follows the main app's two-step form protocol and waits for the compact SSE connection; the dock uses shared UI controls with package-owned markup and scoped styles instead of the full settings context. Form loading and replies stay in compact single-session sync. |
 | Session shell and timeline | `src/session/screen.tsx`, `src/session/header/session-header.tsx`, `src/session/revert.ts`, shared `@opencode/session-ui/timeline`, and `src/session/session-domain.ts` | `src/session/header/recorder-control.tsx`, `src/session/screen-layout-compact.ts`, `src/session/timeline/model-compact.ts`, `src/session/timeline/message-timeline-compact.tsx`, `src/session/use-session-hash-scroll-to-end.ts`, `src/shell/errors/banner-compact.tsx` | One compact pane showing the latest nine dialogs; no routing, visible history paging, virtualization, popovers, terminal, or review/file panels. The 7777-only header recorder starts and stops process-wide recordings and refreshes their status; handling the MP3 bytes returned by Stop remains reserved for a future product flow. Revert exposes the timeline's stage-to action without separate undo/redo controls. The reasoning toggle maps to the shared timeline's hidden/compact modes. |
 | Recent and new sessions | `src/session/title.ts` and main-app `home/sessions`, `new-session`, and `session/header` feature boundaries | `src/home/sessions/directory-sync-recent-compact.ts`, `src/home/sessions/recent-compact.ts`, `src/home/sessions/switcher-compact.ts`, `src/new-session/controller-compact.ts`, `src/session/recovery-compact.ts` | Compact header only; no home route, grouping, search, workspace selection, or background open. Session-title normalization follows the main app and its shared fallback utility. |
-| Shared leaf utilities | `src/runtime/persistence/base64.ts`, `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, `src/shell/commands/menu-dismiss.ts`, shared `@opencode/schema/session-message` | `src/shell/errors/readable.ts` | Shared leaf boundaries stay local; menu dismissal owns deferred actions and trigger-focus restoration. The shared schema mints explicit message IDs. |
+| Shared leaf utilities | `src/runtime/persistence/base64.ts`, `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, `src/shell/commands/menu-dismiss.ts`, shared `@opencode/schema/session-message` | `src/shell/errors/readable.ts` | Shared leaf boundaries stay local; menu dismissal owns deferred actions and trigger-focus restoration. The shared schema mints explicit message IDs. Structured and legacy error messages are formatted by `runtime/server/errors.ts`; the compact shell wrapper only supplies locale and fallback text. |
 
-The September 9 pass adds the main app's model-tooltip and menu-dismissal boundaries and refreshes the package-owned
-editor and attachment sources. Attachment creation now delegates to `runtime/persistence/drafts.ts` and the local
-UUID helper; compact blob references remain data URLs so the single localStorage draft survives reloads. The editor
-supports the main app's optional notice and submission gate, with the latter connected to the compact adapter's
-disabled state. Against the September 9 target, shared source paths increased from 66 to 68 and byte-for-byte matches
-from 22 to 26; the September 7 review's 26 matches used an older target. Regression tests cover submission admission,
-attachment deduplication, and UUID fallback. Browser verification covers model details, keyboard selection, menu
-dismissal, disabled controls, and attachment persistence. The compact implementation still keeps one model selection
-and one catalog in its session store.
+The September 11 pass adds the main app's web-search request model and dock boundaries, refreshes the request-tree
+utility and editor submission-availability gate, and expands question-only sync into `form-sync-compact.ts`.
+Pending web-search forms are loaded initially and received through SSE. Consent, specific-provider selection,
+loading/reply failures, cancellation, and session changes follow the main app's request flow. The compact dock
+omits the main app's post-submit scroll hook and settings-row dependency. New copy uses English fallback until
+translations are reviewed.
+
+The structured execution errors used by upstream commit `2de4f00614` now retain their server message, including
+Kimi account-rotation recovery instructions, instead of becoming a generic “Request failed” banner. Account
+rotation remains server-owned; the existing New session action starts the blank session requested by the server.
+Failure events from other sessions cannot overwrite the active session's error or busy state. Form refreshes and
+replies also capture the owning session ID so later Solid store mutations cannot redirect their completion.
+
+Against the September 11 target, shared source paths increased from 68 to 72 and byte-for-byte matches from 25 to 28.
+The prior review's 26 matches used the September 9 target. Regression coverage includes structured error payloads,
+SSE connection/listener lifecycle, web-search form handoff and cancellation, stale form loading, and submission gates.
+Browser checks against a local HTTP/SSE fixture cover provider selection, failed loading and replies with retry,
+pending forms after reload, draft preservation, the Kimi recovery message, and starting a blank session.
+A production-mode request-tree microbenchmark (100 sessions, 10,000 lookups, median of seven runs) measured
+48.17 ms before and 51.73 ms after; this measures request selection only, not timeline rendering.
 
 7777-only configuration and recovery sources: `src/providers/models/default-config.*`,
 `src/new-session/agent-default-config.*`, `scripts/apply-model-config-dump.ts`, `src/session/directory.ts`,

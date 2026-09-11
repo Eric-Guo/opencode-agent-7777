@@ -1,3 +1,4 @@
+import type { OpenCodeEvent } from "@opencode/client/promise"
 import type { ServerInfo } from "@/runtime/server/resolver-compact"
 import { createApiForServer, type ServerClientConfig } from "@/runtime/server/api"
 
@@ -5,6 +6,10 @@ import { createApiForServer, type ServerClientConfig } from "@/runtime/server/ap
 
 export type { ServerClientConfig } from "@/runtime/server/api"
 export type OpencodeClient = ReturnType<typeof createApiForServer>
+
+export type OpenCodeEventStream = {
+  listen(handler: (event: OpenCodeEvent) => void): VoidFunction
+}
 
 export function createClientForServer({
   server,

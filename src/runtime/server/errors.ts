@@ -29,6 +29,13 @@ export function formatServerError(error: unknown, translate?: Translator, fallba
   const unwrapped = unwrapNamedError(error)
   if (isConfigInvalidErrorLike(unwrapped)) return parseReadableConfigInvalidError(unwrapped, translate)
   if (isProviderModelNotFoundErrorLike(unwrapped)) return parseReadableProviderModelNotFoundError(unwrapped, translate)
+  if (typeof unwrapped === "object" && unwrapped !== null) {
+    if ("message" in unwrapped && typeof unwrapped.message === "string" && unwrapped.message) return unwrapped.message
+    if ("data" in unwrapped && typeof unwrapped.data === "object" && unwrapped.data !== null) {
+      const data = unwrapped.data
+      if ("message" in data && typeof data.message === "string" && data.message) return data.message
+    }
+  }
   if (error instanceof Error && error.message) return error.message
   if (typeof error === "string" && error) return error
   if (fallback) return fallback

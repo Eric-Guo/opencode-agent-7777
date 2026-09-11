@@ -6,7 +6,7 @@ import { readSessionRecord, writeSessionRecord } from "@/runtime/persistence/sto
 import { refreshModels } from "@/providers/catalog/loader-compact"
 import { refreshPermissions } from "@/session/requests/permission-sync-compact"
 import { prompt, readPromptDraft } from "@/composer/persistence-singleton"
-import { refreshQuestions } from "@/session/requests/question-sync-compact"
+import { refreshForms } from "@/session/requests/form-sync-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { createServerSdk, type OpencodeClient } from "@/runtime/server/client-compact"
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
@@ -57,7 +57,7 @@ export function activateSession(
     refreshCurrentMessages(),
     refreshModels(activeClient, session),
     refreshPermissions(),
-    refreshQuestions(),
+    refreshForms(),
     refreshRecentSessions(),
   ]).then(() => undefined)
 }

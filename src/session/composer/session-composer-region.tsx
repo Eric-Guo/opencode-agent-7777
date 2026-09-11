@@ -3,6 +3,7 @@ import { Composer } from "@/composer/composer"
 import { createComposerModel } from "@/composer/model"
 import { SessionPermissionDock } from "@/session/requests/session-permission-dock"
 import { SessionQuestionDock } from "@/session/requests/session-question-dock"
+import { SessionWebSearchDock } from "@/session/requests/session-websearch-dock"
 import { createActiveComposerAdapter } from "@/session/composer/adapter"
 import type { SessionComposerRegionController } from "@/session/composer/session-composer-region-controller"
 
@@ -33,6 +34,9 @@ export function SessionComposerRegion(props: { controller: SessionComposerRegion
             onDecide={controller.decidePermission}
           />
         )}
+      </Show>
+      <Show when={controller.websearch.request()}>
+        <SessionWebSearchDock model={controller.websearch} />
       </Show>
       <Composer model={model} />
     </div>
