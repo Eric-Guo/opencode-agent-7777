@@ -39,6 +39,7 @@ export type ComposerEditorView = {
   agent?: ComposerSelectControl
   variant?: ComposerSelectControl
   submit: {
+    available?: Accessor<boolean>
     enabled?: Accessor<boolean>
     stopping: Accessor<boolean>
     working?: Accessor<boolean>
@@ -354,6 +355,7 @@ export function createComposerEditor(input: {
       draft.removeAttachment(id)
     },
     canSubmit() {
+      if (input.view.submit.available?.() === false) return false
       if (input.view.draftOnly || input.view.submit.enabled?.() === false) return false
       const persisted = draft.state
       if (state.mode === "shell") {
@@ -386,6 +388,7 @@ export function createComposerEditor(input: {
       dispatch({ type: "mode.shell" })
     },
     submit(options?: { alternate?: boolean }) {
+      if (input.view.submit.available?.() === false) return
       if (input.view.submit.enabled?.() === false) return
       if (input.view.draftOnly) return
       input.view.submit.onSubmit(options)

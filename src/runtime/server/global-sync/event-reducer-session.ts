@@ -23,30 +23,29 @@ export function applySessionEvent(event: OpenCodeEvent, input: { refresh: () => 
     title?: string
     revert?: unknown
   }
-  if (event.type === "session.execution.started" && data.sessionID === state.session?.id) {
+  if (!data.sessionID || data.sessionID !== state.session?.id) return false
+  if (event.type === "session.execution.started") {
     setState("sessionStatus", { type: "busy" })
   }
   if (
-    (event.type === "session.execution.succeeded" ||
-      event.type === "session.execution.failed" ||
-      event.type === "session.execution.interrupted") &&
-    data.sessionID === state.session?.id
+    event.type === "session.execution.succeeded" ||
+    event.type === "session.execution.failed" ||
+    event.type === "session.execution.interrupted"
   ) {
     setState("sessionStatus", idleStatus)
   }
-  if (event.type === "session.status" && data.sessionID === state.session?.id && data.status) {
+  if (event.type === "session.status" && data.status) {
     setState("sessionStatus", data.status)
     return true
   }
-  if (event.type === "session.idle" && data.sessionID === state.session?.id) {
+  if (event.type === "session.idle") {
     setState("sessionStatus", idleStatus)
     input.refresh()
     return true
   }
-  if (event.type === "session.execution.failed" && (!data.sessionID || data.sessionID === state.session?.id)) {
+  if (event.type === "session.execution.failed") {
     setState("error", readableError(data.error))
   }
-  if (data.sessionID !== state.session?.id) return false
   if (event.type === "session.renamed" && data.title) setState("session", "title", data.title)
   if (event.type === "session.revert.staged" && data.revert) {
     setState("session", "revert", data.revert as NonNullable<typeof state.session>["revert"])

@@ -13,6 +13,7 @@ export const idleStatus = Object.freeze({ type: "idle" } satisfies SessionStatus
 
 export const [state, setState] = createStore<State>({
   status: "loading",
+  eventsConnected: false,
   modelStatus: "loading",
   server: undefined,
   session: undefined,

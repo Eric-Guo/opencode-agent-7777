@@ -5,6 +5,37 @@ import type { ComposerPersistedState } from "../types"
 import { createComposerEditor } from "./interaction"
 
 describe("composer submission admission", () => {
+  test("preserves the draft while submission is unavailable and still allows interruption", () => {
+    renderToString(() => {
+      let available = false
+      const store = createStore<ComposerPersistedState>({
+        prompt: [{ type: "text", content: "unsent draft", start: 0, end: 12 }],
+        context: { items: [] },
+      })
+      const onSubmit = mock(() => {})
+      const onStop = mock(() => {})
+      const editor = createComposerEditor({
+        store,
+        commands: () => [],
+        context: () => [],
+        searchContextFiles: () => [],
+        view: { submit: { available: () => available, enabled: () => true, stopping: () => true, onSubmit, onStop } },
+      })
+      expect(editor.canSubmit()).toBe(false)
+      editor.submit()
+      editor.submit({ alternate: true })
+      editor.stop()
+      expect(onSubmit).not.toHaveBeenCalled()
+      expect(onStop).toHaveBeenCalledTimes(1)
+      expect(store[0].prompt).toEqual([{ type: "text", content: "unsent draft", start: 0, end: 12 }])
+      available = true
+      expect(editor.canSubmit()).toBe(true)
+      editor.submit()
+      expect(onSubmit).toHaveBeenCalledTimes(1)
+      return ""
+    })
+  })
+
   test("blocks direct submissions while disabled and allows them after enabling", () => {
     renderToString(() => {
       let enabled = false

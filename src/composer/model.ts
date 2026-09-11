@@ -41,7 +41,7 @@ export function createComposerModel(adapter: ComposerAdapter): ComposerModel {
     view: {
       placeholder: adapter.placeholder,
       submit: {
-        enabled: () => !adapter.disabled(),
+        available: () => !adapter.disabled(),
         stopping: adapter.working,
         working: adapter.working,
         onSubmit: adapter.submit,

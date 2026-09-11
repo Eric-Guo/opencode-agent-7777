@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { OpenCodeEvent, SessionInfo as Session } from "@opencode/client/promise"
 import { applySessionEvent } from "@/runtime/server/global-sync/event-reducer-session"
-import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
+import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 
 const session = (id = "session"): Session => ({
@@ -32,6 +32,65 @@ afterEach(() => {
 })
 
 describe("applySessionEvent", () => {
+  test("preserves the Kimi recovery error and returns the active session to idle", () => {
+    setSessionClient(client)
+    setState("session", session())
+    setState("sessionStatus", { type: "busy" })
+    const failure = {
+      type: "quota_exceeded",
+      status: 429,
+      message:
+        "KIMI_API_KEY_2 reached Kimi's five-hour rolling usage limit. KIMI_API_KEY_3 is now selected. Start a blank session to use the promoted account; this failed step was not replayed.",
+      recovery: {
+        type: "connection-fallback" as const,
+        integrationID: "kimi-for-coding",
+        previous: { type: "env" as const, name: "KIMI_API_KEY_2" },
+        promoted: { type: "env" as const, name: "KIMI_API_KEY_3" },
+        unavailableUntil: 1000,
+      },
+    }
+    const before = structuredClone(failure)
+    let refreshes = 0
+    const handled = applySessionEvent(
+      {
+        ...base,
+        id: "evt_failure",
+        type: "session.execution.failed",
+        data: { sessionID: "session", error: failure },
+      },
+      { refresh: () => refreshes++ },
+    )
+
+    expect(handled).toBe(true)
+    expect(state.error).toBe(failure.message)
+    expect(state.sessionStatus).toEqual({ type: "idle" })
+    expect(idleStatus).toEqual({ type: "idle" })
+    expect(failure).toEqual(before)
+    expect(refreshes).toBe(0)
+  })
+
+  test.each(["other", undefined])("ignores failures outside the active session: %s", (sessionID) => {
+    setSessionClient(client)
+    setState("session", session())
+    setState("sessionStatus", { type: "busy" })
+    const handled = applySessionEvent(
+      event({
+        ...base,
+        id: "evt_failure",
+        type: "session.execution.failed",
+        data: { sessionID, error: { type: "quota_exceeded", message: "Old session failed" } },
+      }),
+      {
+        refresh: () => {
+          throw new Error("Unexpected refresh")
+        },
+      },
+    )
+    expect(handled).toBe(false)
+    expect(state.error).toBe("")
+    expect(state.sessionStatus).toEqual({ type: "busy" })
+  })
+
   test("tracks execution lifecycle for the active session", () => {
     setSessionClient(client)
     setState("session", session())
