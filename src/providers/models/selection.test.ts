@@ -40,4 +40,30 @@ describe("model selection fallback", () => {
     expect(stored).toEqual({ providerID: "provider-b", modelID: "stored" })
     expect(models[3]).toEqual({ providerID: "provider-b", modelID: "stored" })
   })
+
+  test("upgrades unambiguous API IDs while preferring exact catalog IDs", () => {
+    const options = [
+      { providerID: "provider", modelID: "configured", api: { id: "legacy" } },
+      { providerID: "other", modelID: "other", api: { id: "legacy" } },
+    ]
+    expect(resolveSelectedModel(options, {}, { providerID: "provider", modelID: "legacy" }, undefined)).toEqual({
+      providerID: "provider",
+      modelID: "configured",
+    })
+    const exact = { providerID: "provider", modelID: "legacy", api: { id: "different" } }
+    expect(resolveSelectedModel([...options, exact], {}, exact, undefined)).toEqual({
+      providerID: "provider",
+      modelID: "legacy",
+    })
+  })
+
+  test("falls back to the server default when a saved API ID matches multiple configured models", () => {
+    const options = [
+      { providerID: "provider", modelID: "first", api: { id: "legacy" } },
+      { providerID: "provider", modelID: "second", api: { id: "legacy" } },
+    ]
+    expect(
+      resolveSelectedModel(options, { provider: "second" }, { providerID: "provider", modelID: "legacy" }, undefined),
+    ).toEqual({ providerID: "provider", modelID: "second" })
+  })
 })

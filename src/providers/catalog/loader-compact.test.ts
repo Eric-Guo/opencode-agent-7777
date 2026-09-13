@@ -43,8 +43,12 @@ describe("provider catalog loader", () => {
 
     expect(calls[0]).toBe("default")
     expect(new Set(calls.slice(1))).toEqual(new Set(["providers", "models"]))
-    expect(result.connected.map((provider) => provider.id)).toEqual(["anthropic"])
-    expect(result.default).toEqual({ anthropic: "claude-sonnet-4" })
-    expect(result.all[0]?.models["claude-sonnet-4"]).toEqual(model)
+    expect(result.connected).toEqual(["anthropic"])
+    expect(result.default).toEqual({ anthropic: "claude-sonnet" })
+    expect(result.all.get("anthropic")?.models["claude-sonnet"]).toMatchObject({
+      id: "claude-sonnet",
+      api: { id: "claude-sonnet-4" },
+      capabilities: { input: { text: true, image: true }, toolcall: true },
+    })
   })
 })

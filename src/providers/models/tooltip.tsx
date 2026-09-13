@@ -12,7 +12,7 @@ type ModelInfo = {
   }
   capabilities?: {
     reasoning?: boolean
-    input: InputMap | string[]
+    input: InputMap
   }
   modalities?: {
     input: Array<string>
@@ -73,7 +73,7 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     if (props.model.capabilities) {
       const input = props.model.capabilities.input
       const order: Array<InputKey> = ["text", "image", "audio", "video", "pdf"]
-      const entries = (Array.isArray(input) ? input : order.filter((key) => input[key])).map(inputLabel)
+      const entries = order.filter((key) => input[key]).map((key) => inputLabel(key))
       return entries.length ? entries.join(", ") : undefined
     }
     const raw = props.model.modalities?.input

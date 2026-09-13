@@ -2,7 +2,7 @@ import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import type { ModelSelection } from "@/runtime/persistence/storage-compact"
-import type { ProviderCatalog, ProviderItem, ProviderModel } from "@/providers/catalog/client-compact"
+import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
 import { popularProviders } from "@/providers/catalog/order"
 
 type Visibility = "show" | "hide"
@@ -18,14 +18,10 @@ type ModelConfig = {
   recent: ModelSelection[]
 }
 
-export type ModelOption = Omit<ProviderModel, "id" | "name" | "cost" | "variants"> &
+export type ModelOption = Model &
   ModelSelection & {
-    provider: ProviderItem
+    provider: Provider
     latest: boolean
-    name: string
-    id: string
-    cost?: { input: number }
-    variants?: Record<string, unknown>
     providerName: string
     modelName: string
   }
@@ -96,17 +92,26 @@ function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined)
   return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
 }
 
-export function findModel<T extends ModelSelection>(options: T[], model: ModelSelection | undefined) {
+export function findModel<T extends ModelSelection & { api?: { id: string } }>(
+  options: T[],
+  model: ModelSelection | undefined,
+) {
   if (!model) return
-  return options.find((option) => sameModel(option, model))
+  // Older 7777 preferences used the provider's API model ID instead of its catalog ID.
+  const exact = options.find((option) => sameModel(option, model))
+  if (exact) return exact
+  const aliases = options.filter((option) => option.providerID === model.providerID && option.api?.id === model.modelID)
+  return aliases.length === 1 ? aliases[0] : undefined
 }
 
 function modelKey(model: ModelKey) {
   return `${model.providerID}:${model.modelID}`
 }
 
-export function modelOptions(catalog: ProviderCatalog): ModelOption[] {
-  return catalog.connected
+export function modelOptions(catalog: ProviderListResponse): ModelOption[] {
+  const connected = new Set(catalog.connected)
+  return [...catalog.all.values()]
+    .filter((provider) => connected.has(provider.id))
     .flatMap((provider) =>
       Object.values(provider.models)
         .filter((model) => model.status !== "deprecated")
@@ -114,14 +119,11 @@ export function modelOptions(catalog: ProviderCatalog): ModelOption[] {
           (model) =>
             ({
               ...model,
-              id: model.modelID,
               name: model.name.replace("(latest)", "").trim(),
               provider,
               latest: model.name.includes("(latest)"),
-              cost: model.cost[0],
-              variants: Object.fromEntries(model.variants.map((variant) => [variant.id, variant])),
               providerID: provider.id,
-              modelID: model.modelID,
+              modelID: model.id,
               providerName: provider.name,
               modelName: model.name.replace("(latest)", "").trim(),
             }) satisfies ModelOption,
@@ -275,6 +277,32 @@ export function createModelsController(list: () => ModelOption[]) {
     persistConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
   }
 
+  function migrateModelIDs() {
+    const options = list()
+    const migrate = <T extends ModelSelection>(entries: T[]): T[] => {
+      const next = new Map<string, T>()
+      for (const item of entries) {
+        const model = findModel(options, item)
+        const value = model && model.modelID !== item.modelID ? { ...item, modelID: model.modelID } : item
+        // An explicit catalog-ID preference takes precedence over an older API-ID alias.
+        if (value !== item && entries.some((entry) => sameModel(entry, value))) continue
+        if (!next.has(modelKey(value))) next.set(modelKey(value), value)
+      }
+      return [...next.values()]
+    }
+    const user = migrate(modelConfig.user)
+    const recent = migrate(modelConfig.recent).slice(0, RECENT_LIMIT)
+    if (
+      user.length === modelConfig.user.length &&
+      recent.length === modelConfig.recent.length &&
+      user.every((item, i) => item === modelConfig.user[i]) &&
+      recent.every((item, i) => item === modelConfig.recent[i])
+    )
+      return
+    setModelConfig({ user, recent })
+    persistConfig()
+  }
+
   function pushRecentModel(model: ModelSelection) {
     const unique = [{ ...model }, ...modelConfig.recent.filter((item) => !sameModel(item, model))].slice(
       0,
@@ -302,6 +330,9 @@ export function createModelsController(list: () => ModelOption[]) {
     setProviderVisibility: (providerID: string, visible: boolean) =>
       updateProviderVisibility(providerID, visible ? "show" : "hide"),
     recent: { list: () => modelConfig.recent, push: pushRecentModel },
-    compact: () => compactPopularProviderConfig(list()),
+    compact() {
+      migrateModelIDs()
+      compactPopularProviderConfig(list())
+    },
   }
 }
