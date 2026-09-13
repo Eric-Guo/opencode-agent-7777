@@ -1,5 +1,5 @@
 import type { SessionInfo as Session } from "@opencode/client/promise"
-import { selectProviderCatalog } from "@/providers/catalog/client-compact"
+import { normalizeProviderList } from "@/runtime/server/global-sync/utils"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { sessionDirectory } from "@/session/directory"
 import { syncModelSelection } from "@/providers/models/selection"
@@ -15,7 +15,11 @@ export async function loadProviderCatalog(client: OpencodeClient, session: Sessi
   const location = { directory: sessionDirectory(session) }
   const defaultModel = await client.model.default({ location })
   const [providers, models] = await Promise.all([client.provider.list({ location }), client.model.list({ location })])
-  return selectProviderCatalog({ providers: providers.data, models: models.data, defaultModel: defaultModel.data })
+  return {
+    ...normalizeProviderList(providers.data, models.data),
+    // Keep the server's configured default ahead of the first available model.
+    default: defaultModel.data ? { [defaultModel.data.providerID]: defaultModel.data.id } : {},
+  }
 }
 
 export function refreshModels(activeClient: OpencodeClient | undefined, session: Session | undefined) {

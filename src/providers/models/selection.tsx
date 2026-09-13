@@ -1,7 +1,7 @@
 import { batch, createRoot } from "solid-js"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
-import type { ProviderCatalog } from "@/providers/catalog/client-compact"
+import type { ProviderListResponse } from "@/runtime/server/types"
 import { readModelSelection, writeModelSelection } from "@/runtime/persistence/storage-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
 
@@ -20,7 +20,7 @@ const models = createRoot(() => createModelsController(() => state.models))
 
 export function resolveSelectedModel<T extends ModelKey>(
   options: T[],
-  defaults: ProviderCatalog["default"],
+  defaults: ProviderListResponse["default"],
   stored: ModelKey | undefined,
   configured: ModelKey | undefined,
 ) {
@@ -44,7 +44,7 @@ export function resolveSelectedModel<T extends ModelKey>(
   return { providerID: first.providerID, modelID: first.modelID }
 }
 
-export function syncModelSelection(catalog: ProviderCatalog) {
+export function syncModelSelection(catalog: ProviderListResponse) {
   const options = modelOptions(catalog)
   const selected = resolveSelectedModel(
     options,
@@ -66,13 +66,15 @@ export function createModelSelection(): ModelSelectorState {
     current: () => models.find(state.selectedModel),
     list: models.list,
     set(model, options) {
-      if (model && !models.find(model)) return
+      const resolved = models.find(model)
+      if (model && !resolved) return
+      const selected = resolved ? { providerID: resolved.providerID, modelID: resolved.modelID } : undefined
       batch(() => {
-        setState("selectedModel", model ? { ...model } : undefined)
-        writeModelSelection(model)
-        if (!model) return
-        models.setVisibility(model, true)
-        if (options?.recent) models.recent.push(model)
+        setState("selectedModel", selected)
+        writeModelSelection(selected)
+        if (!selected) return
+        models.setVisibility(selected, true)
+        if (options?.recent) models.recent.push(selected)
       })
     },
     visible: models.visible,

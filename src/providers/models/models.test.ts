@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { createRoot } from "solid-js"
 import { DEFAULT_MODEL_CONFIG } from "./default-config"
 import { createModelsController, modelOptions } from "./models"
-import { selectProviderCatalog, type ProviderModel } from "@/providers/catalog/client-compact"
+import type { ModelInfo } from "@opencode/client/promise"
+import { normalizeProviderList } from "@/runtime/server/global-sync/utils"
 
 const key = "opencode.7777.model.config"
 const storage = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
@@ -24,9 +25,9 @@ afterEach(() => {
   else Reflect.deleteProperty(globalThis, "localStorage")
 })
 
-function model(providerID: string, modelID: string, input: Partial<ProviderModel> = {}): ProviderModel {
+function model(providerID: string, modelID: string, input: Partial<ModelInfo> = {}): ModelInfo {
   return {
-    id: `${providerID}/${modelID}`,
+    id: modelID,
     providerID,
     modelID,
     name: modelID,
@@ -43,14 +44,13 @@ function model(providerID: string, modelID: string, input: Partial<ProviderModel
 
 function options(models = [model("openai", "one"), model("openai", "two"), model("custom", "one")]) {
   return modelOptions(
-    selectProviderCatalog({
-      providers: [
+    normalizeProviderList(
+      [
         { id: "openai", name: "OpenAI", activation: "auto", package: "@ai-sdk/openai" },
         { id: "custom", name: "Custom", activation: "auto", package: "@ai-sdk/openai-compatible" },
       ],
       models,
-      defaultModel: null,
-    }),
+    ),
   )
 }
 
@@ -166,6 +166,60 @@ describe("model catalog and preferences", () => {
       { providerID: "openai", modelID: "1" },
       { providerID: "openai", modelID: "2" },
       { providerID: "openai", modelID: "4" },
+    ])
+    models.dispose()
+  })
+
+  test("migrates saved visibility and recents to catalog IDs without mutating source defaults", () => {
+    const initial = structuredClone(DEFAULT_MODEL_CONFIG)
+    saved.set(
+      key,
+      JSON.stringify({
+        user: [{ providerID: "custom", modelID: "legacy", visibility: "hide" }],
+        recent: [{ providerID: "custom", modelID: "legacy" }],
+        disabledProviders: [],
+      }),
+    )
+    const list = options([model("custom", "legacy", { id: "configured" })])
+    const first = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    first.compact()
+    expect(JSON.parse(saved.get(key)!).user).toEqual([
+      { providerID: "custom", modelID: "configured", visibility: "hide" },
+    ])
+    expect(first.recent.list()).toEqual([{ providerID: "custom", modelID: "configured" }])
+    first.dispose()
+
+    const second = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    expect(second.visible({ providerID: "custom", modelID: "configured" })).toBe(false)
+    expect(second.recent.list()).toEqual([{ providerID: "custom", modelID: "configured" }])
+    second.setVisibility({ providerID: "custom", modelID: "configured" }, true)
+    expect(JSON.parse(saved.get(key)!).user).toEqual([])
+    expect(DEFAULT_MODEL_CONFIG).toEqual(initial)
+    second.dispose()
+  })
+
+  test("keeps explicit catalog preferences when legacy aliases refer to the same model", () => {
+    saved.set(
+      key,
+      JSON.stringify({
+        user: [
+          { providerID: "custom", modelID: "configured", visibility: "show" },
+          { providerID: "custom", modelID: "legacy", visibility: "hide" },
+        ],
+        recent: [
+          { providerID: "custom", modelID: "legacy" },
+          { providerID: "custom", modelID: "configured" },
+        ],
+        disabledProviders: [],
+      }),
+    )
+    const list = options([model("custom", "legacy", { id: "configured" })])
+    const models = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    models.compact()
+    expect(models.visible({ providerID: "custom", modelID: "configured" })).toBe(true)
+    expect(models.recent.list()).toEqual([{ providerID: "custom", modelID: "configured" }])
+    expect(JSON.parse(saved.get(key)!).user).toEqual([
+      { providerID: "custom", modelID: "configured", visibility: "show" },
     ])
     models.dispose()
   })
