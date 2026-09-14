@@ -88,7 +88,7 @@ export function abortPrompt() {
   const active = currentSession()
   if (!active) return
   void active.client.session
-    .interrupt({ sessionID: active.sessionID, continue: true })
+    .interrupt({ sessionID: active.sessionID, resume: true })
     .catch((error) => setState("error", readableError(error)))
     .finally(() => {
       setState("submitting", false)

@@ -87,10 +87,10 @@ const userMessage = (id: string, created: number, text: string): SessionMessageI
   time: { created },
 })
 
-const inboxUser = (id: string, timeCreated: number, text: string): SessionInboxInfo => ({
+const inboxUser = (id: string, created: number, text: string): SessionInboxInfo => ({
   id,
   sessionID: "ses_test",
-  timeCreated,
+  time: { created },
   type: "user",
   payload: { text },
   delivery: "steer",
@@ -114,7 +114,7 @@ describe("inboxItemMessage", () => {
     const item: SessionInboxInfo = {
       id: "msg_2",
       sessionID: "ses_test",
-      timeCreated: 2000,
+      time: { created: 2000 },
       type: "synthetic",
       payload: { text: "note", description: "compaction" },
       delivery: "queue",
@@ -133,7 +133,7 @@ describe("inboxItemMessage", () => {
     const item: SessionInboxInfo = {
       id: "msg_3",
       sessionID: "ses_test",
-      timeCreated: 3000,
+      time: { created: 3000 },
       type: "compaction",
       payload: {},
       delivery: "steer",

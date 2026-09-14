@@ -2,22 +2,10 @@ import { batch } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
+import type { PromptAttachment, PromptDraft } from "./schema"
 
 export type { Prompt } from "@/composer/types"
-
-export type PromptAttachment = {
-  id: string
-  filename: string
-  sourcePath?: string
-  mime: string
-  url: string
-  blobID?: string
-}
-
-export type PromptDraft = {
-  prompt: string
-  attachments: PromptAttachment[]
-}
+export type { PromptAttachment, PromptDraft } from "./schema"
 
 type PromptStateChange = (draft: PromptDraft) => void
 

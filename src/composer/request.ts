@@ -1,4 +1,4 @@
-import type { PromptAttachment } from "./state"
+import type { PromptAttachment } from "./schema"
 
 export function buildPromptRequest(input: { prompt: string; attachments: readonly PromptAttachment[] }) {
   return {

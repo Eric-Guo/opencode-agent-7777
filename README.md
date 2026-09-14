@@ -65,12 +65,12 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-Target root: `<repo-root>/packages/app`, refreshed against commit `6a1b3a19f0` on 2026-09-13. Story-only sources and
+Target root: `<repo-root>/packages/app`, refreshed against commit `1167d5ee11` on 2026-09-15. Story-only sources and
 surfaces 7777 does not expose are not parity targets. An unsuffixed filename claims the same responsibility as the
 main app even when the compact product supports fewer cases; a narrower responsibility uses a descriptive `-compact`
 name. Runtime and package code do not import from or read `../app`, and the package does not depend on
 `@opencode/app`. Shared editor sources are package-owned local copies.
-75 source files (including tests) share a relative path with the main app, 28 byte-for-byte identical. All
+80 source files (including tests) share a relative path with the main app, 27 byte-for-byte identical. All
 five public files with shared relative paths are also byte-for-byte identical; the favicon files remain
 package-owned assets rather than links into the main app.
 
@@ -79,31 +79,33 @@ package-owned assets rather than links into the main app.
 | App runtime, language, and platform | `src/app.tsx`, `src/entry.tsx`, `src/runtime/animated-presence.ts`, `src/runtime/i18n/language.tsx`, `src/runtime/i18n/en.ts`, `src/runtime/i18n/zh.ts`, `src/index.css`, `src/env.d.ts`, `public/oc-theme-preload.js`, `public/assets/Inter.ttf` | `src/runtime/platform/desktop-rpc-client.ts`, `src/runtime/platform/platform-bridge.ts`, `src/runtime/server/resolver-compact.ts`, package-local favicon copies | Single embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. The local bridge owns native attachment picking, source paths, and clipboard images. |
 | Server clients, sync, and current-session state | `src/runtime/server/api.ts`, `src/runtime/server/errors.ts`, `src/runtime/server/global-sync/types.ts`, `src/runtime/server/global-sync/utils.ts`, `src/runtime/server/types.ts`, `src/session/session-domain.ts` | `src/runtime/server/client-compact.ts`, `src/runtime/server/directory-client-compact.ts`, `src/runtime/server/sync-session-compact.ts`, `src/runtime/server/session-store-compact.ts`, `src/runtime/server/session-reducer-compact.ts`, and the single-session bootstrap, event, message-cache, and queue files under `src/runtime/server/global-sync/` | One direct client, SSE stream, and session instead of the multi-server reactive data layer. |
 | Provider catalog and model selection | `src/providers/catalog/order.ts`, `src/providers/models/models.tsx`, `src/providers/models/selection.tsx`, `src/providers/models/search.ts`, `src/providers/models/select-dialog.tsx`, `src/providers/models/manage.tsx`, `src/providers/models/tooltip.tsx`, `src/composer/selection.ts` | `src/providers/catalog/loader-compact.ts`, `src/providers/models/default-config.ts`, `src/runtime/persistence/storage-compact.ts` | Catalog conversion and view types follow `runtime/server/global-sync/utils.ts` and `runtime/server/types.ts`; display names, visibility, and recency belong to `models.tsx`, with active-session selection and fallback in `selection.tsx`. The composer delegates to that selection. Model details use the main-app tooltip boundary, accepting normalized capability maps and omitting reasoning when the API does not report it. Imperative loading and load status stay in the compact catalog loader. Source-controlled defaults, provider visibility, and the `manageModels` gate remain; no provider contexts or model variants. |
-| Prompt input and composer | `src/composer/adapter.ts`, `src/composer/composer.tsx`, `src/composer/model.ts`, `src/composer/request.ts`, `src/composer/state.ts`, `src/composer/submission-state.ts`, `src/composer/submit.ts`, `src/composer/attachments/`, `src/composer/editor/`, `src/composer/suggestions/machine.ts`, `src/composer/types.ts`, `src/composer/prompt-parts.ts`, `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/runtime/persistence/drafts.ts`, `src/session/composer/adapter.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/persistence-singleton.ts` | State, submission capture/clear/restore, draft persistence, the editor, and the active-session adapter follow the main-app responsibility boundaries. Failed sends restore untouched drafts with attachments, and old-session completions do not change the active session. The implementations remain single-session: commands, context, shell mode, routed/per-tab state, and a prompt queue are disabled; one localStorage draft stores data-URL attachments. Submission retargeting and retry admission IDs remain outside the compact implementation. |
+| Prompt input and composer | `src/composer/adapter.ts`, `src/composer/composer.tsx`, `src/composer/model.ts`, `src/composer/request.ts`, `src/composer/state.ts`, `src/composer/schema.ts`, `src/composer/submission-state.ts`, `src/composer/submit.ts`, `src/composer/attachments/`, `src/composer/editor/`, `src/composer/suggestions/machine.ts`, `src/composer/types.ts`, `src/composer/prompt-parts.ts`, `src/composer/comment-note.ts`, `src/composer/prompt.ts`, `src/runtime/persistence/drafts.ts`, `src/runtime/persistence/schema.ts`, `src/session/composer/adapter.ts`, `src/session/composer/session-composer-region-controller.ts`, `src/session/composer/session-composer-region.tsx` | `src/composer/persistence-singleton.ts` | State, persisted draft schemas, submission capture/clear/restore, draft persistence, the editor, and the active-session adapter follow the main-app responsibility boundaries. Composer schemas own field recovery; persistence schemas supply the local generic recovery helpers. Failed sends restore untouched drafts with attachments, and old-session completions do not change the active session. The implementations remain single-session: commands, context, shell mode, routed/per-tab state, and a prompt queue are disabled; one localStorage draft stores data-URL attachments. Submission retargeting and retry admission IDs remain outside the compact implementation. |
 | Session requests | `src/session/requests/model.ts`, `src/session/requests/session-permission-dock.tsx`, `src/session/requests/session-question-dock.tsx`, `src/session/requests/session-request-tree.ts`, `src/session/requests/websearch.ts`, `src/session/requests/session-websearch-dock.tsx`, `src/session/requests/session-websearch-dock.css` | `src/session/requests/permission-sync-compact.ts`, `src/session/requests/form-sync-compact.ts` | The request model and tree cover permissions, questions, and web-search consent/provider forms. Web-search selection follows the main app's two-step form protocol and waits for the compact SSE connection; the dock uses shared UI controls with package-owned markup and scoped styles instead of the full settings context. Form loading and replies stay in compact single-session sync. |
 | Session shell and timeline | `src/session/screen.tsx`, `src/session/header/session-header.tsx`, `src/session/revert.ts`, shared `@opencode/session-ui/timeline`, and `src/session/session-domain.ts` | `src/session/screen-layout-compact.ts`, `src/session/timeline/model-compact.ts`, `src/session/timeline/message-timeline-compact.tsx`, `src/session/use-session-hash-scroll-to-end.ts`, `src/shell/errors/banner-compact.tsx` | One compact pane showing the latest nine dialogs; no routing, visible history paging, virtualization, popovers, terminal, or review/file panels. Revert exposes the timeline's stage-to action without separate undo/redo controls. The reasoning toggle maps to the shared timeline's hidden/compact modes. |
 | Recent and new sessions | `src/session/title.ts` and main-app `home/sessions`, `new-session`, and `session/header` feature boundaries | `src/home/sessions/directory-sync-recent-compact.ts`, `src/home/sessions/recent-compact.ts`, `src/home/sessions/switcher-compact.ts`, `src/new-session/controller-compact.ts`, `src/session/recovery-compact.ts` | Compact header only; no home route, grouping, search, workspace selection, or background open. Session-title normalization follows the main app and its shared fallback utility. |
 | Shared leaf utilities | `src/runtime/persistence/base64.ts`, `src/runtime/platform/file-picker.ts`, `src/runtime/persistence/uuid.ts`, `src/runtime/server/errors.ts`, `src/shell/commands/search-keydown.ts`, `src/shell/commands/menu-dismiss.ts`, shared `@opencode/schema/session-message` | `src/shell/errors/readable.ts` | Shared leaf boundaries stay local; menu dismissal owns deferred actions and trigger-focus restoration. The shared schema mints explicit message IDs. Structured and legacy error messages are formatted by `runtime/server/errors.ts`; the compact shell wrapper only supplies locale and fallback text. |
 
-The September 13 pass moves provider catalog conversion out of `providers/catalog/client-compact.ts` into the
-main app's `runtime/server/global-sync/utils.ts` boundary and adds its provider/model view types in
-`runtime/server/types.ts`. Catalogs use a provider map and connected IDs; model capabilities, base-tier costs,
-variants, and release dates are normalized before reaching the model selector. Repeated conversions of unchanged
-provider/model lists reuse the main app's weak-cache approach. The compact loader still initializes models before
-loading the catalog and supplies the server's configured default. Disabled providers remain unavailable, and
-unknown reasoning support stays unspecified.
+The September 15 pass moves persisted draft types and validation into the main app's `composer/schema.ts`
+boundary. `runtime/persistence/schema.ts` contains package-owned copies of the main app's mutable struct, fallback,
+optional-field, and array-recovery helpers. `composer/state.ts` owns state transitions and re-exports the draft types;
+`runtime/persistence/drafts.ts` owns blob references and storage I/O, decoding saved JSON through the composer schema.
+The schema covers 7777's existing single-draft format; routed drafts, history schemas, and the main app's storage
+migration framework remain outside this implementation.
 
-Selections now use the catalog model ID, keeping it separate from the provider API model name. Multiple configured
-models targeting the same API model remain distinct. Saved selections, visibility overrides, and recents using
-older API IDs migrate when the provider-scoped match is unambiguous; exact catalog IDs take precedence. Ambiguous
-saved selections use the normal source/server fallback. All source-controlled model defaults and visibility gates
-remain in place.
+The localStorage key and serialized draft format stay compatible. A malformed attachment is discarded without losing
+valid siblings or prompt text; invalid optional metadata is omitted, while valid source paths and blob IDs survive.
+Legacy data-URL attachments still load. Empty or malformed saved drafts are removed, and default attachment arrays
+are fresh for each decode. Tests cover schema round trips, partial recovery, Solid store mutation isolation, storage
+cleanup, and unavailable storage.
 
-Shared source paths increased from 72 to 75, with 28 byte-for-byte matches. The earlier web-search consent,
-structured execution-error, and single-session ownership regression coverage remains. This pass adds tests for
-catalog identity, disabled/deprecated models, capability and cost conversion, cache replacement, and saved model
-preference migration. Validation runs `bun test`, `bun run typecheck`, and `bun run build`; browser checks use a
-local catalog fixture with aliased model IDs.
+This pass also aligns two existing call sites with the current shared client contract: interrupts send `resume: true`,
+and admitted inbox messages read `time.created`. The tests use the current inbox shape and verify the interrupt request.
+The compact message window and header counter remain bounded to nine dialogs.
+
+The earlier provider-catalog alignment remains: catalog IDs stay separate from API model names, saved API IDs migrate
+only when their provider-scoped match is unambiguous, and source defaults and visibility gates remain in place.
+Shared source paths increased from 75 to 80 against the current reference, with 27 byte-for-byte matches and five
+identical public assets. Validation passes `bun test` (217 tests), `bun run typecheck`, and `bun run build`.
 
 7777-only configuration and recovery sources: `src/providers/models/default-config.*`,
 `src/new-session/agent-default-config.*`, `scripts/apply-model-config-dump.ts`, `src/session/directory.ts`,
