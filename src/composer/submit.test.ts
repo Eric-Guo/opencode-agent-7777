@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import type { SessionInfo } from "@opencode/client/promise"
 import { prompt } from "./persistence-singleton"
-import { submitPrompt } from "./submit"
+import { abortPrompt, submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import { disposeRefreshQueue } from "@/runtime/server/global-sync/queue-message-refresh"
 import { resetPendingEchoes } from "@/runtime/server/global-sync/session-cache-messages"
@@ -60,6 +60,23 @@ afterEach(() => {
 })
 
 describe("composer submission", () => {
+  test("interrupts with the current client's resume option without changing the draft", async () => {
+    const requests: unknown[] = []
+    setSessionClient({
+      session: {
+        interrupt: async (value: unknown) => {
+          requests.push(value)
+        },
+      },
+    } as unknown as OpencodeClient)
+
+    abortPrompt()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(requests).toEqual([{ sessionID: "session", resume: true }])
+    expect(prompt.capture()).toEqual(draft())
+  })
+
   test("waits for configuration, echoes the request, and leaves a successful draft clear", async () => {
     const configured = Promise.withResolvers<void>()
     const requests: unknown[] = []

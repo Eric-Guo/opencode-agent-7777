@@ -1,5 +1,5 @@
 import type { SessionMessageUser } from "@opencode/client/promise"
-import type { PromptDraft } from "@/composer/persistence-singleton"
+import type { PromptDraft } from "./schema"
 import { readPromptPresentation } from "./comment-note"
 
 export function extractPromptFromMessage(message: SessionMessageUser): PromptDraft {

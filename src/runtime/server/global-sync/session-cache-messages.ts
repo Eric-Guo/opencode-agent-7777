@@ -35,7 +35,7 @@ export function inboxItemMessage(item: SessionInboxInfo): SessionMessageInfo | u
       files: item.payload.files,
       agents: item.payload.agents,
       skills: item.payload.skills,
-      time: { created: item.timeCreated },
+      time: { created: item.time.created },
     }
   if (item.type === "synthetic")
     return {
@@ -44,7 +44,7 @@ export function inboxItemMessage(item: SessionInboxInfo): SessionMessageInfo | u
       metadata: item.payload.metadata,
       text: item.payload.text,
       description: item.payload.description,
-      time: { created: item.timeCreated },
+      time: { created: item.time.created },
     }
   return undefined
 }

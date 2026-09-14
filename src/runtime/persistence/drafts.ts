@@ -1,7 +1,10 @@
-import type { PromptAttachment, PromptDraft } from "@/composer/state"
+import { Option, Schema } from "effect"
+import { PromptDraft } from "@/composer/schema"
 import { PROMPT_DRAFT_KEY } from "@/constants/session"
 
 export type BlobReference = { id: string; url: string }
+
+const decodePromptDraft = Schema.decodeUnknownOption(Schema.fromJsonString(PromptDraft))
 
 async function blobID(blob: Blob) {
   const bytes = crypto.subtle
@@ -66,46 +69,15 @@ function storageRemove() {
   }
 }
 
-function readPromptAttachment(value: unknown): PromptAttachment | undefined {
-  if (!value || typeof value !== "object") return undefined
-  const attachment = value as Partial<Record<keyof PromptAttachment, unknown>>
-  if (typeof attachment.id !== "string") return undefined
-  if (typeof attachment.filename !== "string") return undefined
-  if (typeof attachment.mime !== "string") return undefined
-  if (typeof attachment.url !== "string") return undefined
-  const sourcePath = typeof attachment.sourcePath === "string" ? attachment.sourcePath : undefined
-  const blobID = typeof attachment.blobID === "string" ? attachment.blobID : undefined
-  return {
-    id: attachment.id,
-    filename: attachment.filename,
-    mime: attachment.mime,
-    url: attachment.url,
-    ...(sourcePath ? { sourcePath } : {}),
-    ...(blobID ? { blobID } : {}),
-  }
-}
-
 export function readPromptDraft(): PromptDraft | undefined {
   const value = storageGet()
   if (!value) return undefined
-  try {
-    const parsed = JSON.parse(value) as { prompt?: unknown; attachments?: unknown }
-    const prompt = typeof parsed.prompt === "string" ? parsed.prompt : ""
-    const attachments = Array.isArray(parsed.attachments)
-      ? parsed.attachments.flatMap((attachment) => {
-          const next = readPromptAttachment(attachment)
-          return next ? [next] : []
-        })
-      : []
-    if (!prompt && attachments.length === 0) {
-      storageRemove()
-      return undefined
-    }
-    return { prompt, attachments }
-  } catch {
+  const decoded = decodePromptDraft(value)
+  if (Option.isNone(decoded) || (!decoded.value.prompt && decoded.value.attachments.length === 0)) {
     storageRemove()
     return undefined
   }
+  return decoded.value
 }
 
 export function writePromptDraft(draft: PromptDraft) {
