@@ -100,7 +100,7 @@ export function decidePermission(request: PermissionRequest, response: "once" | 
   const reply = active.client.permission.reply({
     sessionID: request.sessionID,
     requestID: request.id,
-    reply: response,
+    decision: response,
   })
 
   void reply
