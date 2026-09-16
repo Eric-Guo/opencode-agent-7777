@@ -19,16 +19,13 @@ import {
 } from "@/session/screen-layout-compact"
 import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
-import { useSessionHashScrollToEnd } from "@/session/use-session-hash-scroll-to-end"
+import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
 import { sessionDirectory } from "@/session/directory"
 import { createSessionRevert } from "@/session/revert"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
 
 export function SessionPage() {
-  let messageList: HTMLDivElement | undefined
-  let timelinePointerGesture = 0
-  const timelinePointerGestureWindowMs = 250
   const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
   const timeline = createCompactTimelineModel({
     sessionID: () => state.session?.id ?? "",
@@ -53,22 +50,9 @@ export function SessionPage() {
     revert: (input) => revert.to(input.messageID),
   }
 
-  useSessionHashScrollToEnd({
+  const interaction = createSessionTimelineInteraction({
     items: timeline.visibleMessages,
-    container: () => messageList,
-    shouldScrollToEnd: () => Date.now() - timelinePointerGesture >= timelinePointerGestureWindowMs,
   })
-
-  const markTimelinePointerGesture = (target?: EventTarget | null) => {
-    const root = messageList
-    if (!root) return
-
-    const el = target instanceof Element ? target : undefined
-    const nested = el?.closest("[data-scrollable]")
-    if (nested && nested !== root) return
-
-    timelinePointerGesture = Date.now()
-  }
 
   const toggleReasoningSummaries = () => {
     const next = !showReasoningSummaries()
@@ -89,7 +73,11 @@ export function SessionPage() {
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />
 
-      <main data-slot="session-message-scroller" class={SESSION_MESSAGE_SCROLLER_CLASS} ref={messageList}>
+      <main
+        data-slot="session-message-scroller"
+        class={SESSION_MESSAGE_SCROLLER_CLASS}
+        ref={interaction.view.setScrollRef}
+      >
         <Show
           when={state.status !== "loading" && timeline.ready()}
           fallback={
@@ -112,7 +100,7 @@ export function SessionPage() {
                 document={timeline.document()}
                 actions={actions}
                 showReasoningSummaries={showReasoningSummaries()}
-                onPointerGesture={markTimelinePointerGesture}
+                onPointerGesture={interaction.view.markUserScroll}
               />
             </DataProvider>
           </Show>

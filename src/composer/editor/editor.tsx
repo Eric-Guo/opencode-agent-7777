@@ -25,6 +25,7 @@ import type {
   ComposerSuggestion,
 } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
+import { getCursorPosition } from "./dom"
 import "../attachments/attachments.css"
 import "./editor.css"
 
@@ -120,7 +121,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
   let localInput = false
   const updateCursor = () => {
     if (!editor || !window.getSelection()?.isCollapsed) return
-    props.controller.onCursor(composerCursor(editor))
+    props.controller.onCursor(getCursorPosition(editor))
   }
   const mode = createMemo(() => state.mode)
   const buttons = createMemo(() => ({
@@ -258,7 +259,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
               "text-align": "start",
             }}
             onInput={(event) => {
-              const cursor = composerCursor(event.currentTarget)
+              const cursor = getCursorPosition(event.currentTarget)
               const prompt = parseComposerEditor(event.currentTarget)
               const images = props.controller.parts().filter((part) => part.type === "image")
               localInput = true
@@ -536,15 +537,6 @@ function parseComposerEditor(editor: HTMLDivElement) {
   }
   if (parts.length > 0) return parts
   return [{ type: "text" as const, content: "", start: 0, end: 0 }]
-}
-
-function composerCursor(editor: HTMLDivElement) {
-  const selection = window.getSelection()
-  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return editor.textContent?.length ?? 0
-  const range = selection.getRangeAt(0).cloneRange()
-  range.selectNodeContents(editor)
-  range.setEnd(selection.anchorNode!, selection.anchorOffset)
-  return range.toString().length
 }
 
 export function ComposerAttachments(props: {

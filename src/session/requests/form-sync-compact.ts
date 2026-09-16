@@ -1,4 +1,4 @@
-import type { FormAnswer, FormInfo, FormReplyInput, OpenCodeEvent } from "@opencode/client/promise"
+import type { FormAnswer, FormInfo, SessionFormReplyInput, OpenCodeEvent } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
@@ -20,7 +20,7 @@ export function refreshForms() {
   const session = state.session
   if (!active || !session) return Promise.resolve()
 
-  return active.client.form.request
+  return active.client.form
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
       if (state.session?.id === active.sessionID) setState("form", reconcile(groupForms(result.data)))
@@ -48,10 +48,10 @@ export function handleFormEvent(event: OpenCodeEvent) {
   return false
 }
 
-export async function replyForm(input: FormReplyInput) {
+export async function replyForm(input: SessionFormReplyInput) {
   const active = currentSession()
   if (!active) throw new Error(translateSync("error.sessionNotReady"))
-  await active.client.form.reply(input)
+  await active.client.session.form.reply(input)
   if (state.session?.id !== active.sessionID) return
   setState("form", input.sessionID, (current = []) => current.filter((form) => form.id !== input.formID))
   scheduleRefresh(120)
@@ -80,7 +80,7 @@ export function rejectQuestion(request: FormInfo) {
 
   setState("error", "")
   setState("questionResponding", request.id)
-  void active.client.form
+  void active.client.session.form
     .cancel({ sessionID: request.sessionID, formID: request.id })
     .then(() => {
       if (state.session?.id !== active.sessionID) return
