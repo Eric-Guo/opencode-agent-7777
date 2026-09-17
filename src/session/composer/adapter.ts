@@ -1,23 +1,24 @@
+import { createMemo, type Accessor } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
 import { prompt } from "@/composer/persistence-singleton"
-import type { ComposerAdapter } from "@/composer/adapter"
-import type { SessionComposerRegionController } from "./session-composer-region-controller"
+import { abortPrompt, submitPrompt } from "@/composer/submit"
+import type { ComposerAdapter, ComposerControls } from "@/composer/adapter"
 
-export function createActiveComposerAdapter(controller: SessionComposerRegionController): ComposerAdapter {
+export function createActiveComposerAdapter(input: {
+  controls: Accessor<ComposerControls>
+  disabled: Accessor<boolean>
+}): ComposerAdapter {
   const language = useLanguage()
   return {
     state: prompt,
     identity: () => state.session?.id,
-    controls: () => ({
-      agent: currentLocalAgent(),
-      model: { selection: controller.model, status: controller.modelStatus() },
-    }),
-    disabled: controller.disabled,
-    working: controller.busy,
+    controls: input.controls,
+    disabled: input.disabled,
+    working: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
     placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
-    onAttachmentError: controller.setAttachmentError,
-    submit: controller.submitPrompt,
-    interrupt: controller.abortPrompt,
+    onAttachmentError: (message: string) => setState("error", message),
+    submit: submitPrompt,
+    interrupt: abortPrompt,
   }
 }

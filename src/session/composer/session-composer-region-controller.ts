@@ -1,20 +1,11 @@
-import { createMemo } from "solid-js"
-import { abortPrompt, submitPrompt } from "@/composer/submit"
-import { createPromptModelSelection } from "@/composer/selection"
-import { setState, state } from "@/runtime/server/session-store-compact"
-import { createSessionRequestModel } from "@/session/requests/model"
+import { createMemo, type Accessor } from "solid-js"
+import type { SessionRequestModel } from "@/session/requests/model"
 
-export function createSessionComposerRegionController() {
-  const request = createSessionRequestModel()
+export function createSessionComposerRegionController(input: { state: SessionRequestModel; ready: Accessor<boolean> }) {
   return {
-    ...request,
-    disabled: createMemo(() => state.status !== "ready" || request.blocked()),
-    busy: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
-    model: createPromptModelSelection(),
-    modelStatus: () => state.modelStatus,
-    setAttachmentError: (message: string) => setState("error", message),
-    submitPrompt,
-    abortPrompt,
+    state: input.state,
+    // The compact dock keeps the draft visible while a request blocks editing.
+    disabled: createMemo(() => !input.ready() || input.state.blocked()),
   }
 }
 
