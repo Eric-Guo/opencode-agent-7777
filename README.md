@@ -190,11 +190,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "providerID": "kimi-for-coding",
-        "modelID": "kimi-k2-thinking",
-        "visibility": "hide"
-      },
-      {
         "providerID": "opencode",
         "modelID": "claude-fable-5",
         "visibility": "hide"
@@ -440,17 +435,7 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "modelID": "kimi-for-coding-highspeed",
-        "providerID": "kimi-for-coding",
-        "visibility": "hide"
-      },
-      {
         "modelID": "deepseek-ai/DeepSeek-V4-Flash",
-        "providerID": "siliconflow-cn",
-        "visibility": "show"
-      },
-      {
-        "modelID": "zai-org/GLM-5.2",
         "providerID": "siliconflow-cn",
         "visibility": "show"
       },
@@ -538,6 +523,66 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "gpt-oss-120b",
         "providerID": "cerebras",
         "visibility": "show"
+      },
+      {
+        "modelID": "deepseek-v4-pro",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "deepseek-v4-flash",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "muse-spark-1.2-contributor",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.7-plus",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.8-max",
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "claude-opus-5",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-k2.6",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "muse-spark-1.2-contributor-free",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.8-flash",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "qwen-3.8-27b",
+        "providerID": "cerebras",
+        "visibility": "show"
+      },
+      {
+        "modelID": "deepseek-v4-flash",
+        "providerID": "deepseek",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-for-coding-highspeed",
+        "providerID": "kimi-for-coding",
+        "visibility": "hide"
       }
     ],
     "disabledProviders": [
@@ -568,6 +613,22 @@ bun run models:apply-localstorage <<'JSON'
       }
     ],
     "recent": [
+      {
+        "providerID": "opencode",
+        "modelID": "nemotron-3.5-lightning-free"
+      },
+      {
+        "providerID": "opencode",
+        "modelID": "union-alpha"
+      },
+      {
+        "providerID": "opencode-go",
+        "modelID": "union-alpha"
+      },
+      {
+        "modelID": "glm-5.3-flash",
+        "providerID": "opencode-go"
+      },
       {
         "modelID": "deepseek-v4-flash-free",
         "providerID": "opencode"
