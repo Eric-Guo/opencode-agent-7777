@@ -1,6 +1,5 @@
 import { Spinner } from "@opencode/ui/spinner"
 import { DataProvider } from "@opencode/session-ui/context"
-import type { SessionUserActions } from "@opencode/session-ui/actions"
 import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
 import { readShowReasoningSummaries, writeShowReasoningSummaries } from "@/runtime/persistence/settings-storage-compact"
@@ -8,8 +7,7 @@ import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
 import { AgentWelcome } from "@/session/agent-welcome-compact"
-import { createSessionComposerRegionController } from "@/session/composer/session-composer-region-controller"
-import { SessionComposerRegion } from "@/session/composer/session-composer-region"
+import { createActiveSessionRegion, ActiveSessionComposerRegion } from "@/session/composer/region"
 import {
   SESSION_EMPTY_STATE_CLASS,
   SESSION_LOADING_STATE_CLASS,
@@ -21,7 +19,6 @@ import { CompactMessageTimeline } from "@/session/timeline/message-timeline-comp
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
 import { sessionDirectory } from "@/session/directory"
-import { createSessionRevert } from "@/session/revert"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
 
@@ -34,11 +31,10 @@ export function SessionPage() {
     revertMessageID: () => state.session?.revert?.messageID,
     status: () => state.sessionStatus,
   })
-  const composer = createSessionComposerRegionController()
+  const region = createActiveSessionRegion()
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
-  const revert = createSessionRevert()
   const sessionUiData = createMemo(
     (): SessionUiData => ({
       session: state.session ? [state.session] : [],
@@ -46,9 +42,6 @@ export function SessionPage() {
       session_diff: {},
     }),
   )
-  const actions: SessionUserActions = {
-    revert: (input) => revert.to(input.messageID),
-  }
 
   const interaction = createSessionTimelineInteraction({
     items: timeline.visibleMessages,
@@ -98,7 +91,7 @@ export function SessionPage() {
             <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
               <CompactMessageTimeline
                 document={timeline.document()}
-                actions={actions}
+                actions={region.actions.timeline}
                 showReasoningSummaries={showReasoningSummaries()}
                 onPointerGesture={interaction.view.markUserScroll}
               />
@@ -109,7 +102,7 @@ export function SessionPage() {
 
       <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
 
-      <SessionComposerRegion controller={composer} />
+      <ActiveSessionComposerRegion model={region.active} />
     </div>
   )
 }
