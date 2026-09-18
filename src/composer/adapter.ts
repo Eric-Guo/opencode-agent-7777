@@ -10,28 +10,29 @@ export type ComposerControls = {
   }
 }
 
-// One embedded session supplies the editor state and actions; no routed session or prompt queue is needed.
+// One embedded session supplies the editor state and actions.
 export type ComposerAdapter = {
   state: PromptState
   identity: Accessor<string | undefined>
   controls: Accessor<ComposerControls>
   disabled: Accessor<boolean>
   working: Accessor<boolean>
+  submitting: Accessor<boolean>
   placeholder: Accessor<string>
   onAttachmentError: (message: string) => void
-  submit: () => void
+  submit: (options?: { delivery?: ComposerDelivery }) => void
   interrupt: () => void
 }
 
 export type ComposerDelivery = "steer" | "queue"
 
-// The compact composer has no prompt queue, but the shared editor keeps this optional view contract.
+// Delivery follows the main app; queued editing is optional in the compact view.
 export type ComposerQueue = {
   count: Accessor<number>
   delivery: Accessor<ComposerDelivery>
   alternate: Accessor<ComposerDelivery | undefined>
-  editing: Accessor<string | undefined>
-  confirmEdit: (delivery: ComposerDelivery) => void
-  cancelEdit: () => void
-  editFirst: () => boolean
+  editing?: Accessor<string | undefined>
+  confirmEdit?: (delivery: ComposerDelivery) => void
+  cancelEdit?: () => void
+  editFirst?: () => boolean
 }

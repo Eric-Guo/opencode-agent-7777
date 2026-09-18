@@ -237,9 +237,9 @@ export function createComposerEditor(input: {
       )
     }
     if (handled) return true
-    if (event.key === "Escape" && input.view.submit.queue?.editing()) {
+    if (event.key === "Escape" && input.view.submit.queue?.editing?.()) {
       event.preventDefault()
-      input.view.submit.queue.cancelEdit()
+      input.view.submit.queue.cancelEdit?.()
       return true
     }
     const stop =

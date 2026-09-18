@@ -6,6 +6,7 @@ import type {
   FormInfo,
   PermissionRequest,
   SessionInfo,
+  SessionInboxInfo,
   SessionMessageInfo,
   SessionStatus,
 } from "@opencode/client/promise"
@@ -23,6 +24,7 @@ export type State = {
   recentSessionSwitchingID: string | undefined
   sessionStatus: SessionStatus
   sessionMessages: SessionMessageInfo[]
+  sessionPending: SessionInboxInfo[]
   messagesLoading: boolean
   models: ModelOption[]
   selectedModel: ModelSelection | undefined

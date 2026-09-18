@@ -2,7 +2,7 @@ import { useDialog } from "@opencode/ui/context/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
-import type { ComposerAdapter, ComposerControls } from "./adapter"
+import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 
 export type ComposerModel = ComposerEditorModel & {
@@ -11,7 +11,7 @@ export type ComposerModel = ComposerEditorModel & {
   disabled: ComposerAdapter["disabled"]
 }
 
-export function createComposerModel(adapter: ComposerAdapter): ComposerModel {
+export function createComposerModel(adapter: ComposerAdapter, options?: { queue?: ComposerQueue }): ComposerModel {
   const language = useLanguage()
   const dialog = useDialog()
   const platform = createPlatformAttachments()
@@ -42,9 +42,18 @@ export function createComposerModel(adapter: ComposerAdapter): ComposerModel {
       placeholder: adapter.placeholder,
       submit: {
         available: () => !adapter.disabled(),
-        stopping: adapter.working,
+        enabled: () => !adapter.submitting(),
+        stopping: () => adapter.working() && !adapter.state.dirty(),
         working: adapter.working,
-        onSubmit: adapter.submit,
+        queue: options?.queue,
+        onSubmit: (submitOptions) => {
+          if (!adapter.state.dirty()) {
+            if (adapter.working()) adapter.interrupt()
+            return
+          }
+          const queue = options?.queue
+          adapter.submit({ delivery: (submitOptions?.alternate ? queue?.alternate() : queue?.delivery()) ?? "steer" })
+        },
         onStop: adapter.interrupt,
       },
     },

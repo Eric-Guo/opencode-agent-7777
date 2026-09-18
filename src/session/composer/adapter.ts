@@ -16,6 +16,7 @@ export function createActiveComposerAdapter(input: {
     controls: input.controls,
     disabled: input.disabled,
     working: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
+    submitting: () => state.submitting,
     placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
     onAttachmentError: (message: string) => setState("error", message),
     submit: submitPrompt,

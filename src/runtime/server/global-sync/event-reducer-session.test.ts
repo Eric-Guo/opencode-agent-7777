@@ -3,6 +3,7 @@ import type { OpenCodeEvent, SessionInfo as Session } from "@opencode/client/pro
 import { applySessionEvent } from "@/runtime/server/global-sync/event-reducer-session"
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { resetPendingEchoes, updatePendingInbox } from "./session-cache-messages"
 
 const session = (id = "session"): Session => ({
   id,
@@ -24,6 +25,7 @@ const base = {
 const client = {} as OpencodeClient
 
 afterEach(() => {
+  resetPendingEchoes()
   setSessionClient(undefined)
   setState("session", undefined)
   setState("sessionMessages", [])
@@ -32,6 +34,66 @@ afterEach(() => {
 })
 
 describe("applySessionEvent", () => {
+  test("keeps queued prompts out of history until delivered and removes cancelled rows", () => {
+    setSessionClient(client)
+    setState("session", session())
+    let refreshes = 0
+    const apply = (type: string, data: object) =>
+      applySessionEvent(
+        event({ ...base, id: type, type, data: { sessionID: "session", inboxID: "queued", ...data } }),
+        { refresh: () => refreshes++ },
+      )
+    apply("session.inbox.enqueued", { item: { type: "user", delivery: "queue", payload: { text: "later" } } })
+    expect(state.sessionPending).toMatchObject([{ id: "queued", delivery: "queue", payload: { text: "later" } }])
+    expect(state.sessionMessages).toEqual([])
+    apply("session.inbox.delivery.changed", { delivery: "steer" })
+    expect(state.sessionPending[0].delivery).toBe("steer")
+    expect(state.sessionMessages).toMatchObject([{ id: "queued", text: "later" }])
+    apply("session.inbox.delivery.changed", { delivery: "queue" })
+    expect(state.sessionMessages).toEqual([])
+    apply("session.inbox.delivered", {})
+    expect(state.sessionPending).toEqual([])
+    expect(state.sessionMessages).toMatchObject([{ id: "queued", text: "later" }])
+    apply("session.inbox.enqueued", {
+      inboxID: "cancelled",
+      item: { type: "user", delivery: "queue", payload: { text: "cancel me" } },
+    })
+    apply("session.inbox.cancelled", { inboxID: "cancelled" })
+    expect(state.sessionPending).toEqual([])
+    expect(state.sessionMessages.map((item) => item.id)).toEqual(["queued"])
+    expect(refreshes).toBe(0)
+  })
+
+  test("delivers an inbox item hydrated from HTTP without needing its enqueue event", () => {
+    setSessionClient(client)
+    setState("session", session())
+    updatePendingInbox(() => [
+      {
+        id: "hydrated",
+        sessionID: "session",
+        time: { created: 1 },
+        type: "user",
+        delivery: "queue",
+        payload: { text: "restored queue" },
+      },
+    ])
+    applySessionEvent(
+      event({
+        ...base,
+        id: "delivered",
+        type: "session.inbox.delivered",
+        data: { sessionID: "session", inboxID: "hydrated" },
+      }),
+      {
+        refresh: () => {
+          throw new Error("Unnecessary refresh")
+        },
+      },
+    )
+    expect(state.sessionMessages).toMatchObject([{ id: "hydrated", text: "restored queue" }])
+    expect(state.sessionPending).toEqual([])
+  })
+
   test("preserves the Kimi recovery error and returns the active session to idle", () => {
     setSessionClient(client)
     setState("session", session())

@@ -6,6 +6,7 @@ import { createSessionRequestModel } from "@/session/requests/model"
 import { createSessionRevert } from "@/session/revert"
 import { createSessionComposerController, type SessionComposerController } from "./controller"
 import { SessionComposerRegion } from "./session-composer-region"
+import { SessionQueuePanel } from "./queue-panel"
 
 export function createActiveSessionRegion() {
   const requests = createSessionRequestModel()
@@ -33,5 +34,15 @@ export function createActiveSessionRegion() {
 export type ActiveSessionRegionModel = ReturnType<typeof createActiveSessionRegion>
 
 export function ActiveSessionComposerRegion(props: { model: SessionComposerController }) {
-  return <SessionComposerRegion controller={props.model.region} composer={<Composer model={props.model.composer} />} />
+  return (
+    <SessionComposerRegion
+      controller={props.model.region}
+      composer={
+        <>
+          <SessionQueuePanel queue={props.model.queue} />
+          <Composer model={props.model.composer} />
+        </>
+      }
+    />
+  )
 }

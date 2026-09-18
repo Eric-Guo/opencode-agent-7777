@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import type { SessionInfo } from "@opencode/client/promise"
+import type { SessionInfo, SessionPromptInput } from "@opencode/client/promise"
 import { prompt } from "./persistence-singleton"
 import { abortPrompt, submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import { disposeRefreshQueue } from "@/runtime/server/global-sync/queue-message-refresh"
-import { resetPendingEchoes } from "@/runtime/server/global-sync/session-cache-messages"
+import { resetPendingEchoes, updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 
 function session(id = "session"): SessionInfo {
@@ -31,7 +31,7 @@ function client(input: { configure?: () => Promise<unknown>; send: (value: unkno
   return {
     session: {
       switchAgent: input.configure ?? (() => Promise.resolve()),
-      switchModel: () => Promise.resolve(),
+      switchModel: input.configure ?? (() => Promise.resolve()),
       revert: { clear: () => Promise.resolve() },
       prompt: input.send,
     },
@@ -107,10 +107,100 @@ describe("composer submission", () => {
         id: echo.id,
         text: "explain this",
         files: [{ uri: "data:image/png;base64,aGVsbG8=", name: "image.png" }],
+        delivery: "steer",
+        metadata: { agent: "7777" },
       },
     ])
     expect(prompt.capture()).toEqual({ prompt: "", attachments: [] })
     expect(state.submitting).toBe(false)
+  })
+
+  test("queues attachments without reconfiguring active work or echoing a new dialog", async () => {
+    const requests: SessionPromptInput[] = []
+    setState({ sessionStatus: { type: "busy" }, selectedModel: { providerID: "provider", modelID: "model" } })
+    setSessionClient(
+      client({
+        configure: () => {
+          throw new Error("Queued prompts must not switch the active agent")
+        },
+        send: async (value) => {
+          const input = value as SessionPromptInput
+          requests.push(input)
+          return {
+            id: input.id,
+            sessionID: input.sessionID,
+            type: "user",
+            delivery: input.delivery,
+            payload: { text: input.text },
+            time: { created: 1 },
+          }
+        },
+      }),
+    )
+
+    await submitPrompt({ delivery: "queue" })
+
+    expect(requests).toHaveLength(1)
+    expect(requests[0]).toMatchObject({
+      delivery: "queue",
+      text: "explain this",
+      files: [{ uri: "data:image/png;base64,aGVsbG8=", name: "image.png" }],
+      metadata: { agent: "7777", model: { providerID: "provider", modelID: "model" } },
+    })
+    expect(state.sessionPending).toHaveLength(1)
+    expect(state.sessionMessages).toEqual([])
+    expect(state.sessionStatus).toEqual({ type: "busy" })
+    expect(prompt.capture()).toEqual({ prompt: "", attachments: [] })
+  })
+
+  test.each(["steer", "queue"] as const)(
+    "a failed %s follow-up restores the draft and keeps the active turn busy",
+    async (delivery) => {
+      setState("sessionStatus", { type: "busy" })
+      setSessionClient(
+        client({
+          send: async () => {
+            throw new Error("follow-up failed")
+          },
+        }),
+      )
+
+      await submitPrompt({ delivery })
+
+      expect(prompt.capture()).toEqual(draft())
+      expect(state.sessionStatus).toEqual({ type: "busy" })
+      expect(state.submitting).toBe(false)
+      expect(state.error).toBe("follow-up failed")
+      expect(state.sessionMessages).toEqual([])
+    },
+  )
+
+  test("does not resurrect an admission when its inbox event arrived before HTTP completed", async () => {
+    const admission = Promise.withResolvers<unknown>()
+    setSessionClient(client({ send: () => admission.promise }))
+    const pending = submitPrompt({ delivery: "queue" })
+    updatePendingInbox(() => [])
+    admission.resolve({
+      id: "already-delivered",
+      sessionID: "session",
+      type: "user",
+      delivery: "queue",
+      payload: { text: "done" },
+      time: { created: 1 },
+    })
+    await pending
+    expect(state.sessionPending).toEqual([])
+  })
+
+  test("does not admit a second draft while the first request is pending", async () => {
+    const sending = Promise.withResolvers<unknown>()
+    setSessionClient(client({ send: () => sending.promise }))
+    const pending = submitPrompt({ delivery: "queue" })
+    prompt.set("next draft")
+    expect(submitPrompt({ delivery: "steer" })).toBeUndefined()
+    expect(prompt.current()).toBe("next draft")
+    sending.resolve(undefined)
+    await pending
   })
 
   test.each(["configuration", "prompt"])("restores the draft after a failed %s request", async (stage) => {
