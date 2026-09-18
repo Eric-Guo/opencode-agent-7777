@@ -3,6 +3,7 @@ import type { ComposerControls } from "@/composer/adapter"
 import { createComposerModel } from "@/composer/model"
 import { createActiveComposerAdapter } from "./adapter"
 import { createSessionComposerRegionController } from "./session-composer-region-controller"
+import { createSessionQueue } from "./queue"
 
 export function createSessionComposerController(input: {
   controls: Accessor<ComposerControls>
@@ -10,9 +11,10 @@ export function createSessionComposerController(input: {
 }) {
   const region = createSessionComposerRegionController(input.dock)
   const adapter = createActiveComposerAdapter({ controls: input.controls, disabled: region.disabled })
-  const composer = createComposerModel(adapter)
+  const queue = createSessionQueue({ working: adapter.working, disabled: region.disabled })
+  const composer = createComposerModel(adapter, { queue })
 
-  return { region, composer }
+  return { region, composer, queue }
 }
 
 export type SessionComposerController = ReturnType<typeof createSessionComposerController>

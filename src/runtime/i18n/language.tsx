@@ -1,5 +1,5 @@
 import { createSimpleContext } from "@opencode/ui/context"
-import { pluralCategory, pluralKey, type UiI18nPluralKey } from "@opencode/ui/context/i18n"
+import { pluralCategory, type UiI18nPluralKey } from "@opencode/ui/context/i18n"
 import { dict as uiEn } from "@opencode/ui/i18n/en"
 import { dict as uiZh } from "@opencode/ui/i18n/zh"
 import { createEffect, createMemo } from "solid-js"
@@ -13,6 +13,8 @@ type RawDictionary = typeof en & typeof uiEn
 export type Dictionary = RawDictionary
 export type TranslationKey = keyof Dictionary
 export type TranslationParams = Record<string, string | number | boolean>
+type LocalPluralKey = keyof typeof en extends infer Key ? (Key extends `${infer Base}.other` ? Base : never) : never
+type PluralKey = UiI18nPluralKey | LocalPluralKey
 
 const STORAGE_KEY = "opencode.7777.language"
 const LOCALES: readonly Locale[] = ["en", "zh"]
@@ -121,8 +123,11 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
       key: TranslationKey,
       params?: TranslationParams,
     ) => string
-    const plural = (key: UiI18nPluralKey, count: number, params?: TranslationParams) =>
-      t(pluralKey(key, pluralCategory(intl(), count)), { ...params, count })
+    const plural = (key: PluralKey, count: number, params?: TranslationParams) => {
+      const lookup = `${key}.${pluralCategory(intl(), count)}` as TranslationKey
+      const other = `${key}.other` as TranslationKey
+      return resolveTemplate(dict()[lookup] ?? dict()[other] ?? base[other], { ...params, count })
+    }
 
     createEffect(() => {
       const next = locale()

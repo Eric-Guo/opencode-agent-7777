@@ -6,9 +6,11 @@ import {
   mergeInboxMessages,
   refreshMessages,
   resetPendingEchoes,
+  updatePendingInbox,
 } from "@/runtime/server/global-sync/session-cache-messages"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { disposeRefreshQueue } from "./queue-message-refresh"
 
 const session = (id = "session"): Session => ({
   id,
@@ -73,6 +75,7 @@ function pagedMessageClient(pages: Record<string, { data: SessionMessageInfo[]; 
 }
 
 afterEach(() => {
+  disposeRefreshQueue()
   setSessionClient(undefined)
   setState("session", undefined)
   setState("sessionMessages", [])
@@ -143,6 +146,15 @@ describe("inboxItemMessage", () => {
 })
 
 describe("mergeInboxMessages", () => {
+  test("keeps queued prompts and matching echoes outside the dialog history", () => {
+    expect(
+      mergeInboxMessages({
+        delivered: [userMessage("delivered", 1, "done")],
+        admitted: [{ ...inboxUser("queued", 2, "later"), delivery: "queue" }],
+        echoes: [userMessage("queued", 2, "later")],
+      }).map((message) => message.id),
+    ).toEqual(["delivered"])
+  })
   test("unions delivered, admitted, and echoed messages in chronological order", () => {
     const merged = mergeInboxMessages({
       delivered: [userMessage("msg_2", 2000, "delivered")],
@@ -253,6 +265,27 @@ describe("single-session message cache", () => {
     await refreshMessages(20)
 
     expect(state.sessionMessages.map((message) => message.id)).toEqual(["msg_user", "msg_assistant", "msg_pending"])
+  })
+
+  test("hydrates the pending queue separately from dialog history", async () => {
+    const item = { ...inboxUser("queued", 4, "later"), delivery: "queue" as const }
+    setSessionClient(messageClient(messages, [item]))
+    setState("session", session())
+    await refreshMessages(20)
+    expect(state.sessionPending).toEqual([item])
+    expect(state.sessionMessages.map((message) => message.id)).toEqual(["msg_user", "msg_assistant"])
+  })
+
+  test("does not restore a queue item from a snapshot overtaken by cancellation", async () => {
+    const item = { ...inboxUser("queued", 4, "later"), delivery: "queue" as const }
+    setSessionClient(messageClient(messages, [item]))
+    setState("session", session())
+    updatePendingInbox(() => [item])
+    const refresh = refreshMessages(20)
+    updatePendingInbox(() => [])
+    await refresh
+    expect(state.sessionPending).toEqual([])
+    expect(state.sessionMessages).toEqual([])
   })
 
   test("does not apply a response after the active session changes", async () => {

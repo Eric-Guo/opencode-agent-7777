@@ -269,7 +269,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
               if (!view.draftOnly && props.controller.onKeyDown(event)) return
               const mod = event.metaKey || event.ctrlKey
               if (mod && event.key === "ArrowUp" && !event.shiftKey && !event.altKey) {
-                if (view.submit.queue?.editFirst()) event.preventDefault()
+                if (view.submit.queue?.editFirst?.()) event.preventDefault()
                 return
               }
               if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
@@ -869,7 +869,7 @@ function ComposerEditorAlternateDelivery(props: { controller: ComposerEditorMode
   const action = createMemo(() => {
     const queue = view.submit.queue
     if (!queue || !props.controller.canSubmit()) return undefined
-    if (queue.editing()) return "steer" as const
+    if (queue.editing?.()) return "steer" as const
     return queue.alternate()
   })
   const [button, setButton] = createSignal<HTMLButtonElement>()

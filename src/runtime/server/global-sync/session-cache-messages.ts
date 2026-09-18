@@ -1,10 +1,26 @@
 // Live current-message cache for the one active session.
 import type { SessionInboxInfo, SessionMessageInfo } from "@opencode/client/promise"
+import { batch } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { scheduleRefreshTask } from "./queue-message-refresh"
 
 let messageRefreshCount = 0
+let latestMessageRefresh = 0
+let pendingRevision = 0
+
+export const pendingInboxRevision = () => pendingRevision
+
+export function updatePendingInbox(update: (items: SessionInboxInfo[]) => SessionInboxInfo[]) {
+  pendingRevision += 1
+  setState("sessionPending", update)
+}
+
+export function filterQueuedMessages(messages: SessionMessageInfo[], pending = state.sessionPending) {
+  const queued = new Set(pending.filter((item) => item.delivery === "queue").map((item) => item.id))
+  return messages.filter((message) => !queued.has(message.id))
+}
 
 function isDialogRoot(message: SessionMessageInfo) {
   return message.type === "user" || message.type === "shell"
@@ -21,8 +37,8 @@ function chronologicalMessages(messages: SessionMessageInfo[]) {
   ].sort((a, b) => a.time.created - b.time.created || a.id.localeCompare(b.id))
 }
 
-// Admitted-but-undelivered inbox items never appear in message.list, so the live cache unions them
-// (and locally echoed submissions) into the session message list until the server delivers them.
+// Steered inbox items and local echoes join the timeline before delivery. Queued items
+// stay in the composer panel until delivered, without consuming the nine-dialog window.
 const echoes = new Map<string, SessionMessageInfo>()
 
 export function inboxItemMessage(item: SessionInboxInfo): SessionMessageInfo | undefined {
@@ -58,7 +74,10 @@ export function mergeInboxMessages(input: {
     const message = inboxItemMessage(item)
     return message ? [message] : []
   })
-  return chronologicalMessages([...input.echoes, ...admitted, ...input.delivered])
+  return chronologicalMessages([
+    ...filterQueuedMessages([...input.echoes, ...admitted], input.admitted),
+    ...input.delivered,
+  ])
 }
 
 export function echoPendingUserMessage(message: SessionMessageInfo) {
@@ -76,6 +95,11 @@ export function dropPendingEcho(messageID: string) {
 
 export function resetPendingEchoes() {
   echoes.clear()
+  updatePendingInbox(() => [])
+}
+
+export function forgetPendingEcho(messageID: string) {
+  echoes.delete(messageID)
 }
 
 export async function loadRecentMessageWindow(input: {
@@ -114,6 +138,8 @@ export function refreshMessages(limit: number) {
   const active = currentSession()
   if (!active || !state.session) return Promise.resolve()
   messageRefreshCount += 1
+  const refreshID = ++latestMessageRefresh
+  const revision = pendingRevision
   setState("messagesLoading", true)
   return Promise.all([
     loadRecentMessageWindow({ client: active.client, sessionID: active.sessionID, limit }),
@@ -121,7 +147,13 @@ export function refreshMessages(limit: number) {
   ])
     .then(([delivered, inbox]) => {
       const session = state.session
-      if (session?.id !== active.sessionID) return
+      if (session?.id !== active.sessionID || refreshID !== latestMessageRefresh) return
+      if (revision !== pendingRevision) {
+        // An inbox event overtook this snapshot. Reuse the existing refresh queue
+        // so cancelled/delivered items cannot reappear and initial history still hydrates.
+        scheduleRefreshTask(() => refreshMessages(limit))
+        return
+      }
       // message.list only returns durable completed messages; assistant turns, compactions, and shells
       // still streaming through session events must survive the refresh while the session is busy.
       const inflight =
@@ -139,11 +171,10 @@ export function refreshMessages(limit: number) {
       })
       const covered = new Set([...delivered.map((message) => message.id), ...inbox.map((item) => item.id)])
       for (const id of [...echoes.keys()]) if (covered.has(id)) echoes.delete(id)
-      return sessionMessages
-    })
-    .then((sessionMessages) => {
-      if (!sessionMessages || state.session?.id !== active.sessionID) return
-      setState("sessionMessages", sessionMessages)
+      batch(() => {
+        updatePendingInbox(() => inbox)
+        setState("sessionMessages", sessionMessages)
+      })
     })
     .finally(() => {
       messageRefreshCount = Math.max(0, messageRefreshCount - 1)
