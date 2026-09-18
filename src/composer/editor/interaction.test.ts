@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { createStore } from "solid-js/store"
 import { renderToString } from "solid-js/web"
 import type { ComposerPersistedState } from "../types"
-import { createComposerEditor } from "./interaction"
+import { createComposerEditor, shouldHandlePasteAsAttachment } from "./interaction"
 
 describe("composer submission admission", () => {
   test("preserves the draft while submission is unavailable and still allows interruption", () => {
@@ -69,6 +69,55 @@ describe("composer submission admission", () => {
 })
 
 describe("composer paste", () => {
+  test.each([
+    { types: [], native: false, expected: false },
+    { types: [], native: true, expected: true },
+    { types: ["text/plain"], native: true, expected: false },
+    { types: ["text/html"], native: true, expected: false },
+    { types: ["text/uri-list"], native: true, expected: false },
+  ])("routes clipboard types $types with native image support $native", ({ types, native, expected }) => {
+    const clipboard = { types, items: [] } as unknown as DataTransfer
+    expect(shouldHandlePasteAsAttachment(clipboard, native)).toBe(expected)
+  })
+
+  test("handles files even when text is also on the clipboard", () => {
+    const clipboard = { types: ["text/plain", "Files"], items: [{ kind: "file" }] } as unknown as DataTransfer
+    expect(shouldHandlePasteAsAttachment(clipboard, false)).toBe(true)
+  })
+
+  test("does not swallow an HTML-only paste or request a native clipboard image", () => {
+    renderToString(() => {
+      const readClipboardImage = mock(async () => null)
+      const preventDefault = mock(() => {})
+      const editor = createComposerEditor({
+        store: createStore<ComposerPersistedState>({ prompt: [], context: { items: [] } }),
+        commands: () => [],
+        context: () => [],
+        searchContextFiles: () => [],
+        attachments: {
+          directory: () => "",
+          isDialogActive: () => false,
+          warn() {},
+          duplicate() {},
+          onError() {},
+          readClipboardImage,
+        },
+        view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+      })
+      // A cursor already exists, so attachment capture does not need a browser selection.
+      editor.onCursor(0)
+      editor.setEditor({} as HTMLElement)
+      editor.onPaste({
+        clipboardData: { types: ["text/html"], items: [], getData: () => "" },
+        preventDefault,
+        stopPropagation() {},
+      } as unknown as ClipboardEvent)
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(readClipboardImage).not.toHaveBeenCalled()
+      return ""
+    })
+  })
+
   test.each([
     { text: "one line", command: "insertText", value: "one line" },
     { text: "one\r\ntwo\rthree", command: "insertHTML", value: "one\ntwo\nthree" },
