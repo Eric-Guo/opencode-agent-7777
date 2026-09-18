@@ -407,10 +407,7 @@ export function createComposerEditor(input: {
     },
     onPaste(event: ClipboardEvent) {
       const clipboard = event.clipboardData
-      if (
-        attachments &&
-        (Array.from(clipboard?.items ?? []).some((item) => item.kind === "file") || !clipboard?.getData("text/plain"))
-      ) {
+      if (attachments && shouldHandlePasteAsAttachment(clipboard, !!input.attachments?.readClipboardImage)) {
         void attachments.handlePaste(event)
         return
       }
@@ -472,6 +469,12 @@ export function createComposerEditor(input: {
 }
 
 export type ComposerEditorModel = ReturnType<typeof createComposerEditor>
+
+export function shouldHandlePasteAsAttachment(clipboard: DataTransfer | null, readClipboardImage: boolean) {
+  if (Array.from(clipboard?.items ?? []).some((item) => item.kind === "file")) return true
+  if (Array.from(clipboard?.types ?? []).some((type) => type.startsWith("text/"))) return false
+  return readClipboardImage
+}
 
 function canNavigateHistory(direction: "up" | "down", text: string, cursor: number, inHistory: boolean) {
   const position = Math.max(0, Math.min(cursor, text.length))
