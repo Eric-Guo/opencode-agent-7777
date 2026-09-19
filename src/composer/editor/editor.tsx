@@ -366,6 +366,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
                     <Show when={control.options().length > 1}>
                       <ComposerEditorConfiguredSelect
                         title={labels().chooseVariant}
+                        disabled={props.disabled}
                         keybind={["Shift", "Mod", "D"]}
                         control={control}
                         class={control.current() === "default" ? "composer-variant-default" : undefined}
@@ -710,6 +711,7 @@ export function ComposerEditorAddMenu(props: {
 
 function ComposerEditorConfiguredSelect(props: {
   title: string
+  disabled?: boolean
   keybind?: string[]
   control: ComposerSelectControl
   model?: boolean
@@ -720,6 +722,7 @@ function ComposerEditorConfiguredSelect(props: {
   return (
     <ComposerEditorSelect
       title={props.title}
+      disabled={props.disabled}
       class={props.class}
       keybind={props.control.keybind?.() ?? props.keybind}
       options={props.control.options()}
@@ -736,6 +739,7 @@ function ComposerEditorConfiguredSelect(props: {
 
 export function ComposerEditorSelect(props: {
   title: string
+  disabled?: boolean
   keybind?: string[]
   options: ComposerOption[]
   current: string
@@ -761,6 +765,7 @@ export function ComposerEditorSelect(props: {
           size="normal"
           class={`max-w-[220px] justify-start ![font-weight:440] ${props.class ?? ""}`}
           aria-label={props.title}
+          disabled={props.disabled}
         >
           {props.currentIcon}
           <span class="truncate capitalize leading-5">

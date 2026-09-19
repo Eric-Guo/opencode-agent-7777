@@ -6,6 +6,8 @@ import type { OpencodeClient } from "@/runtime/server/client-compact"
 import { disposeRefreshQueue } from "@/runtime/server/global-sync/queue-message-refresh"
 import { resetPendingEchoes, updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
+import { createModelSelection } from "@/providers/models/selection"
+import type { ModelOption } from "@/providers/models/models"
 
 function session(id = "session"): SessionInfo {
   return {
@@ -45,6 +47,7 @@ beforeEach(() => {
     sessionMessages: [],
     sessionStatus: { type: "idle" },
     selectedModel: undefined,
+    models: [],
     submitting: false,
     error: "",
   })
@@ -55,11 +58,95 @@ afterEach(() => {
   disposeRefreshQueue()
   resetPendingEchoes()
   setSessionClient(undefined)
-  setState({ session: undefined, sessionMessages: [], sessionStatus: { type: "idle" }, submitting: false, error: "" })
+  setState({
+    session: undefined,
+    sessionMessages: [],
+    sessionStatus: { type: "idle" },
+    submitting: false,
+    error: "",
+    models: [],
+    selectedModel: undefined,
+  })
   prompt.reset()
 })
 
 describe("composer submission", () => {
+  test.each(["steer", "queue"] as const)("captures the model variant for a %s submission", async (delivery) => {
+    const requests: SessionPromptInput[] = []
+    const switches: unknown[] = []
+    const configured = Promise.withResolvers<void>()
+    const model = { providerID: "submission-variant-test", modelID: "reasoning", variants: { low: {}, high: {} } }
+    setState("models", [{ ...model }] as unknown as ModelOption[])
+    const selection = createModelSelection()
+    selection.set(model)
+    selection.variant.set("high")
+    setSessionClient({
+      session: {
+        switchAgent: () => configured.promise,
+        switchModel: async (value: unknown) => {
+          switches.push(value)
+          await configured.promise
+        },
+        prompt: async (value: SessionPromptInput) => {
+          requests.push(value)
+        },
+      },
+    } as unknown as OpencodeClient)
+
+    const pending = submitPrompt({ delivery })
+    selection.variant.set("low")
+    configured.resolve()
+    await pending
+
+    expect(requests[0].metadata).toEqual({
+      agent: "7777",
+      model: { providerID: "submission-variant-test", modelID: "reasoning", variant: "high" },
+    })
+    expect(switches).toEqual(
+      delivery === "steer"
+        ? [
+            {
+              sessionID: "session",
+              model: { providerID: "submission-variant-test", id: "reasoning", variant: "high" },
+            },
+          ]
+        : [],
+    )
+  })
+
+  test("omits the variant from model switching and prompt metadata after selecting Default", async () => {
+    const switches: unknown[] = []
+    const requests: SessionPromptInput[] = []
+    const model = { providerID: "submission-variant-test", modelID: "default", variants: { high: {} } }
+    setState("models", [{ ...model }] as unknown as ModelOption[])
+    const selection = createModelSelection()
+    selection.set(model)
+    selection.variant.set("high")
+    selection.variant.set(undefined)
+    setSessionClient({
+      session: {
+        switchAgent: async () => {},
+        switchModel: async (value: unknown) => {
+          switches.push(value)
+        },
+        prompt: async (value: SessionPromptInput) => {
+          requests.push(value)
+        },
+      },
+    } as unknown as OpencodeClient)
+    await submitPrompt()
+    expect(switches).toEqual([
+      {
+        sessionID: "session",
+        model: { providerID: "submission-variant-test", id: "default" },
+      },
+    ])
+    expect(requests[0].metadata).toEqual({
+      agent: "7777",
+      model: { providerID: "submission-variant-test", modelID: "default" },
+    })
+  })
+
   test("interrupts with the current client's resume option without changing the draft", async () => {
     const requests: unknown[] = []
     setSessionClient({

@@ -1,5 +1,6 @@
 import { SessionMessage } from "@opencode/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
+import { createModelSelection } from "@/providers/models/selection"
 import {
   dropPendingEcho,
   echoPendingUserMessage,
@@ -25,6 +26,8 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
   const selectedModel = state.selectedModel ? { ...state.selectedModel } : undefined
+  const variant = createModelSelection().variant.current()
+  const model = selectedModel ? { ...selectedModel, ...(variant ? { variant } : {}) } : undefined
   const optimisticBusy = state.sessionStatus.type === "idle"
   const revision = pendingInboxRevision()
 
@@ -55,11 +58,11 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
     ...(delivery === "steer"
       ? [active.client.session.switchAgent({ sessionID: active.sessionID, agent: active.localAgent })]
       : []),
-    ...(delivery === "steer" && selectedModel
+    ...(delivery === "steer" && model
       ? [
           active.client.session.switchModel({
             sessionID: active.sessionID,
-            model: { id: selectedModel.modelID, providerID: selectedModel.providerID },
+            model: { id: model.modelID, providerID: model.providerID, ...(variant ? { variant } : {}) },
           }),
         ]
       : []),
@@ -76,7 +79,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
         delivery,
         metadata: {
           agent: active.localAgent,
-          ...(selectedModel ? { model: selectedModel } : {}),
+          ...(model ? { model } : {}),
         },
       }),
     )

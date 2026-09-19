@@ -69,6 +69,7 @@ export const dict = {
   "model.aria": "Model",
   "model.loading": "Loading models",
   "model.default": "Server default",
+  "model.variant.default": "Default",
   "model.provider.anthropic": "Anthropic",
   "model.provider.openai": "OpenAI",
   "model.provider.google": "Google",

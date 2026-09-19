@@ -59,6 +59,46 @@ function controller() {
 }
 
 describe("model catalog and preferences", () => {
+  test("persists independent variant preferences and explicit Default across reloads and visibility edits", () => {
+    const initial = structuredClone(DEFAULT_MODEL_CONFIG)
+    const list = options([
+      model("openai", "one", { variants: [{ id: "high" }] }),
+      model("custom", "one", { variants: [{ id: "low" }] }),
+    ])
+    const primary = { providerID: "openai", modelID: "one" }
+    const secondary = { providerID: "custom", modelID: "one" }
+    const first = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    first.variant.set(primary, "high")
+    first.variant.set(secondary, "low")
+    first.setVisibility(primary, false)
+    first.recent.push(primary)
+    first.compact()
+    first.dispose()
+
+    const second = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    expect(second.variant.get(primary)).toBe("high")
+    expect(second.variant.get(secondary)).toBe("low")
+    second.variant.set(primary, undefined)
+    second.dispose()
+
+    const third = createRoot((dispose) => ({ ...createModelsController(() => list), dispose }))
+    expect(third.variant.get(primary)).toBe("default")
+    expect(third.variant.get(secondary)).toBe("low")
+    third.variant.set(primary, "unavailable")
+    third.variant.set({ providerID: "missing", modelID: "one" }, "high")
+    expect(JSON.parse(saved.get(key)!).variant).toEqual({ "openai/one": "default", "custom/one": "low" })
+    expect(DEFAULT_MODEL_CONFIG).toEqual(initial)
+    third.dispose()
+  })
+
+  test("discards malformed saved variant preferences while preserving valid entries", () => {
+    saved.set(key, JSON.stringify({ variant: { "openai/one": "high", invalid: 3, missing: null } }))
+    const models = controller()
+    models.recent.push({ providerID: "openai", modelID: "one" })
+    expect(JSON.parse(saved.get(key)!).variant).toEqual({ "openai/one": "high" })
+    models.dispose()
+  })
+
   test("normalizes connected models without mutating the catalog", () => {
     const models = [
       model("openai", "z", { name: "Z (latest)" }),

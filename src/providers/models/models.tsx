@@ -16,6 +16,7 @@ type ModelConfig = {
   disabledProviders: string[]
   popularProviders: ProviderVisibility[]
   recent: ModelSelection[]
+  variant?: Record<string, string>
 }
 
 export type ModelOption = Model &
@@ -55,6 +56,13 @@ function readModelConfig(): ModelConfig {
         ? parsed.popularProviders.filter(isProviderVisibility)
         : [],
       recent: Array.isArray(parsed.recent) ? parsed.recent.filter(isModelSelection) : [],
+      ...(parsed.variant && typeof parsed.variant === "object" && !Array.isArray(parsed.variant)
+        ? {
+            variant: Object.fromEntries(
+              Object.entries(parsed.variant).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+            ),
+          }
+        : {}),
     }
   } catch {
     return defaultModelConfig()
@@ -160,6 +168,7 @@ export function createModelsController(list: () => ModelOption[]) {
       disabledProviders: [...next.disabledProviders],
       popularProviders: [...next.popularProviders],
       recent: [...next.recent],
+      ...(next.variant ? { variant: { ...next.variant } } : {}),
     })
   }
 
@@ -319,6 +328,15 @@ export function createModelsController(list: () => ModelOption[]) {
     return providerDefaultVisibility(model.providerID) !== "hide"
   }
 
+  const variantKey = (model: ModelKey) => `${model.providerID}/${model.modelID}`
+  const getVariant = (model: ModelKey) => modelConfig.variant?.[variantKey(model)]
+  const setVariant = (model: ModelKey, value: string | undefined) => {
+    const resolved = findModel(list(), model)
+    if (!resolved || (value && value !== "default" && !Object.hasOwn(resolved.variants ?? {}, value))) return
+    setModelConfig("variant", { ...modelConfig.variant, [variantKey(resolved)]: value ?? "default" })
+    persistConfig()
+  }
+
   return {
     list,
     find: (model: ModelKey | undefined) => findModel(list(), model),
@@ -330,6 +348,7 @@ export function createModelsController(list: () => ModelOption[]) {
     setProviderVisibility: (providerID: string, visible: boolean) =>
       updateProviderVisibility(providerID, visible ? "show" : "hide"),
     recent: { list: () => modelConfig.recent, push: pushRecentModel },
+    variant: { get: getVariant, set: setVariant },
     compact() {
       migrateModelIDs()
       compactPopularProviderConfig(list())

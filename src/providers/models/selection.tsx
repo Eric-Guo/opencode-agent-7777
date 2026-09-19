@@ -1,6 +1,7 @@
 import { batch, createRoot } from "solid-js"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
+import { resolveModelVariant } from "./variant"
 import type { ProviderListResponse } from "@/runtime/server/types"
 import { readModelSelection, writeModelSelection } from "@/runtime/persistence/storage-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
@@ -14,6 +15,11 @@ export type ModelSelectorState = {
   visible: (model: ModelKey) => boolean
   setVisibility: (model: ModelKey, visible: boolean) => void
   setProviderVisibility: (providerID: string, visible: boolean) => void
+  variant: {
+    current: () => string | undefined
+    list: () => string[]
+    set: (value: string | undefined) => void
+  }
 }
 
 const models = createRoot(() => createModelsController(() => state.models))
@@ -62,8 +68,10 @@ export function syncModelSelection(catalog: ProviderListResponse) {
 
 // Active-session selection delegates visibility and recency to the models controller.
 export function createModelSelection(): ModelSelectorState {
+  const current = () => models.find(state.selectedModel)
+  const variants = () => Object.keys(current()?.variants ?? {}).filter((value) => value !== "default")
   return {
-    current: () => models.find(state.selectedModel),
+    current,
     list: models.list,
     set(model, options) {
       const resolved = models.find(model)
@@ -80,5 +88,21 @@ export function createModelSelection(): ModelSelectorState {
     visible: models.visible,
     setVisibility: models.setVisibility,
     setProviderVisibility: models.setProviderVisibility,
+    variant: {
+      current() {
+        const model = current()
+        return resolveModelVariant({
+          variants: variants(),
+          selected: undefined,
+          configured: undefined,
+          preferred: model ? models.variant.get(model) : undefined,
+        })
+      },
+      list: variants,
+      set(value) {
+        const model = current()
+        if (model) models.variant.set(model, value)
+      },
+    },
   }
 }
