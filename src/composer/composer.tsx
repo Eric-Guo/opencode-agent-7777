@@ -9,6 +9,8 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { ComposerEditor } from "./editor/editor"
 import type { ComposerModel } from "./model"
 
+const IS_MAC = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform)
+
 export function Composer(props: { model: ComposerModel }) {
   const language = useLanguage()
   const dialog = useDialog()
@@ -31,6 +33,7 @@ export function Composer(props: { model: ComposerModel }) {
       controller={props.model}
       disabled={props.model.disabled()}
       class="mx-auto max-w-[1120px]"
+      alternateKeybind={[IS_MAC ? "⌘" : language.t("common.key.ctrl"), "↵"]}
       labels={{
         dropFiles: language.t("prompt.dropzone.label"),
         removeAttachment: language.t("prompt.removeAttachment.generic"),
