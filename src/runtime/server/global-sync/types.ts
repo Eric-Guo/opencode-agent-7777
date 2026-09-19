@@ -28,6 +28,7 @@ export type State = {
   messagesLoading: boolean
   models: ModelOption[]
   selectedModel: ModelSelection | undefined
+  agentModels: Record<string, (ModelSelection & { variant?: string }) | undefined>
   permission: Record<string, PermissionRequest[] | undefined>
   permissionResponding: string | undefined
   form: Record<string, FormInfo[] | undefined>

@@ -1,10 +1,18 @@
 import { batch, createRoot } from "solid-js"
+import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
-import { resolveModelVariant } from "./variant"
+import { getConfiguredAgentVariant, resolveModelVariant } from "./variant"
 import type { ProviderListResponse } from "@/runtime/server/types"
-import { readModelSelection, writeModelSelection } from "@/runtime/persistence/storage-compact"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import {
+  readModelSelection,
+  readSessionModelSelections,
+  writeModelSelection,
+  writeSessionModelSelections,
+  type SessionModelSelection,
+} from "@/runtime/persistence/storage-compact"
+import { currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
+import { sessionDirectory } from "@/session/directory"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
@@ -15,6 +23,7 @@ export type ModelSelectorState = {
   visible: (model: ModelKey) => boolean
   setVisibility: (model: ModelKey, visible: boolean) => void
   setProviderVisibility: (providerID: string, visible: boolean) => void
+  trackSessionCommit: (selection: SessionModelSelection) => () => void
   variant: {
     current: () => string | undefined
     list: () => string[]
@@ -23,6 +32,42 @@ export type ModelSelectorState = {
 }
 
 const models = createRoot(() => createModelsController(() => state.models))
+const [choices, setChoices] = createStore(readSessionModelSelections())
+const pending = new Map<string, SessionModelSelection>()
+
+function scope() {
+  const session = state.session
+  if (!session) return
+  return JSON.stringify([state.server?.url ?? "", sessionDirectory(session), session.id, currentLocalAgent()])
+}
+
+function writeChoice(key: string, value: SessionModelSelection | undefined) {
+  // Whole values avoid mutating snapshots retained by an in-flight submission.
+  setChoices(key, () => value && { model: { ...value.model }, variant: value.variant })
+  writeSessionModelSelections(choices)
+}
+
+function durable() {
+  const session = state.session
+  if (session?.agent && session.agent !== currentLocalAgent()) return
+  const model = session?.model
+  if (!model) return
+  return { model: { providerID: model.providerID, modelID: model.id }, variant: model.variant ?? null }
+}
+
+function sameChoice(a: SessionModelSelection | undefined, b: SessionModelSelection) {
+  return a?.model.providerID === b.model.providerID && a.model.modelID === b.model.modelID && a.variant === b.variant
+}
+
+// Retire only the acknowledged submission; a newer draft selection still belongs to the composer.
+export function reconcileModelSelection() {
+  const key = scope()
+  if (!key || state.session?.agent !== currentLocalAgent()) return
+  const expected = pending.get(key)
+  if (!expected || !sameChoice(durable(), expected)) return
+  pending.delete(key)
+  if (sameChoice(choices[key], expected)) writeChoice(key, undefined)
+}
 
 export function resolveSelectedModel<T extends ModelKey>(
   options: T[],
@@ -64,20 +109,54 @@ export function syncModelSelection(catalog: ProviderListResponse) {
     models.compact()
   })
   if (selected) writeModelSelection(selected)
+  reconcileModelSelection()
 }
 
 // Active-session selection delegates visibility and recency to the models controller.
 export function createModelSelection(): ModelSelectorState {
-  const current = () => models.find(state.selectedModel)
+  const choice = () => {
+    const key = scope()
+    const value = key ? choices[key] : undefined
+    return value && models.find(value.model) ? value : undefined
+  }
+  const current = () =>
+    models.find(choice()?.model) ?? models.find(durable()?.model) ?? models.find(state.selectedModel)
   const variants = () => Object.keys(current()?.variants ?? {}).filter((value) => value !== "default")
-  return {
+  const configured = (model = current()) => {
+    const agent = state.agentModels[currentLocalAgent()]
+    return getConfiguredAgentVariant({ agent: agent && { model: agent, variant: agent.variant }, model })
+  }
+  const selectedVariant = () => {
+    const draft = choice()
+    if (draft) return draft.variant
+    const value = durable()
+    if (value && models.find(value.model)) return value.variant
+  }
+  const selection: ModelSelectorState = {
     current,
     list: models.list,
     set(model, options) {
       const resolved = models.find(model)
       if (model && !resolved) return
       const selected = resolved ? { providerID: resolved.providerID, modelID: resolved.modelID } : undefined
+      const previous = current()
+      const same = selected && previous?.providerID === selected.providerID && previous.modelID === selected.modelID
+      const variant = same ? (selection.variant.current() ?? null) : undefined
       batch(() => {
+        const key = scope()
+        if (key) {
+          // Resolve the new model's preference independently from the previous session model.
+          const nextVariant =
+            variant !== undefined
+              ? variant
+              : resolveModelVariant({
+                  variants: Object.keys(resolved?.variants ?? {}),
+                  selected: undefined,
+                  configured: resolved ? configured(resolved) : undefined,
+                  preferred: selected ? models.variant.get(selected) : undefined,
+                })
+          writeChoice(key, selected ? { model: selected, variant: nextVariant ?? null } : undefined)
+        }
         setState("selectedModel", selected)
         writeModelSelection(selected)
         if (!selected) return
@@ -88,21 +167,41 @@ export function createModelSelection(): ModelSelectorState {
     visible: models.visible,
     setVisibility: models.setVisibility,
     setProviderVisibility: models.setProviderVisibility,
+    trackSessionCommit(value) {
+      const key = scope()
+      if (!key) return () => {}
+      const expected = { model: { ...value.model }, variant: value.variant }
+      pending.set(key, expected)
+      reconcileModelSelection()
+      return () => {
+        if (pending.get(key) === expected) pending.delete(key)
+      }
+    },
     variant: {
       current() {
         const model = current()
         return resolveModelVariant({
           variants: variants(),
-          selected: undefined,
-          configured: undefined,
+          selected: selectedVariant(),
+          configured: configured(),
           preferred: model ? models.variant.get(model) : undefined,
         })
       },
       list: variants,
       set(value) {
         const model = current()
-        if (model) models.variant.set(model, value)
+        if (!model || (value !== undefined && value !== "default" && !variants().includes(value))) return
+        batch(() => {
+          const key = scope()
+          if (key)
+            writeChoice(key, {
+              model: { providerID: model.providerID, modelID: model.modelID },
+              variant: value && value !== "default" ? value : null,
+            })
+          models.variant.set(model, value)
+        })
       },
     },
   }
+  return selection
 }

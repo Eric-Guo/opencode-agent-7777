@@ -3,6 +3,7 @@ import type { OpenCodeEvent, SessionStatus } from "@opencode/client/promise"
 import { createV2SessionReducer } from "@/runtime/server/session-reducer-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
+import { reconcileModelSelection } from "@/providers/models/selection"
 import { filterQueuedMessages, forgetPendingEcho, inboxItemMessage, updatePendingInbox } from "./session-cache-messages"
 
 const reducer = createV2SessionReducer()
@@ -26,6 +27,14 @@ export function applySessionEvent(event: OpenCodeEvent, input: { refresh: () => 
     revert?: unknown
   }
   if (!data.sessionID || data.sessionID !== state.session?.id) return false
+  if (event.type === "session.model.selected") {
+    setState("session", "model", () => ({ ...event.data.model }))
+    reconcileModelSelection()
+  }
+  if (event.type === "session.agent.selected") {
+    setState("session", "agent", event.data.agent)
+    reconcileModelSelection()
+  }
   if (event.type === "session.inbox.enqueued") {
     const item = {
       ...event.data.item,

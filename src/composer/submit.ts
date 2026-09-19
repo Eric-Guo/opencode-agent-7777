@@ -25,8 +25,10 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
   if (!active || state.submitting || (!request.text && attachments.length === 0)) return
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
-  const selectedModel = state.selectedModel ? { ...state.selectedModel } : undefined
-  const variant = createModelSelection().variant.current()
+  const selection = createModelSelection()
+  const selected = selection.current()
+  const selectedModel = selected ? { providerID: selected.providerID, modelID: selected.modelID } : undefined
+  const variant = selection.variant.current()
   const model = selectedModel ? { ...selectedModel, ...(variant ? { variant } : {}) } : undefined
   const optimisticBusy = state.sessionStatus.type === "idle"
   const revision = pendingInboxRevision()
@@ -54,6 +56,8 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
       time: { created: Date.now() },
     })
 
+  const cancelCommit =
+    delivery === "steer" && model ? selection.trackSessionCommit({ model, variant: variant ?? null }) : undefined
   const configure = [
     ...(delivery === "steer"
       ? [active.client.session.switchAgent({ sessionID: active.sessionID, agent: active.localAgent })]
@@ -93,6 +97,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
       return refreshRecentSessions()
     })
     .catch((error) => {
+      cancelCommit?.()
       if (state.session?.id !== active.sessionID) return
       dropPendingEcho(messageID)
       const restored = submission.restore()
