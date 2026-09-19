@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, ManagedRuntime, Queue, Schema, Stream } from "effect"
-import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage, RpcSerialization } from "effect/unstable/rpc"
+import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage } from "effect/unstable/rpc"
 
 export const ServerReadyData = Schema.Struct({
   url: Schema.String,
@@ -94,22 +94,16 @@ export function createDesktopApi(port: Promise<MessagePort>): NonNullable<Window
   }
 }
 
+// Match the desktop host's structured-clone protocol. MessagePack bytes are not RPC
+// envelopes to that host and leave initialization waiting without a response.
 function clientProtocol(value: MessagePort) {
   return Layer.effect(
     RpcClient.Protocol,
     RpcClient.Protocol.make(
       Effect.fnUntraced(function* (writeResponse, clientIds) {
-        const serialization = yield* RpcSerialization.RpcSerialization
-        const parser = serialization.makeUnsafe()
         const inbound = yield* Queue.unbounded<RpcMessage.FromServerEncoded>()
         const onMessage = (event: MessageEvent) => {
-          try {
-            parser
-              .decode(event.data)
-              .forEach((message) => Queue.offerUnsafe(inbound, message as RpcMessage.FromServerEncoded))
-          } catch {
-            return
-          }
+          Queue.offerUnsafe(inbound, event.data as RpcMessage.FromServerEncoded)
         }
         value.addEventListener("message", onMessage)
         value.start()
@@ -126,16 +120,15 @@ function clientProtocol(value: MessagePort) {
           Effect.forkScoped,
         )
         return {
+          codecFor: Schema.toCodecJson,
           send: (_clientId, request) =>
             Effect.sync(() => {
-              const encoded = parser.encode(request)
-              if (encoded !== undefined) value.postMessage(encoded)
+              value.postMessage(request)
             }),
           supportsAck: true,
           supportsTransferables: false,
-          codecFor: serialization.codecFor,
         }
       }),
     ),
-  ).pipe(Layer.provide(RpcSerialization.layerMsgPack))
+  )
 }
