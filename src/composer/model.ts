@@ -3,6 +3,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
+import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 
 export type ComposerModel = ComposerEditorModel & {
@@ -15,6 +16,11 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   const language = useLanguage()
   const dialog = useDialog()
   const platform = createPlatformAttachments()
+  const commands = useComposerCommands({
+    model: () => adapter.controls().model.selection,
+    disabled: () => adapter.disabled() || adapter.controls().model.status !== "ready" || !!dialog.active,
+    isMac: typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform),
+  })
   const controller = createComposerEditor({
     store: adapter.state.store,
     identity: adapter.identity,
@@ -56,7 +62,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
           if (adapter.disabled() || adapter.controls().model.status !== "ready") return
           adapter.controls().model.selection.variant.set(value === "default" ? undefined : value)
         },
-        keybind: () => [],
+        keybind: () => commands.variantKeybind,
       },
       submit: {
         available: () => !adapter.disabled(),
@@ -79,6 +85,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
 
   return {
     ...controller,
+    onKeyDown: (event) => commands.onKeyDown(event) || controller.onKeyDown(event),
     get model() {
       return adapter.controls().model
     },

@@ -61,6 +61,8 @@ export function Composer(props: { model: ComposerModel }) {
               class: "min-w-0 max-w-[220px] justify-start ![font-weight:440] group",
               "data-action": "prompt-model",
               "aria-label": language.t("model.aria"),
+              "aria-keyshortcuts": "F2 Shift+F2",
+              title: language.t("model.cycle.hint"),
             }}
             onManage={() => dialog.show(() => <DialogManageModelsV2 model={props.model.model.selection} />)}
           >
