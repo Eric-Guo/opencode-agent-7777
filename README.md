@@ -94,6 +94,11 @@ remain outside the nine-dialog timeline until delivered. Queue submissions prese
 agent configuration, recording the intended selection in metadata as the main app does. Queued editing and drag
 reordering remain omitted from this compact view; the editor accepts these optional operations when supplied.
 
+`ComposerEditorAlternateDelivery` stays in `composer/editor/editor.tsx`, matching the main app's component and
+module boundary. Its `editing?.()` guard accommodates the compact queue's omitted editing capability. The
+`composer/composer.tsx` wrapper supplies the same platform-specific alternate shortcut hint (`⌘ ↵` on Apple
+platforms, `Ctrl ↵` elsewhere); this fixed hint is configured locally because 7777 has no command/settings provider.
+
 The compact current-message cache also owns inbox hydration and SSE reconciliation. Snapshots overtaken by inbox
 changes are discarded and refreshed through the existing refresh queue. Old-session results cannot change the
 active queue, and failed follow-up submissions preserve the draft and the running status. Queue copy uses English

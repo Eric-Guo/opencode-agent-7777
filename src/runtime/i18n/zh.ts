@@ -51,6 +51,7 @@ export const dict = {
   "common.close": "关闭",
   "common.loading": "加载中",
   "common.loading.ellipsis": "...",
+  "common.key.ctrl": "Ctrl",
 
   "command.category.model": "模型",
 

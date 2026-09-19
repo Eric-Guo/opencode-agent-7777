@@ -65,6 +65,7 @@ export const dict = {
   "common.close": "Close",
   "common.loading": "Loading",
   "common.loading.ellipsis": "...",
+  "common.key.ctrl": "Ctrl",
 
   "command.category.model": "Model",
 
