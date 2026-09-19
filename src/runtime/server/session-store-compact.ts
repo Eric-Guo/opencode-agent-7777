@@ -26,6 +26,7 @@ export const [state, setState] = createStore<State>({
   messagesLoading: false,
   models: [],
   selectedModel: undefined,
+  agentModels: {},
   permission: {},
   permissionResponding: undefined,
   form: {},

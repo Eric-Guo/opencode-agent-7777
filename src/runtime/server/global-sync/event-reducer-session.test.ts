@@ -34,6 +34,25 @@ afterEach(() => {
 })
 
 describe("applySessionEvent", () => {
+  test("updates the durable model and agent as well as the timeline", () => {
+    setSessionClient(client)
+    setState("session", session())
+    const model = { providerID: "provider", id: "model", variant: "high" }
+    applySessionEvent(
+      event({ ...base, id: "model", type: "session.model.selected", data: { sessionID: "session", model } }),
+      { refresh: () => {} },
+    )
+    applySessionEvent(
+      event({ ...base, id: "agent", type: "session.agent.selected", data: { sessionID: "session", agent: "7777" } }),
+      { refresh: () => {} },
+    )
+    expect(state.session?.model).toEqual({ providerID: "provider", id: "model", variant: "high" })
+    expect(state.session?.agent).toBe("7777")
+    expect(state.sessionMessages.map((item) => item.type)).toEqual(["model-switched", "agent-switched"])
+    setState("session", "model", "variant", "low")
+    expect(model).toEqual({ providerID: "provider", id: "model", variant: "high" })
+  })
+
   test("keeps queued prompts out of history until delivered and removes cancelled rows", () => {
     setSessionClient(client)
     setState("session", session())

@@ -71,6 +71,32 @@ afterEach(() => {
 })
 
 describe("composer submission", () => {
+  test.each(["steer", "queue"] as const)("submits the active session's model and variant for %s", async (delivery) => {
+    const active = { providerID: "session-submission", modelID: "active", variants: { high: {} } }
+    const fallback = { providerID: "session-submission", modelID: "fallback", variants: { low: {} } }
+    setState({
+      session: {
+        ...session(`durable-${delivery}`),
+        model: { providerID: active.providerID, id: active.modelID, variant: "high" },
+      },
+      models: [active, fallback] as unknown as ModelOption[],
+      selectedModel: { providerID: fallback.providerID, modelID: fallback.modelID },
+    })
+    const requests: SessionPromptInput[] = []
+    setSessionClient(
+      client({
+        send: async (value) => {
+          requests.push(value as SessionPromptInput)
+        },
+      }),
+    )
+    await submitPrompt({ delivery })
+    expect(requests[0].metadata).toEqual({
+      agent: "7777",
+      model: { providerID: "session-submission", modelID: "active", variant: "high" },
+    })
+  })
+
   test.each(["steer", "queue"] as const)("captures the model variant for a %s submission", async (delivery) => {
     const requests: SessionPromptInput[] = []
     const switches: unknown[] = []
@@ -204,7 +230,11 @@ describe("composer submission", () => {
 
   test("queues attachments without reconfiguring active work or echoing a new dialog", async () => {
     const requests: SessionPromptInput[] = []
-    setState({ sessionStatus: { type: "busy" }, selectedModel: { providerID: "provider", modelID: "model" } })
+    setState({
+      sessionStatus: { type: "busy" },
+      selectedModel: { providerID: "provider", modelID: "model" },
+      models: [{ providerID: "provider", modelID: "model" } as ModelOption],
+    })
     setSessionClient(
       client({
         configure: () => {
