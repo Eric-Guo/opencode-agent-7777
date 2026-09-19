@@ -71,8 +71,10 @@ export const dict = {
   "ui.question.multiHint": "选择一个或多个选项。",
 
   "model.aria": "模型",
+  "model.cycle.hint": "最近使用的模型：F2（下一个），Shift+F2（上一个）",
   "model.loading": "正在加载模型",
   "model.default": "服务器默认",
+  "model.variant.default": "默认",
   "model.provider.anthropic": "Anthropic",
   "model.provider.openai": "OpenAI",
   "model.provider.google": "Google",
@@ -137,4 +139,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>
