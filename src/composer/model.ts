@@ -40,6 +40,24 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     },
     view: {
       placeholder: adapter.placeholder,
+      variant: {
+        options: () =>
+          adapter.controls().model.status === "ready"
+            ? [
+                { id: "default", label: language.t("model.variant.default") },
+                ...adapter
+                  .controls()
+                  .model.selection.variant.list()
+                  .map((value) => ({ id: value, label: value })),
+              ]
+            : [],
+        current: () => adapter.controls().model.selection.variant.current() ?? "default",
+        onSelect: (value) => {
+          if (adapter.disabled() || adapter.controls().model.status !== "ready") return
+          adapter.controls().model.selection.variant.set(value === "default" ? undefined : value)
+        },
+        keybind: () => [],
+      },
       submit: {
         available: () => !adapter.disabled(),
         enabled: () => !adapter.submitting(),

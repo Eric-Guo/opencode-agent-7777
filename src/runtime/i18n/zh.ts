@@ -145,4 +145,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Record<Keys, string>
+} satisfies Partial<Record<Keys, string>>

@@ -72,7 +72,7 @@ Paths below are relative to `src/` unless noted; `-compact` names identify narro
 | --- | --- | --- |
 | Runtime and platform | `runtime/platform/desktop-rpc-client.ts`, `runtime/platform/platform-bridge.ts`, `runtime/server/resolver-compact.ts` | One embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. The local bridge handles native attachments, source paths, and clipboard images. `SET_DOCUMENT_TITLE` defaults to `false` so the embedding host controls the title. |
 | Server and session state | `runtime/server/{client,directory-client,sync-session,session-store,session-reducer}-compact.ts`, compact bootstrap/event/message-cache/queue files in `runtime/server/global-sync/` | One server, SSE stream, and active session. Compact clients own transport-queue sharing; the current-message cache owns inbox hydration and reconciliation. No multi-server reactive data layer or SDK provider. |
-| Providers and models | `providers/catalog/loader-compact.ts`, `providers/models/default-config.*`, `runtime/persistence/storage-compact.ts`; package-root `scripts/apply-model-config-dump.ts` | Imperative catalog loading and status, source-controlled model defaults and provider visibility, and the `manageModels` gate. No provider contexts or model variants. |
+| Providers and models | `providers/catalog/loader-compact.ts`, `providers/models/default-config.*`, `runtime/persistence/storage-compact.ts`; package-root `scripts/apply-model-config-dump.ts` | Imperative catalog loading and status, source-controlled model defaults and provider visibility, and the `manageModels` gate. Variant preferences apply per model across the single composer; no provider contexts, agent-configured variant defaults, or per-session variant overrides. |
 | Composer and drafts | `composer/persistence-singleton.ts` | One editor across session changes and one localStorage draft with data-URL attachments. No commands, context, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. |
 | Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | No queued editing/reordering, follow-up preference settings, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command/settings provider. Queue copy uses English source strings with locale fallback. |
 | Session requests | `session/requests/{permission,form}-sync-compact.ts`, package-owned web-search dock markup/styles | Single-session form loading and replies. The web-search dock waits for compact SSE and uses scoped styles without the full settings context. |
@@ -91,6 +91,10 @@ prompt sent to the server. The 7777-only UI for this template feature lives in
 ## Model Selector Defaults
 
 The source model defaults live in `src/providers/models/default-config.json`.
+
+Models that offer variants show a variant menu beside the model selector. Choices are saved per provider/model in
+the browser; **Default** sends no explicit variant. Variant preferences are not exported into source defaults by
+`models:apply-localstorage`.
 
 - `manageModels`: set `true` to show the Manage models entry in the model selector UI. Set `false` to hide it from users.
 - `defaultSelection`: the model selected for users who do not already have `opencode.7777.model.selection` in localStorage. Use `{ "providerID": "...", "modelID": "..." }`, or `null` to use the server default.
