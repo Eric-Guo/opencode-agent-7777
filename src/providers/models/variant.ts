@@ -22,3 +22,8 @@ export function resolveModelVariant(input: VariantInput) {
   const value = input.selected ?? input.preferred ?? input.configured
   return value && value !== "default" && input.variants.includes(value) ? value : undefined
 }
+
+export function cycleModelVariant(input: VariantInput) {
+  const current = resolveModelVariant(input)
+  return input.variants[current ? input.variants.indexOf(current) + 1 : 0]
+}

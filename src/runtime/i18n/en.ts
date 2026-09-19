@@ -75,6 +75,7 @@ export const dict = {
   "ui.question.multiHint": "Choose one or more options.",
 
   "model.aria": "Model",
+  "model.cycle.hint": "Recent models: F2 (next), Shift+F2 (previous)",
   "model.loading": "Loading models",
   "model.default": "Server default",
   "model.variant.default": "Default",

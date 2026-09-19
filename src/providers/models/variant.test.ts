@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getConfiguredAgentVariant, resolveModelVariant } from "./variant"
+import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } from "./variant"
 
 describe("configured agent variant", () => {
   const model = { providerID: "provider", modelID: "reasoning", variants: { high: {} } }
@@ -33,5 +33,14 @@ describe("model variant", () => {
     expect(resolveModelVariant({ ...input, selected: "removed" })).toBeUndefined()
     expect(resolveModelVariant({ ...input, preferred: "removed" })).toBeUndefined()
     expect(resolveModelVariant({ ...input, variants: [] })).toBeUndefined()
+  })
+
+  test("cycles through effort levels and returns to Default", () => {
+    expect(cycleModelVariant({ ...input, selected: null })).toBe("low")
+    expect(cycleModelVariant({ ...input, selected: "low" })).toBe("high")
+    expect(cycleModelVariant({ ...input, selected: "high" })).toBeUndefined()
+    expect(cycleModelVariant({ ...input, selected: "removed" })).toBe("low")
+    expect(cycleModelVariant({ ...input, variants: [] })).toBeUndefined()
+    expect(input.variants).toEqual(["low", "high"])
   })
 })

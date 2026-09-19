@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { isServer } from "solid-js/web"
 import type { SessionInfo } from "@opencode/client/promise"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import type { ModelOption } from "./models"
@@ -47,6 +48,70 @@ describe("active model variant", () => {
     expect(selection.variant.list()).toEqual([])
     selection.variant.set("high")
     expect(selection.variant.current()).toBeUndefined()
+  })
+})
+
+describe("recent model cycling", () => {
+  const providerID = "cycle-test"
+  const key = (modelID: string) => ({ providerID, modelID })
+  beforeEach(() => {
+    setState({
+      session: undefined,
+      models: ["one", "two", "three", "outside"].map((id) => ({ ...key(id), variants: {} })) as ModelOption[],
+      selectedModel: undefined,
+    })
+  })
+  afterEach(() => setState({ models: [], selectedModel: undefined }))
+
+  test("wraps in both directions without changing recency order", () => {
+    const selection = createModelSelection()
+    for (const id of ["one", "two", "three"]) selection.set(key(id), { recent: true })
+    const recent = () => selection.recent().map((item) => item.modelID)
+    expect(recent()).toEqual(["three", "two", "one"])
+    for (const id of ["two", "one", "three"]) {
+      selection.cycle(1)
+      expect(selection.current()).toMatchObject(key(id))
+    }
+    selection.cycle(-1)
+    expect(selection.current()).toMatchObject(key("one"))
+    expect(recent()).toEqual(["three", "two", "one"])
+
+    selection.set(key("outside"))
+    selection.cycle(1)
+    expect(selection.current()).toMatchObject(key("three"))
+    selection.set(key("outside"))
+    selection.cycle(-1)
+    expect(selection.current()).toMatchObject(key("one"))
+  })
+
+  test("skips hidden and missing recent models without making them visible", () => {
+    // Bun defaults to Solid's SSR build, whose memos do not react to visibility changes.
+    if (isServer) {
+      const result = Bun.spawnSync([
+        process.execPath,
+        "--conditions=browser",
+        "test",
+        import.meta.path,
+        "--test-name-pattern",
+        "skips hidden and missing",
+      ])
+      expect(result.exitCode, result.stderr.toString()).toBe(0)
+      return
+    }
+    const selection = createModelSelection()
+    for (const id of ["one", "two", "three"]) selection.set(key(id), { recent: true })
+    selection.setVisibility(key("two"), false)
+    setState("models", (items) => items.filter((item) => item.modelID !== "one"))
+    selection.set(key("outside"))
+    expect(selection.recent().map((item) => item.modelID)).toEqual(["three"])
+    selection.cycle(1)
+    expect(selection.current()).toMatchObject(key("three"))
+    expect(selection.visible(key("two"))).toBe(false)
+
+    selection.setProviderVisibility(providerID, false)
+    selection.cycle(-1)
+    expect(selection.current()).toMatchObject(key("three"))
+    expect(selection.recent()).toEqual([])
   })
 })
 
@@ -105,6 +170,30 @@ describe("session model selection", () => {
     expect(selection.current()).toMatchObject(other)
     expect(selection.variant.current()).toBe("low")
     selection.variant.set("unavailable")
+    expect(selection.variant.current()).toBe("low")
+  })
+
+  test("cycling pins the model and Default variant to the active session", () => {
+    const selection = createModelSelection()
+    setState("session", session("cycle-session-a", "high"))
+    selection.set(other, { recent: true })
+    selection.variant.set("low")
+    selection.set(model, { recent: true })
+    selection.variant.set("high")
+    selection.variant.cycle()
+    expect(selection.variant.current()).toBeUndefined()
+    selection.cycle(1)
+    expect(selection.current()).toMatchObject(other)
+    expect(selection.variant.current()).toBe("low")
+    selection.cycle(-1)
+    expect(selection.current()).toMatchObject(model)
+    expect(selection.variant.current()).toBeUndefined()
+
+    setState("session", session("cycle-session-b", "high"))
+    expect(selection.variant.current()).toBe("high")
+    setState("session", session("cycle-session-a", "high"))
+    expect(selection.variant.current()).toBeUndefined()
+    selection.variant.cycle()
     expect(selection.variant.current()).toBe("low")
   })
 

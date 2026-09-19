@@ -2,7 +2,7 @@ import { batch, createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
-import { getConfiguredAgentVariant, resolveModelVariant } from "./variant"
+import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } from "./variant"
 import type { ProviderListResponse } from "@/runtime/server/types"
 import {
   readModelSelection,
@@ -19,6 +19,8 @@ export type ModelLoadStatus = "loading" | "ready" | "failed"
 export type ModelSelectorState = {
   current: () => ModelOption | undefined
   list: () => ModelOption[]
+  recent: () => ModelOption[]
+  cycle: (direction: 1 | -1) => void
   set: (model: ModelKey | undefined, options?: { recent?: boolean }) => void
   visible: (model: ModelKey) => boolean
   setVisibility: (model: ModelKey, visible: boolean) => void
@@ -28,6 +30,7 @@ export type ModelSelectorState = {
     current: () => string | undefined
     list: () => string[]
     set: (value: string | undefined) => void
+    cycle: () => void
   }
 }
 
@@ -135,6 +138,21 @@ export function createModelSelection(): ModelSelectorState {
   const selection: ModelSelectorState = {
     current,
     list: models.list,
+    recent: () =>
+      models.recent.list().flatMap((key) => {
+        const model = models.find(key)
+        return model && models.visible(model) ? [model] : []
+      }),
+    cycle(direction) {
+      const items = selection.recent()
+      const item = current()
+      if (!item || !items.length) return
+      const index = items.findIndex((entry) => entry.providerID === item.providerID && entry.modelID === item.modelID)
+      const next =
+        index < 0 ? (direction === 1 ? 0 : items.length - 1) : (index + direction + items.length) % items.length
+      // Cycling must not reorder the recent list or it would bounce between two models.
+      selection.set(items[next])
+    },
     set(model, options) {
       const resolved = models.find(model)
       if (model && !resolved) return
@@ -200,6 +218,13 @@ export function createModelSelection(): ModelSelectorState {
             })
           models.variant.set(model, value)
         })
+      },
+      cycle() {
+        const items = variants()
+        if (!items.length) return
+        selection.variant.set(
+          cycleModelVariant({ variants: items, selected: selection.variant.current() ?? null, configured: undefined }),
+        )
       },
     },
   }
