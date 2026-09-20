@@ -41,6 +41,23 @@ test("uses upstream's default delivery and offers Queue only while work is runni
   expect(queue.rows()).toEqual([])
 })
 
+test("applies follow-up preferences only to running turns and offers the opposite shortcut", () => {
+  let working = false
+  let behavior: "queue" | "steer" = "queue"
+  const queue = createSessionQueue({ working: () => working, disabled: () => false, behavior: () => behavior })
+  expect(queue.delivery()).toBe("steer")
+  expect(queue.alternate()).toBeUndefined()
+  working = true
+  expect(queue.delivery()).toBe("queue")
+  expect(queue.alternate()).toBe("steer")
+  behavior = "steer"
+  expect(queue.delivery()).toBe("steer")
+  expect(queue.alternate()).toBe("queue")
+  working = false
+  expect(queue.delivery()).toBe("steer")
+  expect(queue.alternate()).toBeUndefined()
+})
+
 test.each(["steer", "remove"] as const)("%s uses the server inbox API", async (action) => {
   const requests: unknown[] = []
   const original = item()

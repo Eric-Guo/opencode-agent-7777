@@ -3,6 +3,7 @@ import { createStore } from "solid-js/store"
 import { renderToString } from "solid-js/web"
 import type { ComposerPersistedState } from "../types"
 import { createComposerEditor, shouldHandlePasteAsAttachment } from "./interaction"
+import { createComposerHistory } from "../history/store"
 
 describe("composer submission admission", () => {
   test("preserves the draft while submission is unavailable and still allows interruption", () => {
@@ -151,6 +152,100 @@ describe("composer paste", () => {
     } finally {
       if (previous) Object.defineProperty(globalThis, "document", previous)
       else Reflect.deleteProperty(globalThis, "document")
+    }
+  })
+})
+
+describe("composer history navigation", () => {
+  test("recalls older prompts at the boundary and restores the attachment draft", () => {
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
+    const previousFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame")
+    try {
+      renderToString(() => {
+        const history = createComposerHistory()
+        history.add([{ type: "text", content: "older", start: 0, end: 5 }], "normal")
+        history.add([{ type: "text", content: "newer", start: 0, end: 5 }], "normal")
+        const original: ComposerPersistedState["prompt"] = [
+          {
+            type: "image",
+            id: "draft",
+            filename: "draft.png",
+            mime: "image/png",
+            blob: { id: "draft", url: "data:image/png;base64,YQ==" },
+          },
+        ]
+        const store = createStore<ComposerPersistedState>({ prompt: original, cursor: 0, context: { items: [] } })
+        const editor = createComposerEditor({
+          store,
+          history,
+          commands: () => [],
+          context: () => [],
+          searchContextFiles: () => [],
+          view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+        })
+        let collapsed = true
+        Object.defineProperty(globalThis, "window", {
+          configurable: true,
+          value: {
+            getSelection: () => ({
+              isCollapsed: collapsed,
+              anchorNode: {},
+              anchorOffset: 0,
+              rangeCount: 1,
+              getRangeAt: () => ({
+                cloneRange: () => ({
+                  selectNodeContents() {},
+                  setEnd() {},
+                  toString: () => "x".repeat(store[0].cursor ?? 0),
+                }),
+              }),
+            }),
+          },
+        })
+        Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: () => 1 })
+        editor.setEditor({ contains: () => true } as unknown as HTMLElement)
+        const key = (key: string, extra = {}) => {
+          const event = { key, preventDefault: mock(() => {}), ...extra } as unknown as KeyboardEvent
+          editor.onKeyDown(event)
+          return event
+        }
+        expect(key("ArrowUp", { shiftKey: true }).preventDefault).not.toHaveBeenCalled()
+        expect(key("ArrowUp", { isComposing: true }).preventDefault).not.toHaveBeenCalled()
+        expect(editor.value()).toBe("")
+        expect(key("ArrowUp").preventDefault).toHaveBeenCalledTimes(1)
+        expect(editor.value()).toBe("newer")
+        expect(key("ArrowUp").preventDefault).toHaveBeenCalledTimes(1)
+        expect(editor.value()).toBe("older")
+        expect(key("ArrowDown").preventDefault).toHaveBeenCalledTimes(1)
+        expect(editor.value()).toBe("newer")
+        editor.onCursor(2)
+        expect(key("ArrowDown").preventDefault).not.toHaveBeenCalled()
+        editor.onCursor(5)
+        collapsed = false
+        expect(key("ArrowDown").preventDefault).not.toHaveBeenCalled()
+        collapsed = true
+        expect(key("ArrowDown").preventDefault).toHaveBeenCalledTimes(1)
+        expect(store[0].prompt).toEqual([
+          {
+            type: "image",
+            id: "draft",
+            filename: "draft.png",
+            mime: "image/png",
+            blob: { id: "draft", url: "data:image/png;base64,YQ==" },
+          },
+        ])
+        expect(history.entries("normal")[0].prompt).toEqual([{ type: "text", content: "newer", start: 0, end: 5 }])
+        editor.onInput("unsent text")
+        editor.onCursor(0)
+        expect(key("ArrowUp").preventDefault).not.toHaveBeenCalled()
+        expect(editor.value()).toBe("unsent text")
+        return ""
+      })
+    } finally {
+      if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow)
+      else Reflect.deleteProperty(globalThis, "window")
+      if (previousFrame) Object.defineProperty(globalThis, "requestAnimationFrame", previousFrame)
+      else Reflect.deleteProperty(globalThis, "requestAnimationFrame")
     }
   })
 })

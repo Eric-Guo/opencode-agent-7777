@@ -41,6 +41,12 @@ export const dict = {
   "session.queue.attachments.one": "{{count}} attachment",
   "session.queue.attachments.other": "{{count}} attachments",
 
+  "settings.general.row.followUpBehavior.title": "Follow-up behavior",
+  "settings.general.row.followUpBehavior.description":
+    "Choose whether to queue follow-ups or steer the current turn. Use {{keybind}} to switch.",
+  "settings.general.row.followUpBehavior.queue": "Queue",
+  "settings.general.row.followUpBehavior.steer": "Steer",
+
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
   "prompt.addContext": "Add context",

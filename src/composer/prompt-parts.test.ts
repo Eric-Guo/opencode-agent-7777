@@ -3,7 +3,7 @@ import type { Prompt } from "./state"
 import { clonePrompt, promptLength } from "./prompt-parts"
 
 describe("composer prompt parts", () => {
-  test("clones parts shallowly and copies file selections", () => {
+  test("copies file selections and attachment references independently", () => {
     const original: Prompt = [
       { type: "text", content: "one", start: 0, end: 3 },
       {
@@ -25,7 +25,9 @@ describe("composer prompt parts", () => {
     expect(copy[2]).not.toBe(original[2])
     if (copy[1]?.type !== "file" || original[1]?.type !== "file") throw new Error("expected file parts")
     if (copy[2]?.type !== "image" || original[2]?.type !== "image") throw new Error("expected image parts")
-    expect(copy[2].blob).toBe(original[2].blob)
+    expect(copy[2].blob).not.toBe(original[2].blob)
+    copy[2].blob.url = "data:image/png;base64,changed"
+    expect(original[2].blob).toEqual({ id: "blob", url: "blob:test" })
     expect(copy[1].selection).not.toBe(original[1].selection)
     copy[1].selection!.startLine = 9
     expect(original[1].selection?.startLine).toBe(1)

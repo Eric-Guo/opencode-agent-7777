@@ -1,9 +1,11 @@
 import type { Prompt } from "./types"
 
 export function clonePrompt(prompt: Prompt): Prompt {
-  return prompt.map((part) =>
-    part.type === "file" ? { ...part, selection: part.selection ? { ...part.selection } : undefined } : { ...part },
-  )
+  return prompt.map((part) => {
+    if (part.type === "image") return { ...part, blob: { ...part.blob } }
+    if (part.type === "file") return { ...part, selection: part.selection ? { ...part.selection } : undefined }
+    return { ...part }
+  })
 }
 
 export function promptLength(prompt: Prompt) {

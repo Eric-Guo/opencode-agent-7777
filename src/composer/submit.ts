@@ -14,6 +14,8 @@ import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
+import { composerHistory } from "./history/store"
+import { clonePrompt } from "./prompt-parts"
 
 // Compact single-session submit orchestration for the shared composer boundary.
 
@@ -23,6 +25,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
   const attachments = submission.prompt.attachments
   const request = buildPromptRequest(submission.prompt)
   if (!active || state.submitting || (!request.text && attachments.length === 0)) return
+  const historyPrompt = clonePrompt(prompt.store[0].prompt)
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
   const selection = createModelSelection()
@@ -88,6 +91,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
       }),
     )
     .then((admitted) => {
+      composerHistory.add(historyPrompt, "normal")
       if (state.session?.id !== active.sessionID) return
       // SSE may already have delivered or cancelled this admission before HTTP returns.
       if (admitted && pendingInboxRevision() === revision) {

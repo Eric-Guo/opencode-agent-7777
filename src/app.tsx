@@ -10,6 +10,7 @@ import { type ParentProps } from "solid-js"
 import { syncPlatformBackgroundColor } from "@/runtime/platform/platform-bridge"
 import { LanguageProvider, type Locale, useLanguage } from "@/runtime/i18n/language"
 import Session from "@/session/screen"
+import { SettingsProvider } from "@/settings/model"
 
 function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()
@@ -33,9 +34,11 @@ export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
       <LanguageProvider locale={props.locale}>
         <UiI18nBridge>
           <DialogProvider>
-            <MarkedProvider>
-              <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
-            </MarkedProvider>
+            <SettingsProvider>
+              <MarkedProvider>
+                <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
+              </MarkedProvider>
+            </SettingsProvider>
           </DialogProvider>
         </UiI18nBridge>
       </LanguageProvider>

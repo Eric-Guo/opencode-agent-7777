@@ -255,6 +255,8 @@ export function createComposerEditor(input: {
       !event.altKey &&
       !event.ctrlKey &&
       !event.metaKey &&
+      !event.shiftKey &&
+      !event.isComposing &&
       (event.key === "ArrowUp" || event.key === "ArrowDown") &&
       navigateHistory(event.key === "ArrowUp" ? "up" : "down")
     ) {
