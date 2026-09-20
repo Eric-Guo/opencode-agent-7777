@@ -8,6 +8,7 @@ import { resetPendingEchoes, updatePendingInbox } from "@/runtime/server/global-
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { createModelSelection } from "@/providers/models/selection"
 import type { ModelOption } from "@/providers/models/models"
+import { composerHistory } from "./history/store"
 
 function session(id = "session"): SessionInfo {
   return {
@@ -71,6 +72,46 @@ afterEach(() => {
 })
 
 describe("composer submission", () => {
+  test.each(["steer", "queue"] as const)(
+    "records accepted %s prompts with their original attachments",
+    async (delivery) => {
+      const admission = Promise.withResolvers<unknown>()
+      const content = `accepted history ${delivery}`
+      prompt.set(content)
+      const before = composerHistory.entries("normal")
+      setSessionClient(client({ send: () => admission.promise }))
+      const pending = submitPrompt({ delivery })
+      expect(composerHistory.entries("normal")).toEqual(before)
+      prompt.set("next unsent draft")
+      admission.resolve(undefined)
+      await pending
+      expect(composerHistory.entries("normal")[0]).toEqual({
+        prompt: [
+          { type: "text", content, start: 0, end: content.length },
+          {
+            type: "image",
+            id: "image",
+            filename: "image.png",
+            sourcePath: undefined,
+            mime: "image/png",
+            blob: { id: "data:image/png;base64,aGVsbG8=", url: "data:image/png;base64,aGVsbG8=" },
+          },
+        ],
+      })
+      expect(prompt.current()).toBe("next unsent draft")
+    },
+  )
+
+  test.each(["configuration", "prompt"])("does not record history after a failed %s request", async (stage) => {
+    const before = composerHistory.entries("normal")
+    prompt.set(`failed history ${stage}`)
+    const fail = () => Promise.reject(new Error("send failed"))
+    setSessionClient(client({ configure: stage === "configuration" ? fail : undefined, send: fail }))
+    await submitPrompt()
+    expect(composerHistory.entries("normal")).toEqual(before)
+    expect(prompt.current()).toBe(`failed history ${stage}`)
+  })
+
   test.each(["steer", "queue"] as const)("submits the active session's model and variant for %s", async (delivery) => {
     const active = { providerID: "session-submission", modelID: "active", variants: { high: {} } }
     const fallback = { providerID: "session-submission", modelID: "fallback", variants: { low: {} } }

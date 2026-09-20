@@ -8,6 +8,7 @@ import { currentLocalAgent, state } from "@/runtime/server/session-store-compact
 import { openRecentSession } from "@/home/sessions/switcher-compact"
 import { recentSessionDescription, recentSessionTitle } from "@/home/sessions/recent-compact"
 import { RecorderControl } from "@/session/header/recorder-control"
+import { SettingsGeneral } from "@/settings/general/general"
 
 const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
 
@@ -57,9 +58,9 @@ export function SessionHeader(props: {
   return (
     <header
       data-slot="session-header"
-      class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
+      class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:flex-wrap max-[720px]:gap-2 max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
     >
-      <div>
+      <div class="min-w-0 max-[720px]:w-full">
         <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
         <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">
           {props.status} · {recorderStatusSummary()}
@@ -67,7 +68,7 @@ export function SessionHeader(props: {
       </div>
       <div
         data-slot="session-header-controls"
-        class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5"
+        class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5 max-[720px]:mt-0 max-[720px]:max-w-full max-[720px]:flex-wrap"
         classList={{ "mr-[138px]": windowsElectron }}
       >
         <Show when={cybrosCurrentUser()}>
@@ -128,9 +129,7 @@ export function SessionHeader(props: {
                 <Menu.GroupLabel>{language.t("session.recent")}</Menu.GroupLabel>
                 <Show
                   when={state.recentSessions.length > 0}
-                  fallback={
-                    <Menu.Item disabled>{language.t("session.recent.empty")}</Menu.Item>
-                  }
+                  fallback={<Menu.Item disabled>{language.t("session.recent.empty")}</Menu.Item>}
                 >
                   <For each={state.recentSessions}>
                     {(session, index) => (
@@ -157,6 +156,7 @@ export function SessionHeader(props: {
             </Menu.Content>
           </Menu.Portal>
         </Menu>
+        <SettingsGeneral />
         <button
           type="button"
           class="inline-flex h-[30px] min-w-[48px] items-center justify-center gap-1.5 rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"

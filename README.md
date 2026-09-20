@@ -5,7 +5,7 @@ This package is the SolidJS/Vite UI for the `7777` agent.
 ## Develop
 
 ```bash
-# read <opencode-state-folder>/service.json like /Users/guochunzhong/.local/state/opencode/service.json
+# read <opencode-state-folder>/service.json
 export OPENCODE_SERVER_PASSWORD=here
 # field url in service.json
 export VITE_OPENCODE_SERVER_PORT=4096
@@ -73,12 +73,30 @@ Paths below are relative to `src/` unless noted; `-compact` names identify narro
 | Runtime and platform | `runtime/platform/desktop-rpc-client.ts`, `runtime/platform/platform-bridge.ts`, `runtime/server/resolver-compact.ts` | One embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. The local bridge uses the desktop host's structured-clone RPC protocol for initialization, native attachments, source paths, and clipboard images. `SET_DOCUMENT_TITLE` defaults to `false` so the embedding host controls the title. |
 | Server and session state | `runtime/server/{client,directory-client,sync-session,session-store,session-reducer}-compact.ts`, compact bootstrap/event/message-cache/queue files in `runtime/server/global-sync/` | One server, SSE stream, and active session. Compact clients own transport-queue sharing; the current-message cache owns inbox hydration and reconciliation. No multi-server reactive data layer or SDK provider. |
 | Providers and models | `providers/catalog/loader-compact.ts`, `providers/models/default-config.*`, `runtime/persistence/storage-compact.ts`; package-root `scripts/apply-model-config-dump.ts` | Imperative catalog loading and status, source-controlled model defaults and provider visibility, and the `manageModels` gate. Session model/variant choices use compact localStorage persistence scoped by server, directory, session, and agent; no provider contexts or routed selection handoff. |
-| Composer and drafts | `composer/persistence-singleton.ts`, reduced `composer/commands.tsx` | One editor across session changes and one localStorage draft with data-URL attachments. Recent-model and thinking-effort shortcuts apply only while the editor is focused; no command provider, slash commands, context, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. |
-| Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | No queued editing/reordering, follow-up preference settings, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command/settings provider. Queue copy uses English source strings with locale fallback. |
+| Composer and drafts | `composer/persistence-singleton.ts`, reduced `composer/commands.tsx`, `composer/history/{entry,store}.ts` | One editor across session changes and one localStorage draft with data-URL attachments. Prompt recall follows the main app's history boundary, with at most 100 accepted prompts and a compact inline-storage budget; no shell or review-comment history. Recent-model and thinking-effort shortcuts apply only while the editor is focused; no command provider, slash commands, context, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. |
+| Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | Persisted follow-up behavior selects Queue or Steer for running turns, with the opposite delivery on Cmd/Ctrl+Enter. No queued editing/reordering, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command provider. Queue copy uses English source strings with locale fallback. |
+| Settings | `settings/model.tsx`, `settings/general/general.tsx`, `runtime/persistence/settings-storage-compact.ts` | A small settings context and header menu own follow-up behavior using the main app's model/general boundaries. No routed settings surface or general command/keybind preferences; reasoning display remains a session-screen toggle. |
 | Session requests | `session/requests/{permission,form}-sync-compact.ts`, package-owned web-search dock markup/styles | Single-session form loading and replies. The web-search dock waits for compact SSE and uses scoped styles without the full settings context. |
 | Session shell and timeline | `session/header/recorder-control.tsx`, `session/screen-layout-compact.ts`, `session/timeline/{model,message-timeline}-compact.*`, `runtime/persistence/settings-storage-compact.ts`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. The recorder controls process-wide recording and submits stopped MP3 recordings for transcription. Revert exposes stage-to without undo/redo controls; reasoning uses hidden/compact modes. The error wrapper supplies locale and fallback text. |
 | Recent and new sessions | `home/sessions/{directory-sync-recent,recent,switcher}-compact.ts`, `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | Header-based switching and creation; no home route, grouping, search, workspace selection, or background open. |
 | Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, and suggested questions, with desktop-tab overrides. |
+
+## Composer History and Follow-ups
+
+With the message editor focused and its text empty, press **Arrow Up** to recall the latest accepted prompt.
+At the start or end of a recalled prompt, **Arrow Up** and **Arrow Down** move through history; moving past the newest
+entry restores the draft you had before recall, including attachments. Text selections, Shift+Arrow keys, and IME
+composition keep their normal editing behavior.
+
+History is shared across sessions in this browser and survives reloads. Only prompts accepted by the server are
+recorded. The latest 100 entries share a one-million-character JSON budget (about 2 MB of localStorage); entries that
+do not fit, including oversized inline attachments, are skipped. If storage is unavailable, history remains usable
+in memory. Recalled prompts preserve inline attachments and can be edited without changing the saved entry.
+
+Use the header's **Follow-up behavior** menu to choose **Steer** (the default) or **Queue** while a turn is running.
+**Enter** uses that preference and **Cmd+Enter** on macOS, or **Ctrl+Enter** elsewhere, uses the opposite delivery.
+When the session is idle, either shortcut sends immediately. The preference is saved in this browser; the composer
+also shows the alternate action while a follow-up is ready to send.
 
 ## Agent Welcome Content
 

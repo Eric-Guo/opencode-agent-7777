@@ -1,7 +1,7 @@
 import { createStore } from "solid-js/store"
 import type { Accessor } from "solid-js"
 import type { SessionInboxInfo } from "@opencode/client/promise"
-import type { ComposerQueue } from "@/composer/adapter"
+import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
 import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
@@ -10,7 +10,11 @@ import { readableError } from "@/shell/errors/readable"
 export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
 
 // The server owns delivery and persistence; the compact view offers send and remove.
-export function createSessionQueue(input: { working: Accessor<boolean>; disabled: Accessor<boolean> }) {
+export function createSessionQueue(input: {
+  working: Accessor<boolean>
+  disabled: Accessor<boolean>
+  behavior?: Accessor<ComposerDelivery>
+}) {
   const [mutation, setMutation] = createStore<{ sessionID?: string; id?: string }>({})
   const queued = () =>
     state.sessionPending.filter(
@@ -45,8 +49,11 @@ export function createSessionQueue(input: { working: Accessor<boolean>; disabled
   }
   const delivery: ComposerQueue = {
     count: () => queued().length,
-    delivery: () => "steer",
-    alternate: () => (input.working() ? "queue" : undefined),
+    delivery: () => (input.working() ? (input.behavior?.() ?? "steer") : "steer"),
+    alternate: () => {
+      if (!input.working()) return undefined
+      return input.behavior?.() === "queue" ? "steer" : "queue"
+    },
   }
   return {
     ...delivery,

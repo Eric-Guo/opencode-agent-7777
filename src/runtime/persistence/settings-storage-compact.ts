@@ -1,6 +1,8 @@
 import { SHOW_REASONING_SUMMARIES_KEY } from "@/constants/session"
+import type { ComposerDelivery } from "@/composer/adapter"
 
-// Persistence for the compact reasoning display toggle, not the main app's settings context.
+// Local preferences for the embedded app's smaller settings surface.
+export const FOLLOW_UP_BEHAVIOR_KEY = "opencode.7777.followUpBehavior"
 
 function storageGet(key: string) {
   if (typeof localStorage !== "object") return null
@@ -26,4 +28,12 @@ export function readShowReasoningSummaries() {
 
 export function writeShowReasoningSummaries(value: boolean) {
   storageSet(SHOW_REASONING_SUMMARIES_KEY, value ? "true" : "false")
+}
+
+export function readFollowUpBehavior(): ComposerDelivery {
+  return storageGet(FOLLOW_UP_BEHAVIOR_KEY) === "queue" ? "queue" : "steer"
+}
+
+export function writeFollowUpBehavior(value: ComposerDelivery) {
+  storageSet(FOLLOW_UP_BEHAVIOR_KEY, value)
 }

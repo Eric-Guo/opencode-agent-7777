@@ -5,6 +5,7 @@ import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
+import { composerHistory } from "./history/store"
 
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
@@ -25,6 +26,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     store: adapter.state.store,
     identity: adapter.identity,
     onChange: adapter.state.persist,
+    history: composerHistory,
     capabilities: {
       commands: false,
       context: false,
@@ -76,6 +78,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
             return
           }
           const queue = options?.queue
+          controller.resetHistory()
           adapter.submit({ delivery: (submitOptions?.alternate ? queue?.alternate() : queue?.delivery()) ?? "steer" })
         },
         onStop: adapter.interrupt,
