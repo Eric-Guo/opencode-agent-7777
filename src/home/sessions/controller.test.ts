@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import type { SessionInfo } from "@opencode/client/promise"
 import { createHomeSessionsController, groupSessions } from "./controller"
+import { createHomeSessionIndex } from "./index"
 
 function session(id: string, created: number, updated?: number): SessionInfo {
   return {
@@ -46,8 +47,7 @@ test("omits empty groups and tolerates invalid timestamps", () => {
 test("sorts recent sessions by activity without mutating the source", () => {
   const source = [session("first", 1), session("updated", 2, 10), session("newer", 3)]
   const controller = createHomeSessionsController({
-    sessions: () => source,
-    loading: () => false,
+    data: { ...createHomeSessionIndex({ source: () => undefined }), list: () => source },
     switching: () => false,
     open: () => {},
   })
@@ -61,8 +61,7 @@ test("opens the latest record and rejects stale or duplicate selections while sw
   let switching = false
   const opened: SessionInfo[] = []
   const controller = createHomeSessionsController({
-    sessions: () => source,
-    loading: () => false,
+    data: { ...createHomeSessionIndex({ source: () => undefined }), list: () => source },
     switching: () => switching,
     open: (item) => {
       opened.push(item)

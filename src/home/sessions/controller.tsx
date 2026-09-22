@@ -1,30 +1,30 @@
 import type { SessionInfo } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
 import { sessionUpdatedTime } from "./directory-sync-recent-compact"
+import type { HomeSessionIndex } from "./index"
 
 export type HomeSessionGroup = {
   id: "today" | "yesterday" | "older"
   sessions: SessionInfo[]
 }
 
-// Match Home's controller boundary, with one directory and a bounded recent list.
+// Match Home's controller boundary, with one directory and cursor-paged history.
 export function createHomeSessionsController(input: {
-  sessions: Accessor<SessionInfo[]>
-  loading: Accessor<boolean>
+  data: HomeSessionIndex
   switching: Accessor<boolean>
   open: (session: SessionInfo) => void
 }) {
   return {
     data: {
+      ...input.data,
       list: () =>
-        input.sessions().toSorted((a, b) => sessionUpdatedTime(b) - sessionUpdatedTime(a) || a.id.localeCompare(b.id)),
-      loading: input.loading,
+        input.data.list().toSorted((a, b) => sessionUpdatedTime(b) - sessionUpdatedTime(a) || b.id.localeCompare(a.id)),
     },
     session: {
       switching: input.switching,
       open(session: SessionInfo) {
         if (input.switching()) return false
-        const current = input.sessions().find((item) => item.id === session.id)
+        const current = input.data.list().find((item) => item.id === session.id)
         if (!current) return false
         input.open(current)
         return true

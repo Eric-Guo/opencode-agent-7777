@@ -78,15 +78,17 @@ Paths below are relative to `src/` unless noted; `-compact` names identify narro
 | Settings | `settings/model.tsx`, `settings/general/general.tsx`, `runtime/persistence/settings-storage-compact.ts` | A small settings context and header menu own follow-up behavior using the main app's model/general boundaries. No routed settings surface or general command/keybind preferences; reasoning display remains a session-screen toggle. |
 | Session requests | `session/requests/{permission,form}-sync-compact.ts`, package-owned web-search dock markup/styles | Single-session form loading and replies. The web-search dock waits for compact SSE and uses scoped styles without the full settings context. |
 | Session shell and timeline | `session/header/recorder-control.tsx`, `session/screen-layout-compact.ts`, `session/timeline/{model,message-timeline}-compact.*`, `runtime/persistence/settings-storage-compact.ts`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. The recorder controls process-wide recording and submits stopped MP3 recordings for transcription. Revert exposes stage-to without undo/redo controls; reasoning uses hidden/compact modes. The error wrapper supplies locale and fallback text. |
-| Recent and new sessions | `home/sessions/{controller.tsx,search.ts,view.tsx,region.tsx}` with compact directory loading, presentation, and switching helpers; `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | The header switcher follows Home's controller/search/view/region boundaries, with title/ID filtering, keyboard selection, and Today/Yesterday/Older groups. Search covers the latest 12 recent sessions in the active directory; no home route, full-history search, workspace selection, or background open. |
+| Recent and new sessions | `home/sessions/{index.ts,controller.tsx,search.ts,view.tsx,region.tsx}` with compact directory loading, presentation, and switching helpers; `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | The header switcher follows Home's controller/search/view/region boundaries, with title/ID filtering, keyboard selection, and Today/Yesterday/Older groups. Server-side title search and exact session-ID lookup cover the active directory's full history. Browsing and search results use cursor pagination in batches of 12; no home route, workspace selection, or background open. |
 | Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, and suggested questions, with desktop-tab overrides. |
 
 ## Recent Sessions
 
-Open **Recent sessions** in the header to browse the latest 12 other sessions in the active directory, grouped by
-local calendar day and sorted by most recent activity. Type a title or session ID to filter this list. **Arrow Up**
-and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover. Closing clears the search.
-The search stays within the loaded recent list; it does not search the full server history.
+Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar
+day and sorted by most recent activity. The list starts with 12 sessions; **Load more** fetches the next batch of 12
+until the history is exhausted. Type a title to search the full server history in this directory, or paste a full
+session ID to find it directly. Search results also support **Load more** and are not limited to sessions already
+loaded. **Arrow Up** and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover.
+Clearing the search or reopening the popover starts again with the first batch.
 
 ## Composer History and Follow-ups
 
