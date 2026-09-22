@@ -1,8 +1,8 @@
 import { Spinner } from "@opencode/ui/spinner"
 import { DataProvider } from "@opencode/session-ui/context"
-import { createMemo, createSignal, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
+import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
-import { readShowReasoningSummaries, writeShowReasoningSummaries } from "@/runtime/persistence/settings-storage-compact"
+import { useSettings } from "@/settings/model"
 import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync-session-compact"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
@@ -23,7 +23,7 @@ import { sessionDirectory } from "@/session/directory"
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
 
 export function SessionPage() {
-  const [showReasoningSummaries, setShowReasoningSummaries] = createSignal(readShowReasoningSummaries())
+  const settings = useSettings()
   const timeline = createCompactTimelineModel({
     sessionID: () => state.session?.id ?? "",
     messages: () => state.sessionMessages,
@@ -48,9 +48,7 @@ export function SessionPage() {
   })
 
   const toggleReasoningSummaries = () => {
-    const next = !showReasoningSummaries()
-    setShowReasoningSummaries(next)
-    writeShowReasoningSummaries(next)
+    settings.general.setShowReasoningSummaries(!settings.general.showReasoningSummaries())
   }
 
   onMount(() => {
@@ -62,7 +60,7 @@ export function SessionPage() {
     <div class={SESSION_ROUTE_FRAME_CLASS}>
       <SessionHeader
         {...layout.header()}
-        showReasoningSummaries={showReasoningSummaries()}
+        showReasoningSummaries={settings.general.showReasoningSummaries()}
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />
 
@@ -92,7 +90,7 @@ export function SessionPage() {
               <CompactMessageTimeline
                 document={timeline.document()}
                 actions={region.actions.timeline}
-                showReasoningSummaries={showReasoningSummaries()}
+                showReasoningSummaries={settings.general.showReasoningSummaries()}
                 onPointerGesture={interaction.view.markUserScroll}
               />
             </DataProvider>

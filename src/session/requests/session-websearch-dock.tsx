@@ -2,9 +2,10 @@ import { createMemo, Show } from "solid-js"
 import { Button } from "@opencode/ui/button"
 import { DockShell, DockTray } from "@opencode/ui/dock-surface"
 import { Select } from "@opencode/ui/select"
-import { useLanguage } from "@/runtime/i18n/language"
-import type { WebSearchRequestModel } from "./websearch"
 import "./session-websearch-dock.css"
+import { useLanguage } from "@/runtime/i18n/language"
+import { SettingsRow } from "@/settings/row"
+import type { WebSearchRequestModel } from "./websearch"
 
 export function SessionWebSearchDock(props: { model: WebSearchRequestModel }) {
   const language = useLanguage()
@@ -33,11 +34,10 @@ export function SessionWebSearchDock(props: { model: WebSearchRequestModel }) {
     >
       <DockShell class="websearch-body">
         <div class="websearch-setting">
-          <div class="websearch-copy">
-            <div>{language.t("session.websearch.title")}</div>
-            <div class="websearch-description">{language.t("session.websearch.description")}</div>
-          </div>
-          <div class="websearch-control">
+          <SettingsRow
+            title={language.t("session.websearch.title")}
+            description={language.t("session.websearch.description")}
+          >
             <Select
               aria-label={language.t("session.websearch.provider")}
               options={options()}
@@ -49,7 +49,7 @@ export function SessionWebSearchDock(props: { model: WebSearchRequestModel }) {
               placeholder={language.t("session.websearch.provider")}
               contentClass="websearch-provider-menu"
             />
-          </div>
+          </SettingsRow>
         </div>
       </DockShell>
       <DockTray attach="top" class="websearch-footer">
