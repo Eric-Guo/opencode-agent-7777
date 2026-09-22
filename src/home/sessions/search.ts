@@ -1,17 +1,9 @@
 import { createStore } from "solid-js/store"
-import type { SessionInfo } from "@opencode/client/promise"
 import type { HomeSessionsController } from "./controller"
-import { recentSessionTitle } from "./recent-compact"
-
-export function searchSessions(sessions: SessionInfo[], query: string) {
-  const value = query.trim().toLowerCase()
-  if (!value) return sessions
-  return sessions.filter((session) => `${recentSessionTitle(session)} ${session.id}`.toLowerCase().includes(value))
-}
 
 export function createHomeSessionSearchController(sessions: HomeSessionsController) {
   const [state, setState] = createStore({ value: "", highlighted: "" })
-  const results = () => searchSessions(sessions.data.list(), state.value)
+  const results = sessions.data.list
   const active = () => {
     const items = results()
     return items.find((item) => item.id === state.highlighted)?.id ?? items[0]?.id
@@ -21,7 +13,10 @@ export function createHomeSessionSearchController(sessions: HomeSessionsControll
   return {
     query: {
       value: () => state.value,
-      input: (value: string) => setState({ value, highlighted: "" }),
+      input(value: string) {
+        setState({ value, highlighted: "" })
+        sessions.data.search(value)
+      },
       reset,
     },
     result: {

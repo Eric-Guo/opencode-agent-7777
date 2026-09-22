@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test"
 import type { SessionInfo } from "@opencode/client/promise"
 import { createHomeSessionsController } from "./controller"
-import { createHomeSessionSearchController, searchSessions } from "./search"
+import { createHomeSessionIndex } from "./index"
+import { createHomeSessionSearchController } from "./search"
 
 function session(id: string, title: string, updated = 1): SessionInfo {
   return {
@@ -15,21 +16,18 @@ function session(id: string, title: string, updated = 1): SessionInfo {
   }
 }
 
-test("searches displayed titles and IDs with trimmed case-insensitive text", () => {
-  const source = [session("ses_FIRST", "Build a Widget"), session("ses_second", "天气查询")]
-  expect(searchSessions(source, "  WIDGET  ").map((item) => item.id)).toEqual(["ses_FIRST"])
-  expect(searchSessions(source, "ses_first").map((item) => item.id)).toEqual(["ses_FIRST"])
-  expect(searchSessions(source, "天气").map((item) => item.id)).toEqual(["ses_second"])
-  expect(searchSessions(source, "   ")).toEqual(source)
-  expect(searchSessions(source, "unmatched")).toEqual([])
-  expect(searchSessions([session("new", "New session - 2026-09-22T00:00:00.000Z")], "2026-09")).toEqual([])
-})
-
-test("keyboard navigation follows activity order, wraps, and resets after filtering or closing", () => {
+test("keyboard navigation follows loaded results and forwards queries to the history index", () => {
   const opened: string[] = []
+  const queries: string[] = []
+  let source = [session("older", "Older", 1), session("newer", "Newer", 2)]
   const sessions = createHomeSessionsController({
-    sessions: () => [session("older", "Older", 1), session("newer", "Newer", 2)],
-    loading: () => false,
+    data: {
+      ...createHomeSessionIndex({ source: () => undefined }),
+      list: () => source,
+      search: (value) => {
+        queries.push(value)
+      },
+    },
     switching: () => false,
     open: (item) => opened.push(item.id),
   })
@@ -40,16 +38,18 @@ test("keyboard navigation follows activity order, wraps, and resets after filter
   search.result.move(1)
   expect(search.result.active()).toBe("newer")
   search.query.input("OLDER")
+  expect(queries).toEqual(["OLDER"])
+  source = [session("older", "Older")]
   expect(search.result.active()).toBe("older")
   expect(search.result.selectActive()).toBe(true)
   expect(opened).toEqual(["older"])
-  search.query.input("missing")
+  source = []
   search.result.move(1)
   expect(search.result.active()).toBeUndefined()
   expect(search.result.selectActive()).toBe(false)
   search.query.reset()
   expect(search.query.value()).toBe("")
-  expect(search.result.active()).toBe("newer")
+  expect(queries).toEqual(["OLDER"])
 })
 
 test("a refreshed list cannot leave keyboard selection pointing at a removed row", () => {
@@ -58,8 +58,7 @@ test("a refreshed list cannot leave keyboard selection pointing at a removed row
   const opened: string[] = []
   const search = createHomeSessionSearchController(
     createHomeSessionsController({
-      sessions: () => source,
-      loading: () => false,
+      data: { ...createHomeSessionIndex({ source: () => undefined }), list: () => source },
       switching: () => switching,
       open: (item) => opened.push(item.id),
     }),
