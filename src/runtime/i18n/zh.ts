@@ -32,6 +32,14 @@ export const dict = {
   "session.timeline.notice.cancelled": "{{actor}} 已取消",
   "session.recent": "最近会话",
   "session.recent.empty": "暂无最近会话",
+  "home.sessions.search.placeholder": "搜索会话",
+  "home.sessions.loadMore": "加载更多",
+  "home.sessions.loadFailed": "无法加载会话。",
+  "home.sessions.retry": "重试",
+  "home.sessions.search.noResults": "未找到与 {{query}} 匹配的会话",
+  "home.sessions.group.today": "今天",
+  "home.sessions.group.yesterday": "昨天",
+  "home.sessions.group.older": "更早",
   "session.recovered.parent": "所选会话已不存在，已打开其主会话。",
   "session.recovered.new": "所选会话已不存在，已开始新会话。",
   "session.loading": "正在启动 {{agent}}",
@@ -44,6 +52,12 @@ export const dict = {
   "session.queue.remove": "移除",
   "session.queue.attachments.one": "{{count}} 个附件",
   "session.queue.attachments.other": "{{count}} 个附件",
+
+  "settings.general.row.followUpBehavior.title": "后续消息处理方式",
+  "settings.general.row.followUpBehavior.description":
+    "选择将后续消息加入队列，还是引导当前轮次。使用 {{keybind}} 切换。",
+  "settings.general.row.followUpBehavior.queue": "加入队列",
+  "settings.general.row.followUpBehavior.steer": "引导",
 
   "recorder.label": "录音器",
   "recorder.start": "开始",
@@ -147,4 +161,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>
