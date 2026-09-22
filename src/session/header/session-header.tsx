@@ -1,12 +1,10 @@
 import { Icon } from "@opencode/ui/icon"
-import { createResource, createSignal, For, Show } from "solid-js"
-import { Menu } from "@opencode/ui/menu"
+import { createResource, createSignal, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
-import { openRecentSession } from "@/home/sessions/switcher-compact"
-import { recentSessionDescription, recentSessionTitle } from "@/home/sessions/recent-compact"
+import { HomeSessionsRegion } from "@/home/sessions/region"
 import { RecorderControl } from "@/session/header/recorder-control"
 import { SettingsGeneral } from "@/settings/general/general"
 
@@ -114,48 +112,7 @@ export function SessionHeader(props: {
             {language.t("session.thinking")}
           </span>
         </button>
-        <Menu gutter={4} placement="bottom-end" modal={false}>
-          <Menu.Trigger
-            class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base disabled:opacity-55 data-[expanded]:border-v2-border-border-strong data-[expanded]:bg-v2-overlay-simple-overlay-hover [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
-            aria-label={language.t("session.recent")}
-            title={language.t("session.recent")}
-            disabled={state.recentSessionsLoading && state.recentSessions.length === 0}
-          >
-            <Icon name="bullet-list" />
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Content class="w-[276px] [&_[data-component=menu-v2-item]]:min-h-[42px] [&_[data-component=menu-v2-item]]:items-start [&_[data-component=menu-v2-item]]:gap-2 [&_[data-component=menu-v2-item]]:px-2 [&_[data-component=menu-v2-item]]:py-1.5">
-              <Menu.Group>
-                <Menu.GroupLabel>{language.t("session.recent")}</Menu.GroupLabel>
-                <Show
-                  when={state.recentSessions.length > 0}
-                  fallback={<Menu.Item disabled>{language.t("session.recent.empty")}</Menu.Item>}
-                >
-                  <For each={state.recentSessions}>
-                    {(session, index) => (
-                      <Menu.Item
-                        disabled={!!state.recentSessionSwitchingID}
-                        onSelect={() => void openRecentSession(session)}
-                      >
-                        <span class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-v2-border-border-muted bg-v2-background-bg-layer-02 text-[11px] font-[650] leading-none text-v2-text-text-muted">
-                          {index() + 1}
-                        </span>
-                        <span class="min-w-0 flex-1">
-                          <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                            {recentSessionTitle(session)}
-                          </span>
-                          <span class="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
-                            {recentSessionDescription(session)}
-                          </span>
-                        </span>
-                      </Menu.Item>
-                    )}
-                  </For>
-                </Show>
-              </Menu.Group>
-            </Menu.Content>
-          </Menu.Portal>
-        </Menu>
+        <HomeSessionsRegion />
         <SettingsGeneral />
         <button
           type="button"
