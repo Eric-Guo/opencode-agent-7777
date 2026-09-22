@@ -1,0 +1,19 @@
+#oc-agent [data-component="settings-row"] {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+
+  [data-slot="settings-row-copy"] {
+    flex: 1;
+    min-width: 200px;
+    font-size: 14px;
+    line-height: var(--line-height-base);
+  }
+
+  [data-slot="settings-row-description"] {
+    color: var(--v2-text-text-base);
+    font-size: 13px;
+    line-height: var(--line-height-compact);
+  }
+}

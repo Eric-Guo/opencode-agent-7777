@@ -8,24 +8,7 @@
   }
 
   .websearch-setting {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px 24px;
     padding: 16px;
-  }
-
-  .websearch-copy {
-    flex: 1;
-    min-width: 200px;
-    font-size: 14px;
-    line-height: var(--line-height-base);
-  }
-
-  .websearch-description {
-    color: var(--v2-text-text-base);
-    font-size: 13px;
-    line-height: var(--line-height-compact);
   }
 
   .websearch-footer {

@@ -6,7 +6,7 @@ import { TextInput } from "@opencode/ui/text-input"
 import { For, Show, type Component } from "solid-js"
 import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
-import { popularProviders } from "@/providers/catalog/loader-compact"
+import { popularProviders } from "@/providers/catalog/providers"
 
 type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
 
