@@ -146,7 +146,7 @@ browserSuite(import.meta.path, () => {
       const result = await recoverDeletedSession(client, session("child"))
 
       expect(result.session).toBeUndefined()
-      expect(result.directory).toBe("/home/user/agent7777")
+      expect(result.directory).toBe("/home/user/agent-plm-meeting")
       expect(created).toBe(false)
     })
   })
