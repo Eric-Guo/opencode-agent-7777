@@ -2,6 +2,81 @@
 
 This package is the SolidJS/Vite UI for the `7777` agent.
 
+## Set up both agents on a new developer machine
+
+Install Git and the Bun version specified by the OpenCode root `package.json`. Start with the OpenCode distribution
+checked out at `<repo-root>`, including its `.gitmodules`. The agent repository's configured remote must contain both
+`main` and `plm-meeting`; commit and push the shared-build changes on `plm-meeting` before setting up another machine.
+The distribution must also include the updated desktop-tab extension, both entries in
+`packages/desktop/resources/thape-config/sigmaagents.jsonc`, and the `agents/plm-meeting.md` server profile.
+Uncommitted changes on an existing machine are not transferred by these commands.
+
+Initialize the distribution's existing submodules. Their repository URLs come from `.gitmodules`:
+
+```bash
+cd "<repo-root>"
+git submodule update --init --recursive -- packages/7777 packages/desktop-tab packages/desktop/resources/thape-config
+```
+
+Use `packages/7777` as the primary worktree on `main`, then add a linked worktree for the published `plm-meeting`
+branch. Run this once on the new machine, with `packages/plm-meeting` absent:
+
+```bash
+cd "<repo-root>/packages/7777"
+git fetch origin
+git switch main
+git merge --ff-only origin/main
+git worktree add --track -b plm-meeting ../plm-meeting origin/plm-meeting
+git worktree list
+```
+
+The resulting layout is:
+
+```text
+<repo-root>/packages/
+  7777/          # main; owns the shared renderer source and build
+  plm-meeting/   # plm-meeting; linked worktree of the same Git repository
+  desktop-tab/  # desktop extension that loads both agents
+  desktop/      # original desktop host and its separate renderer
+```
+
+Both agent worktrees share Git objects and remotes, while their branches and working files remain independent.
+If the local `plm-meeting` branch already exists, use `git worktree add ../plm-meeting plm-meeting` instead of creating
+it with `-b`. If `origin/plm-meeting` is missing, publish that branch from the existing machine first; creating it
+from `main` alone will not include its shared-build script or its distinct `@opencode/plm-meeting` package name.
+Submodule updates can detach `7777` at the distribution's recorded commit; switch back to `main` when resuming
+renderer development.
+
+Install workspace dependencies after both worktrees exist, then create the shared output:
+
+```bash
+cd "<repo-root>"
+bun install
+cd packages/plm-meeting
+bun run build
+```
+
+That build runs the sibling `7777` build and creates `plm-meeting/dist -> ../7777/dist` (a directory junction on
+Windows). Do not copy `dist` or `node_modules` from the old machine. Both desktop tabs load `7777/index.html`, with
+different `localAgent` values and session/draft keys supplied by `sigmaagents.jsonc`. The extension needs only its
+existing `../7777` build entry and `7777` asset mapping; the original desktop renderer remains separate.
+
+To run the desktop shell with both configured agents, use the extension's development command:
+
+```bash
+cd "<repo-root>/packages/desktop-tab"
+bun dev
+```
+
+For renderer hot reload, run `bun dev` from `packages/7777` in one terminal, then start desktop-tab in another with
+`ELECTRON_7777_RENDERER_URL=http://localhost:4777/ bun dev`. Both tabs use that one renderer server. For a desktop
+build, run `bun run build` from `packages/desktop-tab`; it builds and packages the shared renderer once.
+
+Make shared interface changes in `packages/7777`. The `plm-meeting` branch retains copied source for branch work,
+but its `build`, `dev`, and `serve` scripts delegate to `7777`, so edits to its copied UI do not enter the shared
+bundle automatically. Agent-specific identity, welcome content, storage keys, and prompts belong in the
+distribution configuration.
+
 ## Develop
 
 ```bash
