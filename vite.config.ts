@@ -14,7 +14,7 @@ export default defineConfig({
   base: "./",
   plugins: [
     {
-      name: "opencode-7777:config",
+      name: "opencode-plm-meeting:config",
       config() {
         return {
           resolve: {
@@ -29,7 +29,7 @@ export default defineConfig({
       },
     },
     {
-      name: "opencode-7777:theme-preload",
+      name: "opencode-plm-meeting:theme-preload",
       transformIndexHtml(html) {
         return html.replace(
           /<script id="oc-theme-preload-script" src="(?:\/|\.\/)oc-theme-preload\.js"><\/script>/,
@@ -43,7 +43,7 @@ export default defineConfig({
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    port: 4777,
+    port: 4778,
     proxy: {
       "/api": {
         target: `http://${serverHost}:${serverPort}`,
