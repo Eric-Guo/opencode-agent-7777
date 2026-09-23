@@ -31,7 +31,7 @@ browserSuite(import.meta.path, () => {
     setState("server", { url: "http://recovery.fixture", localAgent: "7777", welcomeText: "", suggestedQuestions: [] })
     await openRecentSession({ id: "missing", location: { directory: "/repo" } } as SessionInfo)
     expect(state.session).toBeUndefined()
-    expect(currentDraft()?.directory).toBe("/repo/agent7777")
+    expect(currentDraft()?.directory).toBe("/repo/agent-plm-meeting")
     expect(state.recentSessionSwitchingID).toBeUndefined()
     expect(state.error).toBe(translateSync("session.recovered.new"))
     expect(requests.every((request) => request.method === "GET")).toBe(true)
