@@ -1,6 +1,6 @@
 *.sublime-workspace
 node_modules/
-dist/
+dist
 .turbo/
 .env
 .env.*
