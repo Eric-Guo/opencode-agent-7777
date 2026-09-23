@@ -1,14 +1,14 @@
 {
-  "localAgent": "7777",
+  "localAgent": "plm-meeting",
   "storageKeys": {
-    "sessionID": "opencode.7777.session.id",
-    "sessionDirectory": "opencode.7777.session.directory",
-    "promptDraft": "opencode.7777.prompt.draft"
+    "sessionID": "opencode.plm-meeting.session.id",
+    "sessionDirectory": "opencode.plm-meeting.session.directory",
+    "promptDraft": "opencode.plm-meeting.prompt.draft"
   },
-  "welcomeText": "# Welcome to 7777\n\n您好，有什么可以帮到您？",
+  "welcomeText": "# PLM Meeting\n\n您好，有什么可以帮到您？",
   "suggestedQuestions": [
-    "打印机安装",
-    "电脑只有 c 盘，需要分盘",
-    "台式机网络不通"
+    "帮我整理会议纪要",
+    "提取会议中的待办事项",
+    "查询 PLM 项目的相关工作包"
   ]
 }
