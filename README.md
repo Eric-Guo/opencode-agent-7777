@@ -1,6 +1,21 @@
-# @opencode/7777 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Eric-Guo/opencode-agent-7777)
+# @opencode/plm-meeting
 
-This package is the SolidJS/Vite UI for the `7777` agent.
+This is the `plm-meeting` branch of the same repository as the sibling `7777` checkout. It builds its own
+SolidJS/Vite renderer, including the recorder control and transcription flow.
+
+## Meeting renderer
+
+- `bun run build` builds this checkout into its own `dist/`. The build safely removes a legacy link to `../7777/dist`.
+- `bun dev` serves this checkout on port 4778; `bun run serve` previews its own production build.
+- `bun run build:shared` builds both branches into `dist-shared/` with common dependencies and named HTML entries.
+- The desktop extension packages its HTML under `sigma-agents/` and merges `assets/` with the desktop renderer's assets. Tabs load `sigma-agents/plm-meeting.html` and `sigma-agents/7777.html`.
+- `ELECTRON_PLM_MEETING_RENDERER_URL` selects the meeting development server independently of `ELECTRON_7777_RENDERER_URL`.
+- The `plm-meeting` entry in `<repo-root>/packages/desktop/resources/thape-config/sigmaagents.jsonc` supplies the agent
+  identity, welcome content, and independent session/draft storage keys. Its server profile is `agents/plm-meeting.md`
+  in that configuration directory.
+
+Keep meeting interface changes in this branch. The remaining sections describe the compact interface and its
+standalone defaults; desktop initialization supplies the meeting agent identity.
 
 ## Set up both agents on a new developer machine
 
