@@ -54,6 +54,24 @@ When hosted in a desktop external tab, the app reads the tab's `localAgent` valu
 it as the OpenCode agent ID for session creation, agent switching, and optimistic messages. If the desktop tab does
 not provide a value, the standalone app defaults to `7777`.
 
+Desktop tabs can share one copy of this renderer bundle and configure their current-session and draft persistence
+through `storageKeys` in their `sigmaagents.jsonc` entry:
+
+```json
+"storageKeys": {
+  "sessionID": "opencode.7777.session.id",
+  "sessionDirectory": "opencode.7777.session.directory",
+  "promptDraft": "opencode.7777.prompt.draft"
+}
+```
+
+These values preserve the existing 7777 session and draft. Give another agent three different keys to keep its saved
+session and draft independent while reusing the same `7777/index.html`. Desktop initialization supplies the keys
+before session restoration or composer persistence. Old hosts that omit `storageKeys` and standalone deployments
+use `src/new-session/agent-default-config.json`, whose defaults retain the existing keys. Changing a key selects a
+different entry without migrating or deleting existing data. Model/UI preferences and accepted-prompt history are
+unchanged by this configuration.
+
 ## Open Source Notes
 
 This package should not depend on a contributor's local home directory or private company resources. Use
@@ -75,13 +93,13 @@ from `@opencode/session-ui`; 7777 does not need `packages/app` at runtime or bui
 | Runtime and platform | `runtime/platform/desktop-rpc-client.ts`, `runtime/platform/platform-bridge.ts`, `runtime/server/resolver-compact.ts` | One embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. The local bridge uses the desktop host's structured-clone RPC protocol for initialization, native attachments, source paths, and clipboard images. `SET_DOCUMENT_TITLE` defaults to `false` so the embedding host controls the title. |
 | Server and session state | `runtime/server/{client,directory-client,sync-session,session-store,session-reducer}-compact.ts`, compact bootstrap/event/message-cache/queue files in `runtime/server/global-sync/` | One server, SSE stream, and active session. Compact clients own transport-queue sharing; the current-message cache owns inbox hydration and reconciliation. No multi-server reactive data layer or SDK provider. |
 | Providers and models | `providers/catalog/{providers.ts,loader-compact.ts}`, `providers/models/default-config.*`, `runtime/persistence/storage-compact.ts`; package-root `scripts/apply-model-config-dump.ts` | Directory catalog reads and provider ordering use the main app's `providers.ts` boundary; the compact loader owns active-session refresh admission, status, and selection. Model UI imports the catalog boundary without the refresh controller. Source-controlled defaults, provider visibility, and the `manageModels` gate remain. Session model/variant choices use compact localStorage persistence scoped by server, directory, session, and agent; no provider contexts or routed selection handoff. |
-| Composer and drafts | `composer/persistence-singleton.ts`, reduced `composer/commands.tsx`, `composer/history/{entry,store}.ts` | One editor across session changes and one localStorage draft with data-URL attachments. Prompt recall follows the main app's history boundary, with at most 100 accepted prompts and a compact inline-storage budget; no shell or review-comment history. Recent-model and thinking-effort shortcuts apply only while the editor is focused; no command provider, slash commands, context, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. |
+| Composer and drafts | `composer/persistence-singleton.ts`, `runtime/persistence/drafts.ts`, reduced `composer/commands.tsx`, `composer/history/{entry,store}.ts` | One editor across session changes and one localStorage draft with data-URL attachments, using the desktop tab's configured draft key after initialization. Prompt recall follows the main app's history boundary, with at most 100 accepted prompts and a compact inline-storage budget; no shell or review-comment history. Recent-model and thinking-effort shortcuts apply only while the editor is focused; no command provider, slash commands, context, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. |
 | Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | Persisted follow-up behavior selects Queue or Steer for running turns, with the opposite delivery on Cmd/Ctrl+Enter. No queued editing/reordering, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command provider. Queue copy uses English source strings with locale fallback. |
 | Settings | `settings/{model.tsx,row.tsx,settings.css}`, `settings/general/general.tsx`, `runtime/persistence/settings-storage-compact.ts` | The settings model owns follow-up behavior and reasoning visibility, preserving their existing localStorage keys and header controls. The web-search setting uses the main app's presentational row boundary with embedded styles. No routed settings surface or general command/keybind preferences; reasoning remains a hidden/compact toggle. |
 | Session requests | `session/requests/{permission,form}-sync-compact.ts`, `session/requests/session-websearch-dock.{tsx,css}` | Single-session form loading and replies. The web-search dock composes the local `settings/row.tsx` with shared dock surfaces and waits for compact SSE; its styles remain scoped for embedding. |
 | Session shell and timeline | `session/header/session-header-actions.tsx`, `session/revert.ts`, `session/screen-layout-compact.ts`, `session/timeline/{model,message-timeline}-compact.*`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. Revert follows the main app's `to`/`undo`/`redo` boundary with compact header controls instead of command-provider entries. It operates on loaded history only while idle, with no pending follow-ups or blocking requests. The screen reads reasoning visibility from the settings model. The error wrapper supplies locale and fallback text. |
 | Recent and new sessions | `home/sessions/{index.ts,controller.tsx,search.ts,view.tsx,region.tsx}` with compact directory loading, presentation, and switching helpers; `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | The header switcher follows Home's controller/search/view/region boundaries, with title/ID filtering, keyboard selection, and Today/Yesterday/Older groups. Server-side title search and exact session-ID lookup cover the active directory's full history. Browsing and search results use cursor pagination in batches of 12; no home route, workspace selection, or background open. |
-| Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, and suggested questions, with desktop-tab overrides. |
+| Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, suggested questions, and current-session/draft storage keys, with desktop-tab overrides. Session persistence remains in `runtime/persistence/storage-compact.ts`; no routed preferences provider. |
 
 ## Recent Sessions
 

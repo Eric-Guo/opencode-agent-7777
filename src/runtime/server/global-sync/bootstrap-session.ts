@@ -36,8 +36,8 @@ export function activateSession(
   session: NonNullable<typeof state.session>,
   options: { restoreDraft?: boolean } = {},
 ) {
-  const draft = options.restoreDraft ? readPromptDraft() : undefined
-  writeSessionRecord(session)
+  const draft = options.restoreDraft ? readPromptDraft(server.storageKeys?.promptDraft) : undefined
+  writeSessionRecord(session, server.storageKeys)
   const activeClient = createDirectorySdk(server, sessionDirectory(session)).client
   setSessionClient(activeClient)
   setState("session", session)
@@ -68,7 +68,7 @@ export function initializeSessionSync() {
   return resolveServer().then((server) => {
     setState("server", server)
     const baseClient = createServerSdk(server).client
-    return restoreSession(baseClient, readSessionRecord())
+    return restoreSession(baseClient, readSessionRecord(server.storageKeys))
       .then((session) => session ?? createDefaultSession(baseClient, server.localAgent))
       .then((session) => activateSession(server, session, { restoreDraft: true }))
   })

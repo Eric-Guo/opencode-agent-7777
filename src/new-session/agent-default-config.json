@@ -1,5 +1,10 @@
 {
   "localAgent": "7777",
+  "storageKeys": {
+    "sessionID": "opencode.7777.session.id",
+    "sessionDirectory": "opencode.7777.session.directory",
+    "promptDraft": "opencode.7777.prompt.draft"
+  },
   "welcomeText": "# Welcome to 7777\n\n您好，有什么可以帮到您？",
   "suggestedQuestions": [
     "打印机安装",

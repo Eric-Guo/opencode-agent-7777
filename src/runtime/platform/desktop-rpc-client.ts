@@ -9,6 +9,13 @@ export const ServerReadyData = Schema.Struct({
   localAgent: Schema.optionalKey(Schema.String),
   welcomeText: Schema.optionalKey(Schema.String),
   suggestedQuestions: Schema.optionalKey(Schema.Array(Schema.String)),
+  storageKeys: Schema.optionalKey(
+    Schema.Struct({
+      sessionID: Schema.NonEmptyString,
+      sessionDirectory: Schema.NonEmptyString,
+      promptDraft: Schema.NonEmptyString,
+    }),
+  ),
 })
 const CybrosCurrentUser = Schema.Struct({ chinese_name: Schema.String, clerk_code: Schema.String })
 const FilePickerOptions = Schema.Struct({
