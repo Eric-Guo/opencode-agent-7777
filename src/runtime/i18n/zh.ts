@@ -86,6 +86,10 @@ export const dict = {
   "common.key.ctrl": "Ctrl",
 
   "command.category.model": "模型",
+  "command.session.undo": "撤销",
+  "command.session.undo.description": "撤销上一条消息",
+  "command.session.redo": "重做",
+  "command.session.redo.description": "重做上一条已撤销的消息",
 
   "ui.messagePart.option.typeOwnAnswer": "输入自己的答案",
   "ui.question.custom.placeholder": "填写答案",

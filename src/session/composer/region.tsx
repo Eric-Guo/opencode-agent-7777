@@ -10,22 +10,26 @@ import { SessionQueuePanel } from "./queue-panel"
 
 export function createActiveSessionRegion() {
   const requests = createSessionRequestModel()
+  const revert = createSessionRevert({ disabled: requests.blocked })
   const selection = createPromptModelSelection()
   const active = createSessionComposerController({
     controls: () => ({
       agent: currentLocalAgent(),
       model: { selection, status: state.modelStatus },
     }),
-    dock: { state: requests, ready: () => state.status === "ready" },
+    dock: { state: requests, ready: () => state.status === "ready" && !revert.busy() },
   })
-  const revert = createSessionRevert()
+  const revertMessage: NonNullable<SessionUserActions["revert"]> = ({ messageID }) => revert.to(messageID)
 
   return {
     active,
     requests,
     actions: {
+      revert,
       timeline: {
-        revert: (input) => revert.to(input.messageID),
+        get revert() {
+          return revert.canUndo() ? revertMessage : undefined
+        },
       } satisfies SessionUserActions,
     },
   }
