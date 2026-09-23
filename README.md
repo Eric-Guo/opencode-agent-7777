@@ -79,7 +79,7 @@ from `@opencode/session-ui`; 7777 does not need `packages/app` at runtime or bui
 | Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | Persisted follow-up behavior selects Queue or Steer for running turns, with the opposite delivery on Cmd/Ctrl+Enter. No queued editing/reordering, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command provider. Queue copy uses English source strings with locale fallback. |
 | Settings | `settings/{model.tsx,row.tsx,settings.css}`, `settings/general/general.tsx`, `runtime/persistence/settings-storage-compact.ts` | The settings model owns follow-up behavior and reasoning visibility, preserving their existing localStorage keys and header controls. The web-search setting uses the main app's presentational row boundary with embedded styles. No routed settings surface or general command/keybind preferences; reasoning remains a hidden/compact toggle. |
 | Session requests | `session/requests/{permission,form}-sync-compact.ts`, `session/requests/session-websearch-dock.{tsx,css}` | Single-session form loading and replies. The web-search dock composes the local `settings/row.tsx` with shared dock surfaces and waits for compact SSE; its styles remain scoped for embedding. |
-| Session shell and timeline | `session/screen-layout-compact.ts`, `session/timeline/{model,message-timeline}-compact.*`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. Revert exposes stage-to without undo/redo controls; the screen reads reasoning visibility from the settings model. The error wrapper supplies locale and fallback text. |
+| Session shell and timeline | `session/header/session-header-actions.tsx`, `session/revert.ts`, `session/screen-layout-compact.ts`, `session/timeline/{model,message-timeline}-compact.*`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. Revert follows the main app's `to`/`undo`/`redo` boundary with compact header controls instead of command-provider entries. It operates on loaded history only while idle, with no pending follow-ups or blocking requests. The screen reads reasoning visibility from the settings model. The error wrapper supplies locale and fallback text. |
 | Recent and new sessions | `home/sessions/{index.ts,controller.tsx,search.ts,view.tsx,region.tsx}` with compact directory loading, presentation, and switching helpers; `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | The header switcher follows Home's controller/search/view/region boundaries, with title/ID filtering, keyboard selection, and Today/Yesterday/Older groups. Server-side title search and exact session-ID lookup cover the active directory's full history. Browsing and search results use cursor pagination in batches of 12; no home route, workspace selection, or background open. |
 | Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, and suggested questions, with desktop-tab overrides. |
 
@@ -91,6 +91,17 @@ until the history is exhausted. Type a title to search the full server history i
 session ID to find it directly. Search results also support **Load more** and are not limited to sessions already
 loaded. **Arrow Up** and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover.
 Clearing the search or reopening the popover starts again with the first batch.
+
+## Undo and Redo
+
+Use **Undo** in the header to rewind the latest user turn and restore its prompt and attachments to the composer.
+Use **Redo** to restore one undone turn; redoing the final turn clears the revert boundary and composer. The existing
+**Revert message** action uses the same controller, so a message-level revert can also be stepped forward with Redo.
+
+These actions operate on the loaded history and are available when the session is idle, messages have finished
+loading, and no follow-ups or requests are pending. Send or remove pending follow-ups before rewinding. The visible
+history remains bounded to nine dialogs. Failed requests preserve the current draft and boundary; responses from a
+previous session activation cannot overwrite the current session or its draft.
 
 ## Composer History and Follow-ups
 

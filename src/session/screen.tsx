@@ -60,6 +60,7 @@ export function SessionPage() {
     <div class={SESSION_ROUTE_FRAME_CLASS}>
       <SessionHeader
         {...layout.header()}
+        revert={region.actions.revert}
         showReasoningSummaries={settings.general.showReasoningSummaries()}
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />

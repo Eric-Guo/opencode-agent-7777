@@ -5,6 +5,8 @@ import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
+import { SessionHeaderActions } from "@/session/header/session-header-actions"
+import type { SessionRevert } from "@/session/revert"
 import { SettingsGeneral } from "@/settings/general/general"
 
 const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
@@ -36,6 +38,7 @@ async function fetchCybrosCurrentUser(ssoJwtSecretKey?: string) {
 }
 
 export function SessionHeader(props: {
+  revert: SessionRevert
   status: string
   userDialogCount: number
   showReasoningSummaries: boolean
@@ -78,6 +81,7 @@ export function SessionHeader(props: {
           <span>/</span>
           <span>{HISTORY_DIALOG_LIMIT}</span>
         </div>
+        <SessionHeaderActions revert={props.revert} />
         <button
           type="button"
           class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-55 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"

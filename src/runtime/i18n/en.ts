@@ -74,6 +74,10 @@ export const dict = {
   "common.key.ctrl": "Ctrl",
 
   "command.category.model": "Model",
+  "command.session.undo": "Undo",
+  "command.session.undo.description": "Undo the last message",
+  "command.session.redo": "Redo",
+  "command.session.redo.description": "Redo the last undone message",
 
   "ui.messagePart.option.typeOwnAnswer": "Type your own answer",
   "ui.question.custom.placeholder": "Write an answer",
