@@ -151,7 +151,7 @@ describe("composer paste", () => {
       })
     } finally {
       if (previous) Object.defineProperty(globalThis, "document", previous)
-      else Reflect.deleteProperty(globalThis, "document")
+      else delete (globalThis as { document?: typeof globalThis.document }).document
     }
   })
 })
@@ -243,9 +243,10 @@ describe("composer history navigation", () => {
       })
     } finally {
       if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow)
-      else Reflect.deleteProperty(globalThis, "window")
+      else delete (globalThis as { window?: typeof globalThis.window }).window
       if (previousFrame) Object.defineProperty(globalThis, "requestAnimationFrame", previousFrame)
-      else Reflect.deleteProperty(globalThis, "requestAnimationFrame")
+      else
+        delete (globalThis as { requestAnimationFrame?: typeof globalThis.requestAnimationFrame }).requestAnimationFrame
     }
   })
 })

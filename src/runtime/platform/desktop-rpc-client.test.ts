@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
 import type { RpcMessage } from "effect/unstable/rpc"
 import { createDesktopApi, ServerReadyData } from "./desktop-rpc-client"
+import { resolveServer } from "@/runtime/server/resolver-compact"
 
 const decode = Schema.decodeUnknownSync(ServerReadyData)
 
@@ -17,13 +18,23 @@ describe("desktop message-port transport", () => {
 
     try {
       const api = createDesktopApi(Promise.resolve(renderer))
+      Object.assign(events, { api })
       const initialized = api.awaitInitialization!()
       // Disposing the runtime also rejects pending calls if a transport assertion fails.
       void initialized.catch(() => undefined)
       const request = (await received.promise) as RpcMessage.RequestEncoded
       expect(request).toMatchObject({ _tag: "Request", tag: "AppAwaitInitialization" })
 
-      const data = { url: "http://localhost:4096", localAgent: "support", welcomeText: "Welcome" }
+      const data = {
+        url: "http://localhost:4096",
+        localAgent: "support",
+        welcomeText: "Welcome",
+        storageKeys: {
+          sessionID: "support.session",
+          sessionDirectory: "support.directory",
+          promptDraft: "support.draft",
+        },
+      }
       // Deliver on a later task, as Electron's main process does, after the client subscribes.
       setTimeout(() => {
         host.postMessage({
@@ -41,15 +52,18 @@ describe("desktop message-port transport", () => {
         if (request._tag !== "Request") return
         requests.push(request)
         const value =
-          request.tag === "FilesReadClipboardImage"
-            ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
-            : null
+          request.tag === "AppAwaitInitialization"
+            ? data
+            : request.tag === "FilesReadClipboardImage"
+              ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
+              : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
           exit: { _tag: "Success", value },
         } satisfies RpcMessage.ResponseExitEncoded)
       })
+      expect((await resolveServer()).storageKeys).toEqual(data.storageKeys)
       const [user, background, clipboard] = await Promise.all([
         api.getCybrosCurrentUser!(),
         api.setBackgroundColor!("#ffffff"),
@@ -59,6 +73,7 @@ describe("desktop message-port transport", () => {
       expect(background).toBeUndefined()
       expect(clipboard && { ...clipboard, buffer: new Uint8Array(clipboard.buffer) }).toEqual(image)
       expect(requests.map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        { tag: "AppAwaitInitialization", payload: null },
         { tag: "AppGetCybrosCurrentUser", payload: null },
         { tag: "AppSetBackgroundColor", payload: { color: "#ffffff" } },
         { tag: "FilesReadClipboardImage", payload: null },
@@ -68,12 +83,20 @@ describe("desktop message-port transport", () => {
       host.close()
       renderer.close()
       if (original) Object.defineProperty(globalThis, "window", original)
-      else Reflect.deleteProperty(globalThis, "window")
+      else delete (globalThis as { window?: typeof globalThis.window }).window
     }
   })
 })
 
 describe("desktop initialization response", () => {
+  test.each([
+    null,
+    {},
+    { sessionID: "id", sessionDirectory: "directory", promptDraft: "" },
+    { sessionID: 5, sessionDirectory: "directory", promptDraft: "draft" },
+  ])("rejects malformed storage keys: %j", (storageKeys) => {
+    expect(() => decode({ url: "http://localhost:4096", storageKeys })).toThrow()
+  })
   test("accepts current desktop data without a password and preserves tab configuration", () => {
     expect(
       decode({

@@ -1,6 +1,6 @@
 import { Option, Schema } from "effect"
 import { PromptDraft } from "@/composer/schema"
-import { PROMPT_DRAFT_KEY } from "@/constants/session"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 
 export type BlobReference = { id: string; url: string }
 
@@ -42,52 +42,52 @@ export function createLegacyBlobReference(dataUrl: string): BlobReference {
   return { id: dataUrl, url: dataUrl }
 }
 
-function storageGet() {
+function storageGet(key: string) {
   if (typeof localStorage !== "object") return null
   try {
-    return localStorage.getItem(PROMPT_DRAFT_KEY)
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-function storageSet(value: string) {
+function storageSet(key: string, value: string) {
   if (typeof localStorage !== "object") return
   try {
-    localStorage.setItem(PROMPT_DRAFT_KEY, value)
+    localStorage.setItem(key, value)
   } catch {
     return
   }
 }
 
-function storageRemove() {
+function storageRemove(key: string) {
   if (typeof localStorage !== "object") return
   try {
-    localStorage.removeItem(PROMPT_DRAFT_KEY)
+    localStorage.removeItem(key)
   } catch {
     return
   }
 }
 
-export function readPromptDraft(): PromptDraft | undefined {
-  const value = storageGet()
+export function readPromptDraft(key = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft): PromptDraft | undefined {
+  const value = storageGet(key)
   if (!value) return undefined
   const decoded = decodePromptDraft(value)
   if (Option.isNone(decoded) || (!decoded.value.prompt && decoded.value.attachments.length === 0)) {
-    storageRemove()
+    storageRemove(key)
     return undefined
   }
   return decoded.value
 }
 
-export function writePromptDraft(draft: PromptDraft) {
+export function writePromptDraft(draft: PromptDraft, key = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft) {
   if (!draft.prompt && draft.attachments.length === 0) {
-    storageRemove()
+    storageRemove(key)
     return
   }
-  storageSet(JSON.stringify(draft))
+  storageSet(key, JSON.stringify(draft))
 }
 
-export function clearPromptDraft() {
-  storageRemove()
+export function clearPromptDraft(key = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft) {
+  storageRemove(key)
 }

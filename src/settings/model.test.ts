@@ -18,7 +18,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   if (original) Object.defineProperty(globalThis, "localStorage", original)
-  else Reflect.deleteProperty(globalThis, "localStorage")
+  else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
 })
 
 test.each([undefined, "invalid", "null", "steer"])("uses Steer for an absent or invalid preference: %s", (value) => {

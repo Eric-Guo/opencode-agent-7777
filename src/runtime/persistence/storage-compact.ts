@@ -1,9 +1,5 @@
-import {
-  MODEL_SELECTION_KEY,
-  SESSION_DIRECTORY_KEY,
-  SESSION_ID_KEY,
-  SESSION_MODEL_SELECTION_KEY,
-} from "@/constants/session"
+import { MODEL_SELECTION_KEY, SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import { sessionDirectory } from "@/session/directory"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 
@@ -68,18 +64,18 @@ function storageSet(key: string, value: string) {
   }
 }
 
-export function readSessionRecord(): SessionRecord | undefined {
-  const id = storageGet(SESSION_ID_KEY)
+export function readSessionRecord(keys = AGENT_DEFAULT_CONFIG.storageKeys): SessionRecord | undefined {
+  const id = storageGet(keys.sessionID)
   if (!id) return
   return {
     id,
-    directory: storageGet(SESSION_DIRECTORY_KEY) ?? undefined,
+    directory: storageGet(keys.sessionDirectory) ?? undefined,
   }
 }
 
-export function writeSessionRecord(session: Session) {
-  storageSet(SESSION_ID_KEY, session.id)
-  storageSet(SESSION_DIRECTORY_KEY, sessionDirectory(session))
+export function writeSessionRecord(session: Session, keys = AGENT_DEFAULT_CONFIG.storageKeys) {
+  storageSet(keys.sessionID, session.id)
+  storageSet(keys.sessionDirectory, sessionDirectory(session))
 }
 
 export function readModelSelection(): ModelSelection | undefined {

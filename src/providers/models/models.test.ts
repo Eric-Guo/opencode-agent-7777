@@ -22,7 +22,7 @@ beforeEach(() => {
 
 afterEach(() => {
   if (storage) Object.defineProperty(globalThis, "localStorage", storage)
-  else Reflect.deleteProperty(globalThis, "localStorage")
+  else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
 })
 
 function model(providerID: string, modelID: string, input: Partial<ModelInfo> = {}): ModelInfo {

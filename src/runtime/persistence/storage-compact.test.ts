@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
-import { readSessionModelSelections, writeSessionModelSelections } from "./storage-compact"
+import {
+  readSessionModelSelections,
+  writeSessionModelSelections,
+  readSessionRecord,
+  writeSessionRecord,
+} from "./storage-compact"
 
 const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
@@ -17,7 +22,31 @@ beforeEach(() => {
 })
 afterEach(() => {
   if (original) Object.defineProperty(globalThis, "localStorage", original)
-  else Reflect.deleteProperty(globalThis, "localStorage")
+  else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
+})
+
+test("configured session keys preserve existing 7777 data and isolate another agent", () => {
+  saved.set("opencode.7777.session.id", "legacy-session")
+  saved.set("opencode.7777.session.directory", "/legacy")
+  expect(readSessionRecord()).toEqual({ id: "legacy-session", directory: "/legacy" })
+  const keys = { sessionID: "other.session", sessionDirectory: "other.directory", promptDraft: "other.draft" }
+  expect(readSessionRecord(keys)).toBeUndefined()
+  writeSessionRecord(
+    {
+      id: "other-session",
+      projectID: "project",
+      location: { directory: "/other" },
+      title: "Other session",
+      cost: 0,
+      tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      time: { created: 1, updated: 1 },
+    },
+    keys,
+  )
+  expect(readSessionRecord(keys)).toEqual({ id: "other-session", directory: "/other" })
+  expect(saved.get("other.session")).toBe("other-session")
+  expect(saved.get("other.directory")).toBe("/other")
+  expect(readSessionRecord()).toEqual({ id: "legacy-session", directory: "/legacy" })
 })
 
 describe("session model preference storage", () => {

@@ -19,7 +19,7 @@ beforeEach(() => {
 })
 afterEach(() => {
   if (original) Object.defineProperty(globalThis, "localStorage", original)
-  else Reflect.deleteProperty(globalThis, "localStorage")
+  else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
 })
 
 test("round-trips text and attachments and isolates restored editor stores", () => {

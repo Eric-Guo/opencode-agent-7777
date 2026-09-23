@@ -1,5 +1,5 @@
 import { awaitDesktopInitialization } from "@/runtime/platform/platform-bridge"
-import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { AGENT_DEFAULT_CONFIG, type AgentStorageKeys } from "@/new-session/agent-default-config"
 
 // Resolves the single server used by 7777 rather than exposing the main app's server registry context.
 
@@ -8,6 +8,7 @@ export type ServerInfo = {
   localAgent: string
   welcomeText: string
   suggestedQuestions: string[]
+  storageKeys?: AgentStorageKeys
   ssoJwtSecretKey?: string
   password?: string
 }
@@ -28,6 +29,7 @@ export function resolveServer(): Promise<ServerInfo> {
       localAgent: data.localAgent ?? AGENT_DEFAULT_CONFIG.localAgent,
       welcomeText: data.welcomeText ?? AGENT_DEFAULT_CONFIG.welcomeText,
       suggestedQuestions: data.suggestedQuestions ?? AGENT_DEFAULT_CONFIG.suggestedQuestions,
+      storageKeys: data.storageKeys ?? AGENT_DEFAULT_CONFIG.storageKeys,
       ssoJwtSecretKey: data.ssoJwtSecretKey,
       password: data.password ?? undefined,
     }))

@@ -68,7 +68,7 @@ describe("composer attachments", () => {
       expect(input.prompt()[1]).toMatchObject({ type: "image", id: expect.any(String), filename: "notes.txt" })
     } finally {
       if (descriptor) Object.defineProperty(globalThis, "crypto", descriptor)
-      else Reflect.deleteProperty(globalThis, "crypto")
+      else delete (globalThis as { crypto?: typeof globalThis.crypto }).crypto
       input.dispose()
     }
   })

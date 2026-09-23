@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+import type { AgentStorageKeys } from "@/new-session/agent-default-config"
 
 interface ImportMetaEnv {
   readonly VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY?: string
@@ -16,6 +17,7 @@ type DesktopServerReadyData = {
   localAgent?: string
   welcomeText?: string
   suggestedQuestions?: string[]
+  storageKeys?: AgentStorageKeys
   ssoJwtSecretKey?: string
 }
 
