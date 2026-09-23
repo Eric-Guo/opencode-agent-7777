@@ -1,9 +1,9 @@
-export const DEFAULT_SESSION_DIRECTORY_NAME = "agent7777"
+export const DEFAULT_SESSION_DIRECTORY_NAME = "agent-plm-meeting"
 export const HISTORY_DIALOG_LIMIT = 9
 export const FETCH_MESSAGE_LIMIT = HISTORY_DIALOG_LIMIT * 4
 export const RECENT_SESSION_PAGE_SIZE = 12
-export const MODEL_SELECTION_KEY = "opencode.7777.model.selection"
-export const SESSION_MODEL_SELECTION_KEY = "opencode.7777.session.model.selection"
-export const SHOW_REASONING_SUMMARIES_KEY = "opencode.7777.showReasoningSummaries"
-export const SET_DOCUMENT_TITLE = false
-export const SHOW_FILE_TREE_PANEL = false
+export const MODEL_SELECTION_KEY = "opencode.plm-meeting.model.selection"
+export const SESSION_MODEL_SELECTION_KEY = "opencode.plm-meeting.session.model.selection"
+export const SHOW_REASONING_SUMMARIES_KEY = "opencode.plm-meeting.showReasoningSummaries"
+export const SET_DOCUMENT_TITLE = true
+export const SHOW_FILE_TREE_PANEL = true
