@@ -81,6 +81,7 @@ export type ComposerAttachmentConfig = {
   readClipboardImage?: () => Promise<File | null>
   getPathForFile?: (file: File) => string
   onDragCancel?: (callback: () => void) => () => void
+  dropTarget?: () => HTMLElement | undefined
   store?: (file: File) => Promise<{ id: string; url: string }>
 }
 
@@ -95,6 +96,17 @@ export function createComposerAttachments(
 ) {
   const clearDrag = () => {
     input.setDraggingType(null)
+  }
+  const contains = (target: EventTarget | null) =>
+    !input.dropTarget || (!!target && !!input.dropTarget()?.contains(target as Node))
+  const handleDragOver = (event: DragEvent) => {
+    if (input.isDialogActive() || !contains(event.target)) return
+    if (!event.dataTransfer?.types.includes("Files")) return
+    event.preventDefault()
+    input.setDraggingType("image")
+  }
+  const handleDragLeave = (event: DragEvent) => {
+    if (!event.relatedTarget || !contains(event.relatedTarget)) clearDrag()
   }
   const capture = () => {
     const prompt = input.capture()
@@ -182,42 +194,43 @@ export function createComposerAttachments(
     put()
   }
   const handleDrop = async (event: DragEvent) => {
-    if (input.isDialogActive()) return
-    event.preventDefault()
     clearDrag()
+    if (input.isDialogActive() || !contains(event.target)) return
     const plainText = event.dataTransfer?.getData("text/plain")
     if (plainText?.startsWith("file:")) {
+      event.preventDefault()
       const path = plainText.slice("file:".length)
       input.focusEditor()
       input.addPart({ type: "file", path, content: `@${path}`, start: 0, end: 0 })
       return
     }
     const files = event.dataTransfer?.files
-    if (files) await addAttachments(Array.from(files))
+    if (!files?.length) return
+    event.preventDefault()
+    await addAttachments(Array.from(files))
   }
 
   onMount(() => {
     const cancel = input.onDragCancel?.(clearDrag)
     if (cancel) onCleanup(cancel)
-    makeEventListener(document, "dragover", (event) => {
-      if (input.isDialogActive()) return
-      event.preventDefault()
-      if (event.dataTransfer?.types.includes("Files")) input.setDraggingType("image")
-      else if (event.dataTransfer?.types.includes("text/plain")) input.setDraggingType("@mention")
-    })
-    makeEventListener(document, "dragleave", (event) => {
-      if (!input.isDialogActive() && !event.relatedTarget) clearDrag()
-    })
+    const target = input.dropTarget ? input.dropTarget() : document
+    if (!target) return
+    makeEventListener(target, "dragover", handleDragOver)
+    makeEventListener(target, "dragleave", handleDragLeave)
     makeEventListener(document, "keydown", (event) => {
       if (event.key === "Escape") clearDrag()
     })
-    makeEventListener(document, "drop", handleDrop)
+    makeEventListener(document, "dragend", clearDrag)
+    makeEventListener(window, "blur", clearDrag)
+    makeEventListener(target, "drop", (event) => void handleDrop(event).catch(input.onError))
   })
 
   return {
     addAttachments,
     handlePaste,
     handleDrop,
+    handleDragOver,
+    handleDragLeave,
     pick(fallback: () => void) {
       if (!input.picker) {
         fallback()

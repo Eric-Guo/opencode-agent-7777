@@ -439,23 +439,26 @@ export function createComposerEditor(input: {
       target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: text }))
     },
     onDragEnter(event: DragEvent) {
+      if (attachments) return attachments.handleDragOver(event)
       event.preventDefault()
       dispatch({ type: "drag.enter" })
     },
     onDragOver(event: DragEvent) {
+      if (attachments) return attachments.handleDragOver(event)
       event.preventDefault()
     },
-    onDragLeave() {
+    onDragLeave(event?: DragEvent) {
+      if (attachments && event) return attachments.handleDragLeave(event)
       dispatch({ type: "drag.leave" })
     },
     onDrop(event: DragEvent) {
-      event.preventDefault()
       dispatch({ type: "drag.leave" })
       if (attachments) {
         event.stopPropagation()
-        void attachments.handleDrop(event)
+        void attachments.handleDrop(event).catch(input.attachments!.onError)
         return
       }
+      event.preventDefault()
     },
     attach,
     setFileInput(element: HTMLInputElement) {

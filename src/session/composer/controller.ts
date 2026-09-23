@@ -20,7 +20,14 @@ export function createSessionComposerController(input: {
   })
   const composer = createComposerModel(adapter, { queue })
 
-  return { region, composer, queue }
+  return {
+    region,
+    composer,
+    queue,
+    drop: {
+      active: () => !region.disabled() && composer.state.drag === "active",
+    },
+  }
 }
 
 export type SessionComposerController = ReturnType<typeof createSessionComposerController>

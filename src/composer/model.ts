@@ -1,4 +1,5 @@
 import { useDialog } from "@opencode/ui/context/dialog"
+import { createEffect } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
@@ -36,6 +37,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     context: () => [],
     searchContextFiles: () => [],
     attachments: {
+      dropTarget: () => document.getElementById("oc-agent") ?? undefined,
       picker: platform.openAttachmentPickerDialog,
       directory: () => "",
       isDialogActive: () => adapter.disabled() || !!dialog.active,
@@ -84,6 +86,10 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
         onStop: adapter.interrupt,
       },
     },
+  })
+
+  createEffect(() => {
+    if (adapter.disabled() || dialog.active) controller.onDragLeave()
   })
 
   return {

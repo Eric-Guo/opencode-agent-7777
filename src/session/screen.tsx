@@ -3,6 +3,7 @@ import { DataProvider } from "@opencode/session-ui/context"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
 import { useSettings } from "@/settings/model"
+import { ComposerDropzone } from "@/composer/dropzone"
 import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync-session-compact"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
@@ -58,6 +59,7 @@ export function SessionPage() {
 
   return (
     <div class={SESSION_ROUTE_FRAME_CLASS}>
+      <ComposerDropzone active={region.active.drop.active()} identity={() => state.session?.id} />
       <SessionHeader
         {...layout.header()}
         revert={region.actions.revert}
