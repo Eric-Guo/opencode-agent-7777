@@ -1,8 +1,16 @@
 # Repository Guidelines
 
+## PLM meeting checkout
+
+- This checkout uses branch `plm-meeting` and package name `@opencode/plm-meeting` in the same Git repository as the sibling `7777` checkout.
+- The meeting desktop tab loads this branch's `plm-meeting/index.html`; the 7777 tab loads `7777/index.html`. Keep agent identity, welcome content, and session/draft storage keys in the distribution's `sigmaagents.jsonc`, with the PLM meeting prompt in `agents/plm-meeting.md`.
+- `bun run build` builds this checkout into its own `dist/`; `dev` and `serve` use this checkout too. Remove only the known legacy link to `../7777/dist` before building. Never build through that link or modify the sibling output.
+- Keep meeting-specific UI, including the recorder, in this branch. The desktop-tab manifest must build and package both renderer outputs separately.
+- The original desktop renderer remains a separate build.
+
 ## Project Structure & Module Organization
 
-This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Build output goes to `dist/`; generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `node_modules/`, or `.turbo/`.
+This package is a copy of the small SolidJS/Vite workspace app under `packages/7777`, checked out at `packages/plm-meeting`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Build output goes to `dist/`; generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist`, `node_modules/`, or `.turbo/`.
 
 The Vite config uses `@` as an alias for `./src` and serves package-owned assets from `./public`. Keep those assets
 local; this nested repository must not require files from `../app` at runtime or build time.
@@ -11,12 +19,12 @@ local; this nested repository must not require files from `../app` at runtime or
 
 Use Bun from the monorepo root or this package.
 
-- `bun run dev`: start the Vite dev server on port `4777`.
+- `bun run dev`: start this checkout's Vite dev server on port `4778`.
 - `bun test`: run the colocated Bun test suite.
-- `bun run build`: build the package with Vite into `dist/`.
+- `bun run build`: build this checkout with Vite into its own `dist/`.
 - `bun run serve`: preview the production build locally.
 - `bun run typecheck`: run `tsgo -b` using `tsconfig.json`.
-- From the repo root, use `bun --cwd packages/7777 <script>`.
+- From the repo root, use `bun run --cwd packages/plm-meeting <script>`.
 
 ## Coding Style & Naming Conventions
 
@@ -44,7 +52,7 @@ Prioritize stability, simplicity, then performance. Do not restart the app or se
 
 When a UI status disagrees with the server response, inspect the network result and the in-memory store value separately before adding event handlers, retries, or polling. Reproduce the smallest local state transition and check for shared-reference mutation first.
 
-`packages/7777` is a nested Git repository, and the parent monorepo ignores `packages/7777/`. Run `git status`, `git diff`, and related checks from `<repo-root>/packages/7777` when reviewing changes in this package; running them from the parent repo will not show the package changes.
+`packages/plm-meeting` is a linked Git worktree of the nested `7777` repository, and the parent monorepo ignores `packages/plm-meeting/`. Run `git status`, `git diff`, and related checks from `<repo-root>/packages/plm-meeting` when reviewing changes in this package; running them from the parent repo will not show the package changes.
 
 When moving, splitting, or adding a feature that also exists in `<repo-root>/packages/app`, follow the main app filename and module boundary for that feature. If the 7777 implementation intentionally remains in a different file or is 7777-only, update the `Code Layout Parity Review` section in `README.md` in the same change.
 

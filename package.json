@@ -1,12 +1,12 @@
 {
-  "name": "@opencode/7777",
+  "name": "@opencode/plm-meeting",
   "version": "2.0.15",
   "private": true,
   "type": "module",
   "scripts": {
     "typecheck": "tsgo -b",
     "dev": "vite",
-    "build": "vite build",
+    "build": "bun scripts/build.ts",
     "serve": "vite preview",
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
