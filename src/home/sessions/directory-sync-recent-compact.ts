@@ -1,6 +1,6 @@
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
-import { normalizeSessionDirectory, sessionDirectory } from "@/session/directory"
+import { sessionDirectory } from "@/session/directory"
 import { readableError } from "@/shell/errors/readable"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 import { loadHomeSessionPage } from "./index"
@@ -22,7 +22,7 @@ export function refreshRecentSessions() {
   const client = createDirectorySdk(server, directory).client
   setState("recentSessionsLoading", true)
   return loadHomeSessionPage({
-    directory: normalizeSessionDirectory(directory),
+    directory,
     sessionID: state.session!.id,
     list: client.session.list,
     get: client.session.get,

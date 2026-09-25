@@ -114,6 +114,28 @@ test("exact ID lookup finds old sessions, deduplicates title results, and respec
   expect((await loadHomeSessionPage(missing, { search: id })).items).toEqual([])
 })
 
+test.each(["/repo/agent7777/agent7777", "/", "C:\\"])(
+  "preserves the stored directory when browsing and searching %s",
+  async (directory) => {
+    const id = "ses_abcdefghijklmnopqrstuvwxyz"
+    const calls: SessionListInput[] = []
+    const api: HomeSessionSource = {
+      directory,
+      sessionID: "active",
+      list: async (input) => {
+        calls.push(input)
+        return page([session("same-directory", directory)])
+      },
+      get: async () => session(id, "/repo/agent7777"),
+    }
+
+    const result = await loadHomeSessionPage(api, { search: id })
+
+    expect(calls).toEqual([{ directory, limit: 12, order: "desc", search: id }])
+    expect(result.items.map((item) => item.id)).toEqual(["same-directory"])
+  },
+)
+
 test("failed next-page requests preserve loaded rows and retry the same cursor", async () => {
   let fail = true
   const cursors: (string | undefined)[] = []

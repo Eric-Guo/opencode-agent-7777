@@ -3,7 +3,6 @@ import type { Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 import { RECENT_SESSION_PAGE_SIZE } from "@/constants/session"
 import { isSessionNotFoundError } from "@/runtime/server/errors"
-import { normalizeSessionDirectory } from "@/session/directory"
 
 export type HomeSessionSource = {
   directory: string
@@ -18,7 +17,6 @@ export async function loadHomeSessionPage(
   source: HomeSessionSource,
   input: { cursor?: string; search?: string; knownIDs?: string[]; signal?: AbortSignal } = {},
 ) {
-  const directory = normalizeSessionDirectory(source.directory)
   const seen = new Set(input.knownIDs)
   const cursors = new Set<string>()
   const items: SessionInfo[] = []
@@ -27,7 +25,7 @@ export async function loadHomeSessionPage(
     if (
       session.id === source.sessionID ||
       seen.has(session.id) ||
-      normalizeSessionDirectory(session.location.directory) !== directory
+      session.location.directory !== source.directory
     )
       return
     seen.add(session.id)
@@ -51,7 +49,7 @@ export async function loadHomeSessionPage(
     const [page, matched] = await Promise.all([
       source.list(
         {
-          directory,
+          directory: source.directory,
           limit: RECENT_SESSION_PAGE_SIZE - items.length,
           order: "desc",
           ...(query ? { search: query } : {}),
