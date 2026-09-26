@@ -1,5 +1,5 @@
 {
-  "name": "@opencode/7777",
+  "name": "@opencode/plm-meeting",
   "version": "2.1.2",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     "typecheck": "tsc -b",
     "test:components": "playwright test --config playwright.components.config.ts",
     "dev": "vite",
-    "build": "vite build",
+    "build": "bun scripts/build.ts",
     "build:shared": "bun scripts/build-shared.ts",
     "serve": "vite preview",
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts",
@@ -21,6 +21,7 @@
     "@opencode/ui": "workspace:*",
     "@opencode/util": "workspace:*",
     "@solid-primitives/event-listener": "catalog:",
+    "@tanstack/solid-virtual": "catalog:",
     "echarts": "6.1.0",
     "effect": "catalog:",
     "solid-js": "catalog:",
