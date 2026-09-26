@@ -1,3 +1,11 @@
+export type FileNode = {
+  name: string
+  path: string
+  absolute: string
+  type: "file" | "directory"
+  ignored: boolean
+}
+
 // Provider/model view types follow the main app; unknown reasoning support stays unspecified.
 export type Model = {
   id: string

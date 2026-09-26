@@ -113,6 +113,40 @@ function dropFixture() {
 }
 
 describe("embedded attachment drops", () => {
+  test("accepts a tree drag and inserts a workspace reference without uploading bytes", async () => {
+    const addPart = mock(() => true)
+    const store = mock(async () => ({ id: "unused", url: "unused" }))
+    const dragging = mock(() => {})
+    const input = fixture(store, { directory: () => "/workspace/agent7777", addPart, setDraggingType: dragging })
+    const event = {
+      dataTransfer: {
+        types: ["application/x-opencode-file", "text/plain", "text/uri-list"],
+        getData: (type: string) => (type === "text/plain" ? "file:docs/a #1.md" : ""),
+        files: [],
+      },
+      preventDefault: mock(() => {}),
+    } as unknown as DragEvent
+    try {
+      input.attachments.handleDragOver(event)
+      expect(event.preventDefault).toHaveBeenCalledTimes(1)
+      expect(dragging).toHaveBeenLastCalledWith("@mention")
+      await input.attachments.handleDrop(event)
+      expect(addPart).toHaveBeenCalledTimes(1)
+      expect(addPart).toHaveBeenCalledWith({
+        type: "file",
+        path: "docs/a #1.md",
+        content: "@docs/a #1.md",
+        start: 0,
+        end: 0,
+        url: "file:///workspace/agent7777/docs/a%20%231.md",
+      })
+      expect(store).not.toHaveBeenCalled()
+      expect(dragging).toHaveBeenLastCalledWith(null)
+    } finally {
+      input.dispose()
+    }
+  })
+
   test("admits file drags only inside the mount and leaves text dragging to the browser", () => {
     const input = dropFixture()
     try {

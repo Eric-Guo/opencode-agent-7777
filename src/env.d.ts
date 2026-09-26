@@ -33,6 +33,9 @@ type DesktopPickedFile = {
 }
 
 type DesktopAPI = {
+  openPath?: (path: string, application?: string) => Promise<string | undefined>
+  revealPath?: (path: string) => Promise<boolean>
+  checkAppExists?: (app: string) => Promise<boolean>
   awaitInitialization: () => Promise<DesktopServerReadyData>
   getCybrosCurrentUser?: () => Promise<CybrosCurrentUser | null>
   openFilePicker?: (opts?: {
