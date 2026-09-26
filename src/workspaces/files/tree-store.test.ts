@@ -22,6 +22,67 @@ function deferred<T>() {
 }
 
 describe("workspace file tree", () => {
+  test("removing a folder clears a racing watcher error without leaving a global banner", async () => {
+    await createRoot(async (dispose) => {
+      const onError = mock(() => {})
+      let removed = false
+      const tree = createFileTreeStore({
+        scope: () => "/workspace",
+        normalizeDir: (path) => path,
+        list: async (path) => {
+          if (!path) return removed ? [] : [node("docs", "directory")]
+          if (removed) throw new Error("UnexpectedStatus: 500")
+          return [node("docs/readme.txt")]
+        },
+        onError,
+      })
+      await tree.listDir("")
+      await tree.listDir("docs")
+      removed = true
+      // The child's unlink can finish its refresh before the parent's unlink.
+      await tree.listDir("docs", { force: true, reportError: false })
+      expect(tree.dirState("docs")?.error).toBe("UnexpectedStatus: 500")
+      await tree.listDir("", { force: true, reportError: false })
+      expect(tree.dirState("docs")).toBeUndefined()
+      expect(tree.children("")).toEqual([])
+      expect(onError).not.toHaveBeenCalled()
+      dispose()
+    })
+  })
+
+  test("coalesces watcher updates during a read and fetches the latest contents afterwards", async () => {
+    await createRoot(async (dispose) => {
+      const pending = deferred<FileNode[]>()
+      const list = mock(() => pending.promise)
+      const tree = createFileTreeStore({ scope: () => "/workspace", normalizeDir: (path) => path, list, onError() {} })
+      const first = tree.listDir("")
+      const refresh = tree.listDir("", { force: true })
+      expect(tree.listDir("", { force: true })).toBe(refresh)
+      list.mockImplementation(() => Promise.resolve([node("new.txt")]))
+      pending.resolve([node("old.txt")])
+      await Promise.all([first, refresh])
+      expect(tree.children("").map((file) => file.path)).toEqual(["new.txt"])
+      expect(list).toHaveBeenCalledTimes(2)
+      dispose()
+    })
+  })
+
+  test("discards a queued watcher refresh when the workspace resets", async () => {
+    await createRoot(async (dispose) => {
+      const pending = deferred<FileNode[]>()
+      const list = mock(() => pending.promise)
+      const tree = createFileTreeStore({ scope: () => "/workspace", normalizeDir: (path) => path, list, onError() {} })
+      const first = tree.listDir("")
+      const refresh = tree.listDir("", { force: true })
+      tree.reset()
+      pending.resolve([node("old.txt")])
+      await Promise.all([first, refresh])
+      expect(tree.children("")).toEqual([])
+      expect(list).toHaveBeenCalledTimes(1)
+      dispose()
+    })
+  })
+
   test("forgets a removed folder's cache and pending reads before it is recreated", async () => {
     await createRoot(async (dispose) => {
       const pending = deferred<FileNode[]>()
