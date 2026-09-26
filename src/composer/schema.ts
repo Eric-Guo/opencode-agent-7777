@@ -45,8 +45,7 @@ export const PromptHistoryEntry = Persistence.struct({
   prompt: Schema.mutable(
     Schema.Array(
       Schema.Union([
-        PromptFileReference,
-        PromptSkillReference,
+        PromptReference,
         Persistence.struct({
           type: Schema.Literal("text"),
           content: Schema.String,

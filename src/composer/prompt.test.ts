@@ -50,6 +50,12 @@ describe("extractPromptFromMessage", () => {
       time: { created: 1 },
     } satisfies SessionMessageUser
 
-    expect(extractPromptFromMessage(message)).toEqual({ prompt: "inspect @src/app.ts", attachments: [] })
+    expect(extractPromptFromMessage(message)).toEqual({
+      prompt: "inspect @src/app.ts",
+      attachments: [],
+      references: [
+        { type: "file", path: "src/app.ts", content: "@src/app.ts", start: 8, end: 19, url: "file:///repo/src/app.ts" },
+      ],
+    })
   })
 })
