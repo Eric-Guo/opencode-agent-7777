@@ -7,6 +7,7 @@ import { createComposerEditorActions, type ComposerStateStoreInput } from "./act
 import { getCursorPosition, pasteComposerText, setCursorPosition } from "./dom"
 import type {
   ComposerAttachment,
+  ComposerFilePart,
   ComposerCapabilities,
   ComposerComment,
   ComposerHistory,
@@ -99,7 +100,8 @@ export function createComposerEditor(input: {
   function addPart(part: ComposerPersistedState["prompt"][number]) {
     if (isAttachment(part)) return false
     if (part.type === "file" || part.type === "agent") {
-      draft.addMention(part)
+      const cursor = draft.state.cursor ?? promptLength(draft.state.prompt)
+      draft.addMention(part, { start: cursor, end: cursor })
       return true
     }
     draft.addText(part.content)
@@ -414,6 +416,10 @@ export function createComposerEditor(input: {
       input.onEditor?.(element)
     },
     restoreFocus,
+    addFile(part: ComposerFilePart) {
+      editor?.focus()
+      return addPart(part)
+    },
     onInput(value: string, prompt?: ComposerPersistedState["prompt"], cursor?: number) {
       if (prompt) draft.setPrompt(prompt, cursor)
       if (input.view.draftOnly) return
