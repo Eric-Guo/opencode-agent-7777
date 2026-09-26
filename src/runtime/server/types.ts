@@ -1,5 +1,13 @@
 import type { ModelCost, ModelInfo, ProviderInfo } from "@opencode/client/promise"
 
+export type FileNode = {
+  name: string
+  path: string
+  absolute: string
+  type: "file" | "directory"
+  ignored: boolean
+}
+
 // Keep public client capabilities intact; only picker-specific views need adaptation.
 export type Model = Pick<ModelInfo, "id" | "providerID" | "name" | "family" | "limit" | "status" | "capabilities"> & {
   api: {
