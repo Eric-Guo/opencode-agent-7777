@@ -14,14 +14,21 @@
   }
 
   .session-file-panel {
-    width: clamp(180px, 22vw, 280px);
+    position: relative;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     min-height: 0;
-    border-right: 1px solid var(--v2-border-border-muted);
+    margin: 0 0 8px 8px;
+    border-radius: 10px;
+    box-shadow: var(--v2-elevation-raised);
+    overflow: hidden;
     background: var(--v2-background-bg-base);
     padding: 8px;
+  }
+
+  .session-file-panel > [data-component="resize-handle"]:focus-visible::after {
+    opacity: 1;
   }
 
   .file-panel-toolbar {
@@ -86,7 +93,6 @@
 
   @media (max-width: 720px) {
     .session-file-panel {
-      width: 150px;
       padding: 4px;
     }
     .file-panel-toolbar {
