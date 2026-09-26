@@ -31,8 +31,16 @@ Remaining compact responsibilities:
 - Scroll pause/resume; model catalog/selection; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
-Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, full usage/summary panels,
-browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
+## Workspace files
+
+| Area | Local boundaries | Responsibility |
+| --- | --- | --- |
+| Workspace files | `session/files/{file-tree-v2,file-tree-v2-model,file-tree,open-in-app,open-in-app-button,open-in-app-path,file-tabs,session-side-panel,virtual-scroll}.*`, `workspaces/files/{model,tree-store}.*` | Main-app file boundaries and shared tree styling, with a virtualized tree and lazy folder reads rooted at the active session directory. `SHOW_FILE_TREE_PANEL` controls the left panel spanning the conversation and composer. The compact model uses `model.ts` without a context provider. One replaceable preview, explicit refresh, no file watcher or route-owned tabs. Native opening is available through the desktop bridge for local servers; browser mode supports previews and copying paths. File references persist through drafts/history and are submitted with mention offsets. |
+
+## Requires a product decision
+
+Ask before adding queue editing/reordering, provider credentials, staged/history/comment review, extension docking,
+terminal, full usage/summary panels, browser, remote servers or extension hosting. Public APIs lack atomic queue
 reordering, staged-only/end-revision diffs and GUI host contexts.
 
 ## Validation
