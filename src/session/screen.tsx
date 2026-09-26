@@ -19,6 +19,11 @@ import {
 import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
+import { SHOW_FILE_TREE_PANEL } from "@/constants/session"
+import { createSessionFiles, SessionSidePanel } from "@/session/files/session-side-panel"
+import { SessionFileView } from "@/session/files/file-tabs"
+import { pathToFileUrl } from "@/session/files/file-tree"
+import { resolveOpenInAppPath } from "@/session/files/open-in-app-path"
 import { sessionDirectory } from "@/session/directory"
 
 type SessionUiData = ComponentProps<typeof DataProvider>["data"]
@@ -33,6 +38,7 @@ export function SessionPage() {
     status: () => state.sessionStatus,
   })
   const region = createActiveSessionRegion()
+  const files = SHOW_FILE_TREE_PANEL ? createSessionFiles() : undefined
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
@@ -67,43 +73,75 @@ export function SessionPage() {
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />
 
-      <main
-        data-slot="session-message-scroller"
-        class={SESSION_MESSAGE_SCROLLER_CLASS}
-        ref={interaction.view.setScrollRef}
-      >
-        <Show
-          when={state.status !== "loading" && timeline.ready()}
-          fallback={
-            <div class={SESSION_LOADING_STATE_CLASS}>
-              <Spinner class="h-6 w-6" />
-              <span>{layout.language.t("session.loading", { agent: currentLocalAgent() })}</span>
-            </div>
-          }
-        >
+      <div class="session-workspace">
+        <Show when={files}>{(model) => <SessionSidePanel model={model()} />}</Show>
+        <div class="session-conversation">
           <Show
-            when={timeline.visibleMessages().length > 0}
+            when={files?.view.active}
+            keyed
             fallback={
-              <div class={SESSION_EMPTY_STATE_CLASS}>
-                <AgentWelcome />
-              </div>
+              <main
+                data-slot="session-message-scroller"
+                class={SESSION_MESSAGE_SCROLLER_CLASS}
+                ref={interaction.view.setScrollRef}
+              >
+                <Show
+                  when={state.status !== "loading" && timeline.ready()}
+                  fallback={
+                    <div class={SESSION_LOADING_STATE_CLASS}>
+                      <Spinner class="h-6 w-6" />
+                      <span>{layout.language.t("session.loading", { agent: currentLocalAgent() })}</span>
+                    </div>
+                  }
+                >
+                  <Show
+                    when={timeline.visibleMessages().length > 0}
+                    fallback={
+                      <div class={SESSION_EMPTY_STATE_CLASS}>
+                        <AgentWelcome />
+                      </div>
+                    }
+                  >
+                    <DataProvider
+                      data={sessionUiData()}
+                      directory={state.session ? sessionDirectory(state.session) : ""}
+                    >
+                      <CompactMessageTimeline
+                        document={timeline.document()}
+                        actions={region.actions.timeline}
+                        showReasoningSummaries={settings.general.showReasoningSummaries()}
+                        onPointerGesture={interaction.view.markUserScroll}
+                      />
+                    </DataProvider>
+                  </Show>
+                </Show>
+              </main>
             }
           >
-            <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
-              <CompactMessageTimeline
-                document={timeline.document()}
-                actions={region.actions.timeline}
-                showReasoningSummaries={settings.general.showReasoningSummaries()}
-                onPointerGesture={interaction.view.markUserScroll}
+            {(path) => (
+              <SessionFileView
+                model={files!}
+                path={path}
+                disabled={region.active.composer.disabled()}
+                onAdd={(path) => {
+                  region.active.composer.addFile({
+                    type: "file",
+                    path,
+                    content: `@${path}`,
+                    start: 0,
+                    end: 0,
+                    url: pathToFileUrl(resolveOpenInAppPath(files!.file.directory(), path)),
+                  })
+                }}
               />
-            </DataProvider>
+            )}
           </Show>
-        </Show>
-      </main>
 
-      <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
+          <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
 
-      <ActiveSessionComposerRegion model={region.active} />
+          <ActiveSessionComposerRegion model={region.active} />
+        </div>
+      </div>
     </div>
   )
 }

@@ -30,7 +30,9 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], prompt: Compo
   const attachments = prompt.filter((part) => part.type === "image")
   if (!content.trim() && !attachments.length) return entries
   const entry = cloneHistoryEntry({
-    prompt: [{ type: "text", content, start: 0, end: content.length }, ...attachments],
+    prompt: prompt.some((part) => part.type === "file")
+      ? prompt.filter((part) => part.type === "text" || part.type === "file" || part.type === "image")
+      : [{ type: "text", content, start: 0, end: content.length }, ...attachments],
   })
   if (entries[0] && JSON.stringify(entries[0]) === JSON.stringify(entry)) return entries
   return limitHistoryEntries([entry, ...entries])

@@ -24,8 +24,19 @@ export type PromptState = {
 }
 
 function promptState(draft?: PromptDraft): ComposerPersistedState {
+  const text = draft?.prompt ?? ""
+  const parts: ComposerPrompt = []
+  let offset = 0
+  for (const reference of draft?.references ?? []) {
+    if (reference.start < offset || text.slice(reference.start, reference.end) !== reference.content) continue
+    if (reference.start > offset)
+      parts.push({ type: "text", content: text.slice(offset, reference.start), start: offset, end: reference.start })
+    parts.push({ ...reference })
+    offset = reference.end
+  }
+  parts.push({ type: "text", content: text.slice(offset), start: offset, end: text.length })
   const prompt: ComposerPrompt = [
-    { type: "text", content: draft?.prompt ?? "", start: 0, end: draft?.prompt.length ?? 0 },
+    ...parts,
     ...(draft?.attachments.map(
       (attachment): ComposerAttachment => ({
         type: "image",
@@ -68,9 +79,24 @@ function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
 }
 
 function cloneDraft(state: ComposerPersistedState): PromptDraft {
+  const references = state.prompt.flatMap((part) =>
+    part.type === "file"
+      ? [
+          {
+            type: "file" as const,
+            path: part.path,
+            content: part.content,
+            start: part.start,
+            end: part.end,
+            ...(part.url ? { url: part.url } : {}),
+          },
+        ]
+      : [],
+  )
   return {
     prompt: promptText(state.prompt),
     attachments: promptAttachments(state.prompt),
+    ...(references.length ? { references } : {}),
   }
 }
 

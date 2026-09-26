@@ -2,6 +2,8 @@ import { onCleanup, onMount } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createBlobReference } from "@/runtime/persistence/drafts"
 import { uuid } from "@/runtime/persistence/uuid"
+import { pathToFileUrl } from "@/session/files/file-tree"
+import { resolveOpenInAppPath } from "@/session/files/open-in-app-path"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 
 const accepted = [
@@ -101,9 +103,11 @@ export function createComposerAttachments(
     !input.dropTarget || (!!target && !!input.dropTarget()?.contains(target as Node))
   const handleDragOver = (event: DragEvent) => {
     if (input.isDialogActive() || !contains(event.target)) return
-    if (!event.dataTransfer?.types.includes("Files")) return
+    const reference = event.dataTransfer?.types.includes("application/x-opencode-file")
+    if (!reference && !event.dataTransfer?.types.includes("Files")) return
     event.preventDefault()
-    input.setDraggingType("image")
+    if (event.dataTransfer) event.dataTransfer.dropEffect = "copy"
+    input.setDraggingType(reference ? "@mention" : "image")
   }
   const handleDragLeave = (event: DragEvent) => {
     if (!event.relatedTarget || !contains(event.relatedTarget)) clearDrag()
@@ -201,7 +205,15 @@ export function createComposerAttachments(
       event.preventDefault()
       const path = plainText.slice("file:".length)
       input.focusEditor()
-      input.addPart({ type: "file", path, content: `@${path}`, start: 0, end: 0 })
+      if (!path) return
+      input.addPart({
+        type: "file",
+        path,
+        url: pathToFileUrl(resolveOpenInAppPath(input.directory(), path)),
+        content: `@${path}`,
+        start: 0,
+        end: 0,
+      })
       return
     }
     const files = event.dataTransfer?.files

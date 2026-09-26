@@ -50,11 +50,12 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
       id: messageID,
       type: "user",
       text: request.text,
-      files: attachments.map((attachment) => ({
+      files: request.files.map((file) => ({
         data: "",
-        mime: attachment.mime,
-        name: attachment.sourcePath ?? attachment.filename,
-        source: { type: "uri" as const, uri: attachment.url },
+        mime: attachments.find((attachment) => attachment.url === file.uri)?.mime ?? "text/plain",
+        name: file.name,
+        source: { type: "uri" as const, uri: file.uri },
+        ...("mention" in file ? { mention: file.mention } : {}),
       })),
       time: { created: Date.now() },
     })

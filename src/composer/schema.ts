@@ -12,9 +12,19 @@ export const PromptAttachment = Persistence.struct({
 })
 export type PromptAttachment = typeof PromptAttachment.Type
 
+export const PromptFileReference = Persistence.struct({
+  type: Schema.Literal("file"),
+  path: Schema.String,
+  content: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+  url: Persistence.optional(Schema.String),
+})
+
 export const PromptDraft = Persistence.struct({
   prompt: Persistence.fallback(Schema.String, () => ""),
   attachments: Persistence.array(PromptAttachment),
+  references: Persistence.optional(Schema.mutable(Schema.Array(PromptFileReference))),
 })
 export type PromptDraft = typeof PromptDraft.Type
 
@@ -23,6 +33,7 @@ export const PromptHistoryEntry = Persistence.struct({
   prompt: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        PromptFileReference,
         Persistence.struct({
           type: Schema.Literal("text"),
           content: Schema.String,

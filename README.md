@@ -169,6 +169,25 @@ Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,c
 The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
 prompts with agent/skill references or hidden file context stay queued because the compact draft cannot retain them.
 
+File browsing follows the main app's `session/files/{file-tree-v2,file-tree-v2-model,open-in-app,
+open-in-app-button,open-in-app-path,file-tabs,session-side-panel}` and `workspaces/files/{model,tree-store}`
+boundaries, using package-local implementations and the shared UI tree styles. The compact file model uses
+`model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
+places the tree left of both the conversation and composer and uses one replaceable file preview instead of
+route-owned file tabs. `SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
+to `true`; set it to `false` to restore the full-width conversation. The tree follows the active session's
+`location.directory`, including the default `<server-root>/agent7777` folder and restored sessions.
+
+Expand folders, find files, refresh the tree, click a file to preview it, or drag files/folders into the prompt.
+**Add to prompt** also inserts a file reference. File references survive draft reloads, history, undo, and submission.
+Right-click a file or use its menu to copy its absolute path. Desktop hosts with local-server access also offer
+opening files in the default app, revealing them in the file manager, and installed editor choices through the
+same desktop RPC methods as the main app. Browsers retain preview and copy-path actions.
+
+The compact preview supports source text, images, and PDFs. Text over 1 MiB and media over 25 MiB show a
+placeholder; adding these files to the prompt or opening them externally remains available. Folder data is loaded
+on expansion and refreshed explicitly; the compact app does not add a filesystem watcher or background polling.
+
 ## Recent Sessions
 
 Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar

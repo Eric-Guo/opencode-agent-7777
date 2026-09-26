@@ -5,6 +5,32 @@ import type { ComposerPersistedState } from "../types"
 import { createComposerEditor, shouldHandlePasteAsAttachment } from "./interaction"
 import { createComposerHistory } from "../history/store"
 
+test("inserts successive workspace files at the cursor without replacing an earlier mention", () => {
+  renderToString(() => {
+    const store = createStore<ComposerPersistedState>({ prompt: [], cursor: 0, context: { items: [] } })
+    const editor = createComposerEditor({
+      store,
+      commands: () => [],
+      context: () => [],
+      searchContextFiles: () => [],
+      view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+    })
+    editor.addFile({ type: "file", path: "one.txt", content: "@one.txt", start: 0, end: 0 })
+    editor.addFile({ type: "file", path: "two.txt", content: "@two.txt", start: 0, end: 0 })
+    expect(editor.value()).toBe("@one.txt @two.txt ")
+    expect(
+      editor
+        .parts()
+        .filter((part) => part.type === "file")
+        .map((part) => ({ path: part.path, start: part.start, end: part.end })),
+    ).toEqual([
+      { path: "one.txt", start: 0, end: 8 },
+      { path: "two.txt", start: 9, end: 17 },
+    ])
+    return ""
+  })
+})
+
 describe("composer submission admission", () => {
   test("preserves the draft while submission is unavailable and still allows interruption", () => {
     renderToString(() => {

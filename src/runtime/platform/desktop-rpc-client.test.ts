@@ -56,7 +56,9 @@ describe("desktop message-port transport", () => {
             ? data
             : request.tag === "FilesReadClipboardImage"
               ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
-              : null
+              : request.tag === "FilesRevealPath" || request.tag === "AppCheckAppExists"
+                ? true
+                : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
@@ -77,6 +79,14 @@ describe("desktop message-port transport", () => {
         { tag: "AppGetCybrosCurrentUser", payload: null },
         { tag: "AppSetBackgroundColor", payload: { color: "#ffffff" } },
         { tag: "FilesReadClipboardImage", payload: null },
+      ])
+      expect(await api.openPath!("/workspace/a.txt", "Visual Studio Code")).toBeUndefined()
+      expect(await api.revealPath!("/workspace/a.txt")).toBe(true)
+      expect(await api.checkAppExists!("Visual Studio Code")).toBe(true)
+      expect(requests.slice(-3).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        { tag: "FilesOpenPath", payload: { path: "/workspace/a.txt", application: "Visual Studio Code" } },
+        { tag: "FilesRevealPath", payload: { path: "/workspace/a.txt" } },
+        { tag: "AppCheckAppExists", payload: { appName: "Visual Studio Code" } },
       ])
     } finally {
       events.dispatchEvent(new Event("pagehide"))

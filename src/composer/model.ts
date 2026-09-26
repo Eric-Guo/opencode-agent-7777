@@ -3,6 +3,7 @@ import { createEffect } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
+import { state } from "@/runtime/server/session-store-compact"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
@@ -39,7 +40,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
       picker: platform.openAttachmentPickerDialog,
-      directory: () => "",
+      directory: () => state.session?.location.directory ?? "",
       isDialogActive: () => adapter.disabled() || !!dialog.active,
       warn: () => adapter.onAttachmentError(language.t("prompt.unsupportedFiles")),
       duplicate: () => adapter.onAttachmentError(language.t("prompt.attachmentDuplicate")),
