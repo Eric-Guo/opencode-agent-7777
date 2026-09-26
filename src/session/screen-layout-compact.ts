@@ -7,7 +7,7 @@ import { state } from "@/runtime/server/session-store-compact"
 import { createNewSessionController } from "@/new-session/controller-compact"
 
 export const SESSION_ROUTE_FRAME_CLASS =
-  "relative isolate grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base"
+  "relative isolate grid h-full w-full min-w-0 grid-rows-[auto_minmax(0,1fr)] bg-v2-background-bg-deep text-v2-text-text-base"
 
 export const SESSION_MESSAGE_SCROLLER_CLASS =
   "min-h-0 [&>.scroll-view__viewport]:px-11 [&>.scroll-view__viewport]:pb-7 [&>.scroll-view__viewport]:pt-6 max-[720px]:[&>.scroll-view__viewport]:px-[18px] max-[720px]:[&>.scroll-view__viewport]:py-4"
