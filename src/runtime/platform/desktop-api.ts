@@ -48,9 +48,11 @@ export const ClipboardImage = Schema.Struct({
 }).mapFields(Struct.map(Schema.mutableKey))
 
 export type DesktopAPI = {
+  openPath?: (path: string, application?: string) => Promise<string | undefined>
+  revealPath?: (path: string) => Promise<boolean>
+  checkAppExists?: (app: string) => Promise<boolean>
   awaitInitialization: () => Promise<typeof ServerReadyData.Type>
   getCybrosCurrentUser?: () => Promise<CybrosCurrentUser | null>
-  openPath?: (path: string) => Promise<string | undefined>
   openFilePicker?: (options?: typeof FilePickerOptions.Type) => Promise<typeof PickedFiles.Type | null>
   // The preload bridge exposes ArrayBuffer; the RPC adapter converts its Uint8Array payloads.
   readPickedFile?: (token: string, path: string) => Promise<ArrayBuffer>

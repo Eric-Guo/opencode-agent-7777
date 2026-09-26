@@ -6,3 +6,4 @@ export const MODEL_SELECTION_KEY = "opencode.7777.model.selection"
 export const SESSION_MODEL_SELECTION_KEY = "opencode.7777.session.model.selection"
 export const SHOW_REASONING_SUMMARIES_KEY = "opencode.7777.showReasoningSummaries"
 export const SET_DOCUMENT_TITLE = false
+export const SHOW_FILE_TREE_PANEL = false
