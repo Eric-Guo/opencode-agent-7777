@@ -17,6 +17,7 @@ export function SessionFileView(props: {
   const language = useLanguage()
   const [preview, setPreview] = createStore({ loading: true, text: "", url: "", mime: "", binary: false, error: "" })
   createEffect(() => {
+    props.model.view.revision
     const client = props.model.client()
     const directory = props.model.file.directory()
     const path = props.path
