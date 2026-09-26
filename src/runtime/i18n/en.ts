@@ -19,6 +19,7 @@ export const dict = {
   "session.header.open.app.sublimeText": "Sublime Text",
   "files.title": "Files",
   "files.refresh": "Refresh files",
+  "files.resize": "Resize file panel",
   "files.loading": "Loading files…",
   "files.empty": "This folder is empty",
   "files.filter": "Find files",

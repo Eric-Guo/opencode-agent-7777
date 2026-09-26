@@ -1,8 +1,10 @@
 import type { FileSystemEntry } from "@opencode/client/promise"
 import { createEffect, onCleanup } from "solid-js"
-import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { createStore } from "solid-js/store"
+import type { OpencodeClient, OpenCodeEventStream } from "@/runtime/server/client-compact"
 import { resolveOpenInAppPath } from "@/session/files/open-in-app-path"
 import { createFileTreeStore } from "./tree-store"
+import { invalidateFromWatcher } from "./watcher"
 
 export function fileNodes(directory: string, entries: readonly FileSystemEntry[]) {
   return entries
@@ -23,8 +25,11 @@ export function fileNodes(directory: string, entries: readonly FileSystemEntry[]
 export function createFileModel(input: {
   directory: () => string
   client: () => OpencodeClient | undefined
+  events: OpenCodeEventStream
+  onChange: (path: string) => void
   onError: (message: string) => void
 }) {
+  const [changes, setChanges] = createStore({ revision: 0 })
   const tree = createFileTreeStore({
     scope: input.directory,
     normalizeDir: (path) => path.replaceAll("\\", "/").replace(/^\/+|\/+$/g, ""),
@@ -44,9 +49,27 @@ export function createFileModel(input: {
     tree.reset()
   })
   onCleanup(tree.reset)
+  onCleanup(
+    input.events.listen((event) => {
+      if (event.type !== "filesystem.changed") return
+      invalidateFromWatcher(event, {
+        directory: input.directory(),
+        node: tree.node,
+        isDirLoaded: (path) => !!tree.dirState(path)?.loading || tree.isLoaded(path),
+        // A child unlink may race with deletion of its parent. Keep background
+        // errors on the directory so removing it also removes its error state.
+        refreshDir: (path) => void tree.listDir(path, { force: true, reportError: false }),
+        onChange: (path) => {
+          setChanges("revision", (value) => value + 1)
+          input.onChange(path)
+        },
+      })
+    }),
+  )
 
   return {
     directory: input.directory,
+    revision: () => changes.revision,
     tree: {
       list: tree.listDir,
       expand: tree.expandDir,

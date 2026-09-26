@@ -170,13 +170,18 @@ The local implementation restores text, inline attachments, and file mentions in
 prompts with agent/skill references or hidden file context stay queued because the compact draft cannot retain them.
 
 File browsing follows the main app's `session/files/{file-tree-v2,file-tree-v2-model,open-in-app,
-open-in-app-button,open-in-app-path,file-tabs,session-side-panel}` and `workspaces/files/{model,tree-store}`
+open-in-app-button,open-in-app-path,file-tabs,session-side-panel}` and `workspaces/files/{model,tree-store,path,watcher}`
 boundaries, using package-local implementations and the shared UI tree styles. The compact file model uses
 `model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
 places the tree left of both the conversation and composer and uses one replaceable file preview instead of
 route-owned file tabs. `SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
 to `true`; set it to `false` to restore the full-width conversation. The tree follows the active session's
 `location.directory`, including the default `<server-root>/agent7777` folder and restored sessions.
+
+The PLM meeting tree uses the main app's rounded raised panel and shared resize handle on its right edge.
+Its width is saved in the compact preference storage under a PLM-specific key instead of the main app's layout
+provider. Desktop widths range from 240 to 480 pixels, with smaller limits in narrow windows; the handle also
+supports arrow keys and Home/End.
 
 Expand folders, find files, refresh the tree, click a file to preview it, or drag files/folders into the prompt.
 **Add to prompt** also inserts a file reference. File references survive draft reloads, history, undo, and submission.
@@ -186,7 +191,10 @@ same desktop RPC methods as the main app. Browsers retain preview and copy-path 
 
 The compact preview supports source text, images, and PDFs. Text over 1 MiB and media over 25 MiB show a
 placeholder; adding these files to the prompt or opening them externally remains available. Folder data is loaded
-on expansion and refreshed explicitly; the compact app does not add a filesystem watcher or background polling.
+on expansion. The existing session event stream delivers `filesystem.changed` updates to the active workspace's
+loaded folders, search results, and open preview. Watcher invalidation follows the main app's file-model boundary,
+with workspace filtering and a queued refresh for changes that arrive during a folder read.
+Search requests rerun on watcher updates, but results can lag until the server refreshes its cached search index.
 
 ## Recent Sessions
 
