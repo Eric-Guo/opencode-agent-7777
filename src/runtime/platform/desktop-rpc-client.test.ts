@@ -63,7 +63,9 @@ describe("desktop message-port transport", () => {
                   : files
                 : request.tag === "FilesReadPickedFile"
                   ? Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(bytes)
-                  : null
+                  : request.tag === "FilesRevealPath" || request.tag === "AppCheckAppExists"
+                    ? true
+                    : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
@@ -102,6 +104,15 @@ describe("desktop message-port transport", () => {
         { tag: "FilesReadPickedFile", payload: { token: "picked-files", path: "/project/notes.txt" } },
         { tag: "FilesReleasePickedFiles", payload: { token: "picked-files" } },
         { tag: "FilesOpenFilePicker", payload: {} },
+      ])
+
+      expect(await api.openPath!("/workspace/a.txt", "Visual Studio Code")).toBeUndefined()
+      expect(await api.revealPath!("/workspace/a.txt")).toBe(true)
+      expect(await api.checkAppExists!("Visual Studio Code")).toBe(true)
+      expect(requests.slice(-3).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        { tag: "FilesOpenPath", payload: { path: "/workspace/a.txt", application: "Visual Studio Code" } },
+        { tag: "FilesRevealPath", payload: { path: "/workspace/a.txt" } },
+        { tag: "AppCheckAppExists", payload: { appName: "Visual Studio Code" } },
       ])
     } finally {
       events.dispatchEvent(new Event("pagehide"))
