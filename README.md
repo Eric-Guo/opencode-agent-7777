@@ -165,6 +165,10 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.
 
+Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
+The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
+prompts with agent/skill references or hidden file context stay queued because the compact draft cannot retain them.
+
 ## Recent Sessions
 
 Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar
@@ -201,6 +205,12 @@ Use the header's **Follow-up behavior** menu to choose **Steer** (the default) o
 **Enter** uses that preference and **Cmd+Enter** on macOS, or **Ctrl+Enter** elsewhere, uses the opposite delivery.
 When the session is idle, either shortcut sends immediately. The preference is saved in this browser; the composer
 also shows the alternate action while a follow-up is ready to send.
+
+Use **Undo** on a queued prompt to move it back into the composer. It appends after any current draft text and
+preserves existing attachments and file mentions. The prompt leaves the queue only after the server confirms
+cancellation; failed requests leave both the queue and draft intact. Undo uses the full prompt text, including
+notes hidden by a shorter queue preview. Prompts containing context the compact composer cannot retain stay
+queued with an explanation. Editing in place and reordering queued prompts remain unavailable.
 
 ## Agent Welcome Content
 

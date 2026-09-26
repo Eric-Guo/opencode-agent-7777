@@ -46,6 +46,8 @@ export const dict = {
   "session.queue.send": "Send",
   "session.queue.steerTooltip": "Send without interrupting",
   "session.queue.remove": "Remove",
+  "session.queue.undo": "Undo",
+  "session.queue.undoUnavailable": "This queued prompt contains context that cannot be restored to the composer",
   "session.queue.attachments.one": "{{count}} attachment",
   "session.queue.attachments.other": "{{count}} attachments",
 

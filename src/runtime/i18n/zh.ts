@@ -50,6 +50,8 @@ export const dict = {
   "session.queue.send": "发送",
   "session.queue.steerTooltip": "发送但不中断当前任务",
   "session.queue.remove": "移除",
+  "session.queue.undo": "撤销",
+  "session.queue.undoUnavailable": "此待发送消息包含无法还原到输入框的上下文",
   "session.queue.attachments.one": "{{count}} 个附件",
   "session.queue.attachments.other": "{{count}} 个附件",
 

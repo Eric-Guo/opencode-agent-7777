@@ -52,6 +52,18 @@ export function SessionQueuePanel(props: { queue: SessionQueueView }) {
                     {props.queue.working() ? language.t("session.queue.steer") : language.t("session.queue.send")}
                   </Button>
                 </Tooltip>
+                <Tooltip placement="top" value={language.t("session.queue.undo")}>
+                  <IconButton
+                    data-action="session-queue-undo"
+                    type="button"
+                    size="small"
+                    variant="ghost-muted"
+                    icon={<Icon name="arrow-undo-down" />}
+                    disabled={props.queue.busy()}
+                    aria-label={language.t("session.queue.undo")}
+                    onClick={() => void props.queue.undo(row.id)}
+                  />
+                </Tooltip>
                 <Tooltip placement="top" value={language.t("session.queue.remove")}>
                   <IconButton
                     data-action="session-queue-remove"

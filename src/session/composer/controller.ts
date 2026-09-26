@@ -14,11 +14,13 @@ export function createSessionComposerController(input: {
   const region = createSessionComposerRegionController(input.dock)
   const adapter = createActiveComposerAdapter({ controls: input.controls, disabled: region.disabled })
   const queue = createSessionQueue({
+    draft: adapter.state,
+    restoreFocus: (cursor) => composer.restoreFocus(cursor),
     working: adapter.working,
-    disabled: region.disabled,
+    disabled: () => region.disabled() || adapter.submitting(),
     behavior: settings.general.followUpBehavior,
   })
-  const composer = createComposerModel(adapter, { queue })
+  const composer = createComposerModel({ ...adapter, disabled: () => adapter.disabled() || queue.undoing() }, { queue })
 
   return {
     region,
