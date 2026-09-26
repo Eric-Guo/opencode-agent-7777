@@ -123,7 +123,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       scope: adapter.state.scope,
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
       picker: platform.openAttachmentPickerDialog,
-      directory: () => "",
+      directory: () => state.session?.location.directory ?? "",
       isDialogActive: () => adapter.disabled() || !!dialog.active,
       warn: () => adapter.onAttachmentError(language.t("prompt.unsupportedFiles")),
       duplicate: () => adapter.onAttachmentError(language.t("prompt.attachmentDuplicate")),
