@@ -14,10 +14,6 @@ const AppGetCybrosCurrentUser = Rpc.make("AppGetCybrosCurrentUser", {
   success: Schema.NullOr(CybrosCurrentUser),
 })
 const AppSetBackgroundColor = Rpc.make("AppSetBackgroundColor", { payload: { color: Schema.String } })
-const FilesOpenPath = Rpc.make("FilesOpenPath", {
-  payload: { path: Schema.String },
-  success: Schema.NullOr(Schema.String),
-})
 const FilesOpenFilePicker = Rpc.make("FilesOpenFilePicker", {
   payload: { options: Schema.optionalKey(FilePickerOptions) },
   success: Schema.NullOr(PickedFiles),
@@ -28,11 +24,22 @@ const FilesReadPickedFile = Rpc.make("FilesReadPickedFile", {
 })
 const FilesReleasePickedFiles = Rpc.make("FilesReleasePickedFiles", { payload: { token: Schema.String } })
 const FilesReadClipboardImage = Rpc.make("FilesReadClipboardImage", { success: Schema.NullOr(ClipboardImage) })
+const FilesOpenPath = Rpc.make("FilesOpenPath", {
+  payload: { path: Schema.String, application: Schema.optional(Schema.String) },
+  success: Schema.NullOr(Schema.String),
+})
+const FilesRevealPath = Rpc.make("FilesRevealPath", { payload: { path: Schema.String }, success: Schema.Boolean })
+const AppCheckAppExists = Rpc.make("AppCheckAppExists", {
+  payload: { appName: Schema.String },
+  success: Schema.Boolean,
+})
 const DesktopRpcs = RpcGroup.make(
+  FilesOpenPath,
+  FilesRevealPath,
+  AppCheckAppExists,
   AppAwaitInitialization,
   AppGetCybrosCurrentUser,
   AppSetBackgroundColor,
-  FilesOpenPath,
   FilesOpenFilePicker,
   FilesReadPickedFile,
   FilesReleasePickedFiles,
@@ -65,9 +72,11 @@ export function createDesktopApi(port: Promise<MessagePort>): DesktopAPI {
 
   window.addEventListener("pagehide", () => void runtime.dispose(), { once: true })
   return {
+    openPath: (path, application) => invoke("FilesOpenPath", { path, application }).then((error) => error ?? undefined),
+    revealPath: (path) => invoke("FilesRevealPath", { path }),
+    checkAppExists: (appName) => invoke("AppCheckAppExists", { appName }),
     awaitInitialization: () => invoke("AppAwaitInitialization"),
     getCybrosCurrentUser: () => invoke("AppGetCybrosCurrentUser"),
-    openPath: (path) => invoke("FilesOpenPath", { path }).then((error) => error ?? undefined),
     openFilePicker: (options) => invoke("FilesOpenFilePicker", options ? { options } : {}),
     readPickedFile: (token, path) => invoke("FilesReadPickedFile", { token, path }).then(toArrayBuffer),
     releasePickedFiles: (token) => invoke("FilesReleasePickedFiles", { token }),

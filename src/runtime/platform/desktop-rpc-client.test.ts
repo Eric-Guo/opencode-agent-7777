@@ -66,7 +66,9 @@ describe("desktop message-port transport", () => {
                     : files
                   : request.tag === "FilesReadPickedFile"
                     ? Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(bytes)
-                    : null
+                    : request.tag === "FilesRevealPath" || request.tag === "AppCheckAppExists"
+                      ? true
+                      : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
@@ -107,13 +109,22 @@ describe("desktop message-port transport", () => {
         { tag: "FilesOpenFilePicker", payload: {} },
       ])
 
+      expect(await api.openPath!("/workspace/a.txt", "Visual Studio Code")).toBeUndefined()
+      expect(await api.revealPath!("/workspace/a.txt")).toBe(true)
+      expect(await api.checkAppExists!("Visual Studio Code")).toBe(true)
+      expect(requests.slice(-3).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        { tag: "FilesOpenPath", payload: { path: "/workspace/a.txt", application: "Visual Studio Code" } },
+        { tag: "FilesRevealPath", payload: { path: "/workspace/a.txt" } },
+        { tag: "AppCheckAppExists", payload: { appName: "Visual Studio Code" } },
+      ])
+
       const path = "C:/workspace/上海天华撤销生产部门明细.xlsx"
       expect(await api.openPath!(path)).toBeUndefined()
       openError = "No application is associated with this file"
       expect(await api.openPath!(path)).toBe(openError)
       expect(requests.slice(-2).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
-        { tag: "FilesOpenPath", payload: { path } },
-        { tag: "FilesOpenPath", payload: { path } },
+        { tag: "FilesOpenPath", payload: { path, application: null } },
+        { tag: "FilesOpenPath", payload: { path, application: null } },
       ])
     } finally {
       events.dispatchEvent(new Event("pagehide"))
