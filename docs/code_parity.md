@@ -54,6 +54,12 @@ Paths are relative to `src/`. See the [README](../README.md#code-layout-parity-r
   applies the base. Keep retry, source-specific empty states, 100 ms file-event coalescing, stale-result guards and
   cancellation on source/activation change or close. Preserve drafts and bounded-patch limitations.
 
+## Workspace files
+
+| Area | Local boundaries | Responsibility |
+| --- | --- | --- |
+| Workspace files | `session/files/{file-tree-v2,file-tree-v2-model,file-tree,open-in-app,open-in-app-button,open-in-app-path,file-tabs,session-side-panel,virtual-scroll}.*`, `workspaces/files/{model,tree-store}.*` | Main-app file boundaries and shared tree styling, with a virtualized tree and lazy folder reads rooted at the active session directory. `SHOW_FILE_TREE_PANEL` controls the left panel spanning the conversation and composer. The compact model uses `model.ts` without a context provider. One replaceable preview, explicit refresh, no file watcher or route-owned tabs. Native opening is available through the desktop bridge for local servers; browser mode supports previews and copying paths. File references persist through drafts/history and are submitted with mention offsets. |
+
 ## Remaining feature decisions
 
 These require approval and cannot be closed by a behavior-preserving refactor:

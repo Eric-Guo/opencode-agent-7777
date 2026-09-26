@@ -1,5 +1,13 @@
 import type { ModelCost, ModelInfo, ProviderInfo } from "@opencode/client/promise"
 
+export type FileNode = {
+  name: string
+  path: string
+  absolute: string
+  type: "file" | "directory"
+  ignored: boolean
+}
+
 type Modalities = Record<"text" | "audio" | "image" | "video" | "pdf", boolean>
 type Cost = Omit<ModelCost, "tier">
 
