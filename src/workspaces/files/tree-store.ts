@@ -27,6 +27,7 @@ export function createFileTreeStore(options: TreeStoreOptions) {
 
   let generation = 0
   const inflight = new Map<string, Promise<void>>()
+  const refreshes = new WeakMap<Promise<void>, Promise<void>>()
 
   const reset = () => {
     generation++
@@ -41,7 +42,7 @@ export function createFileTreeStore(options: TreeStoreOptions) {
     setTree("dir", path, { expanded: false })
   }
 
-  const listDir = (input: string, opts?: { force?: boolean }) => {
+  const listDir = (input: string, opts?: { force?: boolean; reportError?: boolean }): Promise<void> => {
     const dir = options.normalizeDir(input)
     ensureDir(dir)
 
@@ -49,7 +50,21 @@ export function createFileTreeStore(options: TreeStoreOptions) {
     if (!opts?.force && current?.loaded) return Promise.resolve()
 
     const pending = inflight.get(dir)
-    if (pending) return pending
+    if (pending) {
+      if (!opts?.force) return pending
+      const queued = refreshes.get(pending)
+      if (queued) return queued
+      const version = generation
+      const directory = options.scope()
+      // A watcher event can arrive after a read has taken its snapshot. Refresh
+      // once more after that read, coalescing events without losing the update.
+      const refresh = pending.then(() => {
+        if (generation !== version || options.scope() !== directory || !tree.dir[dir]) return
+        return listDir(dir, opts)
+      })
+      refreshes.set(pending, refresh)
+      return refresh
+    }
 
     setTree(
       "dir",
@@ -128,7 +143,7 @@ export function createFileTreeStore(options: TreeStoreOptions) {
             draft.error = e.message
           }),
         )
-        options.onError(e.message)
+        if (opts?.reportError !== false) options.onError(e.message)
       })
       .finally(() => {
         if (inflight.get(dir) === promise) inflight.delete(dir)
