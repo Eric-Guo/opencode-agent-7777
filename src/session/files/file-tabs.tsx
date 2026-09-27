@@ -1,12 +1,101 @@
 import { File } from "@opencode/session-ui/file"
 import { Button } from "@opencode/ui/button"
 import { Spinner } from "@opencode/ui/spinner"
-import { Match, Show, Switch, createEffect, onCleanup } from "solid-js"
+import { Tabs } from "@opencode/ui/tabs"
+import { createEventListener } from "@solid-primitives/event-listener"
+import { For, Match, Show, Switch, createEffect, onCleanup, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
+import "./file-tabs.css"
 import { useLanguage } from "@/runtime/i18n/language"
 import { OpenInAppButton } from "./open-in-app-button"
 import { resolveOpenInAppPath } from "./open-in-app-path"
 import type { SessionFiles } from "./session-side-panel"
+import { FileTab } from "./tab"
+
+// File paths are nonempty; the empty value belongs to the conversation.
+export function SessionFileTabs(
+  props: ParentProps<{
+    model?: SessionFiles
+    onAdd: (path: string) => void
+    disabled: boolean
+  }>,
+) {
+  const language = useLanguage()
+  let root: HTMLDivElement | undefined
+  let selectionEvent: Event | undefined
+  const close = (path: string) => {
+    props.model?.close(path)
+    queueMicrotask(() => {
+      if (root?.isConnected)
+        root.querySelector<HTMLElement>('[role="tab"][aria-selected="true"], [role="tabpanel"]')?.focus()
+    })
+  }
+  createEffect(() => {
+    props.model?.view.tabs.active
+    props.model?.view.tabs.all.length
+    const frame = requestAnimationFrame(() => {
+      root?.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" })
+    })
+    onCleanup(() => cancelAnimationFrame(frame))
+  })
+  return (
+    <Show when={props.model} fallback={props.children}>
+      {(model) => (
+        <Tabs
+          ref={root}
+          variant="line"
+          class="session-file-tabs"
+          value={model().view.tabs.active ?? ""}
+          onChange={(path) => {
+            // Like the main app, ignore Kobalte's fallback while new triggers register.
+            // Only input events select a tab; the local state owns open/close selection.
+            if (selectionEvent && selectionEvent.eventPhase !== Event.NONE) model().select(path || undefined)
+          }}
+        >
+          <Show when={model().view.tabs.all.length}>
+            <Tabs.List
+              aria-label={language.t("files.tabs")}
+              ref={(element: HTMLDivElement) => {
+                createEventListener(element, ["pointerdown", "click", "keydown"], (event) => (selectionEvent = event), {
+                  capture: true,
+                })
+              }}
+            >
+              <Tabs.Trigger value="">{language.t("files.conversation")}</Tabs.Trigger>
+              <For each={model().view.tabs.all}>
+                {(path) => (
+                  <FileTab
+                    path={path}
+                    temporary={model().view.preview === path}
+                    onClose={() => close(path)}
+                    onKeep={() => model().open(path)}
+                  />
+                )}
+              </For>
+            </Tabs.List>
+          </Show>
+          <Tabs.Content
+            value=""
+            class="session-conversation-tab"
+            tabIndex={-1}
+            aria-label={language.t("files.conversation")}
+          >
+            {props.children}
+          </Tabs.Content>
+          <For each={model().view.tabs.all}>
+            {(path) => (
+              <Tabs.Content value={path}>
+                <Show when={model().view.tabs.active === path}>
+                  <SessionFileView model={model()} path={path} onAdd={props.onAdd} disabled={props.disabled} />
+                </Show>
+              </Tabs.Content>
+            )}
+          </For>
+        </Tabs>
+      )}
+    </Show>
+  )
+}
 
 export function SessionFileView(props: {
   model: SessionFiles
@@ -72,6 +161,11 @@ export function SessionFileView(props: {
         <span class="min-w-0 flex-1 truncate" title={props.path}>
           {props.path}
         </span>
+        <Show when={props.model.view.preview === props.path}>
+          <Button variant="ghost" size="small" onClick={() => props.model.open(props.path)}>
+            {language.t("files.keepOpen")}
+          </Button>
+        </Show>
         <Button variant="ghost" size="small" disabled={props.disabled} onClick={() => props.onAdd(props.path)}>
           {language.t("files.addToPrompt")}
         </Button>
