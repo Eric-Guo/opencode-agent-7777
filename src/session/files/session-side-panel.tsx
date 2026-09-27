@@ -10,6 +10,7 @@ import { createClientForServer, type OpencodeClient } from "@/runtime/server/cli
 import { state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { readFileTreeWidth, writeFileTreeWidth } from "@/runtime/persistence/settings-storage-compact"
+import { closeSessionTab, openSessionTab, previewSessionTab, type SessionTabState } from "@/shell/state/session-tabs"
 import FileTreeV2 from "./file-tree-v2"
 import { useOpenInApp } from "./open-in-app"
 import { OpenInAppButton } from "./open-in-app-button"
@@ -18,13 +19,16 @@ export type SessionFiles = {
   file: FileModel
   client: () => OpencodeClient | undefined
   openIn: ReturnType<typeof useOpenInApp>
-  view: { active?: string; error: string; revision: number }
+  view: SessionTabState & { error: string; revision: number }
   select: (path?: string) => void
+  preview: (path: string) => void
+  open: (path: string) => void
+  close: (path: string) => void
   refresh: () => Promise<void[]>
 }
 
 export function createSessionFiles(): SessionFiles {
-  const [view, setView] = createStore({ active: undefined as string | undefined, error: "", revision: 0 })
+  const [view, setView] = createStore<SessionFiles["view"]>({ tabs: { all: [] }, error: "", revision: 0 })
   const directory = () => state.session?.location.directory ?? ""
   const client = createMemo<OpencodeClient | undefined>(() =>
     state.server ? createClientForServer({ server: state.server }) : undefined,
@@ -35,21 +39,28 @@ export function createSessionFiles(): SessionFiles {
     events: sessionEvents,
     onError: (error) => setView("error", error),
     onChange: (path) => {
-      if (view.active === path || view.active?.startsWith(path + "/")) setView("revision", (value) => value + 1)
+      const active = view.tabs.active
+      if (!path || active === path || active?.startsWith(path + "/")) setView("revision", (value) => value + 1)
     },
   })
   const openIn = useOpenInApp({ serverUrl: () => state.server?.url ?? "", onError: (error) => setView("error", error) })
   createEffect(() => {
     directory()
     client()
-    setView({ active: undefined, error: "" })
+    setView({ tabs: { all: [], active: undefined }, preview: undefined, error: "" })
   })
   return {
     file,
     client,
     openIn,
     view,
-    select: (path?: string) => setView("active", path),
+    select: (path?: string) => {
+      if (path && !view.tabs.all.includes(path)) return
+      setView("tabs", "active", path)
+    },
+    preview: (path) => setView(previewSessionTab(view, path)),
+    open: (path) => setView(openSessionTab(view, path)),
+    close: (path) => setView(closeSessionTab(view, path)),
     refresh: () => {
       setView("error", "")
       return file.tree.refresh()
@@ -168,10 +179,10 @@ export function SessionSidePanel(props: { model: SessionFiles }) {
             <FileTreeV2
               file={model.file}
               openIn={model.openIn}
-              active={model.view.active}
+              active={model.view.tabs.active}
               allowed={filter.query.trim() ? filter.files : undefined}
-              onFileClick={(node) => model.select(node.path)}
-              onFileDoubleClick={(node) => model.select(node.path)}
+              onFileClick={(node) => model.preview(node.path)}
+              onFileDoubleClick={(node) => model.open(node.path)}
             />
             <Show
               when={
