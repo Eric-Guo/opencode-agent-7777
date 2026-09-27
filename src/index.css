@@ -68,6 +68,10 @@
   padding-inline: 0;
 }
 
+#oc-agent [data-slot="session-message-scroller"] > .scroll-view__viewport {
+  padding-left: 12px;
+}
+
 #oc-agent [data-slot="session-message-timeline"] [data-component="dock-prompt"][data-kind="question"] [data-slot="question-body"] {
   gap: 8px;
   padding: 4px 4px 0;
@@ -171,7 +175,7 @@
   }
 
   #oc-agent [data-slot="session-message-scroller"] > .scroll-view__viewport {
-    padding: 12px 14px 16px;
+    padding: 12px 8px 16px;
   }
 
   #oc-agent [data-slot="session-composer"] {

@@ -2,15 +2,15 @@ import { expect, test } from "bun:test"
 import { defaultSessionDirectory } from "./directory"
 
 test.each([
-  ["/repo", "/repo/agent7777"],
-  ["/repo/", "/repo/agent7777"],
-  ["/", "/agent7777"],
-  ["/repo/agent7777/", "/repo/agent7777"],
-  ["/repo/agent7777/agent7777", "/repo/agent7777/agent7777"],
-  ["C:\\repo\\", "C:\\repo\\agent7777"],
-  ["C:\\", "C:\\agent7777"],
-  ["C:\\repo\\agent7777\\", "C:\\repo\\agent7777"],
-  ["C:\\repo\\agent7777\\agent7777", "C:\\repo\\agent7777\\agent7777"],
+  ["/repo", "/repo/agent-plm-meeting"],
+  ["/repo/", "/repo/agent-plm-meeting"],
+  ["/", "/agent-plm-meeting"],
+  ["/repo/agent-plm-meeting/", "/repo/agent-plm-meeting"],
+  ["/repo/agent-plm-meeting/agent-plm-meeting", "/repo/agent-plm-meeting/agent-plm-meeting"],
+  ["C:\\repo\\", "C:\\repo\\agent-plm-meeting"],
+  ["C:\\", "C:\\agent-plm-meeting"],
+  ["C:\\repo\\agent-plm-meeting\\", "C:\\repo\\agent-plm-meeting"],
+  ["C:\\repo\\agent-plm-meeting\\agent-plm-meeting", "C:\\repo\\agent-plm-meeting\\agent-plm-meeting"],
 ])("selects the default session directory for %s", (base, expected) => {
   expect(defaultSessionDirectory(base)).toBe(expected)
 })
