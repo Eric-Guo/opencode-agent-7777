@@ -111,6 +111,7 @@ export const dict = {
   "recorder.status": "状态",
   "recorder.status.fetch": "获取录音器状态",
   "recorder.status.summary": "状态：{{state}} · 时长：{{duration}} 秒 · {{progress}}",
+  "recorder.status.saved": "{{summary}} · 已保存至 {{path}}",
 
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",

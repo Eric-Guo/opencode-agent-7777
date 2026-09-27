@@ -216,6 +216,15 @@ icons and restores editor focus after model selection or Escape. With `manageMod
 available even when every model is hidden. Portal styles are scoped to the model dialog for embedded hosts.
 Provider connection flows, Console workspace grouping, and the ChatGPT-plan footer remain outside the compact app.
 
+The meeting-only recorder stays in `src/session/header/recorder-control.tsx`. Stop saves
+`record_<timestamp>.mp3` in the active session's working directory before calling transcription.
+Failed saves retain the audio for another Stop attempt and block Start until it is saved. After
+a successful save, Stop is disabled even if transcription fails; drag the saved MP3 from the
+file tree into the composer to transcribe it manually. The saved path appears in the recorder status.
+The server's `audio.recording.release` endpoint frees the retained MP3 only after the write succeeds;
+this requires a server build containing that endpoint. Cleanup failure leaves the saved file intact
+and does not prevent transcription.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
