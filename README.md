@@ -379,6 +379,15 @@ Local code retains filtering, keyboard selection, focus restoration, draft prese
 including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
 same viewport without adding a separate search field.
 
+The meeting-only recorder stays in `src/session/header/recorder-control.tsx`. Stop saves
+`record_<timestamp>.mp3` in the active session's working directory before calling transcription.
+Failed saves retain the audio for another Stop attempt and block Start until it is saved. After
+a successful save, Stop is disabled even if transcription fails; drag the saved MP3 from the
+file tree into the composer to transcribe it manually. The saved path appears in the recorder status.
+The server's `audio.recording.release` endpoint frees the retained MP3 only after the write succeeds;
+this requires a server build containing that endpoint. Cleanup failure leaves the saved file intact
+and does not prevent transcription.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
