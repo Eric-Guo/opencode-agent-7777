@@ -1,26 +1,9 @@
 import { SHOW_REASONING_SUMMARIES_KEY } from "@/constants/session"
 import type { ComposerDelivery } from "@/composer/adapter"
+import { storageGet, storageSet } from "./storage"
 
 // Local preferences for the embedded app's smaller settings surface.
 export const FOLLOW_UP_BEHAVIOR_KEY = "opencode.7777.followUpBehavior"
-
-function storageGet(key: string) {
-  if (typeof localStorage !== "object") return null
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function storageSet(key: string, value: string) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    return
-  }
-}
 
 export function readShowReasoningSummaries() {
   return storageGet(SHOW_REASONING_SUMMARIES_KEY) === "true"

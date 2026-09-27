@@ -1,23 +1,9 @@
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
-import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
+import { readModelConfig, writeModelConfig, type ModelConfig, type Visibility } from "@/runtime/server/persistence"
 import type { ModelSelection } from "@/runtime/persistence/storage-compact"
 import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
 import { popularProviders } from "@/providers/catalog/order"
-
-type Visibility = "show" | "hide"
-type ProviderVisibility = {
-  providerID: string
-  visibility: Visibility
-}
-
-type ModelConfig = {
-  user: Array<ModelSelection & { visibility: Visibility }>
-  disabledProviders: string[]
-  popularProviders: ProviderVisibility[]
-  recent: ModelSelection[]
-  variant?: Record<string, string>
-}
 
 export type ModelOption = Model &
   ModelSelection & {
@@ -29,72 +15,7 @@ export type ModelOption = Model &
 
 export type ModelKey = ModelSelection
 
-const MODEL_CONFIG_KEY = "opencode.7777.model.config"
 const RECENT_LIMIT = 5
-
-function defaultModelConfig(): ModelConfig {
-  return {
-    user: DEFAULT_MODEL_CONFIG.user.map((item) => ({ ...item })),
-    disabledProviders: [...DEFAULT_MODEL_CONFIG.disabledProviders],
-    popularProviders: DEFAULT_MODEL_CONFIG.popularProviders.map((item) => ({ ...item })),
-    recent: [],
-  }
-}
-
-function readModelConfig(): ModelConfig {
-  if (typeof localStorage !== "object") return defaultModelConfig()
-  try {
-    const value = localStorage.getItem(MODEL_CONFIG_KEY)
-    if (!value) return defaultModelConfig()
-    const parsed = JSON.parse(value) as Partial<ModelConfig>
-    return {
-      user: Array.isArray(parsed.user) ? parsed.user.filter(isConfiguredVisibility) : [],
-      disabledProviders: Array.isArray(parsed.disabledProviders)
-        ? parsed.disabledProviders.filter((item): item is string => typeof item === "string")
-        : [...DEFAULT_MODEL_CONFIG.disabledProviders],
-      popularProviders: Array.isArray(parsed.popularProviders)
-        ? parsed.popularProviders.filter(isProviderVisibility)
-        : [],
-      recent: Array.isArray(parsed.recent) ? parsed.recent.filter(isModelSelection) : [],
-      ...(parsed.variant && typeof parsed.variant === "object" && !Array.isArray(parsed.variant)
-        ? {
-            variant: Object.fromEntries(
-              Object.entries(parsed.variant).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
-            ),
-          }
-        : {}),
-    }
-  } catch {
-    return defaultModelConfig()
-  }
-}
-
-function writeModelConfig(value: ModelConfig) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.setItem(MODEL_CONFIG_KEY, JSON.stringify(value))
-  } catch {
-    return
-  }
-}
-
-function isModelSelection(value: unknown): value is ModelSelection {
-  if (!value || typeof value !== "object") return false
-  const item = value as Partial<ModelSelection>
-  return typeof item.providerID === "string" && typeof item.modelID === "string"
-}
-
-function isConfiguredVisibility(value: unknown): value is ModelSelection & { visibility: Visibility } {
-  if (!isModelSelection(value)) return false
-  const item = value as { visibility?: unknown }
-  return item.visibility === "show" || item.visibility === "hide"
-}
-
-function isProviderVisibility(value: unknown): value is ProviderVisibility {
-  if (!value || typeof value !== "object") return false
-  const item = value as Partial<ProviderVisibility>
-  return typeof item.providerID === "string" && (item.visibility === "show" || item.visibility === "hide")
-}
 
 function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
   return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID

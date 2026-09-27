@@ -1,6 +1,7 @@
 import { Option, Schema } from "effect"
 import { PromptDraft } from "@/composer/schema"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { storageGet, storageRemove, storageSet } from "./storage"
 
 export type BlobReference = { id: string; url: string }
 
@@ -40,33 +41,6 @@ export async function blobDataUrl(blob: BlobReference, mime: string) {
 
 export function createLegacyBlobReference(dataUrl: string): BlobReference {
   return { id: dataUrl, url: dataUrl }
-}
-
-function storageGet(key: string) {
-  if (typeof localStorage !== "object") return null
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function storageSet(key: string, value: string) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    return
-  }
-}
-
-function storageRemove(key: string) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.removeItem(key)
-  } catch {
-    return
-  }
 }
 
 export function readPromptDraft(key = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft): PromptDraft | undefined {

@@ -1,5 +1,6 @@
 import { Option, Schema } from "effect"
 import { createStore } from "solid-js/store"
+import { storageGet, storageSet } from "@/runtime/persistence/storage"
 import { PromptHistoryState } from "../schema"
 import type { ComposerHistory } from "../types"
 import { cloneHistoryEntry, limitHistoryEntries, prependHistoryEntry } from "./entry"
@@ -10,7 +11,7 @@ const decode = Schema.decodeUnknownOption(Schema.fromJsonString(PromptHistorySta
 export function createComposerHistory(): ComposerHistory {
   const read = () => {
     try {
-      const decoded = decode(localStorage.getItem(PROMPT_HISTORY_KEY))
+      const decoded = decode(storageGet(PROMPT_HISTORY_KEY))
       return Option.isSome(decoded) ? limitHistoryEntries(decoded.value.entries) : []
     } catch {
       return []
@@ -26,7 +27,7 @@ export function createComposerHistory(): ComposerHistory {
       if (entries === store.entries) return
       setStore("entries", entries)
       try {
-        localStorage.setItem(PROMPT_HISTORY_KEY, JSON.stringify({ entries }))
+        storageSet(PROMPT_HISTORY_KEY, JSON.stringify({ entries }))
       } catch {
         // Storage may be full or unavailable; recall remains usable for this page's lifetime.
       }

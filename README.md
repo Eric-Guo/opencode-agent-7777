@@ -165,6 +165,11 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.
 
+Persistence follows the main app's `runtime/persistence/storage.ts` and `runtime/server/persistence.ts`
+boundaries with package-local implementations. The compact storage adapter is synchronous; drafts, history,
+settings, language, and model/session preferences share it while retaining their existing keys and formats.
+Model preference recovery remains separate from catalog and visibility operations in `providers/models/models.tsx`.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
 prompts with agent/skill references or hidden file context stay queued because the compact draft cannot retain them.

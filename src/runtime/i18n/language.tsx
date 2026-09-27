@@ -4,6 +4,7 @@ import { dict as uiEn } from "@opencode/ui/i18n/en"
 import { dict as uiZh } from "@opencode/ui/i18n/zh"
 import { createEffect, createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
+import { storageGet, storageSet } from "@/runtime/persistence/storage"
 import { dict as en } from "@/runtime/i18n/en"
 import { dict as zh } from "@/runtime/i18n/zh"
 
@@ -75,22 +76,12 @@ function detectLocale(): Locale {
 }
 
 function readStoredLocale() {
-  if (typeof localStorage !== "object") return
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = storageGet(STORAGE_KEY)
     if (!raw) return
     if (!raw.startsWith("{")) return normalizeLocale(raw)
     const parsed = JSON.parse(raw) as { locale?: string }
     return normalizeLocale(parsed.locale)
-  } catch {
-    return
-  }
-}
-
-function writeStoredLocale(locale: Locale) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.setItem(STORAGE_KEY, locale)
   } catch {
     return
   }
@@ -131,7 +122,7 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
 
     createEffect(() => {
       const next = locale()
-      writeStoredLocale(next)
+      storageSet(STORAGE_KEY, next)
       if (typeof document !== "object") return
       document.documentElement.lang = INTL[next]
       document.cookie = cookie(next)

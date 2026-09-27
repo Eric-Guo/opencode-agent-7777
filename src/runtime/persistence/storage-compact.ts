@@ -1,7 +1,8 @@
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { MODEL_SELECTION_KEY, SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import { sessionDirectory } from "@/session/directory"
-import type { SessionInfo as Session } from "@opencode/client/promise"
+import { storageGet, storageSet } from "./storage"
 
 // Narrow persistence helpers rather than the main app's reactive local-preferences context.
 
@@ -44,24 +45,6 @@ export function readSessionModelSelections(): SessionModelSelections {
 
 export function writeSessionModelSelections(value: SessionModelSelections) {
   storageSet(SESSION_MODEL_SELECTION_KEY, JSON.stringify(value))
-}
-
-function storageGet(key: string) {
-  if (typeof localStorage !== "object") return null
-  try {
-    return localStorage.getItem(key)
-  } catch {
-    return null
-  }
-}
-
-function storageSet(key: string, value: string) {
-  if (typeof localStorage !== "object") return
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    return
-  }
 }
 
 export function readSessionRecord(keys = AGENT_DEFAULT_CONFIG.storageKeys): SessionRecord | undefined {
