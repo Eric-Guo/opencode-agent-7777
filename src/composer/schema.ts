@@ -12,9 +12,21 @@ export const PromptAttachment = Persistence.struct({
 })
 export type PromptAttachment = typeof PromptAttachment.Type
 
+// File mentions persist as overlay ranges into the prompt text; url carries inline file data.
+export const PromptReference = Persistence.struct({
+  type: Schema.Literal("file"),
+  path: Schema.String,
+  content: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+  url: Persistence.optional(Schema.String),
+})
+export type PromptReference = typeof PromptReference.Type
+
 export const PromptDraft = Persistence.struct({
   prompt: Persistence.fallback(Schema.String, () => ""),
   attachments: Persistence.array(PromptAttachment),
+  references: Persistence.optional(Schema.mutable(Schema.Array(PromptReference))),
 })
 export type PromptDraft = typeof PromptDraft.Type
 

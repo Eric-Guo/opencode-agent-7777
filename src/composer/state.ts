@@ -1,8 +1,8 @@
 import { batch } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
-import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
+import type { ComposerAttachment, ComposerFilePart, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
-import type { PromptAttachment, PromptDraft } from "./schema"
+import type { PromptAttachment, PromptDraft, PromptReference } from "./schema"
 
 export type { Prompt } from "@/composer/types"
 export type { PromptAttachment, PromptDraft } from "./schema"
@@ -24,8 +24,37 @@ export type PromptState = {
 }
 
 function promptState(draft?: PromptDraft): ComposerPersistedState {
-  const prompt: ComposerPrompt = [
-    { type: "text", content: draft?.prompt ?? "", start: 0, end: draft?.prompt.length ?? 0 },
+  const text = draft?.prompt ?? ""
+  const prompt: ComposerPrompt = []
+  // References overlay the prompt text; the editor stores mentions as inline parts instead.
+  const references = [...(draft?.references ?? [])].sort((left, right) => left.start - right.start)
+  let position = 0
+  for (const reference of references) {
+    if (
+      reference.start < position ||
+      reference.end <= reference.start ||
+      reference.end > text.length ||
+      text.slice(reference.start, reference.end) !== reference.content
+    )
+      continue
+    if (reference.start > position) {
+      prompt.push({ type: "text", content: text.slice(position, reference.start), start: position, end: reference.start })
+    }
+    const part: ComposerFilePart = {
+      type: "file",
+      path: reference.path,
+      content: reference.content,
+      start: reference.start,
+      end: reference.end,
+    }
+    if (reference.url !== undefined) part.url = reference.url
+    prompt.push(part)
+    position = reference.end
+  }
+  if (position < text.length || prompt.length === 0) {
+    prompt.push({ type: "text", content: text.slice(position), start: position, end: text.length })
+  }
+  prompt.push(
     ...(draft?.attachments.map(
       (attachment): ComposerAttachment => ({
         type: "image",
@@ -38,7 +67,7 @@ function promptState(draft?: PromptDraft): ComposerPersistedState {
           : createLegacyBlobReference(attachment.url),
       }),
     ) ?? []),
-  ]
+  )
   return {
     prompt,
     cursor: draft?.prompt.length ?? 0,
@@ -67,10 +96,27 @@ function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
   )
 }
 
+function promptReferences(prompt: ComposerPrompt): PromptReference[] {
+  return prompt.flatMap((part) => {
+    if (part.type !== "file") return []
+    const reference: PromptReference = {
+      type: "file",
+      path: part.path,
+      content: part.content,
+      start: part.start,
+      end: part.end,
+    }
+    if (part.url !== undefined) reference.url = part.url
+    return [reference]
+  })
+}
+
 function cloneDraft(state: ComposerPersistedState): PromptDraft {
+  const references = promptReferences(state.prompt)
   return {
     prompt: promptText(state.prompt),
     attachments: promptAttachments(state.prompt),
+    ...(references.length ? { references } : {}),
   }
 }
 
