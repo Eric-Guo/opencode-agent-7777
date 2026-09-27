@@ -708,6 +708,15 @@ The editor owns caret reveal, popup sizing and focus restoration. The attachment
 nested scroll ownership. Only the timeline keeps
 `ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 
+The meeting-only recorder stays in `src/session/header/recorder-control.tsx`. Stop saves
+`record_<timestamp>.mp3` in the active session's working directory before calling transcription.
+Failed saves retain the audio for another Stop attempt and block Start until it is saved. After
+a successful save, Stop is disabled even if transcription fails; drag the saved MP3 from the
+file tree into the composer to transcribe it manually. The saved path appears in the recorder status.
+The server's `audio.recording.release` endpoint frees the retained MP3 only after the write succeeds;
+this requires a server build containing that endpoint. Cleanup failure leaves the saved file intact
+and does not prevent transcription.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-machine,queue-panel,controller}` boundaries.
 The queue machine also projects the preview and attachment count for each inbox item. The controller reconciles
 those rows by inbox ID, keeping the focused action mounted when a refresh changes its preview or adds another row.
