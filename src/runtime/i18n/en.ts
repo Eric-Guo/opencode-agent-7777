@@ -102,6 +102,7 @@ export const dict = {
   "recorder.status": "Status",
   "recorder.status.fetch": "Get recorder status",
   "recorder.status.summary": "State: {{state}} · Duration: {{duration}}s · {{progress}}",
+  "recorder.status.saved": "{{summary}} · Saved to {{path}}",
 
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
