@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { clearPromptDraft, readPromptDraft, writePromptDraft } from "./drafts"
 import { prompt } from "@/composer/persistence-singleton"
 import { setState } from "@/runtime/server/session-store-compact"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 
-const draftKey = "opencode.7777.prompt.draft"
+const draftKey = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft
 const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
 

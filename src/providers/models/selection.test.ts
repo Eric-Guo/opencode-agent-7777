@@ -145,6 +145,7 @@ describe("session model selection", () => {
   )
 
   test("uses the configured variant before a preference exists and preserves explicit Default", () => {
+    setState("server", { url: "https://fixture.test", localAgent: "7777", welcomeText: "", suggestedQuestions: [] })
     const selection = createModelSelection()
     expect(selection.variant.current()).toBe("high")
     selection.variant.set(undefined)
