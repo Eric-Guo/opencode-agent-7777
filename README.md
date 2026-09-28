@@ -216,6 +216,13 @@ icons and restores editor focus after model selection or Escape. With `manageMod
 available even when every model is hidden. Portal styles are scoped to the model dialog for embedded hosts.
 Provider connection flows, Console workspace grouping, and the ChatGPT-plan footer remain outside the compact app.
 
+PLM project selection follows the main app's `my-todo/{project-selector,select-project-dialog}` boundaries.
+The selector receives its server and project through props. The local `project-selector-compact.tsx` adapter connects
+the single active session to `runtime/server/sync-project-compact.ts`, which owns project reads, saved updates,
+and `project.updated` events. Changing server or project disposes the previous scope; sessions in the same project
+reuse it. Failed reads expose Retry, and late reads or saves cannot overwrite a newer project update or close a
+replacement dialog. These modules use `@opencode/client` and package-local code; they do not import `packages/app`.
+
 The meeting-only recorder stays in `src/session/header/recorder-control.tsx`. Stop saves
 `record_<timestamp>.mp3` in the active session's working directory before calling transcription.
 Failed saves retain the audio for another Stop attempt and block Start until it is saved. After
