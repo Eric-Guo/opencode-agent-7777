@@ -10,7 +10,13 @@ import { createClientForServer, type OpencodeClient } from "@/runtime/server/cli
 import { state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { readFileTreeWidth, writeFileTreeWidth } from "@/runtime/persistence/settings-storage-compact"
-import { closeSessionTab, openSessionTab, previewSessionTab, type SessionTabState } from "@/shell/state/session-tabs"
+import {
+  closeSessionTab,
+  moveSessionTab,
+  openSessionTab,
+  previewSessionTab,
+  type SessionTabState,
+} from "@/shell/state/session-tabs"
 import FileTreeV2 from "./file-tree-v2"
 import { useOpenInApp } from "./open-in-app"
 import { OpenInAppButton } from "./open-in-app-button"
@@ -24,6 +30,7 @@ export type SessionFiles = {
   preview: (path: string) => void
   open: (path: string) => void
   close: (path: string) => void
+  move: (path: string, to: number) => void
   refresh: () => Promise<void[]>
 }
 
@@ -61,6 +68,7 @@ export function createSessionFiles(): SessionFiles {
     preview: (path) => setView(previewSessionTab(view, path)),
     open: (path) => setView(openSessionTab(view, path)),
     close: (path) => setView(closeSessionTab(view, path)),
+    move: (path, to) => setView(moveSessionTab(view, path, to)),
     refresh: () => {
       setView("error", "")
       return file.tree.refresh()
