@@ -51,3 +51,11 @@ export function closeSessionTab(current: SessionTabState, tab: string): SessionT
     preview: current.preview === tab ? undefined : current.preview,
   }
 }
+
+export function moveSessionTab(current: SessionTabState, tab: string, to: number): SessionTabState {
+  const from = current.tabs.all.indexOf(tab)
+  if (from < 0 || !Number.isInteger(to) || to < 0 || to >= current.tabs.all.length || from === to) return current
+  const all = [...current.tabs.all]
+  all.splice(to, 0, all.splice(from, 1)[0])
+  return { tabs: { all, active: current.tabs.active }, preview: current.preview }
+}
