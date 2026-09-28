@@ -5,12 +5,18 @@ import { Tabs } from "@opencode/ui/tabs"
 import { createEventListener } from "@solid-primitives/event-listener"
 import { For, Match, Show, Switch, createEffect, onCleanup, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
+import { DragDropProvider, PointerSensor } from "@dnd-kit/solid"
+import { isSortable } from "@dnd-kit/solid/sortable"
+import { Accessibility, AutoScroller, Feedback, PointerActivationConstraints } from "@dnd-kit/dom"
+import { RestrictToHorizontalAxis } from "@dnd-kit/abstract/modifiers"
+import { RestrictToElement } from "@dnd-kit/dom/modifiers"
 import "./file-tabs.css"
 import { useLanguage } from "@/runtime/i18n/language"
 import { OpenInAppButton } from "./open-in-app-button"
 import { resolveOpenInAppPath } from "./open-in-app-path"
 import type { SessionFiles } from "./session-side-panel"
-import { FileTab } from "./tab"
+import { SortableTab } from "./tab"
+import { createFileTabListSync } from "./file-tab-scroll"
 
 // File paths are nonempty; the empty value belongs to the conversation.
 export function SessionFileTabs(
@@ -22,7 +28,10 @@ export function SessionFileTabs(
 ) {
   const language = useLanguage()
   let root: HTMLDivElement | undefined
+  let tabList: HTMLDivElement | undefined
+  let syncTabList: (() => void) | undefined
   let selectionEvent: Event | undefined
+  let drag: { client: ReturnType<SessionFiles["client"]>; directory: string; tabs: string[] } | undefined
   const close = (path: string) => {
     props.model?.close(path)
     queueMicrotask(() => {
@@ -34,64 +43,110 @@ export function SessionFileTabs(
     props.model?.view.tabs.active
     props.model?.view.tabs.all.length
     const frame = requestAnimationFrame(() => {
-      root?.querySelector('[role="tab"][aria-selected="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" })
+      syncTabList?.()
     })
     onCleanup(() => cancelAnimationFrame(frame))
   })
   return (
     <Show when={props.model} fallback={props.children}>
       {(model) => (
-        <Tabs
-          ref={root}
-          variant="line"
-          class="session-file-tabs"
-          value={model().view.tabs.active ?? ""}
-          onChange={(path) => {
-            // Like the main app, ignore Kobalte's fallback while new triggers register.
-            // Only input events select a tab; the local state owns open/close selection.
-            if (selectionEvent && selectionEvent.eventPhase !== Event.NONE) model().select(path || undefined)
+        <DragDropProvider
+          sensors={[
+            PointerSensor.configure({
+              activationConstraints: [new PointerActivationConstraints.Distance({ value: 4 })],
+              preventActivation: (event) =>
+                event.target instanceof Element && !!event.target.closest('[data-slot="tabs-v2-trigger-close-button"]'),
+            }),
+          ]}
+          modifiers={[RestrictToHorizontalAxis, RestrictToElement.configure({ element: () => tabList ?? null })]}
+          plugins={(defaults) => [
+            ...defaults.filter((plugin) => plugin !== Accessibility),
+            AutoScroller.configure({ acceleration: 8, threshold: { x: 0.05, y: 0 } }),
+            Feedback.configure({ dropAnimation: null }),
+          ]}
+          onDragStart={() => {
+            drag = { client: model().client(), directory: model().file.directory(), tabs: [...model().view.tabs.all] }
+          }}
+          onDragEnd={(event) => {
+            const start = drag
+            drag = undefined
+            syncTabList?.()
+            const source = event.operation.source
+            if (event.canceled || !isSortable(source) || source.initialIndex === source.index || !start) return
+            // Ignore drops from a previous workspace or a changed set of open tabs.
+            if (start.client !== model().client() || start.directory !== model().file.directory()) return
+            const tabs = model().view.tabs.all
+            if (tabs.length !== start.tabs.length || tabs.some((path, index) => path !== start.tabs[index])) return
+            model().move(source.id.toString(), source.index)
           }}
         >
-          <Show when={model().view.tabs.all.length}>
-            <Tabs.List
-              aria-label={language.t("files.tabs")}
-              ref={(element: HTMLDivElement) => {
-                createEventListener(element, ["pointerdown", "click", "keydown"], (event) => (selectionEvent = event), {
-                  capture: true,
-                })
-              }}
-            >
-              <Tabs.Trigger value="">{language.t("files.conversation")}</Tabs.Trigger>
-              <For each={model().view.tabs.all}>
-                {(path) => (
-                  <FileTab
-                    path={path}
-                    temporary={model().view.preview === path}
-                    onClose={() => close(path)}
-                    onKeep={() => model().open(path)}
-                  />
-                )}
-              </For>
-            </Tabs.List>
-          </Show>
-          <Tabs.Content
-            value=""
-            class="session-conversation-tab"
-            tabIndex={-1}
-            aria-label={language.t("files.conversation")}
+          <Tabs
+            ref={root}
+            variant="line"
+            class="session-file-tabs"
+            value={model().view.tabs.active ?? ""}
+            onChange={(path) => {
+              // Like the main app, ignore Kobalte's fallback while new triggers register.
+              // Only input events select a tab; the local state owns open/close selection.
+              if (selectionEvent && selectionEvent.eventPhase !== Event.NONE) model().select(path || undefined)
+            }}
           >
-            {props.children}
-          </Tabs.Content>
-          <For each={model().view.tabs.all}>
-            {(path) => (
-              <Tabs.Content value={path}>
-                <Show when={model().view.tabs.active === path}>
-                  <SessionFileView model={model()} path={path} onAdd={props.onAdd} disabled={props.disabled} />
-                </Show>
-              </Tabs.Content>
-            )}
-          </For>
-        </Tabs>
+            <Show when={model().view.tabs.all.length}>
+              <Tabs.List
+                aria-label={language.t("files.tabs")}
+                ref={(element: HTMLDivElement) => {
+                  tabList = element
+                  createEventListener(
+                    element,
+                    ["pointerdown", "click", "keydown"],
+                    (event) => (selectionEvent = event),
+                    {
+                      capture: true,
+                    },
+                  )
+                  const sync = createFileTabListSync({ el: element, dragging: () => !!drag })
+                  syncTabList = sync.schedule
+                  onCleanup(() => {
+                    sync.dispose()
+                    tabList = undefined
+                    syncTabList = undefined
+                  })
+                }}
+              >
+                <Tabs.Trigger value="">{language.t("files.conversation")}</Tabs.Trigger>
+                <For each={model().view.tabs.all}>
+                  {(path, index) => (
+                    <SortableTab
+                      path={path}
+                      index={index()}
+                      temporary={model().view.preview === path}
+                      onClose={() => close(path)}
+                      onKeep={() => model().open(path)}
+                      onMove={(to) => model().move(path, to)}
+                    />
+                  )}
+                </For>
+              </Tabs.List>
+            </Show>
+            <Tabs.Content
+              value=""
+              class="session-conversation-tab"
+              tabIndex={-1}
+              aria-label={language.t("files.conversation")}
+            >
+              {props.children}
+            </Tabs.Content>
+            <For each={model().view.tabs.all}>
+              {(path) => (
+                <Tabs.Content value={path}>
+                  <Show when={model().view.tabs.active === path}>
+                    <SessionFileView model={model()} path={path} onAdd={props.onAdd} disabled={props.disabled} />
+                  </Show>
+                </Tabs.Content>
+              )}
+            </For>
+          </Tabs>
+        </DragDropProvider>
       )}
     </Show>
   )
