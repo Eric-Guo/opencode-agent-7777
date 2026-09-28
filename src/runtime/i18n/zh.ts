@@ -47,6 +47,7 @@ export const dict = {
   "files.conversation": "对话",
   "files.keepOpen": "保持打开",
   "files.closeTab": "关闭 {{path}}",
+  "files.reorderTab": "拖拽排序，或在聚焦时按 Alt+Shift+Left 或 Alt+Shift+Right",
   "files.refresh": "刷新文件",
   "files.resize": "调整文件面板大小",
   "files.loading": "正在加载文件…",
