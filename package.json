@@ -11,6 +11,9 @@
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
+    "@dnd-kit/abstract": "0.5.0",
+    "@dnd-kit/dom": "0.5.0",
+    "@dnd-kit/solid": "0.5.0",
     "@opencode/client": "workspace:*",
     "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
