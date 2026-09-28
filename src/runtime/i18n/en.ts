@@ -45,6 +45,7 @@ export const dict = {
   "files.conversation": "Conversation",
   "files.keepOpen": "Keep open",
   "files.closeTab": "Close {{path}}",
+  "files.reorderTab": "Drag to reorder, or press Alt+Shift+Left or Alt+Shift+Right while focused",
   "files.refresh": "Refresh files",
   "files.resize": "Resize file panel",
   "files.loading": "Loading files…",
