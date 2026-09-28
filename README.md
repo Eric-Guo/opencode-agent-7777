@@ -325,14 +325,24 @@ picker/validation and desktop extension filters. Exported lists are frozen and p
 the existing formats without sharing mutable options with the host. This policy stays local because the main app's
 attachment destination/upload behavior differs; attachment handling remains in `composer/attachments/attachments.ts`.
 File browsing follows the main app's `session/files/{file-tree-v2,file-tree-v2-model,open-in-app,
-open-in-app-button,open-in-app-path,file-tabs,tab,session-side-panel}` and `workspaces/files/{model,tree-store,path,watcher}`
+open-in-app-button,open-in-app-path,file-tabs,file-tab-scroll,tab,session-side-panel}` and `workspaces/files/{model,tree-store,path,watcher}`
 boundaries, using package-local implementations and the shared UI tree styles. The compact file model uses
 `model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
 places the tree left of both the conversation and composer. File tab transitions follow
-`shell/state/session-tabs.ts`, with local preview, open, and close operations. Tabs stay in memory for the active
+`shell/state/session-tabs.ts`, with local preview, open, close, and move operations. The local `tab.tsx` uses the
+main app's `SortableTab` boundary and the same declared `@dnd-kit` dependencies. Drag orchestration stays in
+`file-tabs.tsx`, which owns the compact tab strip; the main app hosts its strip in `session-side-panel.tsx`.
+`file-tab-scroll.ts` keeps the selected tab visible on selection and resize, and maps vertical wheel input to
+horizontal scrolling when the strip can scroll. It leaves page scrolling and browser zoom available at the edges.
+Tabs stay in memory for the active
 workspace/server instead of using route-owned persistence; changing either scope or reloading clears them. `SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
 to `true`; set it to `false` to restore the full-width conversation. The tree follows the active session's
 `location.directory`, including the default `<server-root>/agent-plm-meeting` folder and restored sessions.
+
+Drag a file tab left or right to reorder it, or focus it and press **Alt+Shift+Left** or **Alt+Shift+Right**.
+Keyboard moves retain focus for repeated moves. The conversation tab stays first; moving files preserves the
+selected file and temporary preview. **Escape** cancels a drag. Drops are ignored if the workspace or open tabs
+changed during the drag. Closing, keeping open, and replacing a preview work in the new order.
 
 The PLM meeting tree uses the main app's rounded raised panel and shared resize handle on its right edge.
 Its width is saved in the compact preference storage under a PLM-specific key instead of the main app's layout
