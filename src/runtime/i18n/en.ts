@@ -41,6 +41,13 @@ export const dict = {
   "language.zh": "中文",
   "language.switch": "Switch language to {{language}}",
 
+  "myTodo.selectProject": "Select PLM project",
+  "myTodo.loadFailed": "Could not load PLM projects. Please try again.",
+  "myTodo.currentLoadFailed": "Could not load the selected PLM project. Please try again.",
+  "myTodo.retry": "Retry",
+  "myTodo.saveFailed": "Could not save the selected PLM project. Please try again.",
+  "myTodo.empty": "No PLM projects available.",
+
   "session.status.starting": "Starting",
   "session.status.offline": "Offline",
   "session.status.sending": "Sending",

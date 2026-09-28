@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import {
   readSessionModelSelections,
   writeSessionModelSelections,
@@ -25,10 +26,12 @@ afterEach(() => {
   else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
 })
 
-test("configured session keys preserve existing 7777 data and isolate another agent", () => {
+test("configured session keys preserve default and legacy data and isolate another agent", () => {
   saved.set("opencode.7777.session.id", "legacy-session")
   saved.set("opencode.7777.session.directory", "/legacy")
-  expect(readSessionRecord()).toEqual({ id: "legacy-session", directory: "/legacy" })
+  saved.set(AGENT_DEFAULT_CONFIG.storageKeys.sessionID, "default-session")
+  saved.set(AGENT_DEFAULT_CONFIG.storageKeys.sessionDirectory, "/default")
+  expect(readSessionRecord()).toEqual({ id: "default-session", directory: "/default" })
   const keys = { sessionID: "other.session", sessionDirectory: "other.directory", promptDraft: "other.draft" }
   expect(readSessionRecord(keys)).toBeUndefined()
   writeSessionRecord(
@@ -46,7 +49,9 @@ test("configured session keys preserve existing 7777 data and isolate another ag
   expect(readSessionRecord(keys)).toEqual({ id: "other-session", directory: "/other" })
   expect(saved.get("other.session")).toBe("other-session")
   expect(saved.get("other.directory")).toBe("/other")
-  expect(readSessionRecord()).toEqual({ id: "legacy-session", directory: "/legacy" })
+  expect(readSessionRecord()).toEqual({ id: "default-session", directory: "/default" })
+  expect(saved.get("opencode.7777.session.id")).toBe("legacy-session")
+  expect(saved.get("opencode.7777.session.directory")).toBe("/legacy")
 })
 
 describe("session model preference storage", () => {

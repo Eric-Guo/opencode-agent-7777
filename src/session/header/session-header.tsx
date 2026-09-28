@@ -3,12 +3,13 @@ import { createResource, createSignal, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import { RecorderControl } from "@/session/header/recorder-control"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
 import type { SessionRevert } from "@/session/revert"
 import { SettingsGeneral } from "@/settings/general/general"
+import { CompactProjectSelector } from "@/my-todo/project-selector-compact"
 
 const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
 
@@ -62,7 +63,9 @@ export function SessionHeader(props: {
       class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:flex-wrap max-[720px]:gap-2 max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
     >
       <div class="min-w-0 max-[720px]:w-full">
-        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
+        <h1 class="m-0 min-w-0">
+          <CompactProjectSelector />
+        </h1>
         <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">
           {props.status} · {recorderStatusSummary()}
         </p>

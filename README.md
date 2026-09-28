@@ -185,6 +185,13 @@ boundaries with package-local implementations. The compact storage adapter is sy
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
 Model preference recovery remains separate from catalog and visibility operations in `providers/models/models.tsx`.
 
+PLM project selection follows the main app's `my-todo/{project-selector,select-project-dialog}` boundaries.
+The selector receives its server and project through props. The local `project-selector-compact.tsx` adapter connects
+the single active session to `runtime/server/sync-project-compact.ts`, which owns project reads, saved updates,
+and `project.updated` events. Changing server or project disposes the previous scope; sessions in the same project
+reuse it. Failed reads expose Retry, and late reads or saves cannot overwrite a newer project update or close a
+replacement dialog. These modules use `@opencode/client` and package-local code; they do not import `packages/app`.
+
 The meeting-only recorder stays in `src/session/header/recorder-control.tsx`. Stop saves
 `record_<timestamp>.mp3` in the active session's working directory before calling transcription.
 Failed saves retain the audio for another Stop attempt and block Start until it is saved. After
