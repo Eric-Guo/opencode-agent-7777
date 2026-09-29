@@ -254,8 +254,10 @@ boundaries, using package-local implementations and the shared UI tree styles. T
 `model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
 places the tree left of both the conversation and composer. File tab transitions follow
 `shell/state/session-tabs.ts`, with local preview, open, close, and move operations. The local `tab.tsx` uses the
-main app's `SortableTab` boundary and the same declared `@dnd-kit` dependencies. Drag orchestration stays in
-`file-tabs.tsx`, which owns the compact tab strip; the main app hosts its strip in `session-side-panel.tsx`.
+main app's `SortableTab` boundary and the same declared `@dnd-kit` dependencies. The tab strip, selection,
+drag orchestration, and strip styles now belong to `session-side-panel.tsx` and its stylesheet, matching the
+main app's boundary. `file-tabs.tsx` owns the selected file's loading and preview, using `@opencode/session-ui/file`
+for text rendering. The left tree and conversation tab retain their compact layout.
 `file-tab-scroll.ts` keeps the selected tab visible on selection and resize, and maps vertical wheel input to
 horizontal scrolling when the strip can scroll. It leaves page scrolling and browser zoom available at the edges.
 Tabs stay in memory for the active
