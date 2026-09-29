@@ -67,16 +67,11 @@ Then paste the copied JSON into the package script:
 bun run models:apply-localstorage <<'JSON'
 {
   "selection": {
-    "providerID": "deepseek",
-    "modelID": "deepseek-v4-flash"
+    "providerID": "opencode",
+    "modelID": "nemotron-3.5-lightning-free"
   },
   "config": {
     "user": [
-      {
-        "providerID": "opencode-go",
-        "modelID": "glm-5.1",
-        "visibility": "hide"
-      },
       {
         "providerID": "opencode",
         "modelID": "claude-fable-5",
@@ -224,11 +219,6 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "github-copilot",
-        "modelID": "claude-sonnet-5",
-        "visibility": "show"
-      },
-      {
-        "providerID": "github-copilot",
         "modelID": "kimi-k2.7-code",
         "visibility": "show"
       },
@@ -243,23 +233,8 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "modelID": "minimax-m2.7",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "qwen3.6-plus",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
         "modelID": "zai-glm-4.7",
         "providerID": "cerebras",
-        "visibility": "show"
-      },
-      {
-        "modelID": "deepseek-ai/DeepSeek-V4-Pro",
-        "providerID": "siliconflow-cn",
         "visibility": "show"
       },
       {
@@ -301,31 +276,6 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "deepseek-v4-pro",
         "providerID": "opencode",
         "visibility": "hide"
-      },
-      {
-        "modelID": "mimo-v2.5",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "mimo-v2.5-pro",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "minimax-m3",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "qwen3.7-max",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "deepseek-ai/DeepSeek-V4-Flash",
-        "providerID": "siliconflow-cn",
-        "visibility": "show"
       },
       {
         "modelID": "claude-sonnet-5",
@@ -383,16 +333,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "modelID": "glm-5.2",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "kimi-k2.6",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
         "modelID": "mai-code-1.1-flash",
         "providerID": "github-copilot",
         "visibility": "show"
@@ -403,39 +343,9 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "show"
       },
       {
-        "modelID": "gpt-5.6-luna",
-        "providerID": "openai",
-        "visibility": "show"
-      },
-      {
         "modelID": "gpt-oss-120b",
         "providerID": "cerebras",
         "visibility": "show"
-      },
-      {
-        "modelID": "deepseek-v4-pro",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "deepseek-v4-flash",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "muse-spark-1.2-contributor",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "qwen3.7-plus",
-        "providerID": "opencode-go",
-        "visibility": "hide"
-      },
-      {
-        "modelID": "qwen3.8-max",
-        "providerID": "opencode-go",
-        "visibility": "hide"
       },
       {
         "modelID": "claude-opus-5",
@@ -471,12 +381,178 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "kimi-for-coding-highspeed",
         "providerID": "kimi-for-coding",
         "visibility": "hide"
+      },
+      {
+        "modelID": "deepseek-v4-flash-vision-exp",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "deepseek-v4.1-flash",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "glm-5.3",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "glm-5.3-flash",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6-luna",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "grok-4.7",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "hy4-preview",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "hy3",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "kimi-k2.7-code",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "kimi-k3",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "longcat-2.5-preview-free",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "mimo-v2.6-flash",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "mimo-v2.6-pro",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "minimax-m2.7",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "muse-spark-1.3-contributor",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "space-bunny-free",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "qwen3.8-max",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "qwen3.8-flash",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "claude-sonnet-5-5",
+        "providerID": "anthropic",
+        "visibility": "show"
+      },
+      {
+        "modelID": "claude-opus-5-5",
+        "providerID": "anthropic",
+        "visibility": "show"
+      },
+      {
+        "modelID": "claude-sonnet-5.5",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6-luna",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-5.3-codex",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-5.6-sol",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6-astra",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6-luna",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6-sol",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3.8-flash",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-flash-latest",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-flash-lite-latest",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "MiniMax-M2.7",
+        "providerID": "minimax",
+        "visibility": "show"
+      },
+      {
+        "modelID": "deepseek-ai/DeepSeek-V4-Flash",
+        "providerID": "siliconflow-cn",
+        "visibility": "show"
+      },
+      {
+        "modelID": "stepfun-ai/Step-3.5-Flash",
+        "providerID": "siliconflow-cn",
+        "visibility": "show"
       }
     ],
     "disabledProviders": [
       "siliconflow-cn",
       "minimax",
-      "cerebras"
+      "cerebras",
+      "kimi-code-plan-global"
     ],
     "popularProviders": [
       {
@@ -497,6 +573,14 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "openrouter",
+        "visibility": "hide"
+      },
+      {
+        "providerID": "opencode-go",
+        "visibility": "hide"
+      },
+      {
+        "providerID": "anthropic",
         "visibility": "hide"
       }
     ],
