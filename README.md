@@ -255,6 +255,12 @@ Failed or outdated reads hide the footer while model selection stays usable; reo
 integration reads with the activation. Model defaults, visibility, storage formats, and the `manageModels` gate stay
 unchanged, and the footer is available when model management is disabled. No app imports or new dependencies are used.
 
+File-tab persistence follows the main app's `shell/state/layout.tsx` boundary with a package-local implementation.
+It restores tab order and selection per server, workspace directory, and the desktop tab's configured session
+storage namespace. Sessions in the same workspace share tabs. Temporary-preview status stays in memory; after a
+reload, restored tabs are retained. The compact layout uses the local storage adapter without a router or imports
+from `packages/app`.
+
 PLM project selection follows the main app's `my-todo/{project-selector,select-project-dialog}` boundaries.
 The selector receives its server and project through props. The local `project-selector-compact.tsx` adapter connects
 the single active session to `runtime/server/sync-project-compact.ts`, which owns project reads, saved updates,
@@ -309,8 +315,13 @@ use the existing file-read API and a local blob URL, without the image/PDF size 
 stops playback and releases the URL. The left tree and conversation tab retain their compact layout.
 `file-tab-scroll.ts` keeps the selected tab visible on selection and resize, and maps vertical wheel input to
 horizontal scrolling when the strip can scroll. It leaves page scrolling and browser zoom available at the edges.
-Tabs stay in memory for the active
-workspace/server instead of using route-owned persistence; changing either scope or reloading clears them. `SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
+Open tabs, their order, and the selected file or **Conversation** survive reloads. Switching server or workspace
+restores that scope's tabs; sessions in the same workspace share them. The desktop tab's configured session storage
+key isolates its file layout from other agent tabs. Temporary-preview status is preserved while switching scopes
+in memory, but restored tabs become retained after a reload, matching the main app. Only file paths and selection
+are stored, and only the selected file is fetched. Malformed saved entries are ignored; storage failures leave
+tabs usable in memory. Closing the last tab clears that scope's saved layout.
+`SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
 to `true`; set it to `false` to restore the full-width conversation. The tree follows the active session's
 `location.directory`, including the default `<server-root>/agent-plm-meeting` folder and restored sessions.
 
