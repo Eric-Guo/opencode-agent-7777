@@ -1,4 +1,4 @@
-import type { FileModel } from "@/workspaces/files/model"
+import type { FileModel } from "@/workspaces/files/file-model"
 import { FileIcon } from "@opencode/ui/file-icon"
 import "@opencode/ui/file-tree.css"
 import { createEffect, createMemo, For, Show, splitProps, type ComponentProps, type ParentProps } from "solid-js"
