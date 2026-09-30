@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { createRoot } from "solid-js"
 import type { FileNode } from "@/runtime/server/types"
 import { createFileTreeStore } from "./tree-store"
-import { fileNodes } from "./model"
+import { fileNodes } from "./file-model"
 
 const node = (path: string, type: "file" | "directory" = "file"): FileNode => ({
   path,
