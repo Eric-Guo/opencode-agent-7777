@@ -8,6 +8,29 @@ import { createComposerEditorActions } from "./editor/actions"
 import { PromptDraft } from "./schema"
 
 describe("buildPromptRequest", () => {
+  test.each([undefined, "review"])(
+    "agent mentions survive editor insertion, reload, and command %s trimming",
+    (command) => {
+      const prefix = command ? "  /review Ask " : "  Ask "
+      const state = createPromptState({ prompt: `${prefix}@exp`, attachments: [] })
+      const editor = createComposerEditorActions(state.store)
+      editor.addMention({ type: "agent", name: "explore", content: "@explore", start: 0, end: 0 })
+      const saved = Schema.decodeUnknownSync(Schema.fromJsonString(PromptDraft))(JSON.stringify(state.capture()))
+      const restored = createPromptState(saved)
+      expect(restored.store[0].prompt).toContainEqual({
+        type: "agent",
+        name: "explore",
+        content: "@explore",
+        start: prefix.length,
+        end: prefix.length + 8,
+      })
+      expect(buildPromptRequest({ ...restored.capture(), command })).toEqual({
+        text: "Ask @explore",
+        files: [],
+        agents: [{ name: "explore", mention: { text: "@explore", start: 4, end: 12 } }],
+      })
+    },
+  )
   test.each([undefined, "review"])("selected files survive draft reload and command %s offset trimming", (command) => {
     const prefix = command ? "  /review Read " : "  Read "
     const state = createPromptState({ prompt: `${prefix}@read`, attachments: [] })

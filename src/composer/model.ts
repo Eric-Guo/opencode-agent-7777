@@ -64,14 +64,14 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       description: command.description,
     })),
   )
-  const context = createMemo<ComposerSuggestion[]>(() =>
-    catalog.state.skills.map((skill) => ({
+  const context = createMemo<ComposerSuggestion[]>(() => [
+    ...catalog.state.skills.map((skill) => ({
       id: `skill:${skill.id}`,
-      kind: "skill",
+      kind: "skill" as const,
       label: `@${skill.id}`,
       description: skill.description,
       mention: {
-        type: "skill",
+        type: "skill" as const,
         id: Skill.ID.make(skill.id),
         name: Skill.Name.make(skill.name),
         content: `@${skill.id}`,
@@ -79,7 +79,16 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
         end: 0,
       },
     })),
-  )
+    ...catalog.state.agents
+      .filter((agent) => !agent.hidden && agent.mode !== "primary")
+      .map((agent) => ({
+        id: `agent:${agent.name}`,
+        kind: "agent" as const,
+        label: `@${agent.name}`,
+        description: agent.description,
+        mention: { type: "agent" as const, name: agent.name, content: `@${agent.name}`, start: 0, end: 0 },
+      })),
+  ])
   const commands = useComposerCommands({
     model: () => adapter.controls().model.selection,
     disabled: () => adapter.disabled() || adapter.controls().model.status !== "ready" || !!dialog.active,
@@ -184,7 +193,11 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     suggestionStatus: () => {
       const popover = controller.state.popover
       if (popover.type !== "context") return catalog.state.commandStatus
-      const statuses = [catalog.state.skillStatus, ...(popover.query.trim() ? [files.state.status] : [])]
+      const statuses = [
+        catalog.state.skillStatus,
+        catalog.state.agentStatus,
+        ...(popover.query.trim() ? [files.state.status] : []),
+      ]
       if (statuses.includes("loading")) return "loading"
       return statuses.includes("failed") ? "failed" : "ready"
     },

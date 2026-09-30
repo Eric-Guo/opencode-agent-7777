@@ -78,6 +78,99 @@ afterEach(() => {
 })
 
 describe("composer submission", () => {
+  test.each([
+    { delivery: "steer", command: undefined },
+    { delivery: "queue", command: undefined },
+    { delivery: "steer", command: "review" },
+    { delivery: "queue", command: "review" },
+  ] as const)(
+    "sends agent mentions with $delivery and command $command alongside existing context",
+    async ({ delivery, command }) => {
+      const prefix = command ? "/review " : ""
+      const requests: unknown[] = []
+      const commands: unknown[] = []
+      prompt.restore({
+        prompt: `${prefix}@explore @review @README.md`,
+        attachments: [{ id: "file", filename: "notes.txt", mime: "text/plain", url: "data:text/plain;base64,YQ==" }],
+        references: [
+          { type: "agent", name: "explore", content: "@explore", start: prefix.length, end: prefix.length + 8 },
+          {
+            type: "skill",
+            id: Skill.ID.make("review"),
+            name: Skill.Name.make("Review"),
+            content: "@review",
+            start: prefix.length + 9,
+            end: prefix.length + 16,
+          },
+          {
+            type: "file",
+            path: "README.md",
+            url: "file:///repo/README.md",
+            content: "@README.md",
+            start: prefix.length + 17,
+            end: prefix.length + 27,
+          },
+        ],
+      })
+      setSessionClient(
+        client({
+          send: async (value) => {
+            requests.push(value)
+          },
+          command: async (value) => {
+            commands.push(value)
+          },
+        }),
+      )
+      await submitPrompt({ delivery, command })
+      expect(command ? requests : commands).toEqual([])
+      expect(command ? commands : requests).toHaveLength(1)
+      expect((command ? commands : requests)[0]).toMatchObject({
+        sessionID: "session",
+        text: "@explore @review @README.md",
+        delivery,
+        files: [
+          { uri: "file:///repo/README.md", name: "README.md", mention: { text: "@README.md", start: 17, end: 27 } },
+          { uri: "data:text/plain;base64,YQ==", name: "notes.txt" },
+        ],
+        skills: [{ id: "review", mention: { text: "@review", start: 9, end: 16 } }],
+        agents: [{ name: "explore", mention: { text: "@explore", start: 0, end: 8 } }],
+      })
+      expect(prompt.dirty()).toBe(false)
+      expect(composerHistory.entries("normal")[0]?.prompt).toContainEqual({
+        type: "agent",
+        name: "explore",
+        content: "@explore",
+        start: prefix.length,
+        end: prefix.length + 8,
+      })
+    },
+  )
+
+  test.each([undefined, "review"])("a failed command %s restores structured agent mentions", async (command) => {
+    const prefix = command ? "/review " : ""
+    prompt.restore({
+      prompt: `${prefix}@explore`,
+      attachments: [],
+      references: [
+        { type: "agent", name: "explore", content: "@explore", start: prefix.length, end: prefix.length + 8 },
+      ],
+    })
+    const fail = async () => {
+      throw new Error("send failed")
+    }
+    setSessionClient(client({ send: fail, command: fail }))
+    await submitPrompt({ command })
+    expect(prompt.capture()).toEqual({
+      prompt: `${prefix}@explore`,
+      attachments: [],
+      references: [
+        { type: "agent", name: "explore", content: "@explore", start: prefix.length, end: prefix.length + 8 },
+      ],
+    })
+    expect(state.error).toBe("send failed")
+  })
+
   test.each(["steer", "queue"] as const)(
     "dispatches %s slash commands with arguments and skill references",
     async (delivery) => {

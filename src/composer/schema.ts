@@ -30,7 +30,14 @@ export const PromptSkillReference = Persistence.struct({
   start: Schema.Number,
   end: Schema.Number,
 })
-export const PromptReference = Schema.Union([PromptFileReference, PromptSkillReference])
+const PromptAgentReference = Persistence.struct({
+  type: Schema.Literal("agent"),
+  name: Schema.String,
+  content: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+})
+export const PromptReference = Schema.Union([PromptFileReference, PromptSkillReference, PromptAgentReference])
 export type PromptReference = typeof PromptReference.Type
 
 export const PromptDraft = Persistence.struct({
@@ -40,13 +47,14 @@ export const PromptDraft = Persistence.struct({
 })
 export type PromptDraft = typeof PromptDraft.Type
 
-// History retains text, selected files/skills, and inline attachments.
+// History retains text, selected files/skills/agents, and inline attachments.
 export const PromptHistoryEntry = Persistence.struct({
   prompt: Schema.mutable(
     Schema.Array(
       Schema.Union([
         PromptFileReference,
         PromptSkillReference,
+        PromptAgentReference,
         Persistence.struct({
           type: Schema.Literal("text"),
           content: Schema.String,

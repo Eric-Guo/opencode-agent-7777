@@ -87,6 +87,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
             text: request.text,
             files: request.files,
             ...(request.skills ? { skills: request.skills } : {}),
+            ...(request.agents ? { agents: request.agents } : {}),
             delivery,
           })
           .then(() => undefined)
@@ -96,6 +97,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
         text: request.text,
         files: request.files,
         ...(request.skills ? { skills: request.skills } : {}),
+        ...(request.agents ? { agents: request.agents } : {}),
         delivery,
         metadata: {
           agent: active.localAgent,

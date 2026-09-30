@@ -13,6 +13,27 @@ const attachment = (id: string): PromptAttachment => ({
 })
 
 describe("prompt state", () => {
+  test("captured agent mentions remain isolated from subsequent Solid store edits", () => {
+    const draft = {
+      prompt: "Ask @explore",
+      attachments: [],
+      references: [{ type: "agent" as const, name: "explore", content: "@explore", start: 4, end: 12 }],
+    }
+    const state = createPromptState(draft)
+    const captured = state.capture()
+    state.store[1](
+      produce((value) => {
+        const agent = value.prompt[1]
+        if (agent.type !== "agent") throw new Error("Expected agent mention")
+        agent.name = "changed"
+      }),
+    )
+    expect(captured.references).toEqual([{ type: "agent", name: "explore", content: "@explore", start: 4, end: 12 }])
+    expect(draft.references).toEqual([{ type: "agent", name: "explore", content: "@explore", start: 4, end: 12 }])
+    state.reset()
+    state.restore(captured)
+    expect(state.store[0].prompt[1]).toEqual({ type: "agent", name: "explore", content: "@explore", start: 4, end: 12 })
+  })
   test("round-trips selected skills through persistence and isolates subsequent edits", () => {
     const draft = {
       prompt: "Use @plugin/review here",

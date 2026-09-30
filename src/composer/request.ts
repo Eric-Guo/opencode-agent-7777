@@ -41,9 +41,13 @@ export function buildPromptRequest(input: {
   const skills = (input.references ?? []).flatMap((reference) =>
     reference.type === "skill" ? [{ id: reference.id, mention: mention(reference) }] : [],
   )
+  const agents = (input.references ?? []).flatMap((reference) =>
+    reference.type === "agent" ? [{ name: reference.name, mention: mention(reference) }] : [],
+  )
   return {
     text,
     files: [...mentions, ...files],
     ...(skills.length ? { skills } : {}),
+    ...(agents.length ? { agents } : {}),
   }
 }

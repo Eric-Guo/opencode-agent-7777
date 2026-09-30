@@ -8,6 +8,37 @@ const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
 const text = (content: string): ComposerPrompt => [{ type: "text", content, start: 0, end: content.length }]
 
+test("agent mentions survive history reload without sharing the recalled draft", () => {
+  const history = createComposerHistory()
+  history.add(
+    [
+      { type: "text", content: "Ask ", start: 0, end: 4 },
+      { type: "agent", name: "explore", content: "@explore", start: 4, end: 12 },
+    ],
+    "normal",
+  )
+  const restored = createComposerHistory()
+  const [draft, setDraft] = createStore<ComposerHistoryEntry>(restored.entries("normal")[0])
+  setDraft(
+    produce((state) => {
+      const agent = state.prompt[1]
+      if (agent.type !== "agent") throw new Error("Expected agent mention")
+      agent.name = "edited"
+    }),
+  )
+  expect(draft.prompt[1]).toMatchObject({ name: "edited" })
+  const expected: ComposerHistoryEntry[] = [
+    {
+      prompt: [
+        { type: "text", content: "Ask ", start: 0, end: 4 },
+        { type: "agent", name: "explore", content: "@explore", start: 4, end: 12 },
+      ],
+    },
+  ]
+  expect(restored.entries("normal")).toEqual(expected)
+  expect(createComposerHistory().entries("normal")).toEqual(expected)
+})
+
 test("recalls skill mentions as structured parts after reloading history", () => {
   const history = createComposerHistory()
   history.add(

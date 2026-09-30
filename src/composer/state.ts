@@ -97,7 +97,7 @@ function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
 
 function promptReferences(prompt: ComposerPrompt): PromptReference[] {
   return prompt.flatMap<PromptReference>((part) => {
-    if (part.type === "skill") return [{ ...part }]
+    if (part.type === "skill" || part.type === "agent") return [{ ...part }]
     if (part.type !== "file") return []
     const reference: PromptReference = {
       type: "file",
