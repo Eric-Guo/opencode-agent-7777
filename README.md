@@ -222,7 +222,9 @@ places the tree left of both the conversation and composer. File tab transitions
 main app's `SortableTab` boundary and the same declared `@dnd-kit` dependencies. The tab strip, selection,
 drag orchestration, and strip styles now belong to `session-side-panel.tsx` and its stylesheet, matching the
 main app's boundary. `file-tabs.tsx` owns the selected file's loading and preview, using `@opencode/session-ui/file`
-for text rendering. The left tree and conversation tab retain their compact layout.
+for text rendering. MP3 previews use native audio controls for playback, seeking, and volume. Recordings
+use the existing file-read API and a local blob URL, without the image/PDF size limit; switching files
+stops playback and releases the URL. The left tree and conversation tab retain their compact layout.
 `file-tab-scroll.ts` keeps the selected tab visible on selection and resize, and maps vertical wheel input to
 horizontal scrolling when the strip can scroll. It leaves page scrolling and browser zoom available at the edges.
 Tabs stay in memory for the active
