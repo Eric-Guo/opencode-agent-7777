@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { Skill } from "@opencode/schema/skill"
 import { Persistence } from "@/runtime/persistence/schema"
 
 // Keep the existing single-draft storage format, including legacy attachments without a blob ID.
@@ -13,7 +14,7 @@ export const PromptAttachment = Persistence.struct({
 export type PromptAttachment = typeof PromptAttachment.Type
 
 // File mentions persist as overlay ranges into the prompt text; url carries inline file data.
-export const PromptReference = Persistence.struct({
+const PromptFileReference = Persistence.struct({
   type: Schema.Literal("file"),
   path: Schema.String,
   content: Schema.String,
@@ -21,6 +22,15 @@ export const PromptReference = Persistence.struct({
   end: Schema.Number,
   url: Persistence.optional(Schema.String),
 })
+export const PromptSkillReference = Persistence.struct({
+  type: Schema.Literal("skill"),
+  id: Skill.ID,
+  name: Skill.Name,
+  content: Schema.String,
+  start: Schema.Number,
+  end: Schema.Number,
+})
+export const PromptReference = Schema.Union([PromptFileReference, PromptSkillReference])
 export type PromptReference = typeof PromptReference.Type
 
 export const PromptDraft = Persistence.struct({
@@ -30,11 +40,12 @@ export const PromptDraft = Persistence.struct({
 })
 export type PromptDraft = typeof PromptDraft.Type
 
-// History uses the compact editor's text and inline attachment parts.
+// History retains text, selected skills, and inline attachments.
 export const PromptHistoryEntry = Persistence.struct({
   prompt: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        PromptSkillReference,
         Persistence.struct({
           type: Schema.Literal("text"),
           content: Schema.String,

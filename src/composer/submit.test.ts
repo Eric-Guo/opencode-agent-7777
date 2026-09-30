@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import type { SessionInfo, SessionPromptInput } from "@opencode/client/promise"
+import type { SessionCommandInput, SessionInfo, SessionPromptInput } from "@opencode/client/promise"
+import { Skill } from "@opencode/schema/skill"
 import { prompt } from "./persistence-singleton"
 import { abortPrompt, submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
@@ -30,13 +31,18 @@ function draft() {
   }
 }
 
-function client(input: { configure?: () => Promise<unknown>; send: (value: unknown) => Promise<unknown> }) {
+function client(input: {
+  configure?: () => Promise<unknown>
+  send: (value: unknown) => Promise<unknown>
+  command?: (value: SessionCommandInput) => Promise<unknown>
+}) {
   return {
     session: {
       switchAgent: input.configure ?? (() => Promise.resolve()),
       switchModel: input.configure ?? (() => Promise.resolve()),
       revert: { clear: () => Promise.resolve() },
       prompt: input.send,
+      command: input.command,
     },
   } as unknown as OpencodeClient
 }
@@ -72,6 +78,125 @@ afterEach(() => {
 })
 
 describe("composer submission", () => {
+  test.each(["steer", "queue"] as const)(
+    "dispatches %s slash commands with arguments and skill references",
+    async (delivery) => {
+      const commands: SessionCommandInput[] = []
+      const configured: unknown[] = []
+      const prompts: unknown[] = []
+      prompt.restore({
+        prompt: "/review @review this",
+        attachments: [],
+        references: [
+          {
+            type: "skill",
+            id: Skill.ID.make("review"),
+            name: Skill.Name.make("Review"),
+            content: "@review",
+            start: 8,
+            end: 15,
+          },
+        ],
+      })
+      setSessionClient(
+        client({
+          configure: async () => {
+            configured.push("configure")
+          },
+          send: async (value) => {
+            prompts.push(value)
+          },
+          command: async (value) => {
+            commands.push(value)
+          },
+        }),
+      )
+      await submitPrompt({ delivery, command: "review" })
+      expect(commands).toEqual([
+        {
+          sessionID: "session",
+          name: "review",
+          text: "@review this",
+          files: [],
+          delivery,
+          skills: [{ id: "review", mention: { text: "@review", start: 0, end: 7 } }],
+        },
+      ])
+      expect(prompts).toEqual([])
+      expect(configured).toHaveLength(delivery === "steer" ? 1 : 0)
+      expect(prompt.dirty()).toBe(false)
+      expect(state.sessionMessages).toEqual([])
+      expect(composerHistory.entries("normal")[0]?.prompt).toEqual([
+        { type: "text", content: "/review ", start: 0, end: 8 },
+        {
+          type: "skill",
+          id: Skill.ID.make("review"),
+          name: Skill.Name.make("Review"),
+          content: "@review",
+          start: 8,
+          end: 15,
+        },
+        { type: "text", content: " this", start: 15, end: 20 },
+      ])
+    },
+  )
+
+  test("submits an argument-free command and restores the original draft if it fails", async () => {
+    prompt.restore({ prompt: "/review", attachments: [] })
+    const requests: SessionCommandInput[] = []
+    setSessionClient(
+      client({
+        send: async () => {
+          throw new Error("Unexpected prompt")
+        },
+        command: async (value) => {
+          requests.push(value)
+          throw new Error("Command failed")
+        },
+      }),
+    )
+    await submitPrompt({ command: "review" })
+    expect(requests).toEqual([{ sessionID: "session", name: "review", text: "", files: [], delivery: "steer" }])
+    expect(prompt.capture()).toEqual({ prompt: "/review", attachments: [] })
+    expect(state.error).toContain("Command failed")
+    expect(state.sessionStatus).toEqual({ type: "idle" })
+  })
+
+  test("ordinary prompts send selected skills and restore them after rejection", async () => {
+    const requests: SessionPromptInput[] = []
+    prompt.restore({
+      prompt: "Use @review here",
+      attachments: [],
+      references: [
+        {
+          type: "skill",
+          id: Skill.ID.make("review"),
+          name: Skill.Name.make("Review"),
+          content: "@review",
+          start: 4,
+          end: 11,
+        },
+      ],
+    })
+    setSessionClient(
+      client({
+        send: async (value) => {
+          requests.push(value as SessionPromptInput)
+          throw new Error("Rejected")
+        },
+      }),
+    )
+    await submitPrompt()
+    expect(requests[0]?.skills).toEqual([{ id: "review", mention: { text: "@review", start: 4, end: 11 } }])
+    expect(prompt.store[0].prompt[1]).toEqual({
+      type: "skill",
+      id: Skill.ID.make("review"),
+      name: Skill.Name.make("Review"),
+      content: "@review",
+      start: 4,
+      end: 11,
+    })
+  })
   test.each(["steer", "queue"] as const)(
     "records accepted %s prompts with their original attachments",
     async (delivery) => {

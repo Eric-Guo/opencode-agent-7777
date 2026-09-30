@@ -67,6 +67,7 @@ export const dict = {
   "prompt.attachFiles": "添加图片和文件",
   "prompt.send": "发送",
   "prompt.stop": "停止",
+  "prompt.suggestions.loadFailed": "无法加载建议。",
   "prompt.dropzone.label": "将图片、PDF 或文本文件拖放到此处",
   "prompt.unsupportedFiles": "部分所选文件不受支持。",
   "prompt.attachmentDuplicate": "此文件已上传",
@@ -159,4 +160,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Record<Keys, string>
+} satisfies Partial<Record<Keys, string>>

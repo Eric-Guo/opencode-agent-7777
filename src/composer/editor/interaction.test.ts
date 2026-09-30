@@ -1,9 +1,61 @@
 import { describe, expect, mock, test } from "bun:test"
 import { createStore } from "solid-js/store"
 import { renderToString } from "solid-js/web"
+import { Skill } from "@opencode/schema/skill"
 import type { ComposerPersistedState } from "../types"
 import { createComposerEditor, shouldHandlePasteAsAttachment } from "./interaction"
 import { createComposerHistory } from "../history/store"
+
+test("selecting a command from the add menu preserves selected skills and their shifted offsets", () => {
+  const previous = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame")
+  Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: () => 1 })
+  try {
+    renderToString(() => {
+      const store = createStore<ComposerPersistedState>({
+        prompt: [
+          {
+            type: "skill",
+            id: Skill.ID.make("review"),
+            name: Skill.Name.make("Review"),
+            content: "@review",
+            start: 0,
+            end: 7,
+          },
+          { type: "text", content: " this", start: 7, end: 12 },
+        ],
+        cursor: 12,
+        context: { items: [] },
+      })
+      const editor = createComposerEditor({
+        store,
+        commands: () => [],
+        context: () => [],
+        searchContextFiles: () => [],
+        view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+      })
+      editor.openCommands()
+      expect(editor.state.popover.type).toBe("command-menu")
+      editor.dispatch({ type: "popover.select", item: { id: "custom.review", kind: "command", label: "/review" } })
+      expect(store[0].prompt).toEqual([
+        { type: "text", content: "/review ", start: 0, end: 8 },
+        {
+          type: "skill",
+          id: Skill.ID.make("review"),
+          name: Skill.Name.make("Review"),
+          content: "@review",
+          start: 8,
+          end: 15,
+        },
+        { type: "text", content: " this", start: 15, end: 20 },
+      ])
+      return ""
+    })
+  } finally {
+    if (previous) Object.defineProperty(globalThis, "requestAnimationFrame", previous)
+    else
+      delete (globalThis as { requestAnimationFrame?: typeof globalThis.requestAnimationFrame }).requestAnimationFrame
+  }
+})
 
 describe("composer submission admission", () => {
   test("preserves the draft while submission is unavailable and still allows interruption", () => {

@@ -20,7 +20,7 @@ export type ComposerAdapter = {
   submitting: Accessor<boolean>
   placeholder: Accessor<string>
   onAttachmentError: (message: string) => void
-  submit: (options?: { delivery?: ComposerDelivery }) => void
+  submit: (options?: { delivery?: ComposerDelivery; command?: string }) => void
   interrupt: () => void
 }
 

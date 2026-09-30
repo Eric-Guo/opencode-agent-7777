@@ -63,6 +63,7 @@ export const dict = {
   "prompt.attachFiles": "Add images and files",
   "prompt.send": "Send",
   "prompt.stop": "Stop",
+  "prompt.suggestions.loadFailed": "Could not load suggestions.",
   "prompt.dropzone.label": "Drop images, PDFs, or text files here",
   "prompt.unsupportedFiles": "Some selected files are not supported.",
   "prompt.attachmentDuplicate": "This file has already been uploaded",

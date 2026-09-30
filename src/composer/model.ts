@@ -1,23 +1,76 @@
 import { useDialog } from "@opencode/ui/context/dialog"
-import { createEffect } from "solid-js"
+import { Skill } from "@opencode/schema/skill"
+import { createEffect, createMemo, onCleanup } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
+import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
+import { state } from "@/runtime/server/session-store-compact"
+import { sessionDirectory } from "@/session/directory"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
+import { createComposerCatalog } from "./catalog-compact"
+import { parseSlashCommand } from "./client-slash-command"
 import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 import { composerHistory } from "./history/store"
+import type { ComposerSuggestion } from "./types"
 
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
   readonly agent: string
   disabled: ComposerAdapter["disabled"]
+  suggestionStatus: () => "loading" | "ready" | "failed"
 }
 
 export function createComposerModel(adapter: ComposerAdapter, options?: { queue?: ComposerQueue }): ComposerModel {
   const language = useLanguage()
   const dialog = useDialog()
   const platform = createPlatformAttachments()
+  const catalog = createComposerCatalog()
+  const location = createMemo(
+    () => {
+      const server = state.server
+      const directory = state.session ? sessionDirectory(state.session) : undefined
+      return server && directory ? { server, directory } : undefined
+    },
+    undefined,
+    { equals: (left, right) => left?.server === right?.server && left?.directory === right?.directory },
+  )
+  createEffect(() => {
+    const active = location()
+    if (!active) {
+      catalog.clear()
+      return
+    }
+    void catalog.load(createDirectorySdk(active.server, active.directory).client, active.directory)
+  })
+  onCleanup(catalog.clear)
+  const slashCommands = createMemo<ComposerSuggestion[]>(() =>
+    catalog.state.commands.map((command) => ({
+      id: `custom.${command.name}`,
+      kind: "command",
+      label: `/${command.name}`,
+      trigger: command.name,
+      title: command.name,
+      description: command.description,
+    })),
+  )
+  const context = createMemo<ComposerSuggestion[]>(() =>
+    catalog.state.skills.map((skill) => ({
+      id: `skill:${skill.id}`,
+      kind: "skill",
+      label: `@${skill.id}`,
+      description: skill.description,
+      mention: {
+        type: "skill",
+        id: Skill.ID.make(skill.id),
+        name: Skill.Name.make(skill.name),
+        content: `@${skill.id}`,
+        start: 0,
+        end: 0,
+      },
+    })),
+  )
   const commands = useComposerCommands({
     model: () => adapter.controls().model.selection,
     disabled: () => adapter.disabled() || adapter.controls().model.status !== "ready" || !!dialog.active,
@@ -29,12 +82,12 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     onChange: adapter.state.persist,
     history: composerHistory,
     capabilities: {
-      commands: false,
-      context: false,
+      commands: true,
+      context: true,
       shell: false,
     },
-    commands: () => [],
-    context: () => [],
+    commands: slashCommands,
+    context,
     searchContextFiles: () => [],
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
@@ -80,8 +133,14 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
             return
           }
           const queue = options?.queue
+          const parsed = parseSlashCommand(adapter.state.current().trim())
+          const command = catalog.state.commands.find((item) => item.name === parsed?.name)?.name
+          if (parsed && catalog.state.commandStatus === "loading") return
           controller.resetHistory()
-          adapter.submit({ delivery: (submitOptions?.alternate ? queue?.alternate() : queue?.delivery()) ?? "steer" })
+          adapter.submit({
+            delivery: (submitOptions?.alternate ? queue?.alternate() : queue?.delivery()) ?? "steer",
+            ...(command ? { command } : {}),
+          })
         },
         onStop: adapter.interrupt,
       },
@@ -102,5 +161,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       return adapter.controls().agent
     },
     disabled: adapter.disabled,
+    suggestionStatus: () =>
+      controller.state.popover.type === "context" ? catalog.state.skillStatus : catalog.state.commandStatus,
   }
 }

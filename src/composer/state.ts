@@ -1,6 +1,6 @@
 import { batch } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
-import type { ComposerAttachment, ComposerFilePart, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
+import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
 import type { PromptAttachment, PromptDraft, PromptReference } from "./schema"
 
@@ -32,23 +32,22 @@ function promptState(draft?: PromptDraft): ComposerPersistedState {
   for (const reference of references) {
     if (
       reference.start < position ||
+      !Number.isInteger(reference.start) ||
+      !Number.isInteger(reference.end) ||
       reference.end <= reference.start ||
       reference.end > text.length ||
       text.slice(reference.start, reference.end) !== reference.content
     )
       continue
     if (reference.start > position) {
-      prompt.push({ type: "text", content: text.slice(position, reference.start), start: position, end: reference.start })
+      prompt.push({
+        type: "text",
+        content: text.slice(position, reference.start),
+        start: position,
+        end: reference.start,
+      })
     }
-    const part: ComposerFilePart = {
-      type: "file",
-      path: reference.path,
-      content: reference.content,
-      start: reference.start,
-      end: reference.end,
-    }
-    if (reference.url !== undefined) part.url = reference.url
-    prompt.push(part)
+    prompt.push({ ...reference })
     position = reference.end
   }
   if (position < text.length || prompt.length === 0) {
@@ -97,7 +96,8 @@ function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
 }
 
 function promptReferences(prompt: ComposerPrompt): PromptReference[] {
-  return prompt.flatMap((part) => {
+  return prompt.flatMap<PromptReference>((part) => {
+    if (part.type === "skill") return [{ ...part }]
     if (part.type !== "file") return []
     const reference: PromptReference = {
       type: "file",

@@ -166,6 +166,11 @@ export function createComposerEditor(input: {
       draft.addText(command.value)
       return
     }
+    if (command.type === "draft.prependText") {
+      draft.setCursor(0)
+      draft.addText(command.value)
+      return
+    }
     if (command.type === "mention.add") {
       if (command.item.mention) draft.addMention(command.item.mention, command.range)
       return
@@ -179,7 +184,11 @@ export function createComposerEditor(input: {
       if (item) dispatch({ type: "popover.select", item })
       return
     }
-    if (command.type === "focus.editor") requestAnimationFrame(() => editor?.focus())
+    if (command.type === "focus.editor")
+      requestAnimationFrame(() => {
+        editor?.focus()
+        setCursorPosition(editor, draft.state.cursor ?? promptLength(draft.state.prompt))
+      })
   }
 
   function dispatch(event: ComposerInteractionEvent) {

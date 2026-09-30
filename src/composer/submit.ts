@@ -19,12 +19,13 @@ import { clonePrompt } from "./prompt-parts"
 
 // Compact single-session submit orchestration for the shared composer boundary.
 
-export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
+export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: string }) {
   const active = currentSession()
   const submission = createComposerSubmission({ target: prompt })
   const attachments = submission.prompt.attachments
-  const request = buildPromptRequest(submission.prompt)
-  if (!active || state.submitting || (!request.text && attachments.length === 0)) return
+  const command = options?.command
+  const request = buildPromptRequest({ ...submission.prompt, command })
+  if (!active || state.submitting || (!command && !request.text && attachments.length === 0)) return
   const historyPrompt = clonePrompt(prompt.store[0].prompt)
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
@@ -45,7 +46,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
   if (state.session?.revert) {
     setState("session", (session) => (session ? { ...session, revert: undefined } : session))
   }
-  if (delivery === "steer")
+  if (delivery === "steer" && !command)
     echoPendingUserMessage({
       id: messageID,
       type: "user",
@@ -77,19 +78,31 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery }) {
   ]
 
   return Promise.all(configure)
-    .then(() =>
-      active.client.session.prompt({
+    .then(() => {
+      if (command)
+        return active.client.session
+          .command({
+            sessionID: active.sessionID,
+            name: command,
+            text: request.text,
+            files: request.files,
+            ...(request.skills ? { skills: request.skills } : {}),
+            delivery,
+          })
+          .then(() => undefined)
+      return active.client.session.prompt({
         sessionID: active.sessionID,
         id: messageID,
         text: request.text,
         files: request.files,
+        ...(request.skills ? { skills: request.skills } : {}),
         delivery,
         metadata: {
           agent: active.localAgent,
           ...(model ? { model } : {}),
         },
-      }),
-    )
+      })
+    })
     .then((admitted) => {
       composerHistory.add(historyPrompt, "normal")
       if (state.session?.id !== active.sessionID) return

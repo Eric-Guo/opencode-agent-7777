@@ -35,10 +35,16 @@ export function Composer(props: { model: ComposerModel }) {
       class="mx-auto max-w-[1120px]"
       alternateKeybind={[IS_MAC ? "⌘" : language.t("common.key.ctrl"), "↵"]}
       labels={{
+        empty:
+          props.model.suggestionStatus() === "loading"
+            ? language.t("common.loading")
+            : props.model.suggestionStatus() === "failed"
+              ? language.t("prompt.suggestions.loadFailed")
+              : language.t("ui.promptInput.noMatchingItems"),
         dropFiles: language.t("prompt.dropzone.label"),
         removeAttachment: language.t("prompt.removeAttachment.generic"),
         prompt: language.t("prompt.message.aria"),
-        add: language.t("prompt.attachFiles"),
+        add: language.t("ui.promptInput.add"),
         attach: language.t("prompt.attachFiles"),
         chooseModel: language.t("model.aria"),
         send: language.t("prompt.send"),

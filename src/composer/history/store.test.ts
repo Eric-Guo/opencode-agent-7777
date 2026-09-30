@@ -1,11 +1,43 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
 import { createStore, produce } from "solid-js/store"
+import { Skill } from "@opencode/schema/skill"
 import type { ComposerHistoryEntry, ComposerPrompt } from "../types"
 import { createComposerHistory, PROMPT_HISTORY_KEY } from "./store"
 
 const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
 const text = (content: string): ComposerPrompt => [{ type: "text", content, start: 0, end: content.length }]
+
+test("recalls skill mentions as structured parts after reloading history", () => {
+  const history = createComposerHistory()
+  history.add(
+    [
+      {
+        type: "skill",
+        id: Skill.ID.make("review"),
+        name: Skill.Name.make("Review"),
+        content: "@review",
+        start: 0,
+        end: 7,
+      },
+      { type: "text", content: " this", start: 7, end: 12 },
+    ],
+    "normal",
+  )
+  expect(createComposerHistory().entries("normal")[0]).toEqual({
+    prompt: [
+      {
+        type: "skill",
+        id: Skill.ID.make("review"),
+        name: Skill.Name.make("Review"),
+        content: "@review",
+        start: 0,
+        end: 7,
+      },
+      { type: "text", content: " this", start: 7, end: 12 },
+    ],
+  })
+})
 
 beforeEach(() => {
   saved.clear()

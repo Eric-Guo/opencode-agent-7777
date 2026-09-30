@@ -1,7 +1,35 @@
 import { describe, expect, test } from "bun:test"
+import { Skill } from "@opencode/schema/skill"
 import { buildPromptRequest } from "./request"
 
 describe("buildPromptRequest", () => {
+  test.each([undefined, "review"])(
+    "keeps skill mention offsets correct after trimming and removing command %s",
+    (command) => {
+      const prefix = command ? "  /review \n " : "  "
+      expect(
+        buildPromptRequest({
+          prompt: `${prefix}Use @plugin/review here  `,
+          attachments: [],
+          command,
+          references: [
+            {
+              type: "skill",
+              id: Skill.ID.make("plugin/review"),
+              name: Skill.Name.make("Review"),
+              content: "@plugin/review",
+              start: prefix.length + 4,
+              end: prefix.length + 18,
+            },
+          ],
+        }),
+      ).toEqual({
+        text: "Use @plugin/review here",
+        files: [],
+        skills: [{ id: Skill.ID.make("plugin/review"), mention: { text: "@plugin/review", start: 4, end: 18 } }],
+      })
+    },
+  )
   test("trims text and preserves attachment order", () => {
     expect(
       buildPromptRequest({

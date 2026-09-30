@@ -172,7 +172,13 @@ Model preference recovery remains separate from catalog and visibility operation
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
-prompts with agent/skill references or hidden file context stay queued because the compact draft cannot retain them.
+prompts with agent/skill references or hidden file context stay queued because compact queue undo does not reconstruct
+that context.
+
+Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
+`composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` loads server commands
+and skills for the active directory without the main app's reactive data provider. Skill mentions persist in drafts
+and accepted-prompt history; app command-provider actions and file/agent suggestion catalogs remain unavailable.
 
 ## Recent Sessions
 
@@ -195,6 +201,12 @@ history remains bounded to nine dialogs. Failed requests preserve the current dr
 previous session activation cannot overwrite the current session or its draft.
 
 ## Composer History and Follow-ups
+
+Type **/** at the start of a prompt to search the active directory's server commands, or **@** to search its skills.
+Use **Arrow Up/Down** to choose a result, **Tab** or **Enter** to insert it, and **Escape** to dismiss the menu.
+The **+** menu also offers Commands and Context. Selected skills stay attached when editing, reloading, or recalling
+an accepted prompt. Sending a recognized `/command` invokes the server command with the remaining text as arguments;
+unrecognized command text is sent as an ordinary prompt.
 
 With the message editor focused and its text empty, press **Arrow Up** to recall the latest accepted prompt.
 At the start or end of a recalled prompt, **Arrow Up** and **Arrow Down** move through history; moving past the newest

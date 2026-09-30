@@ -35,6 +35,7 @@ export type ComposerInteractionEvent =
 export type ComposerInteractionCommand =
   | { type: "draft.setText"; value: string }
   | { type: "draft.addText"; value: string }
+  | { type: "draft.prependText"; value: string }
   | { type: "mention.add"; item: ComposerSuggestion; range?: { start: number; end: number } }
   | { type: "popover.filter"; popover: "command" | "context"; query: string }
   | { type: "suggestion.select"; id: string }
@@ -177,15 +178,11 @@ function suggestionSelected(
   const current = promptText(persisted)
   const commands: ComposerInteractionCommand[] = []
   if (item.kind === "command") {
-    commands.push({
-      type: "draft.setText",
-      value:
-        state.popover.type === "command-menu"
-          ? current.trim()
-            ? `${item.label} ${current.trim()}`
-            : `${item.label} `
-          : replaceTrigger(current, "/", `${item.label} `),
-    })
+    commands.push(
+      state.popover.type === "command-menu"
+        ? { type: "draft.prependText", value: `${item.label} ` }
+        : { type: "draft.setText", value: replaceTrigger(current, "/", `${item.label} `) },
+    )
   } else {
     commands.push({
       type: "mention.add",
@@ -238,7 +235,7 @@ function keyDown(
 }
 
 function promptText(persisted: ComposerPersistedState) {
-  return persisted.prompt.map((part) => (part.type === "text" ? part.content : "")).join("")
+  return persisted.prompt.map((part) => ("content" in part ? part.content : "")).join("")
 }
 
 function populated(persisted: ComposerPersistedState) {

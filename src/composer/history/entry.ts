@@ -29,8 +29,26 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], prompt: Compo
   const content = prompt.map((part) => ("content" in part ? part.content : "")).join("")
   const attachments = prompt.filter((part) => part.type === "image")
   if (!content.trim() && !attachments.length) return entries
+  let offset = 0
+  let text = ""
+  const parts: PromptHistoryEntry["prompt"] = []
+  const flush = () => {
+    if (!text) return
+    parts.push({ type: "text", content: text, start: offset - text.length, end: offset })
+    text = ""
+  }
+  for (const part of prompt) {
+    if (part.type === "image") continue
+    if (part.type === "skill") {
+      flush()
+      parts.push({ ...part, start: offset, end: offset + part.content.length })
+    } else text += part.content
+    offset += part.content.length
+  }
+  flush()
+  if (!parts.length) parts.push({ type: "text", content: "", start: 0, end: 0 })
   const entry = cloneHistoryEntry({
-    prompt: [{ type: "text", content, start: 0, end: content.length }, ...attachments],
+    prompt: [...parts, ...attachments],
   })
   if (entries[0] && JSON.stringify(entries[0]) === JSON.stringify(entry)) return entries
   return limitHistoryEntries([entry, ...entries])

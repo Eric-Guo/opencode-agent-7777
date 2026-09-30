@@ -143,7 +143,7 @@ describe("Composer interaction machine", () => {
       persisted("existing text"),
     )
 
-    expect(selected.commands).toContainEqual({ type: "draft.setText", value: "/review existing text" })
+    expect(selected.commands).toContainEqual({ type: "draft.prependText", value: "/review " })
     expect(selected.state.popover).toEqual({ type: "closed" })
   })
 

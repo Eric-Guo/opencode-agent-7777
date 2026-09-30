@@ -1,4 +1,8 @@
 import { describe, expect, test } from "bun:test"
+import { Skill } from "@opencode/schema/skill"
+import { Schema } from "effect"
+import { produce } from "solid-js/store"
+import { PromptDraft } from "./schema"
 import { createPromptState, type PromptAttachment } from "./state"
 
 const attachment = (id: string): PromptAttachment => ({
@@ -9,6 +13,57 @@ const attachment = (id: string): PromptAttachment => ({
 })
 
 describe("prompt state", () => {
+  test("round-trips selected skills through persistence and isolates subsequent edits", () => {
+    const draft = {
+      prompt: "Use @plugin/review here",
+      attachments: [],
+      references: [
+        {
+          type: "skill" as const,
+          id: Skill.ID.make("plugin/review"),
+          name: Skill.Name.make("Review"),
+          content: "@plugin/review",
+          start: 4,
+          end: 18,
+        },
+      ],
+    }
+    const state = createPromptState(Schema.decodeUnknownSync(PromptDraft)(draft))
+    expect(state.store[0].prompt).toEqual([
+      { type: "text", content: "Use ", start: 0, end: 4 },
+      {
+        type: "skill",
+        id: Skill.ID.make("plugin/review"),
+        name: Skill.Name.make("Review"),
+        content: "@plugin/review",
+        start: 4,
+        end: 18,
+      },
+      { type: "text", content: " here", start: 18, end: 23 },
+    ])
+    const captured = state.capture()
+    state.store[1](
+      produce((value) => {
+        const skill = value.prompt[1]
+        if (skill.type !== "skill") throw new Error("Expected a skill")
+        skill.content = "changed"
+      }),
+    )
+    expect(captured.references).toEqual([
+      {
+        type: "skill",
+        id: Skill.ID.make("plugin/review"),
+        name: Skill.Name.make("Review"),
+        content: "@plugin/review",
+        start: 4,
+        end: 18,
+      },
+    ])
+    expect(draft.references[0].content).toBe("@plugin/review")
+    state.reset()
+    state.restore(captured)
+    expect(state.capture()).toEqual(captured)
+  })
   test("initializes and captures an isolated draft", () => {
     const initial = { prompt: "hello", attachments: [attachment("first")] }
     const state = createPromptState(initial)
