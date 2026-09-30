@@ -4,7 +4,7 @@ import { createRoot } from "solid-js"
 import { createFileTreeStore } from "./tree-store"
 import { normalizeWorkspacePath } from "./path"
 import { invalidateFromWatcher } from "./watcher"
-import { fileNodes } from "./model"
+import { fileNodes } from "./file-model"
 
 type WatcherEvent = Extract<OpenCodeEvent, { type: "filesystem.changed" }>
 const event = (file: string, change: WatcherEvent["data"]["event"], directory?: string): WatcherEvent => ({
