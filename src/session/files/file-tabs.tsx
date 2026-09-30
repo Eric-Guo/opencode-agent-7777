@@ -16,6 +16,7 @@ export function SessionFileView(props: {
 }) {
   const language = useLanguage()
   const [preview, setPreview] = createStore({ loading: true, text: "", url: "", mime: "", binary: false, error: "" })
+  let audio: HTMLAudioElement | undefined
   createEffect(() => {
     props.model.view.revision
     const client = props.model.client()
@@ -40,9 +41,11 @@ export function SessionFileView(props: {
               webp: "image/webp",
               svg: "image/svg+xml",
               pdf: "application/pdf",
+              mp3: "audio/mpeg",
             } as Record<string, string>
           )[extension] ?? ""
-        if (mime && bytes.length <= 25 * 1024 * 1024) {
+        // Meeting recordings can exceed the image/PDF preview size limit.
+        if (mime && (mime === "audio/mpeg" || bytes.length <= 25 * 1024 * 1024)) {
           url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mime }))
           setPreview({ loading: false, url, mime })
           return
@@ -55,6 +58,7 @@ export function SessionFileView(props: {
       })
     onCleanup(() => {
       abort.abort()
+      audio?.pause()
       if (url) URL.revokeObjectURL(url)
     })
   })
@@ -100,6 +104,19 @@ export function SessionFileView(props: {
           </Match>
           <Match when={preview.binary}>
             <div class="file-panel-status">{language.t("files.previewUnavailable")}</div>
+          </Match>
+          <Match when={preview.url && preview.mime === "audio/mpeg"}>
+            <div class="flex h-full items-center justify-center p-4">
+              <audio
+                ref={audio}
+                class="w-full max-w-xl"
+                controls
+                preload="metadata"
+                src={preview.url}
+                aria-label={props.path}
+                onError={() => setPreview({ error: language.t("files.audioPlaybackFailed") })}
+              />
+            </div>
           </Match>
           <Match when={preview.url}>
             <Show
