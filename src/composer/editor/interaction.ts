@@ -155,7 +155,12 @@ export function createComposerEditor(input: {
     filterKeys: ["trigger", "title"],
   })
   const list = () => (state.popover.type === "context" ? contextList : commandList)
-  const suggestions = () => list().flat()
+  // The shared list retains its previous results while fetching. Do not offer stale file paths
+  // for a different query/directory, including through keyboard selection, during that fetch.
+  const suggestions = () =>
+    list()
+      .flat()
+      .filter((item) => item.kind !== "file" || !list().grouped.loading)
 
   const execute = (command: ComposerInteractionCommand) => {
     if (command.type === "draft.setText") {

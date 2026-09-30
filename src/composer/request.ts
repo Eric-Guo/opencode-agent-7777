@@ -1,3 +1,4 @@
+import { getFilename } from "@opencode/util/path"
 import type { PromptAttachment, PromptReference } from "./schema"
 
 type PromptRequestFile = {
@@ -21,14 +22,14 @@ export function buildPromptRequest(input: {
     start: reference.start - offset,
     end: reference.end - offset,
   })
-  // Mentions restored from a queued prompt carry their file data; live editor mentions have none.
+  // Selected files carry absolute server URIs; restored queue mentions may carry inline file data.
   const mentions: PromptRequestFile[] = (input.references ?? []).flatMap((reference) =>
     reference.type !== "file" || reference.url === undefined
       ? []
       : [
           {
             uri: reference.url,
-            name: reference.path.split(/[\\/]/).pop() ?? reference.path,
+            name: getFilename(reference.path),
             mention: mention(reference),
           },
         ],

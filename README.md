@@ -177,8 +177,10 @@ that context.
 
 Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
 `composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` loads server commands
-and skills for the active directory without the main app's reactive data provider. Skill mentions persist in drafts
-and accepted-prompt history; app command-provider actions and file/agent suggestion catalogs remain unavailable.
+and skills for the active directory without the main app's reactive data provider. File search follows the main app's
+`workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller and URI
+helpers. It searches files and directories without file tabs or a workspace provider. File and skill mentions persist
+in drafts and accepted-prompt history; app command-provider actions and agent suggestion catalogs remain unavailable.
 
 ## Recent Sessions
 
@@ -203,6 +205,10 @@ previous session activation cannot overwrite the current session or its draft.
 ## Composer History and Follow-ups
 
 Type **/** at the start of a prompt to search the active directory's server commands, or **@** to search its skills.
+Type a filename or path after **@** to also search files and directories in the active session directory (up to 50
+results). File search cancels superseded requests and hides stale file results while the next query loads. Selected
+files stay attached through edits, reloads, and prompt recall, retaining their original absolute server URI when
+switching sessions. Sending includes their mention ranges and lets the server resolve the file or directory.
 Use **Arrow Up/Down** to choose a result, **Tab** or **Enter** to insert it, and **Escape** to dismiss the menu.
 The **+** menu also offers Commands and Context. Selected skills stay attached when editing, reloading, or recalling
 an accepted prompt. Sending a recognized `/command` invokes the server command with the remaining text as arguments;
@@ -216,7 +222,8 @@ composition keep their normal editing behavior.
 History is shared across sessions in this browser and survives reloads. Only prompts accepted by the server are
 recorded. The latest 100 entries share a one-million-character JSON budget (about 2 MB of localStorage); entries that
 do not fit, including oversized inline attachments, are skipped. If storage is unavailable, history remains usable
-in memory. Recalled prompts preserve inline attachments and can be edited without changing the saved entry.
+in memory. Recalled prompts preserve file and skill mentions and inline attachments, and can be edited without changing
+the saved entry.
 
 Use the header's **Follow-up behavior** menu to choose **Steer** (the default) or **Queue** while a turn is running.
 **Enter** uses that preference and **Cmd+Enter** on macOS, or **Ctrl+Enter** elsewhere, uses the opposite delivery.

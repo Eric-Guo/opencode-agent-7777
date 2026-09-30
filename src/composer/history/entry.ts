@@ -39,7 +39,7 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], prompt: Compo
   }
   for (const part of prompt) {
     if (part.type === "image") continue
-    if (part.type === "skill") {
+    if (part.type === "skill" || part.type === "file") {
       flush()
       parts.push({ ...part, start: offset, end: offset + part.content.length })
     } else text += part.content

@@ -13,7 +13,7 @@ export const PromptAttachment = Persistence.struct({
 })
 export type PromptAttachment = typeof PromptAttachment.Type
 
-// File mentions persist as overlay ranges into the prompt text; url carries inline file data.
+// File mentions persist as overlay ranges; url retains inline data or an absolute server file URI.
 const PromptFileReference = Persistence.struct({
   type: Schema.Literal("file"),
   path: Schema.String,
@@ -40,11 +40,12 @@ export const PromptDraft = Persistence.struct({
 })
 export type PromptDraft = typeof PromptDraft.Type
 
-// History retains text, selected skills, and inline attachments.
+// History retains text, selected files/skills, and inline attachments.
 export const PromptHistoryEntry = Persistence.struct({
   prompt: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        PromptFileReference,
         PromptSkillReference,
         Persistence.struct({
           type: Schema.Literal("text"),

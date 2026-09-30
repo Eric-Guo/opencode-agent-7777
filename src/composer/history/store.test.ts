@@ -85,6 +85,40 @@ test("round-trips text and attachments and isolates restored editor stores", () 
   expect(restored.entries("shell")).toEqual([])
 })
 
+test("file mentions retain their original server URI through history reload and independent draft edits", () => {
+  const history = createComposerHistory()
+  history.add(
+    [{ type: "file", path: "README.md", url: "file:///original/README.md", content: "@README.md", start: 0, end: 10 }],
+    "normal",
+  )
+  const restored = createComposerHistory()
+  const [draft, setDraft] = createStore<ComposerHistoryEntry>(restored.entries("normal")[0])
+  setDraft(
+    produce((state) => {
+      const file = state.prompt[0]
+      if (file.type !== "file") throw new Error("Expected file mention")
+      file.url = "file:///edited/README.md"
+    }),
+  )
+  expect(draft.prompt[0]).toMatchObject({ url: "file:///edited/README.md" })
+  const expected: ComposerHistoryEntry[] = [
+    {
+      prompt: [
+        {
+          type: "file",
+          path: "README.md",
+          url: "file:///original/README.md",
+          content: "@README.md",
+          start: 0,
+          end: 10,
+        },
+      ],
+    },
+  ]
+  expect(restored.entries("normal")).toEqual(expected)
+  expect(createComposerHistory().entries("normal")).toEqual(expected)
+})
+
 test("recovers valid entries around corrupt persisted values without partial attachments", () => {
   saved.set(
     PROMPT_HISTORY_KEY,

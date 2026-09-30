@@ -7,6 +7,8 @@ import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
+import { createFileSearch } from "@/workspaces/files/model"
+import { fileUrl } from "@/workspaces/files/path"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { createComposerCatalog } from "./catalog-compact"
 import { parseSlashCommand } from "./client-slash-command"
@@ -36,6 +38,12 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     undefined,
     { equals: (left, right) => left?.server === right?.server && left?.directory === right?.directory },
   )
+  const files = createFileSearch(() => {
+    const active = location()
+    return active
+      ? { client: createDirectorySdk(active.server, active.directory).client, directory: active.directory }
+      : undefined
+  })
   createEffect(() => {
     const active = location()
     if (!active) {
@@ -45,6 +53,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     void catalog.load(createDirectorySdk(active.server, active.directory).client, active.directory)
   })
   onCleanup(catalog.clear)
+  onCleanup(files.clear)
   const slashCommands = createMemo<ComposerSuggestion[]>(() =>
     catalog.state.commands.map((command) => ({
       id: `custom.${command.name}`,
@@ -88,7 +97,18 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     },
     commands: slashCommands,
     context,
-    searchContextFiles: () => [],
+    searchContextFiles: async (query) => {
+      const active = location()
+      if (!active) return []
+      return (await files.searchFilesAndDirectories(query)).map((path) => ({
+        id: `file:${path}`,
+        kind: "file",
+        label: path,
+        path,
+        // Pin the original directory so the single draft and cross-session history keep the selected file.
+        mention: { type: "file", path, url: fileUrl(active.directory, path), content: `@${path}`, start: 0, end: 0 },
+      }))
+    },
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
       picker: platform.openAttachmentPickerDialog,
@@ -161,7 +181,12 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       return adapter.controls().agent
     },
     disabled: adapter.disabled,
-    suggestionStatus: () =>
-      controller.state.popover.type === "context" ? catalog.state.skillStatus : catalog.state.commandStatus,
+    suggestionStatus: () => {
+      const popover = controller.state.popover
+      if (popover.type !== "context") return catalog.state.commandStatus
+      const statuses = [catalog.state.skillStatus, ...(popover.query.trim() ? [files.state.status] : [])]
+      if (statuses.includes("loading")) return "loading"
+      return statuses.includes("failed") ? "failed" : "ready"
+    },
   }
 }
