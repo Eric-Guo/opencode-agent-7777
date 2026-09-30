@@ -59,6 +59,7 @@ export const dict = {
   "files.back": "返回对话",
   "files.previewUnavailable": "此文件无法预览。",
   "files.loadFailed": "无法加载文件",
+  "files.audioPlaybackFailed": "无法播放此音频文件。",
   "files.reveal": "在文件管理器中显示",
   "files.openDefault": "用默认应用打开",
   "files.openMenu": "打开文件菜单",

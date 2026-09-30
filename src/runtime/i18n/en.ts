@@ -57,6 +57,7 @@ export const dict = {
   "files.back": "Back to conversation",
   "files.previewUnavailable": "Preview is not available for this file.",
   "files.loadFailed": "Could not load file",
+  "files.audioPlaybackFailed": "Could not play this audio file.",
   "files.reveal": "Reveal in file manager",
   "files.openDefault": "Open in default app",
   "files.openMenu": "Open file menu",
