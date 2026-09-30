@@ -214,9 +214,9 @@ helpers. It searches files and directories without file tabs or a workspace prov
 in drafts and accepted-prompt history; app command-provider actions and agent suggestion catalogs remain unavailable.
 
 File browsing follows the main app's `session/files/{file-tree-v2,file-tree-v2-model,open-in-app,
-open-in-app-button,open-in-app-path,file-tabs,file-tab-scroll,tab,session-side-panel}` and `workspaces/files/{model,tree-store,path,watcher}`
+open-in-app-button,open-in-app-path,file-tabs,file-tab-scroll,tab,session-side-panel}` and `workspaces/files/{file-model,tree-store,path,watcher}`
 boundaries, using package-local implementations and the shared UI tree styles. The compact file model uses
-`model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
+`file-model.ts` because it receives the active workspace directly instead of rendering a context provider. The compact app intentionally
 places the tree left of both the conversation and composer. File tab transitions follow
 `shell/state/session-tabs.ts`, with local preview, open, close, and move operations. The local `tab.tsx` uses the
 main app's `SortableTab` boundary and the same declared `@dnd-kit` dependencies. The tab strip, selection,
