@@ -17,13 +17,9 @@ import { createClientForServer, type OpencodeClient } from "@/runtime/server/cli
 import { state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { readFileTreeWidth, writeFileTreeWidth } from "@/runtime/persistence/settings-storage-compact"
-import {
-  closeSessionTab,
-  moveSessionTab,
-  openSessionTab,
-  previewSessionTab,
-  type SessionTabState,
-} from "@/shell/state/session-tabs"
+import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { createSessionLayout } from "@/shell/state/layout"
+import type { SessionTabState } from "@/shell/state/session-tabs"
 import FileTreeV2 from "./file-tree-v2"
 import { useOpenInApp } from "./open-in-app"
 import { OpenInAppButton } from "./open-in-app-button"
@@ -45,8 +41,34 @@ export type SessionFiles = {
 }
 
 export function createSessionFiles(): SessionFiles {
-  const [view, setView] = createStore<SessionFiles["view"]>({ tabs: { all: [] }, error: "", revision: 0 })
+  const [status, setStatus] = createStore({ error: "", revision: 0 })
   const directory = () => state.session?.location.directory ?? ""
+  const layout = createSessionLayout()
+  const tabs = createMemo(() =>
+    layout.tabs(
+      state.server
+        ? {
+            server: state.server.url,
+            directory: directory(),
+            storageKey: (state.server.storageKeys ?? AGENT_DEFAULT_CONFIG.storageKeys).sessionID,
+          }
+        : undefined,
+    ),
+  )
+  const view: SessionFiles["view"] = {
+    get tabs() {
+      return tabs().state.tabs
+    },
+    get preview() {
+      return tabs().state.preview
+    },
+    get error() {
+      return status.error
+    },
+    get revision() {
+      return status.revision
+    },
+  }
   const client = createMemo<OpencodeClient | undefined>(() =>
     state.server ? createClientForServer({ server: state.server }) : undefined,
   )
@@ -54,33 +76,33 @@ export function createSessionFiles(): SessionFiles {
     directory,
     client,
     events: sessionEvents,
-    onError: (error) => setView("error", error),
+    onError: (error) => setStatus("error", error),
     onChange: (path) => {
       const active = view.tabs.active
-      if (!path || active === path || active?.startsWith(path + "/")) setView("revision", (value) => value + 1)
+      if (!path || active === path || active?.startsWith(path + "/")) setStatus("revision", (value) => value + 1)
     },
   })
-  const openIn = useOpenInApp({ serverUrl: () => state.server?.url ?? "", onError: (error) => setView("error", error) })
+  const openIn = useOpenInApp({
+    serverUrl: () => state.server?.url ?? "",
+    onError: (error) => setStatus("error", error),
+  })
   createEffect(() => {
     directory()
     client()
-    setView({ tabs: { all: [], active: undefined }, preview: undefined, error: "" })
+    setStatus("error", "")
   })
   return {
     file,
     client,
     openIn,
     view,
-    select: (path?: string) => {
-      if (path && !view.tabs.all.includes(path)) return
-      setView("tabs", "active", path)
-    },
-    preview: (path) => setView(previewSessionTab(view, path)),
-    open: (path) => setView(openSessionTab(view, path)),
-    close: (path) => setView(closeSessionTab(view, path)),
-    move: (path, to) => setView(moveSessionTab(view, path, to)),
+    select: (path) => tabs().select(path),
+    preview: (path) => tabs().preview(path),
+    open: (path) => tabs().open(path),
+    close: (path) => tabs().close(path),
+    move: (path, to) => tabs().move(path, to),
     refresh: () => {
-      setView("error", "")
+      setStatus("error", "")
       return file.tree.refresh()
     },
   }
