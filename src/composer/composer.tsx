@@ -1,10 +1,8 @@
-import { useDialog } from "@opencode/ui/context/dialog"
 import { ProviderIcon } from "@opencode/ui/provider-icon"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { createMemo, Show } from "solid-js"
-import { DialogManageModelsV2 } from "@/providers/models/manage"
-import { ModelSelectorPopoverV2 } from "@/providers/models/select-dialog"
+import { ModelSelectorPopover } from "@/providers/models/select-dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { ComposerEditor } from "./editor/editor"
 import type { ComposerModel } from "./model"
@@ -13,7 +11,6 @@ const IS_MAC = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(na
 
 export function Composer(props: { model: ComposerModel }) {
   const language = useLanguage()
-  const dialog = useDialog()
   const selectedModel = createMemo(() => props.model.model.selection.current())
   const modelName = createMemo(() => {
     if (props.model.model.status === "loading") return language.t("model.loading")
@@ -57,29 +54,30 @@ export function Composer(props: { model: ComposerModel }) {
       }
       modelControl={
         <Show when={props.model.model.status !== "loading"}>
-          <ModelSelectorPopoverV2
+          <ModelSelectorPopover
             model={props.model.model.selection}
-            triggerAs={Button}
-            triggerProps={{
-              variant: "ghost-muted",
-              size: "normal",
-              disabled: modelDisabled(),
-              class: "min-w-0 max-w-[220px] justify-start ![font-weight:440] group",
-              "data-action": "prompt-model",
-              "aria-label": language.t("model.aria"),
-              "aria-keyshortcuts": "F2 Shift+F2",
-              title: language.t("model.cycle.hint"),
-            }}
-            onManage={() => dialog.show(() => <DialogManageModelsV2 model={props.model.model.selection} />)}
-          >
-            <Show when={selectedModel()?.provider.id}>
-              {(providerID) => <ProviderIcon id={providerID()} class="size-4 shrink-0 opacity-60" />}
-            </Show>
-            <span class="truncate">{modelName()}</span>
-            <span class="-ml-0.5 -mr-1 flex shrink-0">
-              <Icon name="chevron-down" size="small" class="text-v2-icon-icon-muted" />
-            </span>
-          </ModelSelectorPopoverV2>
+            trigger={(triggerProps) => (
+              <Button
+                {...triggerProps}
+                variant="ghost-muted"
+                size="normal"
+                disabled={modelDisabled()}
+                class="min-w-0 max-w-[220px] justify-start ![font-weight:440] group"
+                data-action="prompt-model"
+                aria-label={language.t("model.aria")}
+                aria-keyshortcuts="F2 Shift+F2"
+                title={language.t("model.cycle.hint")}
+              >
+                <Show when={selectedModel()?.provider.id}>
+                  {(providerID) => <ProviderIcon id={providerID()} class="size-4 shrink-0 opacity-60" />}
+                </Show>
+                <span class="truncate">{modelName()}</span>
+                <span class="-ml-0.5 -mr-1 flex shrink-0">
+                  <Icon name="chevron-down" size="small" class="text-v2-icon-icon-muted" />
+                </span>
+              </Button>
+            )}
+          />
         </Show>
       }
     />
