@@ -114,6 +114,8 @@ export const dict = {
   "model.tag.free": "Free",
   "model.tag.latest": "Latest",
 
+  "provider.connect.opencode.freeName": "OpenCode Free",
+
   "dialog.model.select.title": "Select model",
   "dialog.model.search.placeholder": "Search models",
   "dialog.model.empty": "No model results",

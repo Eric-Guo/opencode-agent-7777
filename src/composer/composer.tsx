@@ -1,7 +1,8 @@
-import { ProviderIcon } from "@opencode/ui/provider-icon"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { createMemo, Show } from "solid-js"
+import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
+import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { ModelSelectorPopover } from "@/providers/models/select-dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import { ComposerEditor } from "./editor/editor"
@@ -20,9 +21,10 @@ export function Composer(props: { model: ComposerModel }) {
     () =>
       props.model.disabled() ||
       props.model.model.status !== "ready" ||
-      !props.model.model.selection
-        .list()
-        .some((item) => props.model.model.selection.visible({ modelID: item.id, providerID: item.provider.id })),
+      (!DEFAULT_MODEL_CONFIG.manageModels &&
+        !props.model.model.selection
+          .list()
+          .some((item) => props.model.model.selection.visible({ modelID: item.id, providerID: item.provider.id }))),
   )
 
   return (
@@ -56,6 +58,7 @@ export function Composer(props: { model: ComposerModel }) {
         <Show when={props.model.model.status !== "loading"}>
           <ModelSelectorPopover
             model={props.model.model.selection}
+            onClose={props.model.restoreFocus}
             trigger={(triggerProps) => (
               <Button
                 {...triggerProps}
@@ -68,8 +71,8 @@ export function Composer(props: { model: ComposerModel }) {
                 aria-keyshortcuts="F2 Shift+F2"
                 title={language.t("model.cycle.hint")}
               >
-                <Show when={selectedModel()?.provider.id}>
-                  {(providerID) => <ProviderIcon id={providerID()} class="size-4 shrink-0 opacity-60" />}
+                <Show when={selectedModel()?.provider}>
+                  {(provider) => <ProviderModelIcon provider={provider()} class="size-4 shrink-0 opacity-60" />}
                 </Show>
                 <span class="truncate">{modelName()}</span>
                 <span class="-ml-0.5 -mr-1 flex shrink-0">

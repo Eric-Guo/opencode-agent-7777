@@ -63,7 +63,7 @@ export function ModelSelectorPopover(props: {
         DEFAULT_MODEL_CONFIG.manageModels
           ? () => {
               void import("./manage").then((module) => {
-                void dialog.show(() => <module.DialogManageModelsV2 model={props.model} />)
+                void dialog.show(() => <module.DialogManageModels model={props.model} />)
               })
             }
           : undefined

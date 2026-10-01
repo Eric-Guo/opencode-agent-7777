@@ -170,6 +170,14 @@ boundaries with package-local implementations. The compact storage adapter is sy
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
 Model preference recovery remains separate from catalog and visibility operations in `providers/models/models.tsx`.
 
+The model manager follows `providers/models/manage.tsx`, the direct-provider sections in
+`providers/models/provider-group.tsx`, and `settings/{list,row}.tsx`. Provider sections collapse, expand during search,
+and restore their previous state when search is cleared. Provider switches reflect the full catalog during search;
+7777 retains provider-level visibility defaults for future models. The composer uses the same package-owned provider
+icons and restores editor focus after model selection or Escape. With `manageModels` enabled, the selector stays
+available even when every model is hidden. Portal styles are scoped to the model dialog for embedded hosts.
+Provider connection flows, Console workspace grouping, and the ChatGPT-plan footer remain outside the compact app.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
 prompts with agent/skill references or hidden file context stay queued because compact queue undo does not reconstruct
