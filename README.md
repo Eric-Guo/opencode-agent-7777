@@ -166,6 +166,11 @@ The source assessment now includes the GUI extension split at parent `5d84cc330f
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
 
+The header reuses the GUI extension's `ContextUsage` display through its public
+`@opencode/gui-extensions/usage/context-usage` export. `session/header/session-context-usage-compact.tsx`
+adapts the active session, latest reported assistant tokens, and model catalog without an extension host.
+It follows the shared ring and tooltip behavior; the full app's context panel remains extension-owned.
+
 `runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
 from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,
 and location catalogs. The compact adapter preserves live rows during history refreshes, hydrates nine dialogs,

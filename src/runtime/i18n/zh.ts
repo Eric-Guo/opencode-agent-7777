@@ -16,6 +16,10 @@ export const dict = {
   "session.new": "新会话",
   "session.thinking": "思考",
   "session.thinking.toggle": "显示或隐藏推理摘要",
+  "usage.tokens": "Tokens",
+  "usage.usage": "上下文",
+  "usage.cost": "费用",
+  "usage.view": "查看上下文使用情况",
   "session.question.progress": "{{current}}/{{total}} 个问题",
   "session.websearch.title": "第三方网页搜索",
   "session.websearch.description": "选择智能体用于搜索网页的搜索提供商",
@@ -118,6 +122,8 @@ export const dict = {
   "model.tag.free": "免费",
   "model.tag.latest": "最新",
 
+  "provider.connect.opencode.freeName": "OpenCode Free",
+
   "dialog.model.select.title": "选择模型",
   "dialog.model.search.placeholder": "搜索模型",
   "dialog.model.empty": "没有模型结果",
@@ -160,4 +166,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>

@@ -6,6 +6,7 @@ import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
+import { SessionContextUsage } from "@/session/header/session-context-usage-compact"
 import type { SessionRevert } from "@/session/revert"
 import { SettingsGeneral } from "@/settings/general/general"
 
@@ -112,6 +113,7 @@ export function SessionHeader(props: {
             {language.t("session.thinking")}
           </span>
         </button>
+        <SessionContextUsage />
         <HomeSessionsRegion />
         <SettingsGeneral />
         <button
