@@ -67,8 +67,8 @@ Then paste the copied JSON into the package script:
 bun run models:apply-localstorage <<'JSON'
 {
   "selection": {
-    "providerID": "opencode",
-    "modelID": "nemotron-3.5-lightning-free"
+    "providerID": "kimi-code-plan-cn",
+    "modelID": "kimi-for-coding"
   },
   "config": {
     "user": [
@@ -513,11 +513,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "show"
       },
       {
-        "modelID": "gpt-6-sol",
-        "providerID": "openai",
-        "visibility": "show"
-      },
-      {
         "modelID": "gemini-3.8-flash",
         "providerID": "google",
         "visibility": "show"
@@ -544,6 +539,26 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "modelID": "stepfun-ai/Step-3.5-Flash",
+        "providerID": "siliconflow-cn",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6.1-sol",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-image-2",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "kimi-for-coding-highspeed",
+        "providerID": "kimi-code-plan-cn",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "deepseek-ai/DeepSeek-V4-Pro",
         "providerID": "siliconflow-cn",
         "visibility": "show"
       }
@@ -586,6 +601,14 @@ bun run models:apply-localstorage <<'JSON'
     ],
     "recent": [
       {
+        "providerID": "kimi-code-plan-cn",
+        "modelID": "kimi-for-coding"
+      },
+      {
+        "providerID": "opencode",
+        "modelID": "muse-spark-1.3-contributor-free"
+      },
+      {
         "providerID": "opencode",
         "modelID": "nemotron-3.5-lightning-free"
       },
@@ -596,14 +619,6 @@ bun run models:apply-localstorage <<'JSON'
       {
         "providerID": "opencode-go",
         "modelID": "union-alpha"
-      },
-      {
-        "modelID": "glm-5.3-flash",
-        "providerID": "opencode-go"
-      },
-      {
-        "modelID": "deepseek-v4-flash-free",
-        "providerID": "opencode"
       }
     ]
   }
