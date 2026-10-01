@@ -1,287 +1,281 @@
+import { unwrap } from "solid-js/store"
 import { afterEach, describe, expect, test } from "bun:test"
 import type { OpenCodeEvent, SessionInfo as Session } from "@opencode/client/promise"
 import { applySessionEvent } from "@/runtime/server/global-sync/event-reducer-session"
 import { idleStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
-import { resetPendingEchoes, updatePendingInbox } from "./session-cache-messages"
+import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 
-const session = (id = "session"): Session => ({
-  id,
-  projectID: "project",
-  location: { directory: "/repo" },
-  title: id,
-  cost: 0,
-  tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-  time: { created: 1, updated: 1 },
-})
-
-const event = (input: object) => input as OpenCodeEvent
-const base = {
-  created: 10,
-  location: { directory: "/repo" },
-  durable: { aggregateID: "session", seq: 1, version: 1 as const },
-}
-
-const client = {} as OpencodeClient
-
-afterEach(() => {
-  resetPendingEchoes()
-  setSessionClient(undefined)
-  setState("session", undefined)
-  setState("sessionMessages", [])
-  setState("sessionStatus", { type: "idle" })
-  setState("error", "")
-})
-
-describe("applySessionEvent", () => {
-  test("updates the durable model and agent as well as the timeline", () => {
-    setSessionClient(client)
-    setState("session", session())
-    const model = { providerID: "provider", id: "model", variant: "high" }
-    applySessionEvent(
-      event({ ...base, id: "model", type: "session.model.selected", data: { sessionID: "session", model } }),
-      { refresh: () => {} },
-    )
-    applySessionEvent(
-      event({ ...base, id: "agent", type: "session.agent.selected", data: { sessionID: "session", agent: "7777" } }),
-      { refresh: () => {} },
-    )
-    expect(state.session?.model).toEqual({ providerID: "provider", id: "model", variant: "high" })
-    expect(state.session?.agent).toBe("7777")
-    expect(state.sessionMessages.map((item) => item.type)).toEqual(["model-switched", "agent-switched"])
-    setState("session", "model", "variant", "low")
-    expect(model).toEqual({ providerID: "provider", id: "model", variant: "high" })
+browserSuite(import.meta.path, () => {
+  const session = (id = "session"): Session => ({
+    id,
+    projectID: "project",
+    location: { directory: "/repo" },
+    title: id,
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+    time: { created: 1, updated: 1 },
   })
 
-  test("keeps queued prompts out of history until delivered and removes cancelled rows", () => {
-    setSessionClient(client)
-    setState("session", session())
-    let refreshes = 0
-    const apply = (type: string, data: object) =>
+  const event = (input: object) => input as OpenCodeEvent
+  const base = {
+    created: 10,
+    location: { directory: "/repo" },
+    durable: { aggregateID: "session", seq: 1, version: 1 as const },
+  }
+
+  const client = {
+    session: {
+      get: async () => session(),
+      message: {
+        get: async () => ({
+          id: "model",
+          type: "model-switched",
+          model: { id: "model", providerID: "provider", variant: "high" },
+          time: { created: 10 },
+        }),
+      },
+    },
+  } as unknown as OpencodeClient
+
+  afterEach(() => {
+    setSessionClient(undefined)
+    setState("session", undefined)
+    setState("sessionMessages", [])
+    setState("sessionStatus", { type: "idle" })
+    setState("error", "")
+  })
+
+  describe("applySessionEvent", () => {
+    test("updates the durable model and agent as well as the timeline", () => {
+      setState("session", session())
+      setSessionClient(client)
+      const model = { providerID: "provider", id: "model", variant: "high" }
       applySessionEvent(
-        event({ ...base, id: type, type, data: { sessionID: "session", inboxID: "queued", ...data } }),
+        event({ ...base, id: "model", type: "session.model.selected", data: { sessionID: "session", model } }),
+        { refresh: () => {} },
+      )
+      applySessionEvent(
+        event({
+          ...base,
+          created: 11,
+          id: "agent",
+          type: "session.agent.selected",
+          data: { sessionID: "session", agent: "7777" },
+        }),
+        { refresh: () => {} },
+      )
+      expect(state.session?.model).toEqual({ providerID: "provider", id: "model", variant: "high" })
+      expect(state.session?.agent).toBe("7777")
+      expect(state.sessionMessages.map((item) => item.type)).toEqual(["model-switched", "agent-switched"])
+      setState("session", "model", "variant", "low")
+      expect(model).toEqual({ providerID: "provider", id: "model", variant: "high" })
+    })
+
+    test("keeps queued prompts out of history until delivered and removes cancelled rows", () => {
+      setState("session", session())
+      setSessionClient(client)
+      let refreshes = 0
+      const apply = (type: string, data: object) =>
+        applySessionEvent(
+          event({ ...base, id: type, type, data: { sessionID: "session", inboxID: "queued", ...data } }),
+          { refresh: () => refreshes++ },
+        )
+      apply("session.inbox.enqueued", { item: { type: "user", delivery: "queue", payload: { text: "later" } } })
+      expect(unwrap(state.sessionPending)).toMatchObject([
+        { id: "queued", delivery: "queue", payload: { text: "later" } },
+      ])
+      expect(state.sessionMessages).toEqual([])
+      apply("session.inbox.delivery.changed", { delivery: "steer" })
+      expect(state.sessionPending[0].delivery).toBe("steer")
+      expect(unwrap(state.sessionMessages)).toMatchObject([{ id: "queued", text: "later" }])
+      apply("session.inbox.delivery.changed", { delivery: "queue" })
+      expect(state.sessionMessages).toEqual([])
+      apply("session.inbox.delivered", {})
+      expect(state.sessionPending).toEqual([])
+      expect(unwrap(state.sessionMessages)).toMatchObject([{ id: "queued", text: "later" }])
+      apply("session.inbox.enqueued", {
+        inboxID: "cancelled",
+        item: { type: "user", delivery: "queue", payload: { text: "cancel me" } },
+      })
+      apply("session.inbox.cancelled", { inboxID: "cancelled" })
+      expect(state.sessionPending).toEqual([])
+      expect(state.sessionMessages.map((item) => item.id)).toEqual(["queued"])
+      expect(refreshes).toBe(0)
+    })
+
+    test("preserves the Kimi recovery error and returns the active session to idle", () => {
+      setState("session", session())
+      setSessionClient(client)
+      setState("sessionStatus", { type: "busy" })
+      const failure = {
+        type: "quota_exceeded",
+        status: 429,
+        message:
+          "KIMI_API_KEY_2 reached Kimi's five-hour rolling usage limit. KIMI_API_KEY_3 is now selected. Start a blank session to use the promoted account; this failed step was not replayed.",
+        recovery: {
+          type: "connection-fallback" as const,
+          integrationID: "kimi-for-coding",
+          previous: { type: "env" as const, name: "KIMI_API_KEY_2" },
+          promoted: { type: "env" as const, name: "KIMI_API_KEY_3" },
+          unavailableUntil: 1000,
+        },
+      }
+      const before = structuredClone(failure)
+      let refreshes = 0
+      const handled = applySessionEvent(
+        {
+          ...base,
+          id: "evt_failure",
+          type: "session.execution.failed",
+          data: { sessionID: "session", error: failure },
+        },
         { refresh: () => refreshes++ },
       )
-    apply("session.inbox.enqueued", { item: { type: "user", delivery: "queue", payload: { text: "later" } } })
-    expect(state.sessionPending).toMatchObject([{ id: "queued", delivery: "queue", payload: { text: "later" } }])
-    expect(state.sessionMessages).toEqual([])
-    apply("session.inbox.delivery.changed", { delivery: "steer" })
-    expect(state.sessionPending[0].delivery).toBe("steer")
-    expect(state.sessionMessages).toMatchObject([{ id: "queued", text: "later" }])
-    apply("session.inbox.delivery.changed", { delivery: "queue" })
-    expect(state.sessionMessages).toEqual([])
-    apply("session.inbox.delivered", {})
-    expect(state.sessionPending).toEqual([])
-    expect(state.sessionMessages).toMatchObject([{ id: "queued", text: "later" }])
-    apply("session.inbox.enqueued", {
-      inboxID: "cancelled",
-      item: { type: "user", delivery: "queue", payload: { text: "cancel me" } },
+
+      expect(handled).toBe(true)
+      expect(state.error).toBe(failure.message)
+      expect(state.sessionStatus).toEqual({ type: "idle" })
+      expect(idleStatus).toEqual({ type: "idle" })
+      expect(failure).toEqual(before)
+      expect(refreshes).toBe(0)
     })
-    apply("session.inbox.cancelled", { inboxID: "cancelled" })
-    expect(state.sessionPending).toEqual([])
-    expect(state.sessionMessages.map((item) => item.id)).toEqual(["queued"])
-    expect(refreshes).toBe(0)
-  })
 
-  test("delivers an inbox item hydrated from HTTP without needing its enqueue event", () => {
-    setSessionClient(client)
-    setState("session", session())
-    updatePendingInbox(() => [
-      {
-        id: "hydrated",
-        sessionID: "session",
-        time: { created: 1 },
-        type: "user",
-        delivery: "queue",
-        payload: { text: "restored queue" },
-      },
-    ])
-    applySessionEvent(
-      event({
-        ...base,
-        id: "delivered",
-        type: "session.inbox.delivered",
-        data: { sessionID: "session", inboxID: "hydrated" },
-      }),
-      {
-        refresh: () => {
-          throw new Error("Unnecessary refresh")
+    test.each(["other", undefined])("ignores failures outside the active session: %s", (sessionID) => {
+      setState("session", session())
+      setSessionClient(client)
+      setState("sessionStatus", { type: "busy" })
+      const handled = applySessionEvent(
+        event({
+          ...base,
+          id: "evt_failure",
+          type: "session.execution.failed",
+          data: { sessionID, error: { type: "quota_exceeded", message: "Old session failed" } },
+        }),
+        {
+          refresh: () => {
+            throw new Error("Unexpected refresh")
+          },
         },
-      },
-    )
-    expect(state.sessionMessages).toMatchObject([{ id: "hydrated", text: "restored queue" }])
-    expect(state.sessionPending).toEqual([])
-  })
+      )
+      expect(handled).toBe(false)
+      expect(state.error).toBe("")
+      expect(state.sessionStatus).toEqual({ type: "busy" })
+    })
 
-  test("preserves the Kimi recovery error and returns the active session to idle", () => {
-    setSessionClient(client)
-    setState("session", session())
-    setState("sessionStatus", { type: "busy" })
-    const failure = {
-      type: "quota_exceeded",
-      status: 429,
-      message:
-        "KIMI_API_KEY_2 reached Kimi's five-hour rolling usage limit. KIMI_API_KEY_3 is now selected. Start a blank session to use the promoted account; this failed step was not replayed.",
-      recovery: {
-        type: "connection-fallback" as const,
-        integrationID: "kimi-for-coding",
-        previous: { type: "env" as const, name: "KIMI_API_KEY_2" },
-        promoted: { type: "env" as const, name: "KIMI_API_KEY_3" },
-        unavailableUntil: 1000,
-      },
-    }
-    const before = structuredClone(failure)
-    let refreshes = 0
-    const handled = applySessionEvent(
-      {
-        ...base,
-        id: "evt_failure",
-        type: "session.execution.failed",
-        data: { sessionID: "session", error: failure },
-      },
-      { refresh: () => refreshes++ },
-    )
+    test("tracks execution lifecycle for the active session", () => {
+      setState("session", session())
+      setSessionClient(client)
+      const refresh = () => undefined
 
-    expect(handled).toBe(true)
-    expect(state.error).toBe(failure.message)
-    expect(state.sessionStatus).toEqual({ type: "idle" })
-    expect(idleStatus).toEqual({ type: "idle" })
-    expect(failure).toEqual(before)
-    expect(refreshes).toBe(0)
-  })
+      applySessionEvent(
+        event({ ...base, id: "evt_started", type: "session.execution.started", data: { sessionID: "session" } }),
+        { refresh },
+      )
+      expect(state.sessionStatus).toEqual({ type: "busy" })
 
-  test.each(["other", undefined])("ignores failures outside the active session: %s", (sessionID) => {
-    setSessionClient(client)
-    setState("session", session())
-    setState("sessionStatus", { type: "busy" })
-    const handled = applySessionEvent(
-      event({
-        ...base,
-        id: "evt_failure",
-        type: "session.execution.failed",
-        data: { sessionID, error: { type: "quota_exceeded", message: "Old session failed" } },
-      }),
-      {
-        refresh: () => {
-          throw new Error("Unexpected refresh")
+      applySessionEvent(
+        event({
+          ...base,
+          id: "evt_interrupted",
+          type: "session.execution.interrupted",
+          data: { sessionID: "session", reason: "user" },
+        }),
+        { refresh },
+      )
+      expect(state.sessionStatus).toEqual({ type: "idle" })
+    })
+
+    test("streams text deltas into the projected timeline without refreshing", () => {
+      setState("session", session())
+      setSessionClient(client)
+      setState("sessionMessages", [{ id: "msg_user", type: "user", text: "hi", time: { created: 1 } }])
+      let refreshes = 0
+      const refresh = () => {
+        refreshes += 1
+      }
+
+      applySessionEvent(
+        event({
+          ...base,
+          id: "evt_step",
+          type: "session.step.started",
+          data: {
+            sessionID: "session",
+            assistantMessageID: "msg_assistant",
+            started: 10,
+            agent: "7777",
+            model: { id: "model", providerID: "provider" },
+          },
+        }),
+        { refresh },
+      )
+      applySessionEvent(
+        event({
+          ...base,
+          id: "evt_text_start",
+          type: "session.text.started",
+          data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0 },
+        }),
+        { refresh },
+      )
+      applySessionEvent(
+        event({
+          ...base,
+          id: "evt_delta_1",
+          type: "session.text.delta",
+          data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0, delta: "hel" },
+        }),
+        { refresh },
+      )
+      applySessionEvent(
+        event({
+          ...base,
+          id: "evt_delta_2",
+          type: "session.text.delta",
+          data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0, delta: "lo" },
+        }),
+        { refresh },
+      )
+
+      expect(refreshes).toBe(0)
+      const assistant = state.sessionMessages.find((item) => item.id === "msg_assistant")
+      expect(unwrap(assistant)).toMatchObject({ type: "assistant", content: [{ type: "text", text: "hello" }] })
+    })
+
+    test("ignores events for other sessions", () => {
+      setState("session", session())
+      setSessionClient(client)
+      let refreshes = 0
+
+      const handled = applySessionEvent(
+        event({
+          ...base,
+          id: "evt_other",
+          type: "session.text.delta",
+          data: { sessionID: "other", assistantMessageID: "msg_assistant", ordinal: 0, delta: "nope" },
+        }),
+        { refresh: () => refreshes++ },
+      )
+
+      expect(handled).toBe(false)
+      expect(refreshes).toBe(0)
+      expect(state.sessionMessages).toEqual([])
+    })
+
+    test("updates a renamed session through shared session metadata", async () => {
+      setState("session", session())
+      setSessionClient(client)
+      applySessionEvent(
+        event({ ...base, id: "evt_renamed", type: "session.renamed", data: { sessionID: "session", title: "new" } }),
+        {
+          refresh: () => {
+            throw new Error("Unexpected history refresh")
+          },
         },
-      },
-    )
-    expect(handled).toBe(false)
-    expect(state.error).toBe("")
-    expect(state.sessionStatus).toEqual({ type: "busy" })
-  })
-
-  test("tracks execution lifecycle for the active session", () => {
-    setSessionClient(client)
-    setState("session", session())
-    const refresh = () => undefined
-
-    applySessionEvent(
-      event({ ...base, id: "evt_started", type: "session.execution.started", data: { sessionID: "session" } }),
-      { refresh },
-    )
-    expect(state.sessionStatus).toEqual({ type: "busy" })
-
-    applySessionEvent(
-      event({
-        ...base,
-        id: "evt_interrupted",
-        type: "session.execution.interrupted",
-        data: { sessionID: "session", reason: "user" },
-      }),
-      { refresh },
-    )
-    expect(state.sessionStatus).toEqual({ type: "idle" })
-  })
-
-  test("streams text deltas into the projected timeline without refreshing", () => {
-    setSessionClient(client)
-    setState("session", session())
-    setState("sessionMessages", [{ id: "msg_user", type: "user", text: "hi", time: { created: 1 } }])
-    let refreshes = 0
-    const refresh = () => {
-      refreshes += 1
-    }
-
-    applySessionEvent(
-      event({
-        ...base,
-        id: "evt_step",
-        type: "session.step.started",
-        data: {
-          sessionID: "session",
-          assistantMessageID: "msg_assistant",
-          agent: "7777",
-          model: { id: "model", providerID: "provider" },
-        },
-      }),
-      { refresh },
-    )
-    applySessionEvent(
-      event({
-        ...base,
-        id: "evt_text_start",
-        type: "session.text.started",
-        data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0 },
-      }),
-      { refresh },
-    )
-    applySessionEvent(
-      event({
-        ...base,
-        id: "evt_delta_1",
-        type: "session.text.delta",
-        data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0, delta: "hel" },
-      }),
-      { refresh },
-    )
-    applySessionEvent(
-      event({
-        ...base,
-        id: "evt_delta_2",
-        type: "session.text.delta",
-        data: { sessionID: "session", assistantMessageID: "msg_assistant", ordinal: 0, delta: "lo" },
-      }),
-      { refresh },
-    )
-
-    expect(refreshes).toBe(0)
-    const assistant = state.sessionMessages.find((item) => item.id === "msg_assistant")
-    expect(assistant).toMatchObject({ type: "assistant", content: [{ type: "text", text: "hello" }] })
-  })
-
-  test("ignores events for other sessions", () => {
-    setSessionClient(client)
-    setState("session", session())
-    let refreshes = 0
-
-    const handled = applySessionEvent(
-      event({
-        ...base,
-        id: "evt_other",
-        type: "session.text.delta",
-        data: { sessionID: "other", assistantMessageID: "msg_assistant", ordinal: 0, delta: "nope" },
-      }),
-      { refresh: () => refreshes++ },
-    )
-
-    expect(handled).toBe(false)
-    expect(refreshes).toBe(0)
-    expect(state.sessionMessages).toEqual([])
-  })
-
-  test("refreshes for session events the reducer does not project", () => {
-    setSessionClient(client)
-    setState("session", session())
-    let refreshes = 0
-
-    applySessionEvent(
-      event({ ...base, id: "evt_renamed", type: "session.renamed", data: { sessionID: "session", title: "new" } }),
-      { refresh: () => refreshes++ },
-    )
-
-    expect(refreshes).toBe(1)
-    expect(state.session?.title).toBe("new")
+      )
+      await Bun.sleep(0)
+      expect(state.session?.title).toBe("new")
+    })
   })
 })

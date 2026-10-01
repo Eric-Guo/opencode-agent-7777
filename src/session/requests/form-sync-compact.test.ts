@@ -3,7 +3,6 @@ import { OpenCode, type FormInfo, type OpenCodeEvent, type SessionInfo } from "@
 import { reconcile } from "solid-js/store"
 import { handleFormEvent, refreshForms, rejectQuestion, replyForm } from "@/session/requests/form-sync-compact"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
-import { disposeRefreshQueue } from "@/runtime/server/global-sync/queue-message-refresh"
 
 const form = {
   id: "form_test",
@@ -20,7 +19,6 @@ const form = {
 } satisfies FormInfo
 
 afterEach(() => {
-  disposeRefreshQueue()
   setSessionClient(undefined)
   setState("session", undefined)
   setState("form", reconcile({}))
@@ -93,6 +91,24 @@ describe("form sync", () => {
     expect(state.form.session_test).toBeUndefined()
     expect(state.form.new_session?.map((item) => item.id)).toEqual(["new_form"])
     expect(state.questionResponding).toBe("new_form")
+  })
+
+  test("a prior activation cannot replace child requests after returning to the same session", async () => {
+    const active = { id: "session_test", location: { directory: "/repo" } } as SessionInfo
+    const held = Promise.withResolvers<Response>()
+    const client = OpenCode.make({
+      baseUrl: "http://localhost",
+      fetch: ((_input, _init) => held.promise) as typeof fetch,
+    })
+    setSessionClient(client, active)
+    const pending = refreshForms()
+    setSessionClient(client, { ...active, id: "elsewhere" })
+    setSessionClient(client, active)
+    const child = { ...form, sessionID: "child", id: "new-child-request" }
+    setState("form", reconcile({ child: [child] }))
+    held.resolve(Response.json({ data: [form] }))
+    await pending
+    expect(state.form).toEqual({ child: [child] })
   })
 
   test("lists forms for the current directory through the shared client", async () => {

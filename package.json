@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "vite build",
     "serve": "vite preview",
-    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
+    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts",
+    "bench:runtime": "bun scripts/runtime-benchmark.ts"
   },
   "dependencies": {
     "@opencode/client": "workspace:*",
@@ -24,6 +25,7 @@
     "solid-presence": "0.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",

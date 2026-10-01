@@ -1,5 +1,5 @@
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { readableError } from "@/shell/errors/readable"
 import type { SessionInfo as Session } from "@opencode/client/promise"
@@ -12,6 +12,7 @@ export function sessionUpdatedTime(session: Session) {
 }
 
 export function refreshRecentSessions() {
+  const runtime = currentRuntime()
   const server = state.server
   const directory = state.session ? sessionDirectory(state.session) : undefined
   if (!server || !directory) {
@@ -28,9 +29,13 @@ export function refreshRecentSessions() {
     get: client.session.get,
   })
     .then((result) => {
-      if (!state.session || sessionDirectory(state.session) !== directory) return
+      if (currentRuntime() !== runtime || !state.session || sessionDirectory(state.session) !== directory) return
       setState("recentSessions", result.items)
     })
-    .catch((error) => setState("error", readableError(error)))
-    .finally(() => setState("recentSessionsLoading", false))
+    .catch((error) => {
+      if (currentRuntime() === runtime) setState("error", readableError(error))
+    })
+    .finally(() => {
+      if (currentRuntime() === runtime) setState("recentSessionsLoading", false)
+    })
 }

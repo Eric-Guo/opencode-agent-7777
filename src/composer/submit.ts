@@ -11,7 +11,15 @@ import { prompt } from "@/composer/persistence-singleton"
 import { buildPromptRequest } from "@/composer/request"
 import { createComposerSubmission } from "@/composer/submission-state"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
-import { currentSession, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
+import {
+  currentSession,
+  currentRuntime,
+  updateSession,
+  setSessionStatus,
+  idleStatus,
+  setState,
+  state,
+} from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
 import { composerHistory } from "./history/store"
@@ -21,6 +29,8 @@ import { clonePrompt } from "./prompt-parts"
 
 export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: string }) {
   const active = currentSession()
+  const runtime = currentRuntime()
+  const ownsSession = () => currentRuntime() === runtime && state.session?.id === active?.sessionID
   const submission = createComposerSubmission({ target: prompt })
   const attachments = submission.prompt.attachments
   const command = options?.command
@@ -42,9 +52,9 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   submission.clear()
   setState("error", "")
   setState("submitting", true)
-  if (optimisticBusy) setState("sessionStatus", { type: "busy" })
+  if (optimisticBusy) setSessionStatus({ type: "busy" })
   if (state.session?.revert) {
-    setState("session", (session) => (session ? { ...session, revert: undefined } : session))
+    updateSession((session) => ({ ...session, revert: undefined }))
   }
   if (delivery === "steer" && !command)
     echoPendingUserMessage({
@@ -107,7 +117,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
     })
     .then((admitted) => {
       composerHistory.add(historyPrompt, "normal")
-      if (state.session?.id !== active.sessionID) return
+      if (!ownsSession()) return
       // SSE may already have delivered or cancelled this admission before HTTP returns.
       if (admitted && pendingInboxRevision() === revision) {
         updatePendingInbox((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
@@ -117,31 +127,33 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
     })
     .catch((error) => {
       cancelCommit?.()
-      if (state.session?.id !== active.sessionID) return
+      if (!ownsSession()) return
       dropPendingEcho(messageID)
       const restored = submission.restore()
       if (restored) restored.target.restore(restored.prompt)
-      if (previousRevert && !state.session.revert) {
-        setState("session", (session) => (session ? { ...session, revert: previousRevert } : session))
+      if (previousRevert && !state.session?.revert) {
+        updateSession((session) => ({ ...session, revert: previousRevert }))
       }
       setState("error", readableError(error))
-      if (optimisticBusy) setState("sessionStatus", idleStatus)
+      if (optimisticBusy) setSessionStatus(idleStatus)
       scheduleRefresh(0)
     })
     .finally(() => {
-      if (state.session?.id === active.sessionID) setState("submitting", false)
+      if (ownsSession()) setState("submitting", false)
     })
 }
 
 export function abortPrompt() {
   const active = currentSession()
+  const runtime = currentRuntime()
   if (!active) return
   void active.client.session
     .interrupt({ sessionID: active.sessionID, resume: true })
     .catch((error) => {
-      if (state.session?.id === active.sessionID) setState("error", readableError(error))
+      if (currentRuntime() === runtime && state.session?.id === active.sessionID)
+        setState("error", readableError(error))
     })
     .finally(() => {
-      if (state.session?.id === active.sessionID) scheduleRefresh()
+      if (currentRuntime() === runtime && state.session?.id === active.sessionID) scheduleRefresh()
     })
 }

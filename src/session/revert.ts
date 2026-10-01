@@ -5,7 +5,7 @@ import { prompt } from "@/composer/persistence-singleton"
 import { extractPromptFromMessage } from "@/composer/prompt"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/runtime/server/global-sync/session-cache-messages"
-import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, currentSession, updateSession, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { selectSessionUserMessages } from "./session-domain"
 
@@ -34,9 +34,8 @@ export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}
     if (disabled()) return
     const active = currentSession()
     if (!active) return
-    // Each activation owns a new client, including switching away and back to
-    // the same session. Its response must not overwrite the new activation.
-    const ownsSession = () => state.session?.id === active.sessionID && currentSession()?.client === active.client
+    const runtime = currentRuntime()
+    const ownsSession = () => currentRuntime() === runtime && state.session?.id === active.sessionID
     const draft = message ? extractPromptFromMessage(message) : undefined
     const originalParts = prompt.store[0].prompt
     const originalDraft = JSON.stringify(prompt.capture())
@@ -47,9 +46,7 @@ export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}
         ? await active.client.session.revert.stage({ sessionID: active.sessionID, messageID: message.id })
         : await active.client.session.revert.clear({ sessionID: active.sessionID })
       if (!ownsSession()) return
-      setState("session", (session) =>
-        session ? { ...session, revert: result ? structuredClone(result) : undefined } : session,
-      )
+      updateSession((session) => ({ ...session, revert: result ? structuredClone(result) : undefined }))
       // The editor is disabled during the request, but other draft writers
       // (for example welcome suggestions) can still run while it is in flight.
       if (prompt.store[0].prompt === originalParts && JSON.stringify(prompt.capture()) === originalDraft)

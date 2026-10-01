@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import type { SessionInfo as Session } from "@opencode/client/promise"
-import { refreshModels } from "./loader-compact"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { refreshModels as loadModels } from "./loader-compact"
+import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
+
+function refreshModels(client: OpencodeClient, session: Session) {
+  setSessionClient(client, session)
+  return loadModels(client, session)
+}
+afterEach(() => setSessionClient(undefined))
 
 function catalogClient(providerID: string, ready = Promise.resolve(), agentsReady = Promise.resolve()) {
   const model = {
@@ -20,19 +26,26 @@ function catalogClient(providerID: string, ready = Promise.resolve(), agentsRead
   }
   const locations: unknown[] = []
   const client = {
+    session: {},
     model: {
       default: async () => {
         await ready
         return { data: model }
       },
-      list: async () => ({ data: [model] }),
+      list: async () => ({ location: { directory: "/repo" }, data: [model] }),
     },
-    provider: { list: async () => ({ data: [{ id: providerID, name: providerID, package: "@ai-sdk/provider" }] }) },
+    provider: {
+      list: async () => ({
+        location: { directory: "/repo" },
+        data: [{ id: providerID, name: providerID, package: "@ai-sdk/provider" }],
+      }),
+    },
     agent: {
       list: async (input: unknown) => {
         locations.push(input)
         await agentsReady
         return {
+          location: { directory: "/repo" },
           data: [{ id: "7777", model: { providerID, id: "reasoning", variant: "high" } }, { id: "unconfigured" }],
         }
       },
@@ -94,6 +107,16 @@ describe("active catalog refresh", () => {
     expect(state.agentModels["7777"]).toEqual({ providerID: "next", modelID: "reasoning", variant: "high" })
     expect(state.modelStatus).toBe("ready")
     expect(state.error).toBe("")
+  })
+
+  test.each(["model", "provider"] as const)("reports an independent %s catalog failure", async (resource) => {
+    const { client } = catalogClient("provider")
+    client[resource].list = async () => {
+      throw new Error(`${resource} unavailable`)
+    }
+    await refreshModels(client, session("failed"))
+    expect(state.modelStatus).toBe("failed")
+    expect(state.error).toContain(`${resource} unavailable`)
   })
 
   test("the latest refresh wins even within the same session", async () => {

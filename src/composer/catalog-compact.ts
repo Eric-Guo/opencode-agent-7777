@@ -1,6 +1,7 @@
+import type { Data } from "@opencode/client/solid"
 import type { AgentInfo, CommandInfo, SkillInfo } from "@opencode/client/promise"
-import { createStore, type Store } from "solid-js/store"
-import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { createSignal } from "solid-js"
+import { createStore } from "solid-js/store"
 
 type CatalogStatus = "loading" | "ready" | "failed"
 type CatalogState = {
@@ -11,67 +12,66 @@ type CatalogState = {
   skillStatus: CatalogStatus
   agentStatus: CatalogStatus
 }
-type CatalogClient = Pick<OpencodeClient, "command" | "skill" | "agent">
 type ComposerCatalog = {
-  state: Store<CatalogState>
-  load: (client: CatalogClient, directory: string) => Promise<void>
+  state: CatalogState
+  load: (data: Data, directory: string) => Promise<void>
   clear: () => void
 }
 
-// The embedded editor only needs the active directory's server suggestion catalogs.
+// Shared location resources own catalog contents. Only editor loading/error state is local.
 export function createComposerCatalog(): ComposerCatalog {
-  const [state, setState] = createStore<CatalogState>({
-    commands: [],
-    skills: [],
-    agents: [],
-    commandStatus: "loading",
-    skillStatus: "loading",
-    agentStatus: "loading",
+  const [source, setSource] = createSignal<{ data: Data; directory: string }>()
+  const [status, setStatus] = createStore({
+    commandStatus: "loading" as CatalogStatus,
+    skillStatus: "loading" as CatalogStatus,
+    agentStatus: "loading" as CatalogStatus,
   })
   let version = 0
-
   const clear = () => {
     version++
-    setState({
-      commands: [],
-      skills: [],
-      agents: [],
-      commandStatus: "loading",
-      skillStatus: "loading",
-      agentStatus: "loading",
-    })
+    setSource(undefined)
+    setStatus({ commandStatus: "loading", skillStatus: "loading", agentStatus: "loading" })
   }
-  const load = async (client: CatalogClient, directory: string) => {
+  const list = <K extends "command" | "skill" | "agent">(key: K) => {
+    const active = source()
+    return active?.data.location[key].list({ directory: active.directory })
+  }
+  const state: CatalogState = {
+    get commands() {
+      return (list("command") ?? []) as CommandInfo[]
+    },
+    get skills() {
+      return (list("skill") ?? []) as SkillInfo[]
+    },
+    get agents() {
+      return (list("agent") ?? []) as AgentInfo[]
+    },
+    get commandStatus() {
+      return status.commandStatus
+    },
+    get skillStatus() {
+      return status.skillStatus
+    },
+    get agentStatus() {
+      return status.agentStatus
+    },
+  }
+  const load = async (data: Data, directory: string) => {
     clear()
     const current = version
-    const location = { directory }
-    await Promise.all([
-      client.command.list({ location }).then(
-        (result) => {
-          if (current === version) setState({ commands: result.data, commandStatus: "ready" })
-        },
-        () => {
-          if (current === version) setState("commandStatus", "failed")
-        },
+    setSource({ data, directory })
+    await Promise.all(
+      (["command", "skill", "agent"] as const).map((key) =>
+        data.location[key].sync({ directory }).then(
+          () => {
+            if (current === version) setStatus(`${key}Status`, "ready")
+          },
+          () => {
+            if (current === version) setStatus(`${key}Status`, "failed")
+          },
+        ),
       ),
-      client.skill.list({ location }).then(
-        (result) => {
-          if (current === version) setState({ skills: result.data, skillStatus: "ready" })
-        },
-        () => {
-          if (current === version) setState("skillStatus", "failed")
-        },
-      ),
-      client.agent.list({ location }).then(
-        (result) => {
-          if (current === version) setState({ agents: result.data, agentStatus: "ready" })
-        },
-        () => {
-          if (current === version) setState("agentStatus", "failed")
-        },
-      ),
-    ])
+    )
   }
-
   return { state, load, clear }
 }

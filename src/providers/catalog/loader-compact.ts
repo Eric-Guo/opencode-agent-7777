@@ -5,7 +5,7 @@ import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { sessionDirectory } from "@/session/directory"
 import { syncModelSelection } from "@/providers/models/selection"
 import { translateSync } from "@/runtime/i18n/language"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { loadProviderCatalog } from "./providers"
 
@@ -14,15 +14,19 @@ import { loadProviderCatalog } from "./providers"
 let refreshVersion = 0
 
 export function refreshModels(activeClient: OpencodeClient | undefined, session: Session | undefined) {
-  if (!activeClient || !session) return Promise.resolve()
+  const runtime = currentRuntime()
+  if (!activeClient || !session || !runtime || runtime.api !== activeClient) return Promise.resolve()
   const version = ++refreshVersion
-  const current = () => version === refreshVersion && state.session?.id === session.id
+  const current = () => version === refreshVersion && currentRuntime() === runtime && state.session?.id === session.id
   const location = { directory: sessionDirectory(session) }
   setState("modelStatus", "loading")
   // Agent defaults are optional; an unavailable agent catalog must not disable the model picker.
   return Promise.all([
-    loadProviderCatalog(activeClient, location.directory),
-    activeClient.agent.list({ location }).catch(() => undefined),
+    loadProviderCatalog(activeClient, runtime.data, location.directory, runtime.signal),
+    runtime.data.location.agent
+      .sync(location)
+      .then(() => runtime.data.location.agent.list(location))
+      .catch(() => undefined),
   ])
     .then(([catalog, agents]) => {
       if (!current()) return
@@ -32,7 +36,7 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
           "agentModels",
           reconcile(
             Object.fromEntries(
-              (agents?.data ?? []).flatMap((agent) =>
+              (agents ?? []).flatMap((agent) =>
                 agent.model
                   ? [
                       [

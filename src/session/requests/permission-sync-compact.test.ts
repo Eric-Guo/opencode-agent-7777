@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { OpenCode, type PermissionRequest, type SessionInfo } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { disposeRefreshQueue } from "@/runtime/server/global-sync/queue-message-refresh"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { decidePermission } from "./permission-sync-compact"
 
@@ -13,7 +12,6 @@ const request = {
 } satisfies PermissionRequest
 
 afterEach(() => {
-  disposeRefreshQueue()
   setSessionClient(undefined)
   setState("session", undefined)
   setState("permission", reconcile({}))
@@ -23,7 +21,7 @@ afterEach(() => {
 
 describe("permission sync", () => {
   test.each(["once", "always", "reject"] as const)("sends the %s decision to the owning session", async (decision) => {
-    setState("session", { id: "session_parent" } as SessionInfo)
+    setState("session", { id: "session_parent", location: { directory: "/repo" } } as SessionInfo)
     setState("permission", "session_child", [request, { ...request, id: "next_permission" }])
     const replies: unknown[] = []
     setSessionClient(

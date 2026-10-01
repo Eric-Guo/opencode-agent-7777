@@ -4,7 +4,7 @@ import { reconcile } from "solid-js/store"
 import { translateSync, type TranslationKey } from "@/runtime/i18n/language"
 import { showPlatformNotification } from "@/runtime/platform/platform-bridge"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
-import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import { currentSession, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { sessionPermissionRequest } from "@/session/requests/session-request-tree"
 import { readableError } from "@/shell/errors/readable"
@@ -55,9 +55,12 @@ export function refreshPermissions() {
   const session = state.session
   if (!active || !session) return Promise.resolve()
 
+  const runtime = currentRuntime()
+  const current = () => currentRuntime() === runtime && state.session?.id === active.sessionID
   return active.client.permission.request
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
+      if (!current()) return
       const requests = groupPermissions(result.data)
       setState("permission", reconcile(requests))
       alertedPermissionIDs.clear()
@@ -65,7 +68,7 @@ export function refreshPermissions() {
       if (request) notifyPermissionRequest(request)
     })
     .finally(() => {
-      setState("permissionResponding", undefined)
+      if (current()) setState("permissionResponding", undefined)
     })
 }
 
@@ -97,6 +100,8 @@ export function decidePermission(request: PermissionRequest, response: "once" | 
 
   setState("error", "")
   setState("permissionResponding", request.id)
+  const runtime = currentRuntime()
+  const current = () => currentRuntime() === runtime && state.session?.id === active.sessionID
   const reply = active.client.permission.reply({
     sessionID: request.sessionID,
     requestID: request.id,
@@ -105,13 +110,16 @@ export function decidePermission(request: PermissionRequest, response: "once" | 
 
   void reply
     .then(() => {
+      if (!current()) return
       setState("permission", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
       scheduleRefresh(120)
     })
     .catch((error) => {
+      if (!current()) return
       setState("error", readableError(error))
     })
     .finally(() => {
+      if (!current()) return
       setState("permissionResponding", (current) => (current === request.id ? undefined : current))
     })
 }

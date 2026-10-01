@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
+import { fixtureData } from "@/runtime/server/runtime.test-fixture"
 import { loadProviderCatalog } from "./providers"
 
 describe("provider catalog loader", () => {
-  test("loads providers and models after model initialization", async () => {
+  test("loads providers and models after initialization and resolves canonical location aliases", async () => {
     const calls: string[] = []
     const locations: unknown[] = []
     const model = {
@@ -29,18 +30,21 @@ describe("provider catalog loader", () => {
         list: async (input: unknown) => {
           calls.push("models")
           locations.push(input)
-          return { data: [model] }
+          return { location: { directory: "/canonical" }, data: [model] }
         },
       },
       provider: {
         list: async (input: unknown) => {
           calls.push("providers")
           locations.push(input)
-          return { data: [{ id: "anthropic", name: "Anthropic", package: "@ai-sdk/anthropic" }] }
+          return {
+            location: { directory: "/canonical" },
+            data: [{ id: "anthropic", name: "Anthropic", package: "@ai-sdk/anthropic" }],
+          }
         },
       },
     } as unknown as OpencodeClient
-    const result = await loadProviderCatalog(client, "/repo")
+    const result = await loadProviderCatalog(client, fixtureData(client), "/repo")
 
     expect(calls[0]).toBe("default")
     expect(new Set(calls.slice(1))).toEqual(new Set(["providers", "models"]))

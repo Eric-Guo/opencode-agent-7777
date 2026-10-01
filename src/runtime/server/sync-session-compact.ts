@@ -1,21 +1,17 @@
 // Single active-session SSE lifecycle, not the main app's multi-directory ServerSyncProvider.
-import {
-  activateSession,
-  initializeSessionSync as bootstrapSessionSync,
-  refreshCurrentMessages,
-} from "./global-sync/bootstrap-session"
+import { activateSession, initializeSessionSync as bootstrapSessionSync } from "./global-sync/bootstrap-session"
 import { applySessionEvent } from "./global-sync/event-reducer-session"
-import { disposeRefreshQueue, scheduleRefreshTask } from "./global-sync/queue-message-refresh"
 import { handlePermissionEvent } from "@/session/requests/permission-sync-compact"
 import { handleFormEvent } from "@/session/requests/form-sync-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { sessionDirectory } from "@/session/directory"
 import type { OpenCodeEvent } from "@opencode/client/promise"
 import type { OpenCodeEventStream } from "./client-compact"
 
 let streamAbort: AbortController | undefined
+let initialization = 0
 const listeners = new Set<(event: OpenCodeEvent) => void>()
 
 export const sessionEvents: OpenCodeEventStream = {
@@ -28,7 +24,7 @@ export const sessionEvents: OpenCodeEventStream = {
 }
 
 function scheduleMessageRefresh(delay = 120) {
-  scheduleRefreshTask(refreshCurrentMessages, delay)
+  currentRuntime()?.schedule(delay)
 }
 
 export function scheduleRefresh(delay = 120) {
@@ -36,6 +32,10 @@ export function scheduleRefresh(delay = 120) {
 }
 
 function handleEvent(event: OpenCodeEvent) {
+  if (event.type === "server.connected") {
+    scheduleMessageRefresh(0)
+    return
+  }
   if (handlePermissionEvent(event)) return
   if (handleFormEvent(event)) return
   applySessionEvent(event, { refresh: scheduleMessageRefresh })
@@ -49,12 +49,14 @@ function stopEventStream() {
 
 function startEventStream() {
   stopEventStream()
+  const runtime = currentRuntime()
   const server = state.server
   const directory = state.session ? sessionDirectory(state.session) : undefined
-  if (!server || !directory) return
+  if (!server || !directory || !runtime?.alive()) return
   const activeClient = createDirectorySdk(server, directory).client
   const controller = new AbortController()
   streamAbort = controller
+  runtime.signal.addEventListener("abort", () => controller.abort(), { once: true })
   void (async () => {
     const events = activeClient.event.subscribe({
       signal: controller.signal,
@@ -81,17 +83,23 @@ export function restartSessionEventStream() {
 }
 
 export function initializeSessionSync() {
-  return bootstrapSessionSync()
-    .then(restartSessionEventStream)
+  const version = ++initialization
+  const current = () => version === initialization
+  return bootstrapSessionSync(current)
+    .then(() => {
+      if (current()) restartSessionEventStream()
+    })
     .catch((error) => {
+      if (!current()) return
       setState("status", "failed")
       setState("error", readableError(error))
     })
 }
 
 export function disposeSessionSync() {
+  initialization++
   stopEventStream()
-  disposeRefreshQueue()
+  setSessionClient(undefined)
 }
 
 export { activateSession }

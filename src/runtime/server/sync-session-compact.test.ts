@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import type { OpenCodeEvent, SessionInfo } from "@opencode/client/promise"
+import { OpenCode, type OpenCodeEvent, type SessionInfo } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { disposeSessionSync, restartSessionEventStream, sessionEvents } from "./sync-session-compact"
-import { setState, state } from "./session-store-compact"
+import { setSessionClient, setState, state } from "./session-store-compact"
 
 const originalFetch = globalThis.fetch
 const encode = new TextEncoder()
@@ -36,6 +36,7 @@ function fixture() {
     )) as unknown as typeof fetch
   setState("server", { url: "http://fixture.test", localAgent: "7777", welcomeText: "", suggestedQuestions: [] })
   setState("session", { id: "session", location: { directory: "/repo" } } as SessionInfo)
+  setSessionClient(OpenCode.make({ baseUrl: "http://fixture.test" }), state.session)
   return streams
 }
 

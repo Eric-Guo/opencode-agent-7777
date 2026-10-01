@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test"
 import type { AgentInfo, SkillInfo } from "@opencode/client/promise"
+import { fixtureData } from "@/runtime/server/runtime.test-fixture"
 import { createComposerCatalog } from "./catalog-compact"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 
@@ -12,23 +13,23 @@ function pendingCatalog() {
     command: {
       list: (input: unknown) => {
         locations.push(input)
-        return commands.promise
+        return commands.promise.then((result) => ({ ...result, ...(input as object) }))
       },
     },
     skill: {
       list: (input: unknown) => {
         locations.push(input)
-        return skills.promise
+        return skills.promise.then((result) => ({ ...result, ...(input as object) }))
       },
     },
     agent: {
       list: (input: unknown) => {
         locations.push(input)
-        return agents.promise
+        return agents.promise.then((result) => ({ ...result, ...(input as object) }))
       },
     },
-  } as unknown as Pick<OpencodeClient, "command" | "skill" | "agent">
-  return { client, commands, skills, agents, locations }
+  } as unknown as OpencodeClient
+  return { data: fixtureData(client), commands, skills, agents, locations }
 }
 
 function agent(name: string): AgentInfo {
@@ -45,7 +46,7 @@ function agent(name: string): AgentInfo {
 test("loads all catalogs for the active directory and keeps context usable if commands fail", async () => {
   const catalog = createComposerCatalog()
   const pending = pendingCatalog()
-  const load = catalog.load(pending.client, "/workspace")
+  const load = catalog.load(pending.data, "/workspace")
   expect(pending.locations).toEqual([
     { location: { directory: "/workspace" } },
     { location: { directory: "/workspace" } },
@@ -71,8 +72,8 @@ test("discards responses from an older directory and clears catalogs during a ne
   const catalog = createComposerCatalog()
   const old = pendingCatalog()
   const fresh = pendingCatalog()
-  const oldLoad = catalog.load(old.client, "/old")
-  const freshLoad = catalog.load(fresh.client, "/fresh")
+  const oldLoad = catalog.load(old.data, "/old")
+  const freshLoad = catalog.load(fresh.data, "/fresh")
   fresh.commands.resolve({ data: [{ name: "review", description: "Review changes" }] })
   fresh.skills.resolve({ data: [{ id: "review", name: "Review", path: "/skills/review", content: "Review code" }] })
   fresh.agents.resolve({ data: [agent("fresh")] })
@@ -90,7 +91,7 @@ test("discards responses from an older directory and clears catalogs during a ne
     agentStatus: "ready",
   })
   const next = pendingCatalog()
-  const nextLoad = catalog.load(next.client, "/next")
+  const nextLoad = catalog.load(next.data, "/next")
   expect(catalog.state).toEqual({
     commands: [],
     skills: [],
@@ -117,7 +118,7 @@ test("discards responses from an older directory and clears catalogs during a ne
 test("agent catalog failure leaves commands and skills available", async () => {
   const catalog = createComposerCatalog()
   const pending = pendingCatalog()
-  const load = catalog.load(pending.client, "/workspace")
+  const load = catalog.load(pending.data, "/workspace")
   pending.commands.resolve({ data: [{ name: "review" }] })
   pending.skills.resolve({ data: [{ id: "review", name: "Review", path: "/skills/review", content: "Review code" }] })
   pending.agents.reject(new Error("Unavailable"))
@@ -130,4 +131,22 @@ test("agent catalog failure leaves commands and skills available", async () => {
     skillStatus: "ready",
     agentStatus: "failed",
   })
+})
+
+test("shares catalog requests between consumers while retaining independent editor state", async () => {
+  const first = createComposerCatalog()
+  const second = createComposerCatalog()
+  const pending = pendingCatalog()
+  const one = first.load(pending.data, "/repo")
+  const two = second.load(pending.data, "/repo")
+  expect(pending.locations).toHaveLength(3)
+  pending.commands.resolve({ data: [{ name: "review" }] })
+  pending.skills.reject(new Error("Skill unavailable"))
+  pending.agents.resolve({ data: [agent("explore")] })
+  await Promise.all([one, two])
+  first.clear()
+  expect(first.state.commands).toEqual([])
+  expect(second.state.commands).toEqual([{ name: "review" }])
+  expect(second.state.skillStatus).toBe("failed")
+  expect(second.state.agentStatus).toBe("ready")
 })

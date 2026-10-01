@@ -4,7 +4,7 @@ import type { SessionInboxInfo } from "@opencode/client/promise"
 import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
 import type { PromptDraft, PromptState } from "@/composer/state"
 import { translateSync } from "@/runtime/i18n/language"
-import { currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { readableError } from "@/shell/errors/readable"
@@ -37,8 +37,8 @@ export function createSessionQueue(input: {
     }
     const active = currentSession()
     if (!active) return
-    // An activation gets a new client, even when switching away and back to the same session.
-    const ownsSession = () => state.session?.id === active.sessionID && currentSession()?.client === active.client
+    const runtime = currentRuntime()
+    const ownsSession = () => currentRuntime() === runtime && state.session?.id === active.sessionID
     setMutation({ pending: true, undoing: action === "undo" })
     setState("error", "")
     try {

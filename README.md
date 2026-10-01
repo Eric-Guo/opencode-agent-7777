@@ -162,6 +162,17 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
+The source assessment now includes the GUI extension split at parent `5d84cc330f`. Matching local filenames are
+not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
+File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
+
+`runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
+from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,
+and location catalogs. The compact adapter preserves live rows during history refreshes, hydrates nine dialogs,
+and supplies transient submission/mutation overlays and skill/selection compatibility. The former local reducer
+and message-refresh queue are removed. `session-store-compact.ts` exposes reactive views plus local UI state;
+transport, directory-wide request discovery, and embedded behavior stay package-owned.
+
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.
 
@@ -184,8 +195,9 @@ prompts with agent/skill references or hidden file context stay queued because c
 that context.
 
 Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
-`composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` loads server commands,
-skills, and agents for the active directory without the main app's reactive data provider. File search follows the
+`composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` reads commands, skills, and agents from the active
+runtime's shared location resources and retains independent loading/failure states. Providers and models use the
+same resources, with the explicit server-default-model read first and compact selection/visibility rules afterward. File search follows the
 main app's `workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller
 and URI helpers. It searches files and directories without file tabs or a workspace provider. File, skill, and agent
 mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.

@@ -2,7 +2,7 @@ import { createMemo, createSignal } from "solid-js"
 import { createSession } from "@/runtime/server/global-sync/session-load-current"
 import { translateSync } from "@/runtime/i18n/language"
 import { prompt } from "@/composer/persistence-singleton"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"
 import { createServerSdk } from "@/runtime/server/client-compact"
 import { sessionDirectory } from "@/session/directory"
@@ -53,13 +53,20 @@ export function startNewSession() {
 
   setState("error", "")
   const baseClient = createServerSdk(server).client
+  let activation = currentRuntime()
+  const current = () => currentRuntime() === activation
   newSessionPromise = createSession(baseClient, directory, server.localAgent)
-    .then((session) => activateSession(server, session))
+    .then((session) => {
+      if (!current()) return
+      const loading = activateSession(server, session)
+      activation = currentRuntime()
+      return loading
+    })
     .then(() => {
-      restartSessionEventStream()
+      if (current()) restartSessionEventStream()
     })
     .catch((error) => {
-      setState("error", readableError(error))
+      if (current()) setState("error", readableError(error))
     })
     .finally(() => {
       newSessionPromise = undefined

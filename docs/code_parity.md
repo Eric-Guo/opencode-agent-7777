@@ -1,25 +1,130 @@
 # Code Layout Parity Review
 
-Intentional differences from `<repo-root>/packages/app` (baseline `4bc7c1750f`, 2026-09-18).
-Paths below are relative to `src/` unless noted; `-compact` names identify narrower responsibilities.
-Matching paths describe local module boundaries, not imports from `packages/app`. Shared session rendering comes
-from `@opencode/session-ui`; 7777 does not need `packages/app` at runtime or build time.
+Source assessment: parent monorepo `5d84cc330f`, compact app `ea429ea` (2026-10-01).
+The parent includes [GUI extension PR #52369](https://github.com/anomalyco/opencode/pull/52369), merged as `f406d93a66`.
+The table describes the resulting 7777 implementation against that inspected baseline.
+This assessment distinguishes public-package reuse from matching local filenames.
+Paths are relative to `<repo-root>/packages/7777/src` unless a package is named.
 
-Browser storage now follows the local `runtime/persistence/storage.ts` boundary across drafts, history,
-settings, language, and model/session preferences. Model preference formats and recovery follow
-`runtime/server/persistence.ts`; the model controller owns catalog, visibility, recency, and variant operations.
-The synchronous adapter preserves existing keys, formats, source defaults, and tab-specific draft/session isolation.
+## Package boundaries
 
-| Area | Compact or 7777-only boundaries | Remaining difference |
-| --- | --- | --- |
-| Runtime and platform | `runtime/platform/{desktop-rpc-client,platform-bridge,file-picker}.ts`, `runtime/server/resolver-compact.ts` | One embedded mount (`#oc-agent`), en/zh only, one server; no router, server registry, or full platform context. The local bridge uses the desktop host's structured-clone RPC protocol for initialization, native attachments, source paths, and clipboard images, with accepted attachment types in `file-picker.ts`. `SET_DOCUMENT_TITLE` defaults to `false` so the embedding host controls the title. |
-| Server and session state | `runtime/server/{client,directory-client,sync-session,session-store,session-reducer}-compact.ts`, compact bootstrap/event/message-cache/queue files in `runtime/server/global-sync/` | One server, SSE stream, and active session. Compact clients own transport-queue sharing; the current-message cache owns inbox hydration and reconciliation. No multi-server reactive data layer or SDK provider. |
-| Providers and models | `providers/catalog/{providers,loader-compact,order}.ts`, `providers/models/default-config.*`, `runtime/server/persistence.ts`, `runtime/persistence/{storage,storage-compact}.ts`, `shell/commands/{menu-dismiss,search-keydown}.ts`; package-root `scripts/apply-model-config-dump.ts` | Directory catalog reads use the main app's `providers.ts` boundary and provider ordering the shared `order.ts` list; the compact loader owns active-session refresh admission, status, and selection. Model UI imports the catalog boundary without the refresh controller, and the select dialog reuses the shell's reduced menu-dismiss/search-keydown helpers. The select popover follows the main app's controller/view boundary in `providers/models/select-dialog.tsx` (`ModelSelectorPopover` + `ModelSelectorPopoverView`). The manager follows `manage.tsx` (`DialogManageModels`), direct-provider sections and icons in `provider-group.tsx`, and `settings/{list,row}.tsx`, with collapse/search restoration, full-catalog provider switch state, and package-scoped portal styles. Provider logo assets are local, including the custom-provider fallback. The composer restores editor focus after selection/Escape, and an enabled manager remains reachable when all models are hidden. Provider connection flows and Console workspace grouping remain unavailable; the `manageModels` gate still hides the manage row, and the ChatGPT-plan footer is omitted (no workspace integrations here). Model preference formats and recovery use the main app's runtime persistence boundary. Source-controlled defaults, provider visibility, and the `manageModels` gate remain. Session model/variant choices use compact localStorage persistence scoped by server, directory, session, and agent; no provider contexts or routed selection handoff. |
-| Composer and drafts | `composer/persistence-singleton.ts`, `runtime/persistence/drafts.ts`, reduced `composer/commands.tsx` and `composer/client-slash-command.ts`, `composer/catalog-compact.ts`, `composer/history/{entry,store}.ts`, `composer/dropzone.tsx`, reduced `workspaces/files/{model.tsx,path.ts}` | One editor across session changes and one localStorage draft with data-URL attachments, using the desktop tab's configured draft key after initialization. The model/editor/suggestions boundaries now load directory-scoped server commands for `/` and skills/eligible agents for `@`, with filtering, keyboard selection, and the add menu. Directory-scoped file/directory search also feeds `@` through the local `workspaces/files/model.tsx` boundary, with up to 50 results per query and cancellation of superseded requests. Selected file mentions retain an absolute server URI through draft reloads and prompt history. Recognized commands use the server command endpoint; file, skill, and agent references persist in drafts/history and reach prompt/command requests with mention offsets. Agent suggestions exclude hidden and primary-only agents, and catalog failures remain independent. No command provider, built-in app slash actions, recent-file tabs, context panels, shell mode, routed/per-tab state, submission retargeting, or retry admission IDs. Session-wide attachment feedback follows the main app's dropzone and session-controller boundaries, with drop handling and styles scoped to `#oc-agent`. The existing generic file label covers text attachments as well as images/PDFs. Prompt recall follows the main app's history boundary, with at most 100 accepted prompts and a compact inline-storage budget; no shell or review-comment history. Recent-model and thinking-effort shortcuts apply only while the editor is focused. |
-| Session composer and queue | Reduced implementations in `session/composer/` and `composer/editor/editor.tsx` | Persisted follow-up behavior selects Queue or Steer for running turns, with the opposite delivery on Cmd/Ctrl+Enter. Queued-prompt undo returns full text, inline attachments, and file mentions to the persisted draft, appending to existing content after server cancellation. Prompts with unsupported agent/skill or hidden file context stay queued. No in-place queued editing/reordering, routed controller caches, or child-session navigation. The editor accepts optional queue-editing operations; shortcut hints are configured locally without a command provider. Queue copy uses English source strings with locale fallback. |
-| Settings | `settings/{model.tsx,list.tsx,row.tsx,settings.css}`, `settings/general/general.tsx`, `runtime/persistence/settings-storage-compact.ts` | The settings model owns follow-up behavior and reasoning visibility, preserving their existing localStorage keys and header controls. The web-search setting uses the main app's presentational row boundary with embedded styles. No routed settings surface or general command/keybind preferences; reasoning remains a hidden/compact toggle. |
-| Session requests | `session/requests/{permission,form}-sync-compact.ts`, `session/requests/{model,session-request-tree,websearch}.ts`, `session/requests/{session-permission-dock,session-question-dock}.tsx`, `session/requests/session-websearch-dock.{tsx,css}` | Single-session form loading and replies. The request model and session-request tree follow the main app's boundaries, with permission and question docks on the shared dock surfaces. The web-search dock composes the local `settings/row.tsx` with shared dock surfaces and waits for compact SSE; its styles remain scoped for embedding. |
-| Session shell and timeline | `session/header/session-header-actions.tsx`, `session/revert.ts`, `session/screen-layout-compact.ts`, `session/{session-domain,title}.ts`, `session/timeline/{model,message-timeline}-compact.*`, `session/timeline/interaction.ts`, `shell/errors/{banner-compact.tsx,readable.ts}` | One pane with `HISTORY_DIALOG_LIMIT = 9` and the `current/9` counter; no visible history paging, virtualization, popovers, terminal, or review/file panels. Revert follows the main app's `to`/`undo`/`redo` boundary with compact header controls instead of command-provider entries. It operates on loaded history only while idle, with no pending follow-ups or blocking requests. Timeline scroll interaction follows the main app's `interaction.ts` boundary. The screen reads reasoning visibility from the settings model. The error wrapper supplies locale and fallback text. |
-| Recent and new sessions | `home/sessions/{index.ts,controller.tsx,search.ts,view.tsx,region.tsx}` with compact directory loading, presentation, and switching helpers (`home/sessions/{directory-sync-recent-compact,recent-compact,switcher-compact}.ts`); `new-session/controller-compact.ts`, `session/{directory.ts,recovery-compact.ts}`, `constants/session.ts` | The header switcher follows Home's controller/search/view/region boundaries, with title/ID filtering, keyboard selection, and Today/Yesterday/Older groups. Server-side title search and exact session-ID lookup cover the active directory's full history. Browsing and search results use cursor pagination in batches of 12; no home route, workspace selection, or background open. |
-| Agent defaults and welcome | `new-session/agent-default-config.*`, `session/agent-welcome-compact.tsx` | 7777-specific fallback agent, welcome markdown, suggested questions, and current-session/draft storage keys, with desktop-tab overrides. Session persistence remains in `runtime/persistence/storage-compact.ts`; no routed preferences provider. |
+`@opencode/gui-extensions` exports built-in renderer/main definitions and its SDK, not the app's composer,
+model picker, or request docks. Its renderer host remains in `packages/app/src/runtime/extension` and depends on
+app routing, tabs, settings, and server contexts. Adding that host would not replace the compact session loop.
+7777 consumes public workspace exports and does not import `packages/app` or GUI extension internals.
 
+| Subsystem                          | Owner and public reuse                                                                                      | Compact responsibility                                                                                                    | Contract coverage                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Timeline and message rendering     | `@opencode/session-ui/timeline`, `/document`, `/actions`, `/context`, `/markdown`, attachment/comment cards | Nine-dialog projection, reasoning visibility, scroll interaction, revert presentation                                     | `session/timeline/model-compact.test.ts`, `session/session-domain.test.ts`, shared session-ui component tests |
+| Session runtime                    | `createData` from `@opencode/client/solid`, instantiated in `runtime/server/runtime.ts`                     | Activation lifecycle, bounded history hydration, optimistic presentation, missing-event hydration, unsupported skill rows | `runtime/server/runtime.test.ts`, bootstrap/event/stream tests, submission, queue, and revert suites          |
+| Transport and platform             | `@opencode/client/promise`                                                                                  | Authenticated request queue, one SSE stream, desktop RPC, Electron gate, embedded mount                                   | `runtime/server/{api,client-compact,request-queue,sync-session-compact}.test.ts`, platform bridge/RPC tests   |
+| Models and providers               | `Data.location.provider` and `.model` from `@opencode/client/solid`; UI primitives from `@opencode/ui`      | Source defaults, server default precedence, visibility, variants, model manager gate and selection                        | Provider catalog, model selection, search, variant, and persistence tests                                     |
+| Composer and suggestions           | `Data.location.agent`, `.skill`, and `.command`; shared attachment cards and controls                       | Local editor, prompt/reference serialization, accepted history, draft storage, independent catalog failure states         | `composer` editor, catalog, prompt, request, submission, and history suites                                   |
+| File mentions                      | `encodeFilePath` from `@opencode/util/path`; shared file icons                                              | Directory search, cancellation, absolute file URL composition                                                             | `workspaces/files/{path,model}.test.ts`                                                                       |
+| Permissions, questions, web search | `@opencode/session-ui/dock-prompt`, `@opencode/ui/dock-surface`                                             | Directory-wide snapshots, child-session request selection, replies, notifications, form handoffs                          | Request tree, permission/form sync, and web-search suites                                                     |
+| Queue and revert                   | Shared client/schema types                                                                                  | Queue/steer actions, successful-cancellation draft restoration, loaded-history undo/redo, activation guards               | `session/composer/queue.test.ts`, `session/revert.test.ts`, `composer/submit.test.ts`                         |
+| Recent sessions                    | Shared promise client                                                                                       | Directory-bound title/ID search and 12-session cursor pages; header popover                                               | `home/sessions` index, search, and controller suites                                                          |
+| Persistence and settings           | UI controls and shared i18n primitives                                                                      | Existing synchronous storage keys/formats, tab isolation, language and preferences, reasoning toggle                      | Storage, schema, drafts, settings, and model preference tests                                                 |
+| Welcome and embedding              | Package-owned assets and UI primitives                                                                      | Tab-configured local agent, welcome markdown/questions, title policy and `#oc-agent` styles                               | Agent configuration, directory, layout, platform, and browser checks                                          |
+| Extension features                 | Public SDK and built-in definitions exist; unused here                                                      | Files/review panels, terminal, usage, summary, browser, remote servers and extension host remain outside current features | Upstream extension/app suites; no duplicate compact implementation                                            |
+
+## Intentional constraints
+
+- Keep `HISTORY_DIALOG_LIMIT = 9`, the `current/9` header, and cursor hydration without visible history pagination.
+- Keep `SET_DOCUMENT_TITLE = false` by default, Electron activation gating, and the embedding host's title ownership.
+- Keep source-controlled model defaults/visibility and `manageModels`.
+- Keep tab-specific session/draft storage keys, accepted prompt history, local welcome content, and package-owned assets.
+- Keep directory-wide request discovery; shared per-session request methods do not replace that contract.
+
+## Runtime and compatibility ownership
+
+The runtime follows the main app's `runtime/server/runtime` boundary. Each activation owns a disposable Solid root,
+shared data instance, abort signal, subscriptions, and scheduled refresh work. `currentRuntime()` exposes its API,
+data, event bridge, and identity. The compact store publishes derived views of shared records; streamed message
+content retains shared reactive references. It does not copy the whole data store on deltas.
+
+The shared layer covers 35 of the former reducer's 36 event kinds. Compact handling retains immediate
+`session.skill.activated` rows, selection predecessors/metadata, and targeted hydration for missing messages.
+History starts at 36 records and follows cursors until nine distinct user/shell roots are present or history ends.
+Empty pages, repeated cursors, and pages containing only already-loaded IDs terminate hydration. Queue items never
+consume visible dialogs. Live assistant, shell, and compaction rows survive incomplete snapshots; completed server
+records replace them, except when a newer event overtook the read.
+
+Successful HTTP mutations use temporary inbox receipts until SSE or a subsequent snapshot acknowledges them.
+Drafts, request construction/configuration ordering, attachment previews, accepted history, queue undo, and revert
+presentation remain local. Activation identity guards prevent old responses from affecting a later activation,
+including returning to the same session. Connection events stay compact, avoiding shared project/VCS bootstrap.
+Only the five catalogs used by 7777 are requested; no full-location or extension-host bootstrap is introduced.
+
+### Test ownership after removal
+
+| Removed local code                                          | Contract coverage now                                                                                                                                                                                                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session-reducer-compact.ts` and its reducer-specific tests | Actual shared projections in `runtime/server/runtime.test.ts` and `global-sync/event-reducer-session.test.ts`: text/reasoning, tools/files/retries, shells/compactions, instructions/movement, selections, skill compatibility, inbox lifecycle   |
+| Message-cache state, snapshot merging, and cursor loader    | Runtime tests for live/concurrent snapshots, completion, missing admission, duplicate/empty pages, queue exclusion, HTTP/SSE races, input immutability, disposal; `global-sync/session-messages.test.ts` covers the remaining presentation mapper |
+| Global refresh timer                                        | Activation-owned scheduling, abort/disposal tests, and `sync-session-compact.test.ts`                                                                                                                                                             |
+| Raw composer/provider catalog loaders                       | Shared-resource catalog tests for default ordering, canonical location aliases, request deduplication, directory/activation isolation, and independent failures                                                                                   |
+
+Submission, queue, revert, child-session request selection, web-search handoff, persistence, and embedded/platform
+suites remain in 7777. Reactive suites run with Solid's browser condition; the normal `bun test` command launches
+those suites in subprocesses, so its top-level count includes wrapper tests rather than every nested case.
+
+### Validation
+
+Initial compact baseline: 462 tests, typecheck, and production build passed. The shared client's unchanged
+`test/solid-data.test.ts` has one workspace-location failure (27 pass/1 fail); browser conditions additionally
+expose its background-shell assertion failure (26 pass/2 fail). Compact runtime tests explicitly verify adopted
+single-directory behavior and background shell metadata/completion, using plain snapshots for proxy assertions.
+Those upstream failures are recorded rather than suppressed or changed in another package.
+
+Run the package checks after a migration:
+
+```sh
+bun test
+bun run typecheck
+bun run build
+bun --conditions=browser test src/runtime/server/runtime.test.ts src/composer/catalog-compact.test.ts src/providers/catalog
+```
+
+The production browser fixture serves its own HTTP/SSE endpoint and blocks external requests. It measures entry,
+session switching, and 160 streamed text deltas, then optionally checks commands, skill/agent filtering, switching
+back to the original session, the nine-dialog counter, and host title ownership. It neither starts nor restarts the
+user's app/server. Results and screenshots default to ignored `node_modules/.cache` paths.
+
+```sh
+VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
+BENCH_VERIFY_UI=true bun run bench:runtime
+```
+
+The fixture uses Playwright Chromium. Set `BENCH_BROWSER=<chromium-executable>` if using an existing installation,
+`BENCH_RUNS` for the sample count, `BENCH_OUTPUT` for a JSON result path, and `BENCH_DIST` for another production
+bundle. Run baseline and changed bundles against the same fixture, on the same machine, without concurrent builds.
+Timing is a local regression check, not a general device or network performance claim.
+
+### Recorded results (2026-10-01)
+
+All three migration stages passed package tests, typecheck, and production builds. Final validation:
+`bun test` passes 362 top-level cases across 59 files, including subprocess wrappers;
+the explicit browser-condition run passes 158 cases across 14 runtime, catalog, submission, queue, revert, and request
+files. Production browser assertions pass after each interaction, including returning to the same session.
+
+The original pre-migration run had entry/switch/streaming medians of 128.3/147.5/119.6 ms (10 samples).
+For the final comparison, an isolated production build of `ea429ea` and the changed build used the identical updated
+fixture and the same installed Chromium headless shell on macOS arm64, with 20 samples each:
+
+| Fixture           | Baseline median | Final median | Baseline range | Final range    |
+| ----------------- | --------------- | ------------ | -------------- | -------------- |
+| Session entry     | 127.4 ms        | 130.7 ms     | 123.7–139.1 ms | 127.4–134.5 ms |
+| Session switching | 147.8 ms        | 146.1 ms     | 143.5–157.2 ms | 138.7–276.1 ms |
+| 160 text deltas   | 120.6 ms        | 42.1 ms      | 118.6–125.0 ms | 41.5–44.6 ms   |
+
+Entry increased by about 3 ms within the observed baseline variation; the switching median stayed within that variation.
+The first two switches in that final batch took 276 and 267 ms. A further 10-sample diagnostic run after rebuilding
+had a 144.7 ms switching median and one 266.4 ms outlier. The slow operation spent 241.7 ms inside Playwright's
+`option.click()`; subsequent DOM waits remained between 23.6 and 29.4 ms (median 24.7 ms). The median click took
+120.2 ms. Thus the extra time occurred inside the browser click operation, rather than the subsequent DOM wait;
+its precise cause remains unconfirmed. These occasional click outliers are retained in the reported range.
+Streaming latency fell by about 65%. Alternating baseline/changed batches reproduced the streaming difference.
+Entry and switching medians stayed within baseline variation; click-time outliers are the remaining measurement limitation.
+Raw local results and screenshots remain in
+`node_modules/.cache/runtime-*.{json,png}`; the fixture script is package-owned source for reproducing the measurements.

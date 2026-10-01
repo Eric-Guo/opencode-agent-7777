@@ -5,7 +5,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { createFileSearch } from "@/workspaces/files/model"
 import { fileUrl } from "@/workspaces/files/path"
@@ -46,11 +46,12 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   })
   createEffect(() => {
     const active = location()
-    if (!active) {
+    const runtime = currentRuntime()
+    if (!active || !runtime) {
       catalog.clear()
       return
     }
-    void catalog.load(createDirectorySdk(active.server, active.directory).client, active.directory)
+    void catalog.load(runtime.data, active.directory)
   })
   onCleanup(catalog.clear)
   onCleanup(files.clear)
