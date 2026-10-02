@@ -3,6 +3,8 @@
 Source assessment: parent monorepo `5d84cc330f`, compact app `ea429ea` (2026-10-01).
 The parent includes [GUI extension PR #52369](https://github.com/anomalyco/opencode/pull/52369), merged as `f406d93a66`.
 The table describes the resulting 7777 implementation against that inspected baseline.
+Prompt restoration was additionally compared with parent `7ebf66c36f` and compact `4a4fb95` on 2026-10-02;
+the follow-up below records that refactor and its validation.
 This assessment distinguishes public-package reuse from matching local filenames.
 Paths are relative to `<repo-root>/packages/7777/src` unless a package is named.
 
@@ -22,7 +24,7 @@ app routing, tabs, settings, and server contexts. Adding that host would not rep
 | Composer and suggestions           | `Data.location.agent`, `.skill`, and `.command`; shared attachment cards and controls                       | Local editor, prompt/reference serialization, accepted history, draft storage, independent catalog failure states         | `composer` editor, catalog, prompt, request, submission, and history suites                                   |
 | File mentions                      | `encodeFilePath` from `@opencode/util/path`; shared file icons                                              | Directory search, cancellation, absolute file URL composition                                                             | `workspaces/files/{path,model}.test.ts`                                                                       |
 | Permissions, questions, web search | `@opencode/session-ui/dock-prompt`, `@opencode/ui/dock-surface`                                             | Directory-wide snapshots, child-session request selection, replies, notifications, form handoffs                          | Request tree, permission/form sync, and web-search suites                                                     |
-| Queue and revert                   | Shared client/schema types                                                                                  | Queue/steer actions, successful-cancellation draft restoration, loaded-history undo/redo, activation guards               | `session/composer/queue.test.ts`, `session/revert.test.ts`, `composer/submit.test.ts`                         |
+| Queue and revert                   | Shared client/schema types                                                                                  | Queue/steer actions, successful-cancellation draft restoration, loaded-history undo/redo, file/agent/skill restoration, activation guards | `composer/prompt.test.ts`, `session/composer/queue.test.ts`, `session/revert.test.ts`, `composer/submit.test.ts` |
 | Recent sessions                    | Shared promise client                                                                                       | Directory-bound title/ID search and 12-session cursor pages; header popover                                               | `home/sessions` index, search, and controller suites                                                          |
 | Persistence and settings           | UI controls and shared i18n primitives                                                                      | Existing synchronous storage keys/formats, tab isolation, language and preferences, reasoning toggle                      | Storage, schema, drafts, settings, and model preference tests                                                 |
 | Welcome and embedding              | Package-owned assets and UI primitives                                                                      | Tab-configured local agent, welcome markdown/questions, title policy and `#oc-agent` styles                               | Agent configuration, directory, layout, platform, and browser checks                                          |
@@ -55,6 +57,45 @@ Drafts, request construction/configuration ordering, attachment previews, accept
 presentation remain local. Activation identity guards prevent old responses from affecting a later activation,
 including returning to the same session. Connection events stay compact, avoiding shared project/VCS bootstrap.
 Only the five catalogs used by 7777 are requested; no full-location or extension-host bootstrap is introduced.
+
+### Prompt restoration follow-up (2026-10-02)
+
+Historical and queued prompt reconstruction now share `composer/prompt.ts`, following the main app's prompt
+boundary while retaining the existing compact draft format. The queue controller in `session/composer/queue.ts`
+still owns server cancellation, appending to the latest draft, focus restoration, and activation guards.
+All code remains package-owned and uses public client/schema types; there are no imports from `packages/app`.
+
+- Message Undo and Revert restore file, agent, and skill mentions. File references retain their server URI and
+  query string. Historical presentation text remains unchanged; shifted mention offsets are recovered in order,
+  following the main app's behavior. Missing or malformed references leave the visible text intact.
+- Queued Undo now accepts mentioned agents and skills alongside file mentions and inline attachments. It keeps
+  the full model-visible text, including notes omitted by the queue preview, and the queued file bytes. Cancellation
+  is refused for hidden context without a mention or for invalid/overlapping ranges, so unsupported context stays
+  queued. Restoration still happens only after successful cancellation.
+- Existing draft keys, accepted history, attachment handling, delivery preferences, and the nine-dialog window
+  are preserved. Queue editing and reordering remain outside this change.
+
+`composer/prompt.test.ts` owns historical reconstruction and persistence/resubmission coverage.
+`session/composer/queue.test.ts` owns lossless cancellation, combined mention validation, merging, and stale-response
+coverage. The existing revert suite continues to own Undo/Redo transitions and error handling. Regression tests
+for structured message and queue restoration failed before the implementation and pass afterward.
+
+Validation: `bun test` passes 370 top-level cases across 59 files; `bun run typecheck` and the standalone-browser
+production build pass. An isolated browser fixture verified queued Undo, draft reload, historical Undo, rendered
+file/agent/skill references, and the submitted request payload. The existing production fixture also passed its
+UI assertions. The user's running app and server were left running.
+
+Ten samples per build on the same machine and installed Chromium produced these medians:
+
+| Fixture           | Before | After |
+| ----------------- | ------ | ----- |
+| Session entry     | 136.5 ms | 138.2 ms |
+| Session switching | 146.8 ms | 148.8 ms |
+| 160 text deltas   | 43.2 ms | 44.0 ms |
+
+The differences are small local timing variations, not a demonstrated performance change. Raw results and the
+browser screenshot remain in ignored `node_modules/.cache/parity-{before,after}.json` and
+`node_modules/.cache/prompt-parity-browser.png`.
 
 ### Test ownership after removal
 

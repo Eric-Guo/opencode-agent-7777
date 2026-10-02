@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
 import { OpenCode, type SessionInfo } from "@opencode/client/promise"
+import { Skill } from "@opencode/schema/skill"
+import { Schema } from "effect"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { createPromptState, type PromptDraft } from "@/composer/state"
 import { buildPromptRequest } from "@/composer/request"
+import { PromptDraft as PromptDraftSchema } from "@/composer/schema"
 import { createSessionQueue, queuedPromptUndoDraft, type QueuedPrompt } from "./queue"
 import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 
@@ -226,6 +229,61 @@ browserSuite(import.meta.path, () => {
     expect(restored.references?.[0].content).toBe("@docs/a.txt")
   })
 
+  test("undo restores agent and skill mentions after cancellation and retains them through resubmission", async () => {
+    const response = Promise.withResolvers<Response>()
+    connect(
+      OpenCode.make({
+        baseUrl: "http://localhost",
+        fetch: (async (_input, _init) => response.promise) as typeof fetch,
+      }),
+    )
+    const original: QueuedPrompt = {
+      ...item(),
+      payload: {
+        text: "Ask @explore use @review\n\nKeep the original notes.",
+        metadata: { displayText: "Ask @explore use @review" },
+        agents: [{ name: "explore", mention: { text: "@explore", start: 4, end: 12 } }],
+        skills: [{ id: "plugin/review", name: "Review", mention: { text: "@review", start: 17, end: 24 } }],
+      },
+    }
+    const snapshot = structuredClone(original)
+    updatePendingInbox(() => [original])
+    let saved: unknown
+    const draft = createPromptState({ prompt: "Draft", attachments: [] }, (value) => (saved = value))
+    const queue = makeQueue({ draft })
+    const pending = queue.undo("queued")
+    expect(draft.current()).toBe("Draft")
+    expect(queue.count()).toBe(1)
+    response.resolve(new Response(null, { status: 204 }))
+    await pending
+    expect(queue.count()).toBe(0)
+    expect(state.error).toBe("")
+    const restored = createPromptState(Schema.decodeUnknownSync(PromptDraftSchema)(JSON.parse(JSON.stringify(saved))))
+    expect(restored.capture()).toEqual({
+      prompt: "Draft\n\nAsk @explore use @review\n\nKeep the original notes.",
+      attachments: [],
+      references: [
+        { type: "agent", name: "explore", content: "@explore", start: 11, end: 19 },
+        {
+          type: "skill",
+          id: Skill.ID.make("plugin/review"),
+          name: Skill.Name.make("Review"),
+          content: "@review",
+          start: 24,
+          end: 31,
+        },
+      ],
+    })
+    expect(buildPromptRequest(restored.capture())).toEqual({
+      text: "Draft\n\nAsk @explore use @review\n\nKeep the original notes.",
+      files: [],
+      agents: [{ name: "explore", mention: { text: "@explore", start: 11, end: 19 } }],
+      skills: [{ id: Skill.ID.make("plugin/review"), mention: { text: "@review", start: 24, end: 31 } }],
+    })
+    draft.store[1]("prompt", 1, { type: "agent", name: "changed" })
+    expect(original).toEqual(snapshot)
+  })
+
   test.each([
     [-1, 10],
     [5.5, 16],
@@ -239,9 +297,12 @@ browserSuite(import.meta.path, () => {
     expect(queuedPromptUndoDraft(original)).toBeUndefined()
   })
 
-  test("undo refuses overlapping mentions", () => {
+  test.each(["file", "agent", "skill"] as const)("undo refuses overlapping %s mentions", (type) => {
     const original = filePrompt()
-    original.payload.files!.push({ ...original.payload.files![0] })
+    const mention = { text: "@docs/a.txt", start: 5, end: 16 }
+    if (type === "file") original.payload.files!.push({ ...original.payload.files![0] })
+    if (type === "agent") original.payload.agents = [{ name: "research", mention }]
+    if (type === "skill") original.payload.skills = [{ id: "review", name: "Review", mention }]
     expect(queuedPromptUndoDraft(original)).toBeUndefined()
   })
 
@@ -325,7 +386,7 @@ browserSuite(import.meta.path, () => {
     })
   })
 
-  test.each(["failed", "disabled", "context", "agent", "skill"] as const)(
+  test.each(["failed", "disabled", "context", "agent", "skill", "invalid mention"] as const)(
     "undo preserves the draft and queue when %s",
     async (reason) => {
       let requests = 0
@@ -347,7 +408,8 @@ browserSuite(import.meta.path, () => {
             data: "Y29udGV4dA==",
           },
         ]
-      if (reason === "agent")
+      if (reason === "agent") original.payload.agents = [{ name: "research" }]
+      if (reason === "invalid mention")
         original.payload.agents = [{ name: "research", mention: { text: "@research", start: 0, end: 9 } }]
       if (reason === "skill") original.payload.skills = [{ id: "skill", name: "review" }]
       updatePendingInbox(() => [original])

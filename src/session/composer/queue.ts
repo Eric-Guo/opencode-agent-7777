@@ -2,7 +2,8 @@ import { createStore } from "solid-js/store"
 import type { Accessor } from "solid-js"
 import type { SessionInboxInfo } from "@opencode/client/promise"
 import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
-import type { PromptDraft, PromptState } from "@/composer/state"
+import { extractPromptFromQueued as queuedPromptUndoDraft } from "@/composer/prompt"
+import type { PromptState } from "@/composer/state"
 import { translateSync } from "@/runtime/i18n/language"
 import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
@@ -10,6 +11,7 @@ import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { readableError } from "@/shell/errors/readable"
 
 export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
+export { queuedPromptUndoDraft }
 
 // The server owns delivery and persistence; undo restores only representable drafts.
 export function createSessionQueue(input: {
@@ -113,55 +115,4 @@ export function queuedPromptRows(items: QueuedPrompt[]) {
 export function queuedPromptText(item: QueuedPrompt) {
   const display = item.payload.metadata?.["displayText"]
   return typeof display === "string" && display.length > 0 ? display : item.payload.text
-}
-
-// Use model-visible text so notes survive. The compact draft persists file mentions
-// and inline attachments, but cannot retain agent/skill references or hidden file context.
-export function queuedPromptUndoDraft(item: QueuedPrompt): PromptDraft | undefined {
-  const payload = item.payload
-  if (payload.agents?.length || payload.skills?.length) return
-  if (payload.files?.some((file) => !file.mention && file.source.type !== "inline")) return
-  const references = (payload.files ?? [])
-    .flatMap((file) => {
-      if (!file.mention) return []
-      return [
-        {
-          type: "file" as const,
-          path: file.mention.text.replace(/^@/, ""),
-          content: file.mention.text,
-          start: file.mention.start,
-          end: file.mention.end,
-          url: `data:${file.mime};base64,${file.data}`,
-        },
-      ]
-    })
-    .sort((left, right) => left.start - right.start)
-  if (
-    references.some(
-      (reference, index) =>
-        !Number.isInteger(reference.start) ||
-        !Number.isInteger(reference.end) ||
-        reference.start < (references[index - 1]?.end ?? 0) ||
-        reference.end <= reference.start ||
-        reference.end > payload.text.length ||
-        payload.text.slice(reference.start, reference.end) !== reference.content,
-    )
-  )
-    return
-  return {
-    prompt: payload.text,
-    ...(references.length ? { references } : {}),
-    attachments: (payload.files ?? []).flatMap((file, index) =>
-      file.mention
-        ? []
-        : [
-            {
-              id: `${item.id}:file:${index}`,
-              filename: file.name ?? "attachment",
-              mime: file.mime,
-              url: `data:${file.mime};base64,${file.data}`,
-            },
-          ],
-    ),
-  }
 }

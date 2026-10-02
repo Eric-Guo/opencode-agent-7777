@@ -195,9 +195,11 @@ available even when every model is hidden. Portal styles are scoped to the model
 Provider connection flows, Console workspace grouping, and the ChatGPT-plan footer remain outside the compact app.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
-The local implementation restores text, inline attachments, and file mentions into the single persisted draft;
-prompts with agent/skill references or hidden file context stay queued because compact queue undo does not reconstruct
-that context.
+The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
+persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
+boundary; the queue controller retains cancellation, draft merging, and activation guards. This shared local
+restoration helper intentionally replaces the main app's separate queue conversion. Hidden context without a
+mention and malformed queued mention ranges stay queued because the compact draft cannot preserve them.
 
 Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
 `composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` reads commands, skills, and agents from the active
@@ -220,6 +222,9 @@ Clearing the search or reopening the popover starts again with the first batch.
 ## Undo and Redo
 
 Use **Undo** in the header to rewind the latest user turn and restore its prompt and attachments to the composer.
+File, agent, and skill mentions remain structured references through editing, reload, and resubmission. Historical
+file mentions retain their server URI, including any line range. If visible prompt text shifts a mention's offsets,
+restoration searches for that mention in order; context absent from the visible text stays out of the draft.
 Use **Redo** to restore one undone turn; redoing the final turn clears the revert boundary and composer. The existing
 **Revert message** action uses the same controller, so a message-level revert can also be stepped forward with Redo.
 
@@ -258,9 +263,10 @@ When the session is idle, either shortcut sends immediately. The preference is s
 also shows the alternate action while a follow-up is ready to send.
 
 Use **Undo** on a queued prompt to move it back into the composer. It appends after any current draft text and
-preserves existing attachments and file mentions. The prompt leaves the queue only after the server confirms
+preserves existing attachments and file, agent, and skill mentions. The prompt leaves the queue only after the server confirms
 cancellation; failed requests leave both the queue and draft intact. Undo uses the full prompt text, including
-notes hidden by a shorter queue preview. Prompts containing context the compact composer cannot retain stay
+notes hidden by a shorter queue preview, and restores file mentions from their queued bytes. Prompts containing
+context without a mention, or invalid or overlapping mention ranges, stay
 queued with an explanation. Editing in place and reordering queued prompts remain unavailable.
 
 ## Agent Welcome Content
