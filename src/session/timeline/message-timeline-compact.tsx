@@ -38,7 +38,13 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
   }
 
   return (
-    <div data-slot="session-message-timeline" onPointerDown={handlePointerDown} onPointerMove={handlePointerMove}>
+    <div
+      data-slot="session-message-timeline"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerDown}
+      onKeyUp={(event) => props.onPointerGesture?.(event.target)}
+    >
       <SessionTimeline
         document={props.document}
         presentation={presentation()}

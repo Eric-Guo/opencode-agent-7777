@@ -16,6 +16,7 @@ export const dict = {
   "session.new": "新会话",
   "session.thinking": "思考",
   "session.thinking.toggle": "显示或隐藏推理摘要",
+  "session.messages.jumpToLatest": "跳转到最新消息",
   "usage.tokens": "Tokens",
   "usage.usage": "上下文",
   "usage.cost": "费用",

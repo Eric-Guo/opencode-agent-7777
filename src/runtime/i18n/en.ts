@@ -12,6 +12,7 @@ export const dict = {
   "session.new": "New session",
   "session.thinking": "Thinking",
   "session.thinking.toggle": "Show or hide reasoning summaries",
+  "session.messages.jumpToLatest": "Jump to latest",
   "usage.tokens": "Tokens",
   "usage.usage": "Context",
   "usage.cost": "Cost",
