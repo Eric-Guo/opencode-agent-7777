@@ -6,8 +6,9 @@ Paths below are relative to `src/` unless a package is named.
 
 The original assessment used parent `5d84cc330f` and compact `ea429ea` (2026-10-01), including GUI extension
 PR #52369. Prompt restoration was compared with parent `7ebf66c36f` (2026-10-02). The scrolling follow-up below
-compares parent `59b3b8dd0c` and compact `ec4fc8c` (2026-10-03). These are scoped comparisons, not a full audit of
-all subsequent upstream changes. Earlier migration notes and measurements remain in this document's Git history.
+compares parent `59b3b8dd0c` and compact `ec4fc8c` (2026-10-03). Console grouping follows parent `d84cecc5bd`,
+starting from compact `fe8b29e` (2026-10-05). These are scoped comparisons, not a full audit of all subsequent
+upstream changes. Earlier migration notes and measurements remain in this document's Git history.
 
 ## Shared packages and local ownership
 
@@ -17,7 +18,7 @@ all subsequent upstream changes. Earlier migration notes and measurements remain
 | Scrolling | `createAutoScroll` from `@opencode/ui/hooks` | Activation reset, viewport observation, Jump to latest control |
 | Session runtime | `createData` from `@opencode/client/solid` | Activation lifecycle, bounded hydration, optimistic presentation, compatibility rows |
 | Transport/platform | `@opencode/client/promise` | Authenticated request queue, one SSE stream, desktop RPC, Electron gate, embedded mount |
-| Models/providers | Shared data location resources and UI primitives | Source defaults/visibility, server precedence, variants, manager gate and selection |
+| Models/providers | Shared data location resources and UI primitives | Source defaults/visibility, Console grouping, server precedence, variants, manager gate and selection |
 | Composer | Shared agent/skill/command resources, attachment cards and controls | Editor, request serialization, accepted history, drafts, independent catalog failures |
 | File mentions | `encodeFilePath` from `@opencode/util/path` and shared icons | Directory search, cancellation, absolute server URI composition |
 | Requests | Shared `DockPrompt` and `DockSurface` | Directory-wide discovery, child-session selection, replies, notifications, web-search handoffs |
@@ -68,10 +69,20 @@ and English fallback cover the new control. Existing timeline actions, drafts, r
 
 - Queue editing and reordering. The public inbox API has no atomic reorder operation; upstream recreates a suffix
   of prompts and cancels the originals. This requires separate work on partial failures and concurrent delivery.
-- Provider connections, Console workspace grouping and the ChatGPT-plan footer.
+- Provider connections and the ChatGPT-plan footer.
 - Files/review panels, terminal, full usage/summary panels, browser, remote servers and the extension host.
   The GUI extension renderer host lives in `packages/app` and depends on app routing, tabs, settings and server
   contexts. Public built-in definitions alone do not supply that host.
+
+## Console grouping follow-up (2026-10-05)
+
+`providers/catalog/console.ts` and `providers/models/provider-group.tsx` now follow the main app's Console
+workspace boundary. The existing catalog adapter preserves integration and canonical provider identity. The manager
+detects the workspace before filtering and nests its providers under a collapsible workspace heading. Unrelated,
+direct, and incomplete provider catalogs retain their existing sections. Shared local headers and ordering remove
+duplication; nested groups retain 7777's provider switches, full-catalog search toggles, and future-model defaults.
+The `manageModels` gate, source configuration, selection, and persistence formats are unchanged. New copy uses
+the existing English fallback until translated. No app imports, new catalog requests, or dependencies were added.
 
 ## Validation and coverage
 
@@ -80,16 +91,20 @@ and English fallback cover the new control. Existing timeline actions, drafts, r
 | Shared projections, live snapshots, cursor hydration, HTTP/SSE races, disposal | `runtime/server/runtime.test.ts`, global-sync suites |
 | Submission, draft restoration, references, queue cancellation, revert | `composer/{prompt,request,submit}.test.ts`, queue and revert suites |
 | Catalog defaults, request deduplication, independent failures, isolation | Composer/provider catalog suites |
+| Console identity, direct-provider exclusion, metadata preservation | `providers/catalog/console.test.ts`, global-sync utils suite |
 | Nine-dialog projection, shell roots, revert boundary | `session/timeline/model-compact.test.ts`, session-domain suite |
 | Following, pause/resume, streamed growth, selection, resize, activation reset | Production fixture in `scripts/runtime-benchmark.ts` |
 | Directory-wide requests, persistence, embedding/platform behavior | Request, storage/schema, platform and layout suites |
 
-Current validation: 370 top-level tests across 59 files, typecheck, and production build pass. Reactive suites run
-with Solid's browser condition through the normal test command. The production fixture verifies the real bundle
-against an isolated HTTP/SSE endpoint and blocks external requests. The running homepage was also checked through
-browser automation; its app and server processes were left running.
+Current validation: 372 top-level tests across 60 files, typecheck, and production build pass. Reactive suites run
+with Solid's browser condition through the normal test command. The metadata regression fails against the previous
+adapter. An isolated browser fixture verified grouping, search with the root filtered out, independent collapse-state
+restoration, toggling hidden search results, and visibility of newly added models. The running homepage's selector,
+search, and Escape focus restoration were also checked; its app and server processes were left running. The fixture
+and screenshot are ignored artifacts under `node_modules/.cache/provider-parity/`.
 
-Five samples per build on the same machine and installed Chromium produced these medians:
+For the earlier scrolling follow-up (2026-10-03), the production fixture verified the real bundle against an isolated
+HTTP/SSE endpoint and blocked external requests. Five samples per build on the same machine produced these medians:
 
 | Fixture | Before | After |
 | --- | --- | --- |

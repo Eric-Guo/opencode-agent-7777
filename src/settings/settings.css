@@ -147,10 +147,26 @@
     padding-bottom: 12px;
   }
 
+  .settings-models-console-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-inline-start: 12px;
+    padding-inline-start: 12px;
+    border-inline-start: 1px solid var(--v2-border-border-muted);
+  }
+
+  .provider-model-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   .settings-models-group-header {
     display: flex;
     align-items: center;
     height: 28px;
+    margin: 0;
   }
 
   .settings-models-group-trigger {

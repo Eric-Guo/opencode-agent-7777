@@ -29,7 +29,7 @@ function model(input: Partial<ModelInfo> = {}): ModelInfo {
 
 describe("normalizeProviderList", () => {
   test("keeps catalog IDs separate from API IDs and normalizes display metadata", () => {
-    const providers = [provider("provider")]
+    const providers = [{ ...provider("provider"), canonical: "openai", integrationID: "opencode" }]
     const models = [
       model({
         cost: [
@@ -43,6 +43,7 @@ describe("normalizeProviderList", () => {
 
     expect(result.connected).toEqual(["provider"])
     expect(result.default).toEqual({ provider: "configured-model" })
+    expect(result.all.get("provider")).toMatchObject({ canonical: "openai", integrationID: "opencode" })
     expect(result.all.get("provider")?.models["configured-model"]).toMatchObject({
       id: "configured-model",
       api: { id: "api-model" },

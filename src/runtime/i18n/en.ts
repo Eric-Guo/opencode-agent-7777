@@ -120,6 +120,7 @@ export const dict = {
   "model.tag.latest": "Latest",
 
   "provider.connect.opencode.freeName": "OpenCode Free",
+  "provider.connect.opencode.name": "OpenCode Console",
 
   "dialog.model.select.title": "Select model",
   "dialog.model.search.placeholder": "Search models",

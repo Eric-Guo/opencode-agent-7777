@@ -193,13 +193,17 @@ boundaries with package-local implementations. The compact storage adapter is sy
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
 Model preference recovery remains separate from catalog and visibility operations in `providers/models/models.tsx`.
 
-The model manager follows `providers/models/manage.tsx`, the direct-provider sections in
-`providers/models/provider-group.tsx`, and `settings/{list,row}.tsx`. Provider sections collapse, expand during search,
-and restore their previous state when search is cleared. Provider switches reflect the full catalog during search;
-7777 retains provider-level visibility defaults for future models. The composer uses the same package-owned provider
-icons and restores editor focus after model selection or Escape. With `manageModels` enabled, the selector stays
-available even when every model is hidden. Portal styles are scoped to the model dialog for embedded hosts.
-Provider connection flows, Console workspace grouping, and the ChatGPT-plan footer remain outside the compact app.
+The model manager follows `providers/models/manage.tsx`, `providers/models/provider-group.tsx`,
+`providers/catalog/console.ts`, and `settings/{list,row}.tsx`. Console integrations nest under an OpenCode Console
+section with the workspace name; direct providers keep their own sections. The catalog adapter preserves
+`integrationID` and `canonical` for grouping and icons. Workspace detection uses the full model catalog, so a search
+that hides the root model retains the Console group. Sections collapse, expand during search, and restore their
+previous state when search is cleared. The compact renderer reuses one header for all sections and keeps its existing
+provider switches in nested groups. Switches affect the full catalog during search and retain visibility defaults
+for future models. The selector and manager share their existing ordering through the local `providers/catalog/order.ts`.
+The composer uses package-owned provider icons and restores editor focus after model selection or Escape. With
+`manageModels` enabled, the selector stays available even when every model is hidden. Portal styles remain scoped
+to the model dialog for embedded hosts. Provider connection flows and the ChatGPT-plan footer remain unavailable.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single

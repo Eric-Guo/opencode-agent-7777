@@ -10,7 +10,7 @@ import { createEventListener } from "@solid-primitives/event-listener"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
-import { popularProviders } from "@/providers/catalog/providers"
+import { sortProviderGroups } from "@/providers/catalog/order"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import { matchesModelSearch } from "./search"
@@ -23,18 +23,6 @@ type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
 
 const modelKey = (model: ModelItem) => `${model.provider.id}:${model.id}`
 const manageKey = "action:manage"
-
-const sortModelGroups = (a: { category: string; items: ModelItem[] }, b: { category: string; items: ModelItem[] }) => {
-  const aIndex = popularProviders.indexOf(a.category)
-  const bIndex = popularProviders.indexOf(b.category)
-  const aPopular = aIndex >= 0
-  const bPopular = bIndex >= 0
-
-  if (aPopular && !bPopular) return -1
-  if (!aPopular && bPopular) return 1
-  if (aPopular && bPopular) return aIndex - bIndex
-  return a.items[0].provider.name.localeCompare(b.items[0].provider.name)
-}
 
 type ModelSelectorTriggerProps = Omit<ComponentProps<typeof Menu.Trigger>, "as" | "ref">
 type ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => JSX.Element
@@ -98,7 +86,7 @@ function createModelSelectorController(input: {
       for (const item of models) {
         byProvider.set(item.provider.id, [...(byProvider.get(item.provider.id) ?? []), item])
       }
-      return Array.from(byProvider, ([category, items]) => ({ category, items })).sort(sortModelGroups)
+      return Array.from(byProvider, ([category, items]) => ({ category, items })).sort(sortProviderGroups)
     },
     current: () => {
       const value = input.model.current()
