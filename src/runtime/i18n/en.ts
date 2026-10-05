@@ -128,6 +128,8 @@ export const dict = {
   "dialog.model.manage": "Manage models",
   "dialog.model.manage.description": "Customize which models appear in the model selector.",
   "dialog.model.manage.provider.toggle": "Toggle all {{provider}} models",
+  "dialog.model.chatgptPlan": "Using ChatGPT plan",
+  "dialog.model.chatgptManageUsage": "Manage usage",
 
   "notification.permission.title": "Permission required",
   "settings.permissions.tool.read.description": "Reading a file (matches the file path)",

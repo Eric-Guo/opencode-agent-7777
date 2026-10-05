@@ -126,6 +126,10 @@ export function createSessionRuntime(input: {
         ...input.client.provider,
         list: (request, init) => read(input.client.provider.list(request, options(init))),
       },
+      integration: {
+        ...input.client.integration,
+        list: (request, init) => read(input.client.integration.list(request, options(init))),
+      },
       agent: { ...input.client.agent, list: (request, init) => read(input.client.agent.list(request, options(init))) },
       command: {
         ...input.client.command,

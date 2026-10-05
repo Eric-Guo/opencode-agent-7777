@@ -7,7 +7,8 @@ Paths below are relative to `src/` unless a package is named.
 The original assessment used parent `5d84cc330f` and compact `ea429ea` (2026-10-01), including GUI extension
 PR #52369. Prompt restoration was compared with parent `7ebf66c36f` (2026-10-02). The scrolling follow-up below
 compares parent `59b3b8dd0c` and compact `ec4fc8c` (2026-10-03). Console grouping follows parent `d84cecc5bd`,
-starting from compact `fe8b29e` (2026-10-05). These are scoped comparisons, not a full audit of all subsequent
+starting from compact `fe8b29e` (2026-10-05). The ChatGPT-plan footer follows the same parent, starting from meeting
+`dc21ead` (2026-10-05). These are scoped comparisons, not a full audit of all subsequent
 upstream changes. Earlier migration notes and measurements remain in this document's Git history.
 
 ## Shared packages and local ownership
@@ -18,7 +19,7 @@ upstream changes. Earlier migration notes and measurements remain in this docume
 | Scrolling | `createAutoScroll` from `@opencode/ui/hooks` | Activation reset, viewport observation, Jump to latest control |
 | Session runtime | `createData` from `@opencode/client/solid` | Activation lifecycle, bounded hydration, optimistic presentation, compatibility rows |
 | Transport/platform | `@opencode/client/promise` | Authenticated request queue, one SSE stream, desktop RPC, Electron gate, embedded mount |
-| Models/providers | Shared data location resources and UI primitives | Source defaults/visibility, Console grouping, server precedence, variants, manager gate and selection |
+| Models/providers | Shared data location resources, including lazy integration reads, and UI primitives | Source defaults/visibility, Console grouping, server precedence, variants, manager gate, selection and ChatGPT-plan footer |
 | Composer | Shared agent/skill/command resources, attachment cards and controls | Editor, request serialization, accepted history, drafts, independent catalog failures |
 | File mentions | `encodeFilePath` from `@opencode/util/path` and shared icons | Directory search, cancellation, absolute server URI composition |
 | Requests | Shared `DockPrompt` and `DockSurface` | Directory-wide discovery, child-session selection, replies, notifications, web-search handoffs |
@@ -39,7 +40,8 @@ upstream changes. Earlier migration notes and measurements remain in this docume
 
 `runtime/server/runtime.ts` owns one disposable Solid root and shared data instance per activation, plus its abort
 signal, subscriptions and refresh work. The compact store publishes derived views; streamed content retains shared
-reactive references. Only the five catalogs used by 7777 are loaded, without full-location or extension bootstrap.
+reactive references. Five catalogs load for the composer and models; integration metadata loads only while the
+model selector is open with an OpenAI model selected, without full-location or extension bootstrap.
 
 The shared layer handles 35 of the former reducer's 36 event kinds. Local compatibility covers skill activation,
 selection predecessors/metadata, and hydration for missing messages. History starts at 36 records and follows
@@ -69,8 +71,8 @@ and English fallback cover the new control. Existing timeline actions, drafts, r
 
 - Queue editing and reordering. The public inbox API has no atomic reorder operation; upstream recreates a suffix
   of prompts and cancels the originals. This requires separate work on partial failures and concurrent delivery.
-- Provider connections and the ChatGPT-plan footer.
-- Files/review panels, terminal, full usage/summary panels, browser, remote servers and the extension host.
+- Provider connection and credential-management flows.
+- Review/diff panels, terminal, full usage/summary panels, browser, remote servers and the extension host.
   The GUI extension renderer host lives in `packages/app` and depends on app routing, tabs, settings and server
   contexts. Public built-in definitions alone do not supply that host.
 
@@ -84,6 +86,21 @@ duplication; nested groups retain 7777's provider switches, full-catalog search 
 The `manageModels` gate, source configuration, selection, and persistence formats are unchanged. New copy uses
 the existing English fallback until translated. No app imports, new catalog requests, or dependencies were added.
 
+## ChatGPT-plan footer follow-up (2026-10-05)
+
+The model selector now shows **Using ChatGPT plan** and a keyboard-accessible **Manage usage** link when the selected
+provider is `openai` and its first active integration connection is an OAuth credential. An inactive OAuth connection
+behind an API key, an environment connection, or a Console provider does not enable the footer. The link uses the
+local `runtime/platform/external-link.tsx` boundary and opens ChatGPT usage settings in a separate tab.
+
+Connection reads belong to `providers/catalog/integrations.ts`, using the public client's shared integration resource.
+The selector view receives the resulting flag and reports its open state. The compact adapter reads only while needed,
+refreshes through the existing SSE stream on credential/integration changes or reconnect, and reads again on reopening.
+Loading or failed reads hide the optional footer without blocking model search or selection. A newer event or scope
+invalidates display readiness, so late responses cannot show a previous connection or workspace. The runtime's abort
+guard also covers integration reads. No connection metadata is persisted locally, and no additional stream, polling,
+app import, or dependency was introduced. The footer remains available with `manageModels = false`.
+
 ## Validation and coverage
 
 | Contract | Coverage owner |
@@ -92,12 +109,25 @@ the existing English fallback until translated. No app imports, new catalog requ
 | Submission, draft restoration, references, queue cancellation, revert | `composer/{prompt,request,submit}.test.ts`, queue and revert suites |
 | Catalog defaults, request deduplication, independent failures, isolation | Composer/provider catalog suites |
 | Console identity, direct-provider exclusion, metadata preservation | `providers/catalog/console.test.ts`, global-sync utils suite |
+| Active OAuth detection, lazy reads, connection events, stale responses, optional failures | `providers/catalog/integrations.test.ts`; catalog disposal in `runtime/server/runtime.test.ts` |
 | Nine-dialog projection, shell roots, revert boundary | `session/timeline/model-compact.test.ts`, session-domain suite |
 | Following, pause/resume, streamed growth, selection, resize, activation reset | Production fixture in `scripts/runtime-benchmark.ts` |
 | Directory-wide requests, persistence, embedding/platform behavior | Request, storage/schema, platform and layout suites |
 
-Current validation: 372 top-level tests across 60 files, typecheck, and production build pass. Reactive suites run
-with Solid's browser condition through the normal test command. The metadata regression fails against the previous
+Current meeting validation: 482 top-level tests across 73 files, typecheck, and production build pass. Reactive suites
+run with Solid's browser condition through the normal test command. A production browser fixture verified the footer,
+keyboard access, active OAuth/API-key changes, metadata failure and recovery, search, and the disabled model-manager
+gate. The running homepage's model search and Escape focus restoration were also checked without changing its selected
+model or restarting its app/server. Fixture files and screenshots are ignored under `node_modules/.cache/plan-parity/`.
+
+The benchmark fixture now supplies meeting recorder, project and file-tree reads and explicit fixture storage keys.
+Five runs of the ordinary benchmark passed for each bundle. Before/after medians were 171.5/176.1 ms for entry,
+153.9/152.8 ms for switching, and 48.4/48.3 ms for 160 text deltas; this small sample establishes no performance change.
+The extended `BENCH_VERIFY_UI=true` run currently fails its first scroll-distance assertion (38 px versus less than
+10 px) on both unchanged `dc21ead` and this change. This existing scrolling gap remains unresolved; the assertion is
+retained. The new integration-disposal regression also fails against `dc21ead` and passes with the abort guard.
+
+The earlier Console grouping validation passed 372 top-level tests across 60 files. The metadata regression fails against the previous
 adapter. An isolated browser fixture verified grouping, search with the root filtered out, independent collapse-state
 restoration, toggling hidden search results, and visibility of newly added models. The running homepage's selector,
 search, and Escape focus restoration were also checked; its app and server processes were left running. The fixture

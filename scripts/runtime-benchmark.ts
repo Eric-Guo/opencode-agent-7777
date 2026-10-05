@@ -1,6 +1,7 @@
 // Exercises the real production bundle against a private, deterministic HTTP/SSE fixture.
 // Build with VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false before running.
 import { chromium, expect } from "@playwright/test"
+import type { AudioStatus } from "@opencode/client/promise"
 import { join, resolve } from "node:path"
 
 const count = Number(process.env.BENCH_RUNS ?? 10)
@@ -68,6 +69,7 @@ const json = (value: unknown) => Response.json(value)
 const server = Bun.serve({
   hostname: "127.0.0.1",
   port: 0,
+  idleTimeout: 0,
   async fetch(request) {
     const url = new URL(request.url)
     const path = url.pathname
@@ -93,6 +95,28 @@ const server = Bun.serve({
       )
     }
     if (path === "/api/session/active") return json({ data: {} })
+    if (path === "/api/project") return json([{ id: "project", time: { created: 1, updated: 1 } }])
+    if (path === "/api/fs/list") return json({ location, data: [] })
+    if (path === "/api/audio/recording/status")
+      return json({
+        state: "idle",
+        recordingID: null,
+        active: false,
+        backend: null,
+        startedAt: null,
+        endedAt: null,
+        endReason: null,
+        pcmBytes: 0,
+        mp3Bytes: 0,
+        durationMs: 0,
+        progress: "",
+        availability: false,
+        permission: "unknown",
+        environment: "headless",
+        errorCode: null,
+        errorMessage: null,
+        guidance: null,
+      } satisfies AudioStatus)
     if (path === "/api/session") return json({ data: sessions, cursor: {} })
     const session = sessions.find((item) => path === `/api/session/${item.id}`)
     if (session) return json({ data: session })
@@ -174,6 +198,11 @@ try {
               localAgent: "7777",
               welcomeText: "",
               suggestedQuestions: [],
+              storageKeys: {
+                sessionID: "opencode.7777.session.id",
+                sessionDirectory: "opencode.7777.session.directory",
+                promptDraft: "opencode.7777.prompt.draft",
+              },
             }),
           },
         })

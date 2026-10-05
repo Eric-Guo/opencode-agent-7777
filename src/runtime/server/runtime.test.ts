@@ -421,4 +421,21 @@ browserSuite(import.meta.path, () => {
     await Bun.sleep(0)
     expect(f.requests).toEqual([])
   })
+
+  test.each(["model", "provider", "agent", "command", "skill", "integration"] as const)(
+    "disposal prevents late %s catalog publication",
+    async (resource) => {
+      const f = fixture()
+      const held = Promise.withResolvers<unknown>()
+      f.read((url) => (url.pathname === `/api/${resource}` ? held.promise : undefined))
+      const catalog = f.runtime.data.location[resource]
+      const refresh = catalog.sync({ directory: "/repo" })
+      await Bun.sleep(0)
+      f.runtime.dispose()
+      held.resolve({ location: { directory: "/repo" }, data: [] })
+      await expect(refresh).rejects.toMatchObject({ name: "AbortError" })
+      expect(catalog.list({ directory: "/repo" })).toBeUndefined()
+      expect(f.failures).toEqual([])
+    },
+  )
 })

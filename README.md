@@ -203,7 +203,17 @@ provider switches in nested groups. Switches affect the full catalog during sear
 for future models. The selector and manager share their existing ordering through the local `providers/catalog/order.ts`.
 The composer uses package-owned provider icons and restores editor focus after model selection or Escape. With
 `manageModels` enabled, the selector stays available even when every model is hidden. Portal styles remain scoped
-to the model dialog for embedded hosts. Provider connection flows and the ChatGPT-plan footer remain unavailable.
+to the model dialog for embedded hosts. Provider connection flows remain unavailable.
+
+The model selector now includes the main app's ChatGPT-plan footer. `providers/catalog/integrations.ts` owns optional
+connection reads through the public client's shared location resource; `providers/models/select-dialog.tsx` renders
+the result, and `runtime/platform/external-link.tsx` owns external-link behavior. With an OpenAI model selected, opening
+the menu reads its active connection and shows **Using ChatGPT plan** and **Manage usage** for an OAuth credential.
+API keys, environment connections, inactive OAuth credentials, and Console providers do not show the footer.
+The compact adapter listens to the existing SSE stream while open and refreshes on connection changes or reconnect.
+Failed or outdated reads hide the footer while model selection stays usable; reopening retries. The runtime aborts
+integration reads with the activation. Model defaults, visibility, storage formats, and the `manageModels` gate stay
+unchanged, and the footer is available when model management is disabled. No app imports or new dependencies are used.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
