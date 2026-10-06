@@ -10,6 +10,17 @@ export const dict = {
   "review.loading": "正在加载变更…",
   "review.loadFailed": "无法加载变更",
   "review.empty": "本轮没有记录文件变更。",
+  "review.mode.label": "待查看的变更",
+  "review.mode.turn": "最新一轮",
+  "review.mode.working": "工作区",
+  "review.mode.branch": "分支变更",
+  "review.base.label": "基准引用",
+  "review.base.default": "默认分支",
+  "review.base.apply": "对比",
+  "review.description.working": "本会话工作区中未提交的变更，包括已暂存和未跟踪的文件。",
+  "review.description.branch": "自与 {{base}} 的共同祖先以来的变更，包括未提交的变更。",
+  "review.empty.working": "此工作区中没有未提交的文件变更。",
+  "review.empty.branch": "相对于该基准引用没有文件变更。",
 
   "language.en": "English",
   "language.zh": "中文",
@@ -178,4 +189,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>
