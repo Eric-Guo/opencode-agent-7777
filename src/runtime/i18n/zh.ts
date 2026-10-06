@@ -3,6 +3,14 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "review.title": "查看本轮变更",
+  "review.description": "本会话最新一轮记录的文件变更。",
+  "review.refresh": "刷新变更",
+  "review.retry": "重试",
+  "review.loading": "正在加载变更…",
+  "review.loadFailed": "无法加载变更",
+  "review.empty": "本轮没有记录文件变更。",
+
   "language.en": "English",
   "language.zh": "中文",
   "language.switch": "切换语言为 {{language}}",
@@ -124,6 +132,7 @@ export const dict = {
   "model.tag.latest": "最新",
 
   "provider.connect.opencode.freeName": "OpenCode Free",
+  "provider.connect.opencode.name": "OpenCode Console",
 
   "dialog.model.select.title": "选择模型",
   "dialog.model.search.placeholder": "搜索模型",
@@ -131,6 +140,8 @@ export const dict = {
   "dialog.model.manage": "管理模型",
   "dialog.model.manage.description": "自定义模型选择器中显示的模型。",
   "dialog.model.manage.provider.toggle": "切换所有 {{provider}} 模型",
+  "dialog.model.chatgptPlan": "正在使用 ChatGPT 套餐",
+  "dialog.model.chatgptManageUsage": "管理用量",
 
   "notification.permission.title": "需要权限",
   "settings.permissions.tool.read.description": "读取文件（匹配文件路径）",
@@ -167,4 +178,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>
