@@ -1,6 +1,7 @@
 import { Spinner } from "@opencode/ui/spinner"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
+import { ScrollView } from "@opencode/ui/scroll-view"
 import { DataProvider } from "@opencode/session-ui/context"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
@@ -70,12 +71,13 @@ export function SessionPage() {
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />
 
-      <div class="relative min-h-0">
-        <main
+      <main class="relative min-h-0">
+        <ScrollView
           data-slot="session-message-scroller"
           class={`${SESSION_MESSAGE_SCROLLER_CLASS} h-full`}
-          ref={interaction.view.setScrollRef}
+          viewportRef={interaction.view.setScrollRef}
           onScroll={interaction.view.onScroll}
+          onKeyDown={interaction.view.onKeyDown}
         >
           <div ref={interaction.view.setContentRef} class="grid min-h-full">
             <Show
@@ -106,7 +108,7 @@ export function SessionPage() {
               </Show>
             </Show>
           </div>
-        </main>
+        </ScrollView>
         <Show when={interaction.scroll.jump}>
           <IconButton
             icon={<Icon name="arrow-down-to-line" />}
@@ -118,7 +120,7 @@ export function SessionPage() {
             onClick={interaction.actions.resume}
           />
         </Show>
-      </div>
+      </main>
 
       <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
 

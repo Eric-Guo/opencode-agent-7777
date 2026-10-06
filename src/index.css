@@ -170,7 +170,7 @@
     display: none;
   }
 
-  #oc-agent [data-slot="session-message-scroller"] {
+  #oc-agent [data-slot="session-message-scroller"] > .scroll-view__viewport {
     padding: 12px 14px 16px;
   }
 

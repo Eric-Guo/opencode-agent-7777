@@ -255,7 +255,8 @@ try {
     if (iteration === 0) {
       await page.screenshot({ path: output.replace(/\.json$/, ".png") })
       if (process.env.BENCH_VERIFY_UI === "true") {
-        const scroller = page.locator('[data-slot="session-message-scroller"]')
+        const scroll = page.locator('[data-slot="session-message-scroller"]')
+        const scroller = scroll.getByRole("region", { name: "scrollable content", exact: true })
         const distance = () => scroller.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)
         await expect.poll(distance).toBeLessThan(10)
         await scroller.hover()
@@ -282,7 +283,45 @@ try {
         await page.setViewportSize({ width: 1100, height: 800 })
         await expect.poll(distance).toBeLessThan(10)
 
-        await page.getByText("Following position probe", { exact: true }).last().dblclick()
+        // Shared keyboard navigation must pause the compact auto-follow adapter,
+        // keep the reader in place during streaming, and resume on reaching End.
+        await expect(scroller).toHaveAttribute("tabindex", "0")
+        await scroller.press("PageUp")
+        await expect(resume).toBeVisible()
+        await expect.poll(distance).toBeGreaterThan(100)
+        await page.waitForTimeout(350)
+        const keyboardPosition = await scroller.evaluate((el) => el.scrollTop)
+        emit("session.text.delta", { ...data, ordinal: 1, delta: "\n\nKeyboard position probe\n\n".repeat(20) })
+        await expect(page.getByText("Keyboard position probe", { exact: true }).last()).toBeAttached()
+        await page.waitForTimeout(100)
+        expect(Math.abs((await scroller.evaluate((el) => el.scrollTop)) - keyboardPosition)).toBeLessThan(2)
+        await scroller.press("End")
+        await expect.poll(distance).toBeLessThan(10)
+        await expect(resume).toBeHidden()
+        emit("session.text.delta", { ...data, ordinal: 1, delta: "\n\nKeyboard following probe\n\n".repeat(20) })
+        await expect(page.getByText("Keyboard following probe", { exact: true }).last()).toBeVisible()
+        await expect.poll(distance).toBeLessThan(10)
+
+        // Dragging the shared scrollbar must navigate the same viewport that
+        // the compact adapter observes, without resuming on the next delta.
+        const thumb = scroll.locator('.scroll-view__thumb[data-orientation="vertical"]')
+        await scroller.hover()
+        const box = (await thumb.boundingBox())!
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+        await page.mouse.down()
+        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 6 })
+        await page.mouse.up()
+        await expect(resume).toBeVisible()
+        const draggedPosition = await scroller.evaluate((el) => el.scrollTop)
+        emit("session.text.delta", { ...data, ordinal: 1, delta: "\n\nScrollbar position probe\n\n".repeat(20) })
+        await expect(page.getByText("Scrollbar position probe", { exact: true }).last()).toBeAttached()
+        await page.waitForTimeout(100)
+        expect(Math.abs((await scroller.evaluate((el) => el.scrollTop)) - draggedPosition)).toBeLessThan(2)
+        await page.screenshot({ path: output.replace(/\.json$/, "-navigation.png") })
+        await resume.click()
+        await expect.poll(distance).toBeLessThan(10)
+
+        await page.getByText("Scrollbar position probe", { exact: true }).last().dblclick()
         expect(await page.evaluate(() => window.getSelection()?.toString().length ?? 0)).toBeGreaterThan(0)
         const selectionPosition = await scroller.evaluate((el) => el.scrollTop)
         emit("session.text.delta", { ...data, ordinal: 1, delta: "\n\nSelection position probe\n\n".repeat(20) })

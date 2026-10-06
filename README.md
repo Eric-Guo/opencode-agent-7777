@@ -166,12 +166,13 @@ The source assessment now includes the GUI extension split at parent `5d84cc330f
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
 
-Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary and uses
-`createAutoScroll` from the public `@opencode/ui/hooks` export. It follows streamed content and layout changes,
-pauses when reading earlier messages or selecting text, and offers **Jump to latest** to resume.
-Each session activation starts at the latest content. The compact adapter owns viewport resize handling and the
-resume control in `session/screen.tsx`; the main app keeps that control in its virtualizer. 7777 keeps its existing
-bounded timeline renderer and nine-dialog window.
+Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary. The screen now uses the same
+public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, keyboard navigation, nested-scroll
+ownership, and draggable scrollbar. `createAutoScroll` from `@opencode/ui/hooks` still owns following streamed content,
+pausing for reading or text selection, and overflow anchoring. The local adapter pauses on upward keyboard navigation
+and uses the main app's arrival check so delayed scroll events cannot cancel that intent. Reaching the end or using
+**Jump to latest** resumes following. Activation resets, viewport resize handling, existing spacing, and the nine-dialog
+window remain. The compact screen owns the viewport and resume control; the main app places them in its virtualizer.
 
 The header reuses the GUI extension's `ContextUsage` display through its public
 `@opencode/gui-extensions/usage/context-usage` export. `session/header/session-context-usage-compact.tsx`

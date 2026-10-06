@@ -1,4 +1,5 @@
 import { createAutoScroll } from "@opencode/ui/hooks"
+import { isScrollKeyTarget, scrollKey, scrollKeyOwner } from "@opencode/ui/scroll-view"
 import { createEffect, on, onCleanup, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 
@@ -14,6 +15,11 @@ export function createSessionTimelineInteraction(input: {
   // The bounded timeline follows layout changes even after a turn finishes
   // (for example, images loading). User scroll/selection pauses the shared helper.
   const follow = createAutoScroll({ working: () => true })
+  let position = { top: 0, max: 0 }
+  const readPosition = () => {
+    const el = state.scroller
+    return el ? { top: el.scrollTop, max: el.scrollHeight - el.clientHeight } : { top: 0, max: 0 }
+  }
   let frame: number | undefined
   const updateScrollState = () => {
     const el = state.scroller
@@ -65,6 +71,18 @@ export function createSessionTimelineInteraction(input: {
       },
     },
     view: {
+      onKeyDown: (event: KeyboardEvent) => {
+        const el = state.scroller
+        const key = scrollKey(event)
+        if (!el || !key || !isScrollKeyTarget(event.target, key)) return
+        if (scrollKeyOwner(el, event.target, key) !== el) return
+        // Pause before ScrollView's smooth keyboard navigation starts. A resize
+        // in the same frame must not pull the reader back to the latest message.
+        if (key === "up" || key === "page-up" || key === "home") {
+          position = readPosition()
+          follow.pause()
+        }
+      },
       setScrollRef: (element: HTMLElement | undefined) => {
         setState("scroller", element)
         follow.scrollRef(element)
@@ -74,7 +92,14 @@ export function createSessionTimelineInteraction(input: {
         follow.contentRef(element)
       },
       onScroll: () => {
-        follow.handleScroll()
+        const previous = position
+        position = readPosition()
+        // A delayed scroll event or the first smooth-scroll tick can still be
+        // at the end after an upward key paused following. As in the main
+        // timeline, resume only on arrival (downward movement or a collapse).
+        const arrived = position.top > previous.top + 0.5 || position.max < previous.max
+        const resting = position.max > 1 && position.max - position.top < 10 && !arrived
+        if (!follow.userScrolled() || !resting) follow.handleScroll()
         updateScrollState()
       },
       markUserScroll,
