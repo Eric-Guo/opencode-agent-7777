@@ -1,6 +1,16 @@
 import type { ModelListOutput, ProviderListOutput } from "@opencode/client/promise"
 import { unwrap } from "solid-js/store"
-import type { Provider, ProviderListResponse } from "@/runtime/server/types"
+import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
+
+function modalities(values: string[]): Model["capabilities"]["input"] {
+  return {
+    text: values.includes("text"),
+    audio: values.includes("audio"),
+    image: values.includes("image"),
+    video: values.includes("video"),
+    pdf: values.includes("pdf"),
+  }
+}
 
 const providerCatalogs = new WeakMap<
   ProviderListOutput["data"],
@@ -51,20 +61,8 @@ export function normalizeProviderList(
         temperature: false,
         attachment: model.capabilities.input.some((item) => item !== "text"),
         toolcall: model.capabilities.tools,
-        input: {
-          text: model.capabilities.input.includes("text"),
-          audio: model.capabilities.input.includes("audio"),
-          image: model.capabilities.input.includes("image"),
-          video: model.capabilities.input.includes("video"),
-          pdf: model.capabilities.input.includes("pdf"),
-        },
-        output: {
-          text: model.capabilities.output.includes("text"),
-          audio: model.capabilities.output.includes("audio"),
-          image: model.capabilities.output.includes("image"),
-          video: model.capabilities.output.includes("video"),
-          pdf: model.capabilities.output.includes("pdf"),
-        },
+        input: modalities(model.capabilities.input),
+        output: modalities(model.capabilities.output),
         interleaved: false,
       },
       cost: {

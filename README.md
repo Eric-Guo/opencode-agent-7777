@@ -168,6 +168,9 @@ File URL encoding uses `@opencode/util/path`; URL composition and directory sear
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
 agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
 prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
+Provider/model view types in `runtime/server/types.ts` derive server-owned fields from `@opencode/client/promise`.
+The package-local catalog adapter retains its existing output, including separate catalog/API IDs, modality flags,
+cost selection and variants; matching the main app's file boundaries does not require importing its source.
 
 Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary. The screen now uses the same
 public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, keyboard navigation, nested-scroll
