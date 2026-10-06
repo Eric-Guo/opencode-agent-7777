@@ -165,6 +165,9 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
+Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
+agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
+prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
 
 Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary. The screen now uses the same
 public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, keyboard navigation, nested-scroll

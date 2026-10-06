@@ -1,4 +1,4 @@
-type FileSelection = { startLine: number; startChar: number; endLine: number; endChar: number }
+import type { FileSelection } from "./types"
 
 export type PromptComment = {
   path: string
@@ -37,16 +37,19 @@ export function createCommentMetadata(input: PromptComment) {
 
 export function readCommentMetadata(value: unknown) {
   if (!value || typeof value !== "object") return
-  const meta = (value as { opencodeComment?: unknown }).opencodeComment
-  if (!meta || typeof meta !== "object") return
-  const path = (meta as { path?: unknown }).path
-  const comment = (meta as { comment?: unknown }).comment
+  return readComment((value as { opencodeComment?: unknown }).opencodeComment)
+}
+
+function readComment(value: unknown) {
+  if (!value || typeof value !== "object") return
+  const path = (value as { path?: unknown }).path
+  const comment = (value as { comment?: unknown }).comment
   if (typeof path !== "string" || typeof comment !== "string") return
-  const preview = (meta as { preview?: unknown }).preview
-  const origin = (meta as { origin?: unknown }).origin
+  const preview = (value as { preview?: unknown }).preview
+  const origin = (value as { origin?: unknown }).origin
   return {
     path,
-    selection: selection((meta as { selection?: unknown }).selection),
+    selection: selection((value as { selection?: unknown }).selection),
     comment,
     preview: typeof preview === "string" ? preview : undefined,
     origin: origin === "review" || origin === "file" ? origin : undefined,
@@ -61,21 +64,8 @@ export function readPromptPresentation(value: unknown) {
   return {
     displayText,
     comments: comments.flatMap((item): PromptComment[] => {
-      if (!item || typeof item !== "object") return []
-      const path = (item as { path?: unknown }).path
-      const comment = (item as { comment?: unknown }).comment
-      if (typeof path !== "string" || typeof comment !== "string") return []
-      const preview = (item as { preview?: unknown }).preview
-      const origin = (item as { origin?: unknown }).origin
-      return [
-        {
-          path,
-          comment,
-          selection: selection((item as { selection?: unknown }).selection),
-          preview: typeof preview === "string" ? preview : undefined,
-          origin: origin === "review" || origin === "file" ? origin : undefined,
-        },
-      ]
+      const comment = readComment(item)
+      return comment ? [comment] : []
     }),
   }
 }

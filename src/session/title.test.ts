@@ -13,4 +13,10 @@ describe("session title", () => {
     expect(sessionLabel({ parentID: "ses_parent" })).toBe("Child session")
     expect(sessionLabel({ title: "Generated title" })).toBe("Generated title")
   })
+
+  test("leaves absent titles available for the recent-session agent fallback", () => {
+    expect(sessionTitle()).toBeUndefined()
+    expect(sessionTitle("")).toBe("")
+    expect(sessionTitle("New session - not a timestamp")).toBe("New session - not a timestamp")
+  })
 })
