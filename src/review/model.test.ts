@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import type { FileDiffInfo, OpenCodeEvent } from "@opencode/client/promise"
+import type { FileDiffInfo, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
 import { createReviewModel } from "./model"
 
 const diffs = (): FileDiffInfo[] => [
@@ -9,12 +9,13 @@ const diffs = (): FileDiffInfo[] => [
 function fixture() {
   const abort = new AbortController()
   const calls: {
-    input: { sessionID: string; context?: number }
+    input: { sessionID: string; context?: number } | VcsDiffInput
     signal?: AbortSignal
     response: ReturnType<typeof Promise.withResolvers<FileDiffInfo[]>>
   }[] = []
   const model = createReviewModel({
     sessionID: "session",
+    directory: "/workspace",
     signal: abort.signal,
     client: {
       session: {
@@ -22,6 +23,13 @@ function fixture() {
           const response = Promise.withResolvers<FileDiffInfo[]>()
           calls.push({ input, signal: options?.signal, response })
           return response.promise
+        },
+      },
+      vcs: {
+        diff(input, options) {
+          const response = Promise.withResolvers<FileDiffInfo[]>()
+          calls.push({ input, signal: options?.signal, response })
+          return response.promise.then((data) => ({ location: { directory: "/workspace" }, data }))
         },
       },
     },
@@ -40,6 +48,105 @@ test("review is demand-loaded and requests bounded patches for the captured sess
   expect(model.state.diffs).toEqual(diffs())
   expect(model.state.loading).toBe(false)
   expect(model.state.error).toBeUndefined()
+})
+
+test.each([false, true])("changing sources discards superseded results and errors (failed=%s)", async (failed) => {
+  const { model, calls } = fixture()
+  const initial = model.refresh()
+  calls[0].response.resolve(diffs())
+  await initial
+  const old = model.refresh()
+  const working = model.select({ mode: "working" })
+  expect(calls[1].signal?.aborted).toBe(true)
+  expect(calls[2].input).toEqual({ location: { directory: "/workspace" }, mode: "working", context: 3 })
+  expect(model.state.diffs).toEqual([])
+  calls[2].response.resolve([{ ...diffs()[0], file: "working.txt" }])
+  await working
+  if (failed) calls[1].response.reject(new Error("old turn failure"))
+  else calls[1].response.resolve(diffs())
+  await old
+  expect(model.state.diffs).toEqual([{ ...diffs()[0], file: "working.txt" }])
+  expect(model.state.source).toEqual({ mode: "working" })
+  expect(model.state.error).toBeUndefined()
+  model.dispose()
+})
+
+test("base references apply explicitly, retry unchanged, and do not leak into other modes", async () => {
+  const { model, calls } = fixture()
+  const branch = model.select({ mode: "branch", base: "  release/v2  " })
+  expect(calls[0].input).toEqual({
+    location: { directory: "/workspace" },
+    mode: "branch",
+    base: "release/v2",
+    context: 3,
+  })
+  calls[0].response.reject(new Error("Unknown ref"))
+  await branch
+  expect(model.state.error).toEqual(new Error("Unknown ref"))
+  const retry = model.refresh()
+  expect(calls[1].input).toEqual(calls[0].input)
+  calls[1].response.resolve([])
+  await retry
+  expect(model.state.error).toBeUndefined()
+  expect(model.state.diffs).toEqual([])
+  await model.select({ mode: "branch", base: "release/v2" })
+  expect(calls).toHaveLength(2)
+  const defaultBranch = model.select({ mode: "branch", base: "  " })
+  expect(calls[2].input).toEqual({ location: { directory: "/workspace" }, mode: "branch", context: 3 })
+  calls[2].response.resolve([])
+  await defaultBranch
+  const turn = model.select({ mode: "turn", base: "release/v2" })
+  expect(calls[3].input).toEqual({ sessionID: "session", context: 3 })
+  expect(model.state.source).toEqual({ mode: "turn" })
+  calls[3].response.resolve(diffs())
+  await turn
+  expect(model.state.diffs).toEqual(diffs())
+  model.dispose()
+})
+
+test.each(["close", "activation"])("%s aborts a VCS read and blocks source changes", async (reason) => {
+  const { model, calls, abort } = fixture()
+  const pending = model.select({ mode: "working" })
+  if (reason === "close") model.dispose()
+  else abort.abort()
+  expect(calls[0].signal?.aborted).toBe(true)
+  calls[0].response.resolve(diffs())
+  await pending
+  await model.select({ mode: "branch" })
+  expect(calls).toHaveLength(1)
+  expect(model.state.source).toEqual({ mode: "working" })
+  expect(model.state.diffs).toEqual([])
+  model.dispose()
+})
+
+test("workspace watcher bursts refresh only live VCS review in the captured directory", async () => {
+  const { model, calls, abort } = fixture()
+  const changed = (directory?: string): OpenCodeEvent => ({
+    type: "filesystem.changed",
+    id: "changed",
+    created: 1,
+    location: directory ? { directory } : undefined,
+    data: { file: "/workspace/notes.txt", event: "change" },
+  })
+  model.event(changed("/workspace"))
+  await Bun.sleep(130)
+  expect(calls).toHaveLength(0)
+  const working = model.select({ mode: "working" })
+  calls[0].response.resolve([])
+  await working
+  model.event(changed("/other"))
+  model.event(changed())
+  await Bun.sleep(130)
+  expect(calls).toHaveLength(1)
+  for (let index = 0; index < 10; index++) model.event(changed("/workspace"))
+  await Bun.sleep(130)
+  expect(calls).toHaveLength(2)
+  expect(calls[1].input).toEqual({ location: { directory: "/workspace" }, mode: "working", context: 3 })
+  model.event(changed("/workspace"))
+  abort.abort()
+  await Bun.sleep(130)
+  expect(calls).toHaveLength(2)
+  model.dispose()
 })
 
 test.each([false, true])("a newer review read wins over a late response (failed=%s)", async (failed) => {

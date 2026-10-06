@@ -162,7 +162,7 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
-The source assessment now includes the GUI extension split at parent `5d84cc330f`. Matching local filenames are
+The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
 
@@ -180,12 +180,15 @@ adapts the active session, latest reported assistant tokens, and model catalog w
 It follows the shared ring and tooltip behavior; the full app's context panel remains extension-owned.
 
 The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
-It shows snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
-`review/model.ts` and `review/panel.tsx` follow the review extension's current model/panel boundary in
+It defaults to snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
+A shared selector adds working-tree and branch comparisons through the public `vcs.diff` API, scoped to the active
+session's directory. Branch comparison accepts an explicit base reference on Compare or Enter and includes
+uncommitted changes. `review/model.ts`, `review/panel.tsx`, and `review/parts.tsx` follow the review extension's boundaries in
 `packages/gui-extensions`; the compact-only `review/trigger-compact.tsx` supplies dialog mounting in place of the
 main app's extension host. Reads use the current activation and existing event stream, refresh after completion,
-revert or reconnect, and abort on close or session change. Errors can be retried. Drafts are preserved.
-Working-tree/staged review, comments, history ranges, and docked extension panels remain outside this compact view.
+revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
+Errors can be retried and drafts are preserved. Staged-only review (unsupported by the current public API),
+committed-only review, comments, history ranges, and docked extension panels remain outside this compact view.
 
 `runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
 from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,

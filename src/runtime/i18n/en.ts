@@ -6,6 +6,18 @@ export const dict = {
   "review.loading": "Loading changes…",
   "review.loadFailed": "Could not load changes",
   "review.empty": "No file changes recorded for this turn.",
+  "review.mode.label": "Changes to review",
+  "review.mode.turn": "Latest turn",
+  "review.mode.working": "Working tree",
+  "review.mode.branch": "Branch changes",
+  "review.base.label": "Base reference",
+  "review.base.default": "Default branch",
+  "review.base.apply": "Compare",
+  "review.description.working":
+    "Uncommitted changes in this session's workspace, including staged and untracked files.",
+  "review.description.branch": "Changes since the common ancestor with {{base}}, including uncommitted changes.",
+  "review.empty.working": "No uncommitted file changes in this workspace.",
+  "review.empty.branch": "No file changes against this base reference.",
 
   "language.en": "English",
   "language.zh": "中文",

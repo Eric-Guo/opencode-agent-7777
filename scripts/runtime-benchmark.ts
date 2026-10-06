@@ -47,6 +47,7 @@ const messages = (id: string) =>
 const streams = new Set<ReadableStreamDefaultController<Uint8Array>>()
 const errors: string[] = []
 const requests: Record<string, number> = {}
+const vcsReads: { mode: string | null; base: string | null }[] = []
 let reviewFailure = false
 let reviewEmpty = false
 let sequence = 0
@@ -133,6 +134,27 @@ const server = Bun.serve({
       })
     }
     if (path.endsWith("/inbox")) return json({ data: [] })
+    if (path === "/api/vcs/diff") {
+      expect(url.searchParams.get("location[directory]")).toBe(directory)
+      expect(url.searchParams.get("context")).toBe("3")
+      const mode = url.searchParams.get("mode")
+      const base = url.searchParams.get("base")
+      vcsReads.push({ mode, base })
+      if (base === "missing-ref") return new Response("Unknown base reference", { status: 400 })
+      const file = mode === "working" ? "working.txt" : "branch.txt"
+      return json({
+        location,
+        data: [
+          {
+            file,
+            patch: `diff --git a/${file} b/${file}\n--- a/${file}\n+++ b/${file}\n@@ -1 +1 @@\n-Before ${mode}\n+After ${mode}\n`,
+            additions: 1,
+            deletions: 1,
+            status: "modified",
+          },
+        ],
+      })
+    }
     if (path.endsWith("/diff") && path.startsWith("/api/session/")) {
       if (url.searchParams.get("context") !== "3") errors.push("Review must request bounded patches")
       if (reviewFailure) return new Response("Review unavailable", { status: 500 })
@@ -401,9 +423,54 @@ try {
         reviewEmpty = true
         await review.getByRole("button", { name: "Retry", exact: true }).click()
         await expect(review.getByText("No file changes recorded for this turn.", { exact: true })).toBeVisible()
+
+        const chooseMode = async (name: string) => {
+          await review.getByRole("button", { name: /Changes to review/ }).click()
+          await page.getByRole("option", { name, exact: true }).click()
+        }
+        await chooseMode("Working tree")
+        await expect(review.getByText("working.txt", { exact: true })).toBeVisible()
+        await review.getByText("working.txt", { exact: true }).click()
+        await expect(review.getByText("After working", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "working", base: null })
+        await chooseMode("Branch changes")
+        await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: null })
+        const base = review.getByRole("textbox", { name: "Base reference", exact: true })
+        const readsBeforeTyping = vcsReads.length
+        await base.fill("missing-ref")
+        expect(vcsReads).toHaveLength(readsBeforeTyping)
+        await base.press("Enter")
+        await expect(review.getByRole("alert")).toContainText("Could not load changes")
+        await base.fill(" release/v2 ")
+        await review.getByRole("button", { name: "Compare", exact: true }).click()
+        await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: "release/v2" })
+        await expect(review.getByText(/Changes since the common ancestor with release\/v2/)).toBeVisible()
+        await review.getByText("branch.txt", { exact: true }).click()
+        await expect(review.getByText("After branch", { exact: true })).toBeVisible()
+        await page.screenshot({ path: output.replace(/\.json$/, "-review-branch.png") })
+        await page.setViewportSize({ width: 390, height: 800 })
+        await expect(base).toBeVisible()
+        await expect(review.getByRole("button", { name: "Compare", exact: true })).toBeInViewport({ ratio: 1 })
+        await base.fill("release/narrow")
+        await review.getByRole("button", { name: "Compare", exact: true }).click()
+        await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: "release/narrow" })
+        await review.getByText("branch.txt", { exact: true }).click()
+        await expect(review.getByText("After branch", { exact: true })).toBeVisible()
+        expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        await page.screenshot({ path: output.replace(/\.json$/, "-review-branch-narrow.png") })
+        await page.setViewportSize({ width: 1100, height: 800 })
+        await chooseMode("Latest turn")
+        await expect(review.getByText("No file changes recorded for this turn.", { exact: true })).toBeVisible()
         await review.getByRole("button", { name: "Close", exact: true }).press("Escape")
         await expect(review).toBeHidden()
         await expect(editor).toHaveText("Keep this draft while reviewing")
+        const readsAfterClose = vcsReads.length
+        emit("filesystem.changed", { file: `${directory}/notes.txt`, event: "change" })
+        await page.waitForTimeout(150)
+        expect(vcsReads).toHaveLength(readsAfterClose)
         await editor.fill("")
         reviewEmpty = false
       }
@@ -425,6 +492,7 @@ try {
     switchRenders,
     streaming,
     requests,
+    vcsReads,
   }
   await Bun.write(output, JSON.stringify(result, null, 2) + "\n")
   console.log(JSON.stringify(result.medians))

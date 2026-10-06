@@ -5,8 +5,9 @@ workspace exports and own their source and assets; there are no runtime or build
 `packages/desktop`. Matching filenames indicate local ownership, not reuse.
 Paths below are relative to `src/` unless a package is named.
 
-This is a scoped comparison, not a full upstream audit. The latest review comparison uses parent `b1ca206548`
-and PLM meeting baseline `09dbfda` (2026-10-06). The scrolling comparison used compact baseline `2055671`.
+This is a scoped comparison, not a full upstream audit. The review-source comparison uses parent `3064ac5302`
+and PLM meeting baseline `9f08311` (2026-10-06). The earlier turn-review comparison used parent `b1ca206548`
+and PLM meeting baseline `09dbfda`. The scrolling comparison used compact baseline `2055671`.
 Earlier runtime, restoration, Console grouping, and ChatGPT-plan
 comparisons, including their measurements, remain in this document's Git history.
 
@@ -26,15 +27,16 @@ comparisons, including their measurements, remain in this document's Git history
 | Recent sessions | Promise client | Directory-bound title/ID search, 12-session cursor pages, header popover |
 | Settings/embedding | UI controls and shared i18n primitives | Synchronous storage formats, tab isolation, preferences, welcome content, title policy |
 | Context usage | `@opencode/gui-extensions/usage/context-usage` | Active-session token/model adapter in `session/header/session-context-usage-compact.tsx` |
-| Turn review | `SessionReview` from `@opencode/session-ui/session-review`, shared dialog and scroll controls | Lazy dialog, active-session diff reads, refresh lifecycle, errors and retry |
+| Change review | `SessionReview` from `@opencode/session-ui/session-review`, public session/VCS APIs, shared dialog/select/input controls | Lazy dialog, turn/working-tree/branch sources, base selection, refresh lifecycle, errors and retry |
 
 ## Remaining gaps
 
 - Queue editing and reordering. The public inbox API has no atomic reorder operation; upstream recreates a suffix
   of prompts and cancels the originals. Partial failures and concurrent delivery need separate work.
 - Provider connection and credential-management flows.
-- Working-tree/staged/base review modes, history-range selection, review comments, and extension panel docking.
-  The latest-turn diff is available through the compact review dialog.
+- Staged-only and committed-only review, history-range selection, review comments, and extension panel docking.
+  The compact dialog supports latest-turn, working-tree, and branch/base comparisons. The public VCS API exposes
+  `working`, `branch`, and `committed`; it has no staged-only mode. Working-tree review includes staged changes.
 - Terminal, full usage/summary panels, browser, remote servers and the extension host.
   The GUI extension renderer host lives in `packages/app` and depends on app routing, tabs, settings and server
   contexts. Public built-in definitions alone do not supply that host.
@@ -111,9 +113,30 @@ and on explicit refresh. It reuses the existing event stream. Superseded reads a
 late responses cannot replace newer data. Closing disposes the listener and pending read; switching activation closes
 only this dialog. Read failures have a retry action, and valid empty results have an explicit empty state.
 
-This is snapshot-backed turn review, not a working-tree comparison; sessions without recorded snapshot changes can
-return an empty result. Bounded patches do not supply full-file context or historical media bytes. The dialog leaves
+Latest-turn review is snapshot-backed; sessions without recorded snapshot changes can return an empty result.
+Bounded patches do not supply full-file context or historical media bytes. The dialog leaves
 the draft, nine-dialog window, and existing header actions unchanged, along with file tabs and the recorder in PLM meeting.
+
+## Review source parity (2026-10-06)
+
+`review/model.ts` now owns a selected source and one cancellable read lifecycle for both public diff APIs.
+Latest turn remains the initial source and keeps the existing `session.diff` request. Working tree and Branch changes
+use `vcs.diff`, with the directory captured from the active session and three context lines. Working tree includes
+staged, unstaged, and untracked files. Branch changes compares against the common ancestor with the default branch
+or an explicitly applied base reference, including uncommitted changes. These semantics come from the server;
+the renderer does not execute Git commands or inspect its own checkout.
+
+`review/parts.tsx` follows the extension's title/control boundary and uses public `Select` and `TextInput` controls.
+Typing a base does not issue reads; Compare or Enter applies it. The description names the applied base, and failures
+leave the controls available to choose another reference or retry. Modes have distinct empty states. New English
+copy uses the existing locale fallback until translations are reviewed.
+
+Changing source aborts the previous read and clears its result; stale successes and failures cannot overwrite the
+current comparison. Only VCS modes react to matching-directory `filesystem.changed` events, coalescing bursts at
+100 ms as the extension does. Turn completion, revert, reconnect and manual refresh retain the existing lifecycle.
+Closing or changing activation cancels pending work and scheduled refreshes. Opening the dialog performs only the
+existing turn read; VCS reads begin when selected. Server failures use the existing error/retry surface. No extension
+host, new dependency, app/desktop import, or persisted preference is introduced.
 
 ## Validation and coverage
 
@@ -126,8 +149,8 @@ the draft, nine-dialog window, and existing header actions unchanged, along with
 | Nine dialogs, shell roots, revert boundary | Timeline model and session-domain suites |
 | Following, wheel/keyboard/scrollbar reading during streaming, selection, resize, activation reset | Production fixture in `scripts/runtime-benchmark.ts` |
 | Directory-wide requests, persistence, embedding/platform behavior | Request, storage/schema, platform and layout suites |
-| Demand loading, bounded requests, cancellation, late responses, retry, event filtering | `review/model.test.ts` |
-| Review dialog, real shared diff rendering, failed-read recovery, empty state, draft preservation | Review checks in `scripts/runtime-benchmark.ts` |
+| Demand loading, bounded/scoped requests, source/base transitions, cancellation, late responses, retry, watcher coalescing | `review/model.test.ts` |
+| Review dialog, real shared diff rendering, source/base selection, failed-read recovery, empty state, narrow controls, draft preservation | Review checks in `scripts/runtime-benchmark.ts` |
 
 The earlier scrolling comparison passed 373 tests and its extended browser fixture. In the PLM meeting review work,
 489 tests across 74 files, typecheck, and production build pass. The full browser fixture stops at its initial-follow
@@ -154,6 +177,25 @@ The review comparison's five production samples per bundle produced these median
 
 This small sample establishes no performance change. Results, diagnostic fixtures and screenshots are ignored under
 `node_modules/.cache/review-parity-*`. The earlier scrolling measurements remain in Git history.
+
+The review-source refactor passes 495 tests across 74 files, typecheck, the default production build, and a
+browser-enabled production build. Its extended review fixture passes real working-tree and branch diff rendering,
+captured-directory/bounded requests, explicit base application, invalid-base recovery, switching back to the original
+turn empty state, desktop and 390 px layouts (including clicking Compare), keyboard dismissal, listener disposal,
+and draft preservation, with no page errors. The running development page also applies a base and dismisses the
+dialog without restarting either process. The unrelated full scrolling fixture was not rerun.
+
+Five production samples per bundle produced these medians (ms):
+
+| Fixture | Before (`9f08311`) | After |
+| --- | --- | --- |
+| Session entry | 173.6 | 159.7 |
+| Session switching | 153.5 | 172.7 |
+| 160 text deltas | 51.9 | 54.0 |
+
+These small samples do not establish a performance improvement or regression. Review remains lazy and performs
+no VCS reads before a VCS source is selected. Results, build logs, and screenshots are ignored under
+`node_modules/.cache/review-modes-*`.
 
 ```sh
 bun test
