@@ -3,7 +3,6 @@ import { createStore } from "solid-js/store"
 import { FileIcon } from "@opencode/ui/file-icon"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
-import { createAnimatedPresence } from "@/runtime/animated-presence"
 import { ProviderIcon } from "@opencode/ui/provider-icon"
 import { useI18n } from "@opencode/ui/context/i18n"
 import { Button } from "@opencode/ui/button"
@@ -15,19 +14,22 @@ import { AttachmentCard } from "@opencode/session-ui/attachment-card"
 import { CommentCard } from "@opencode/session-ui/comment-card"
 import { typeLabel } from "@opencode/session-ui/message-file"
 import { Skill } from "@opencode/schema/skill"
+import "../attachments/attachments.css"
+import "./editor.css"
+import { createAnimatedPresence } from "@/runtime/animated-presence"
 import type {
+  ComposerAgentPart,
   ComposerAttachment,
-  ComposerCapabilities,
   ComposerComment,
+  ComposerFilePart,
   ComposerOption,
-  ComposerPersistedState,
   ComposerPrompt,
+  ComposerSkillPart,
   ComposerSuggestion,
 } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
+import { isAttachment } from "../prompt-parts"
 import { getCursorPosition } from "./dom"
-import "../attachments/attachments.css"
-import "./editor.css"
 
 export type {
   ComposerAttachment,
@@ -140,6 +142,17 @@ export function ComposerEditor(props: ComposerEditorProps) {
     renderComposerEditor(editor, parts)
   })
 
+  const search = () =>
+    state.popover.type === "command-menu"
+      ? {
+          value: state.popover.query,
+          label: labels().commands,
+          placeholder: "/",
+          onValueChange: props.controller.setQuery,
+          onKeyDown: props.controller.onKeyDown,
+        }
+      : undefined
+
   return (
     <div class={`relative size-full flex flex-col gap-0 ${props.class ?? ""}`}>
       <input
@@ -159,17 +172,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
           emptyLabel={labels().empty}
           items={props.controller.suggestions()}
           activeID={state.popover.type === "closed" ? undefined : state.popover.activeID}
-          search={
-            state.popover.type === "command-menu"
-              ? {
-                  value: state.popover.query,
-                  label: labels().commands,
-                  placeholder: "/",
-                  onValueChange: props.controller.setQuery,
-                  onKeyDown: props.controller.onKeyDown,
-                }
-              : undefined
-          }
+          search={search()}
           onActiveChange={(item) => props.controller.dispatch({ type: "popover.active", id: item.id })}
           onSelect={(item) => props.controller.dispatch({ type: "popover.select", item })}
         />
@@ -261,9 +264,9 @@ export function ComposerEditor(props: ComposerEditorProps) {
             onInput={(event) => {
               const cursor = getCursorPosition(event.currentTarget)
               const prompt = parseComposerEditor(event.currentTarget)
-              const images = props.controller.parts().filter((part) => part.type === "image")
+              const attachments = props.controller.parts().filter(isAttachment)
               localInput = true
-              props.controller.onInput(prompt.map((part) => part.content).join(""), [...prompt, ...images], cursor)
+              props.controller.onInput(prompt.map((part) => part.content).join(""), [...prompt, ...attachments], cursor)
             }}
             onKeyDown={(event) => {
               if (!view.draftOnly && props.controller.onKeyDown(event)) return
@@ -424,7 +427,8 @@ function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPrompt) {
   const active = document.activeElement === editor
   editor.replaceChildren(
     ...prompt.flatMap<Node>((part) => {
-      if (part.type === "image") return []
+      if (isAttachment(part)) return []
+
       if (part.type === "text") return [document.createTextNode(part.content)]
       const mention = document.createElement("span")
       mentionParts.set(mention, part)
@@ -434,19 +438,26 @@ function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPrompt) {
       mention.style.unicodeBidi = "isolate"
       mention.dataset.mention =
         part.type === "file" && part.mime === "application/x-directory" ? "reference" : part.type
+
       if (part.type === "agent") mention.dataset.name = part.name
+
       if (part.type === "skill") {
         mention.dataset.id = part.id
         mention.dataset.name = part.name
       }
+
       if (part.type === "file") {
         mention.dataset.path = part.path
+
         if (part.mime) mention.dataset.mime = part.mime
+
         if (part.filename) mention.dataset.filename = part.filename
       }
+
       return [mention]
     }),
   )
+
   if (!active) return
   const selection = window.getSelection()
   const range = document.createRange()
@@ -467,76 +478,100 @@ function parseComposerEditor(editor: HTMLDivElement) {
     position += buffer.length
     buffer = ""
   }
+
   const mention = (element: HTMLElement) => {
     flush()
     const content = element.textContent ?? ""
     const original = mentionParts.get(element)
+
     if (element.dataset.mention === "agent") {
-      parts.push({
-        ...(original?.type === "agent" ? original : {}),
+      const agent: ComposerAgentPart = {
         type: "agent",
         name: element.dataset.name ?? content.slice(1),
         content,
         start: position,
         end: position + content.length,
-      })
+      }
+
+      parts.push(original?.type === "agent" ? { ...original, ...agent } : agent)
       position += content.length
+
       return
     }
+
     if (element.dataset.mention === "skill") {
-      parts.push({
-        ...(original?.type === "skill" ? original : {}),
+      const skill: ComposerSkillPart = {
         type: "skill",
         id: Skill.ID.make(element.dataset.id ?? content.slice(1)),
         name: Skill.Name.make(element.dataset.name ?? content.slice(1)),
         content,
         start: position,
         end: position + content.length,
-      })
+      }
+
+      parts.push(original?.type === "skill" ? { ...original, ...skill } : skill)
       position += content.length
+
       return
     }
-    parts.push({
-      ...(original?.type === "file" ? original : {}),
+
+    const parsed: ComposerFilePart = {
       type: "file",
       path: element.dataset.path ?? content.slice(1),
       content,
       start: position,
       end: position + content.length,
-      ...(element.dataset.mime ? { mime: element.dataset.mime } : {}),
-      ...(element.dataset.filename ? { filename: element.dataset.filename } : {}),
-    })
+    }
+
+    const file: ComposerFilePart = original?.type === "file" ? { ...original, ...parsed } : parsed
+
+    if (element.dataset.mime) file.mime = element.dataset.mime
+
+    if (element.dataset.filename) file.filename = element.dataset.filename
+    parts.push(file)
     position += content.length
   }
+
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
       buffer += node.textContent ?? ""
+
       return
     }
+
     if (!(node instanceof HTMLElement)) return
+
     if (node.dataset.mention) {
       mention(node)
+
       return
     }
+
     if (node.tagName === "BR") {
       buffer += "\n"
+
       return
     }
+
     Array.from(node.childNodes).forEach(visit)
   }
 
   Array.from(editor.childNodes).forEach((node, index, nodes) => {
     visit(node)
+
     if (node instanceof HTMLElement && ["DIV", "P"].includes(node.tagName) && index < nodes.length - 1) buffer += "\n"
   })
   flush()
+
   if (
     parts.every((part) => part.type === "text") &&
     parts.every((part) => part.content.replace(/[\n\u200B]/g, "") === "")
   ) {
     return [{ type: "text" as const, content: "", start: 0, end: 0 }]
   }
+
   if (parts.length > 0) return parts
+
   return [{ type: "text" as const, content: "", start: 0, end: 0 }]
 }
 

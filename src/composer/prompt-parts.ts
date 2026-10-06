@@ -1,8 +1,13 @@
-import type { Prompt } from "./types"
+import type { ContentPart, Prompt } from "./types"
+
+/** Parts that sit beside the text rather than inside it. */
+export function isAttachment<T extends ContentPart>(part: T): part is Extract<T, { type: "image" }> {
+  return part.type === "image"
+}
 
 export function clonePrompt(prompt: Prompt): Prompt {
   return prompt.map((part) => {
-    if (part.type === "image") return { ...part, blob: { ...part.blob } }
+    if (isAttachment(part)) return { ...part, blob: { ...part.blob } }
     if (part.type === "file") return { ...part, selection: part.selection ? { ...part.selection } : undefined }
     return { ...part }
   })
@@ -19,7 +24,7 @@ export function appendPrompt(prompt: Prompt, following: Prompt): Prompt {
     ...clonePrompt(prompt),
     { type: "text", content: "\n\n", start, end: offset },
     ...clonePrompt(following).map((part) =>
-      part.type === "image" ? part : { ...part, start: part.start + offset, end: part.end + offset },
+      isAttachment(part) ? part : { ...part, start: part.start + offset, end: part.end + offset },
     ),
   ]
 }

@@ -256,6 +256,14 @@ and URI helpers. It searches files and directories without file tabs or a worksp
 mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
 Agent suggestions exclude hidden and primary-only agents. App command-provider actions remain unavailable.
 
+`composer/editor/editor.tsx` keeps the main app's editor, attachment, menu, suggestion, and submit component boundaries.
+Mention parsing preserves original metadata before updating content and offsets, and attachment classification lives
+in `composer/prompt-parts.ts`. The editor continues to share cursor helpers with local interaction code through
+`composer/editor/dom.ts`. Compact differences remain intentional: inline attachment URLs and file-type filtering,
+file comments, disabled controls, optional queue editing, provider icons, hover-only removal buttons, and the fixed
+suggestion height. The main app's upload progress, path attachments, note cards, and boundary-aware suggestion sizing
+are outside this refactor. All implementations stay package-local or use public shared-package exports.
+
 ## Recent Sessions
 
 Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar
