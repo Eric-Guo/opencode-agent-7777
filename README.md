@@ -174,6 +174,11 @@ and uses the main app's arrival check so delayed scroll events cannot cancel tha
 **Jump to latest** resumes following. Activation resets, viewport resize handling, existing spacing, and the nine-dialog
 window remain. The compact screen owns the viewport and resume control; the main app places them in its virtualizer.
 
+`session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
+to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
+individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
+from the broader timeline-detail settings.
+
 The header reuses the GUI extension's `ContextUsage` display through its public
 `@opencode/gui-extensions/usage/context-usage` export. `session/header/session-context-usage-compact.tsx`
 adapts the active session, latest reported assistant tokens, and model catalog without an extension host.
