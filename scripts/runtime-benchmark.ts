@@ -47,6 +47,8 @@ const messages = (id: string) =>
 const streams = new Set<ReadableStreamDefaultController<Uint8Array>>()
 const errors: string[] = []
 const requests: Record<string, number> = {}
+let reviewFailure = false
+let reviewEmpty = false
 let sequence = 0
 const emit = (type: string, data: object) => {
   const event = {
@@ -131,6 +133,24 @@ const server = Bun.serve({
       })
     }
     if (path.endsWith("/inbox")) return json({ data: [] })
+    if (path.endsWith("/diff") && path.startsWith("/api/session/")) {
+      if (url.searchParams.get("context") !== "3") errors.push("Review must request bounded patches")
+      if (reviewFailure) return new Response("Review unavailable", { status: 500 })
+      return json({
+        data: reviewEmpty
+          ? []
+          : [
+              {
+                file: "notes.txt",
+                patch:
+                  "diff --git a/notes.txt b/notes.txt\n--- a/notes.txt\n+++ b/notes.txt\n@@ -1 +1 @@\n-Before review\n+After review\n",
+                additions: 1,
+                deletions: 1,
+                status: "modified",
+              },
+            ],
+      })
+    }
     if (path === "/api/model/default") return json({ location, data: model })
     if (path === "/api/model") return json({ location, data: [model] })
     if (path === "/api/provider") return json({ location, data: [{ id: "openai", name: "OpenAI", package: "openai" }] })
@@ -356,6 +376,36 @@ try {
         await expect.poll(distance).toBeLessThan(10)
         await expect(page.locator("body")).toContainText("9/9")
         if ((await page.title()) !== "Fixture host") throw new Error("The runtime changed the host document title")
+      }
+
+      if (process.env.BENCH_VERIFY_UI === "true" || process.env.BENCH_VERIFY_REVIEW === "true") {
+        // Exercise our demand/transport/dialog integration; session-ui owns the diff controls themselves.
+        expect(Object.keys(requests).some((path) => path.endsWith("/diff"))).toBe(false)
+        const editor = page.locator('[contenteditable="true"]').first()
+        await editor.fill("Keep this draft while reviewing")
+        await page.getByRole("button", { name: "Review turn changes", exact: true }).click()
+        const review = page.getByRole("dialog")
+        await expect(review.getByText("notes.txt", { exact: true })).toBeVisible()
+        await review.getByText("notes.txt", { exact: true }).click()
+        await expect(review.getByText("After review", { exact: true })).toBeVisible()
+        await page.screenshot({ path: output.replace(/\.json$/, "-review.png") })
+        await page.setViewportSize({ width: 390, height: 800 })
+        await expect(review.getByRole("button", { name: "Refresh changes", exact: true })).toBeVisible()
+        expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        await page.screenshot({ path: output.replace(/\.json$/, "-review-narrow.png") })
+        await page.setViewportSize({ width: 1100, height: 800 })
+        reviewFailure = true
+        await review.getByRole("button", { name: "Refresh changes", exact: true }).click()
+        await expect(review.getByRole("alert")).toContainText("Could not load changes")
+        reviewFailure = false
+        reviewEmpty = true
+        await review.getByRole("button", { name: "Retry", exact: true }).click()
+        await expect(review.getByText("No file changes recorded for this turn.", { exact: true })).toBeVisible()
+        await review.getByRole("button", { name: "Close", exact: true }).press("Escape")
+        await expect(review).toBeHidden()
+        await expect(editor).toHaveText("Keep this draft while reviewing")
+        await editor.fill("")
+        reviewEmpty = false
       }
     }
     await context.close()

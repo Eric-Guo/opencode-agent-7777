@@ -1,11 +1,13 @@
 # Code Layout Parity Review
 
-7777 is an independent Git repository. It consumes public workspace exports and owns its source and assets;
-there are no runtime or build imports from `packages/app`. Matching filenames indicate local ownership, not reuse.
+7777 is an independent Git repository, with the PLM meeting checkout on a linked branch. Both consume public
+workspace exports and own their source and assets; there are no runtime or build imports from `packages/app` or
+`packages/desktop`. Matching filenames indicate local ownership, not reuse.
 Paths below are relative to `src/` unless a package is named.
 
-This is a scoped comparison, not a full upstream audit. The latest scrolling comparison uses parent `b1ca206548`
-and compact baseline `2055671` (2026-10-06). Earlier runtime, restoration, Console grouping, and ChatGPT-plan
+This is a scoped comparison, not a full upstream audit. The latest review comparison uses parent `b1ca206548`
+and PLM meeting baseline `09dbfda` (2026-10-06). The scrolling comparison used compact baseline `2055671`.
+Earlier runtime, restoration, Console grouping, and ChatGPT-plan
 comparisons, including their measurements, remain in this document's Git history.
 
 ## Shared packages and local ownership
@@ -24,13 +26,16 @@ comparisons, including their measurements, remain in this document's Git history
 | Recent sessions | Promise client | Directory-bound title/ID search, 12-session cursor pages, header popover |
 | Settings/embedding | UI controls and shared i18n primitives | Synchronous storage formats, tab isolation, preferences, welcome content, title policy |
 | Context usage | `@opencode/gui-extensions/usage/context-usage` | Active-session token/model adapter in `session/header/session-context-usage-compact.tsx` |
+| Turn review | `SessionReview` from `@opencode/session-ui/session-review`, shared dialog and scroll controls | Lazy dialog, active-session diff reads, refresh lifecycle, errors and retry |
 
 ## Remaining gaps
 
 - Queue editing and reordering. The public inbox API has no atomic reorder operation; upstream recreates a suffix
   of prompts and cancels the originals. Partial failures and concurrent delivery need separate work.
 - Provider connection and credential-management flows.
-- Review/diff panels, terminal, full usage/summary panels, browser, remote servers and the extension host.
+- Working-tree/staged/base review modes, history-range selection, review comments, and extension panel docking.
+  The latest-turn diff is available through the compact review dialog.
+- Terminal, full usage/summary panels, browser, remote servers and the extension host.
   The GUI extension renderer host lives in `packages/app` and depends on app routing, tabs, settings and server
   contexts. Public built-in definitions alone do not supply that host.
 
@@ -73,10 +78,10 @@ interaction rule: a delayed event at the bottom must not cancel that pause; movi
 content to the end can resume following. **Jump to latest** and activation changes still explicitly resume.
 The compact screen owns this control; the main app puts it in its virtualizer. Nine dialogs need no virtualizer.
 
-The previously reported 38 px initial-follow failure did not reproduce on the unchanged baseline with the current
-shared packages and browser. No fix is claimed for that historical failure; its assertion remains. The new keyboard
-check exposed a delayed-scroll race during this refactor and passes with the arrival check. No app imports, new
-runtime dependencies, polling, or gesture timers were added.
+During the earlier scrolling comparison, the reported 38 px initial-follow failure did not reproduce on its unchanged
+baseline. No fix was claimed; its assertion remains, and the current review validation below reproduces it again.
+The keyboard check exposed a delayed-scroll race during the scrolling refactor and passed with the arrival check.
+That refactor added no app imports, new runtime dependencies, polling, or gesture timers.
 
 ## Models and providers
 
@@ -92,6 +97,24 @@ environment connections, inactive OAuth connections and Console providers do not
 Failed or stale reads hide the optional footer, and activation disposal aborts reads. No metadata is persisted.
 The footer remains available with `manageModels = false`.
 
+## Turn review parity (2026-10-06)
+
+The header's **Review turn changes** control opens a lazy dialog. `review/model.ts` and `review/panel.tsx` follow
+the review extension's model/panel boundary, which moved out of the main app into `packages/gui-extensions`.
+`review/trigger-compact.tsx` replaces extension-host mounting with the existing dialog provider. Rendering, file
+accordions, change counts, split/unified controls, large-diff handling and diff scrolling use the public
+`@opencode/session-ui/session-review` component. No copied diff renderer or new dependency is needed.
+
+The model reads `session.diff` for the latest turn with three context lines. It is created only while the dialog is
+open and refreshes after execution completes, fails or is interrupted, after revert changes, on stream reconnection,
+and on explicit refresh. It reuses the existing event stream. Superseded reads and activation disposal abort requests;
+late responses cannot replace newer data. Closing disposes the listener and pending read; switching activation closes
+only this dialog. Read failures have a retry action, and valid empty results have an explicit empty state.
+
+This is snapshot-backed turn review, not a working-tree comparison; sessions without recorded snapshot changes can
+return an empty result. Bounded patches do not supply full-file context or historical media bytes. The dialog leaves
+the draft, nine-dialog window, and existing header actions unchanged, along with file tabs and the recorder in PLM meeting.
+
 ## Validation and coverage
 
 | Contract | Coverage owner |
@@ -103,22 +126,34 @@ The footer remains available with `manageModels = false`.
 | Nine dialogs, shell roots, revert boundary | Timeline model and session-domain suites |
 | Following, wheel/keyboard/scrollbar reading during streaming, selection, resize, activation reset | Production fixture in `scripts/runtime-benchmark.ts` |
 | Directory-wide requests, persistence, embedding/platform behavior | Request, storage/schema, platform and layout suites |
+| Demand loading, bounded requests, cancellation, late responses, retry, event filtering | `review/model.test.ts` |
+| Review dialog, real shared diff rendering, failed-read recovery, empty state, draft preservation | Review checks in `scripts/runtime-benchmark.ts` |
 
-Current validation: 373 tests across 61 files, typecheck, and production build pass. The extended production browser
-fixture passes, including Page Up while streaming, End restoring following, scrollbar dragging, and the existing
-scrolling/composer/host-title checks. The new viewport checks reject the baseline, which has no focusable ScrollView
-region. The running homepage hot-reloaded successfully and reported no browser errors; its app/server stayed running.
+The earlier scrolling comparison passed 373 tests and its extended browser fixture. In the PLM meeting review work,
+489 tests across 74 files, typecheck, and production build pass. The full browser fixture stops at its initial-follow
+assertion: a 38 px bottom gap reproduces on both the PLM meeting review build and an isolated, unchanged `09dbfda`
+build with the same installed Chrome. That assertion remains unchanged; the later scrolling checks are not claimed
+as passing in that run.
 
-Five production samples per bundle produced these medians (ms):
+The PLM meeting review browser checks pass with real shared diff rendering, desktop and 390 px layouts, failed-read
+retry, empty results, keyboard dismissal and preservation of the composer draft. The fixture reports no page errors.
+The running development page also opens, refreshes and dismisses the dialog; neither app nor server was restarted.
+
+The 7777 cherry-pick passes 380 tests across 62 files, package typecheck, the default production build, and the
+monorepo's `bun run check`. A separate browser-enabled production build passes one review fixture run covering
+real shared diff rendering, desktop and 390 px layouts, failed-read retry, empty results, keyboard dismissal,
+and draft preservation, with no page errors. The full scrolling fixture was not rerun for this cherry-pick.
+
+The review comparison's five production samples per bundle produced these medians (ms):
 
 | Fixture | Before | After |
 | --- | --- | --- |
-| Session entry | 129.6 | 131.5 |
-| Session switching | 145.8 | 147.2 |
-| 160 text deltas | 42.6 | 42.1 |
+| Session entry | 161.7 | 157.3 |
+| Session switching | 172.5 | 172.0 |
+| 160 text deltas | 53.0 | 51.3 |
 
 This small sample establishes no performance change. Results, diagnostic fixtures and screenshots are ignored under
-`node_modules/.cache/scroll-parity-current/`.
+`node_modules/.cache/review-parity-*`. The earlier scrolling measurements remain in Git history.
 
 ```sh
 bun test
@@ -126,7 +161,10 @@ bun run typecheck
 bun run build
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
 BENCH_VERIFY_UI=true bun run bench:runtime
+BENCH_VERIFY_REVIEW=true bun run bench:runtime
 ```
 
 The fixture uses Playwright Chromium. Set `BENCH_BROWSER=<chromium-executable>` for an existing installation,
 `BENCH_RUNS` for the sample count, `BENCH_OUTPUT` for results, and `BENCH_DIST` for another production bundle.
+`BENCH_VERIFY_REVIEW=true` runs review integration checks independently of the scrolling checks; the full
+`BENCH_VERIFY_UI=true` suite includes both.

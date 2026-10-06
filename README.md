@@ -179,6 +179,14 @@ The header reuses the GUI extension's `ContextUsage` display through its public
 adapts the active session, latest reported assistant tokens, and model catalog without an extension host.
 It follows the shared ring and tooltip behavior; the full app's context panel remains extension-owned.
 
+The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
+It shows snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
+`review/model.ts` and `review/panel.tsx` follow the review extension's current model/panel boundary in
+`packages/gui-extensions`; the compact-only `review/trigger-compact.tsx` supplies dialog mounting in place of the
+main app's extension host. Reads use the current activation and existing event stream, refresh after completion,
+revert or reconnect, and abort on close or session change. Errors can be retried. Drafts are preserved.
+Working-tree/staged review, comments, history ranges, and docked extension panels remain outside this compact view.
+
 `runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
 from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,
 and location catalogs. The compact adapter preserves live rows during history refreshes, hydrates nine dialogs,

@@ -1,4 +1,12 @@
 export const dict = {
+  "review.title": "Review turn changes",
+  "review.description": "File changes recorded for the latest turn in this session.",
+  "review.refresh": "Refresh changes",
+  "review.retry": "Retry",
+  "review.loading": "Loading changes…",
+  "review.loadFailed": "Could not load changes",
+  "review.empty": "No file changes recorded for this turn.",
+
   "language.en": "English",
   "language.zh": "中文",
   "language.switch": "Switch language to {{language}}",
