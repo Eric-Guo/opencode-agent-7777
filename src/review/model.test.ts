@@ -71,42 +71,75 @@ test.each([false, true])("changing sources discards superseded results and error
   model.dispose()
 })
 
-test("base references apply explicitly, retry unchanged, and do not leak into other modes", async () => {
-  const { model, calls } = fixture()
-  const branch = model.select({ mode: "branch", base: "  release/v2  " })
-  expect(calls[0].input).toEqual({
-    location: { directory: "/workspace" },
-    mode: "branch",
-    base: "release/v2",
-    context: 3,
-  })
-  calls[0].response.reject(new Error("Unknown ref"))
-  await branch
-  expect(model.state.error).toEqual(new Error("Unknown ref"))
-  const retry = model.refresh()
-  expect(calls[1].input).toEqual(calls[0].input)
-  calls[1].response.resolve([])
-  await retry
-  expect(model.state.error).toBeUndefined()
-  expect(model.state.diffs).toEqual([])
-  await model.select({ mode: "branch", base: "release/v2" })
-  expect(calls).toHaveLength(2)
-  const defaultBranch = model.select({ mode: "branch", base: "  " })
-  expect(calls[2].input).toEqual({ location: { directory: "/workspace" }, mode: "branch", context: 3 })
-  calls[2].response.resolve([])
-  await defaultBranch
-  const turn = model.select({ mode: "turn", base: "release/v2" })
-  expect(calls[3].input).toEqual({ sessionID: "session", context: 3 })
-  expect(model.state.source).toEqual({ mode: "turn" })
-  calls[3].response.resolve(diffs())
-  await turn
-  expect(model.state.diffs).toEqual(diffs())
-  model.dispose()
-})
+test.each(["branch", "committed"] as const)(
+  "%s base references retry unchanged and stay scoped to comparisons",
+  async (mode) => {
+    const { model, calls } = fixture()
+    const comparison = model.select({ mode, base: "  release/v2  " })
+    expect(calls[0].input).toEqual({
+      location: { directory: "/workspace" },
+      mode,
+      base: "release/v2",
+      context: 3,
+    })
+    calls[0].response.reject(new Error("Unknown ref"))
+    await comparison
+    expect(model.state.error).toEqual(new Error("Unknown ref"))
+    const retry = model.refresh()
+    expect(calls[1].input).toEqual(calls[0].input)
+    calls[1].response.resolve([])
+    await retry
+    expect(model.state.error).toBeUndefined()
+    expect(model.state.diffs).toEqual([])
+    await model.select({ mode, base: "release/v2" })
+    expect(calls).toHaveLength(2)
+    const defaultBranch = model.select({ mode, base: "  " })
+    expect(calls[2].input).toEqual({ location: { directory: "/workspace" }, mode, context: 3 })
+    calls[2].response.resolve([])
+    await defaultBranch
+    const turn = model.select({ mode: "turn", base: "release/v2" })
+    expect(calls[3].input).toEqual({ sessionID: "session", context: 3 })
+    expect(model.state.source).toEqual({ mode: "turn" })
+    calls[3].response.resolve(diffs())
+    await turn
+    expect(model.state.diffs).toEqual(diffs())
+    const working = model.select({ mode: "working", base: "release/v2" })
+    expect(calls[4].input).toEqual({ location: { directory: "/workspace" }, mode: "working", context: 3 })
+    calls[4].response.resolve([])
+    await working
+    model.dispose()
+  },
+)
+
+test.each([false, true])(
+  "switching branch to committed with the same base discards the old read (failed=%s)",
+  async (failed) => {
+    const { model, calls } = fixture()
+    const branch = model.select({ mode: "branch", base: "release/v2" })
+    const committed = model.select({ mode: "committed", base: "release/v2" })
+    expect(calls[0].signal?.aborted).toBe(true)
+    expect(calls[1].input).toEqual({
+      location: { directory: "/workspace" },
+      mode: "committed",
+      base: "release/v2",
+      context: 3,
+    })
+    calls[1].response.resolve([])
+    await committed
+    if (failed) calls[0].response.reject(new Error("old branch failure"))
+    else calls[0].response.resolve(diffs())
+    await branch
+    expect(model.state.source).toEqual({ mode: "committed", base: "release/v2" })
+    expect(model.state.diffs).toEqual([])
+    expect(model.state.loading).toBe(false)
+    expect(model.state.error).toBeUndefined()
+    model.dispose()
+  },
+)
 
 test.each(["close", "activation"])("%s aborts a VCS read and blocks source changes", async (reason) => {
   const { model, calls, abort } = fixture()
-  const pending = model.select({ mode: "working" })
+  const pending = model.select({ mode: "committed", base: "release/v2" })
   if (reason === "close") model.dispose()
   else abort.abort()
   expect(calls[0].signal?.aborted).toBe(true)
@@ -114,7 +147,7 @@ test.each(["close", "activation"])("%s aborts a VCS read and blocks source chang
   await pending
   await model.select({ mode: "branch" })
   expect(calls).toHaveLength(1)
-  expect(model.state.source).toEqual({ mode: "working" })
+  expect(model.state.source).toEqual({ mode: "committed", base: "release/v2" })
   expect(model.state.diffs).toEqual([])
   model.dispose()
 })

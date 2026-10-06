@@ -5,7 +5,8 @@ workspace exports and own their source and assets; there are no runtime or build
 `packages/desktop`. Matching filenames indicate local ownership, not reuse.
 Paths below are relative to `src/` unless a package is named.
 
-This is a scoped comparison, not a full upstream audit. The review-source comparison uses parent `3064ac5302`
+This is a scoped comparison, not a full upstream audit. The committed-review follow-up uses parent `3064ac5302`
+and PLM meeting baseline `9bedf52` (2026-10-06). The review-source comparison uses parent `3064ac5302`
 and PLM meeting baseline `9f08311` (2026-10-06). The earlier turn-review comparison used parent `b1ca206548`
 and PLM meeting baseline `09dbfda`. The scrolling comparison used compact baseline `2055671`.
 Earlier runtime, restoration, Console grouping, and ChatGPT-plan
@@ -27,16 +28,17 @@ comparisons, including their measurements, remain in this document's Git history
 | Recent sessions | Promise client | Directory-bound title/ID search, 12-session cursor pages, header popover |
 | Settings/embedding | UI controls and shared i18n primitives | Synchronous storage formats, tab isolation, preferences, welcome content, title policy |
 | Context usage | `@opencode/gui-extensions/usage/context-usage` | Active-session token/model adapter in `session/header/session-context-usage-compact.tsx` |
-| Change review | `SessionReview` from `@opencode/session-ui/session-review`, public session/VCS APIs, shared dialog/select/input controls | Lazy dialog, turn/working-tree/branch sources, base selection, refresh lifecycle, errors and retry |
+| Change review | `SessionReview` from `@opencode/session-ui/session-review`, public session/VCS APIs and VCS mode type, shared dialog/select/input controls | Lazy dialog, turn/working-tree/branch/committed sources, shared base form, refresh lifecycle, errors and retry |
 
 ## Remaining gaps
 
 - Queue editing and reordering. The public inbox API has no atomic reorder operation; upstream recreates a suffix
   of prompts and cancels the originals. Partial failures and concurrent delivery need separate work.
 - Provider connection and credential-management flows.
-- Staged-only and committed-only review, history-range selection, review comments, and extension panel docking.
-  The compact dialog supports latest-turn, working-tree, and branch/base comparisons. The public VCS API exposes
-  `working`, `branch`, and `committed`; it has no staged-only mode. Working-tree review includes staged changes.
+- Staged-only review, arbitrary history-range selection, review comments, and extension panel docking.
+  The compact dialog supports latest-turn, working-tree, branch/base, and committed/base comparisons. The public VCS API
+  exposes `working`, `branch`, and `committed`; it has no staged-only mode or end-revision parameter. Working-tree review
+  includes staged changes. Committed review compares the base's common ancestor with `HEAD`, excluding uncommitted files.
 - Terminal, full usage/summary panels, browser, remote servers and the extension host.
   The GUI extension renderer host lives in `packages/app` and depends on app routing, tabs, settings and server
   contexts. Public built-in definitions alone do not supply that host.
@@ -137,6 +139,38 @@ current comparison. Only VCS modes react to matching-directory `filesystem.chang
 Closing or changing activation cancels pending work and scheduled refreshes. Opening the dialog performs only the
 existing turn read; VCS reads begin when selected. Server failures use the existing error/retry surface. No extension
 host, new dependency, app/desktop import, or persisted preference is introduced.
+
+## Committed-review follow-up (2026-10-06)
+
+The compact model now derives its VCS modes from the public client's `VcsDiffInput` type and supports the existing
+`committed` API mode. The upstream review extension still offers turn, working-tree, and branch modes; committed
+review closes the public-API gap recorded above, rather than copying a new upstream control. Base normalization,
+bounded patches, cancellation, watcher refreshes, and error handling use the existing lifecycle for every VCS mode.
+
+`review/parts.tsx` now owns the description and `ReviewEmpty` alongside `ReviewTitle`, following the extension's
+presentation boundary. Branch and committed modes use the same form and retain its value when switching. Typing alone
+does not fetch, and the description shows the applied reference. The panel continues using the public shared diff
+renderer. No imports from app/desktop, private extension modules, new dependencies, or server changes are introduced.
+Existing modes, recorder, file tabs, draft storage, and the nine-dialog limit remain unchanged. New English keys use
+the existing locale fallback; the Chinese dictionary now allows untranslated keys without copying English entries.
+
+Validation passes 498 tests across 74 files, package typecheck, the default and browser-enabled production builds,
+and the parent repository's `bun run check`. The extended production review fixture passes rendered diffs, base
+application and clearing, invalid-base recovery, mode-specific empty states, desktop and 390 px controls, draft
+preservation, and listener cleanup, with no page errors. Model coverage includes a branch-to-committed switch with
+the same base, late successes/failures, retry, and disposal. The running development page also selects committed
+review and applies `HEAD` without restarting either process. The unrelated full scrolling fixture was not rerun.
+
+Five production samples per bundle produced these medians (ms):
+
+| Fixture | Before (`9bedf52`) | After |
+| --- | --- | --- |
+| Session entry | 161.9 | 160.5 |
+| Session switching | 152.1 | 172.6 |
+| 160 text deltas | 53.5 | 53.2 |
+
+These small samples do not establish a performance change. Review stays lazy, and committed reads begin only when
+selected. Logs, results, and screenshots are ignored under `node_modules/.cache/review-committed-*`.
 
 ## Validation and coverage
 

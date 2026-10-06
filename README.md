@@ -181,14 +181,16 @@ It follows the shared ring and tooltip behavior; the full app's context panel re
 
 The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
 It defaults to snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
-A shared selector adds working-tree and branch comparisons through the public `vcs.diff` API, scoped to the active
-session's directory. Branch comparison accepts an explicit base reference on Compare or Enter and includes
-uncommitted changes. `review/model.ts`, `review/panel.tsx`, and `review/parts.tsx` follow the review extension's boundaries in
-`packages/gui-extensions`; the compact-only `review/trigger-compact.tsx` supplies dialog mounting in place of the
+A shared selector adds working-tree, branch, and committed comparisons through the public `vcs.diff` API, scoped to
+the active session's directory. Branch and committed comparisons share the base-reference form, applied on Compare
+or Enter. Both start at the common ancestor with that base; branch review includes uncommitted changes, while committed
+review ends at `HEAD` and excludes them. `review/parts.tsx` owns the title, description, and empty states, keeping mode
+presentation out of the rendering/lifecycle panel. `review/model.ts`, `review/panel.tsx`, and `review/parts.tsx` follow
+the review extension's boundaries in `packages/gui-extensions`; the compact-only `review/trigger-compact.tsx` supplies dialog mounting in place of the
 main app's extension host. Reads use the current activation and existing event stream, refresh after completion,
 revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
 Errors can be retried and drafts are preserved. Staged-only review (unsupported by the current public API),
-committed-only review, comments, history ranges, and docked extension panels remain outside this compact view.
+comments, arbitrary history ranges, and docked extension panels remain outside this compact view.
 
 `runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
 from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,

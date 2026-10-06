@@ -1,7 +1,7 @@
-import type { FileDiffInfo, OpenCodeClient, OpenCodeEvent } from "@opencode/client/promise"
+import type { FileDiffInfo, OpenCodeClient, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
 import { createStore } from "solid-js/store"
 
-export type ChangeMode = "turn" | "working" | "branch"
+export type ChangeMode = "turn" | VcsDiffInput["mode"]
 export type ReviewSource = { mode: ChangeMode; base?: string }
 
 // The compact review owns one activation's reads. Diff rendering belongs to session-ui.
@@ -60,7 +60,8 @@ export function createReviewModel(input: {
     refresh,
     select(source: ReviewSource) {
       if (!alive()) return
-      const base = source.mode === "branch" ? source.base?.trim() || undefined : undefined
+      const base =
+        source.mode === "branch" || source.mode === "committed" ? source.base?.trim() || undefined : undefined
       if (source.mode === state.source.mode && base === state.source.base) return
       // Replace the source and its result together so an old diff never appears under a new label.
       setState({ source: { mode: source.mode, base }, diffs: [], error: undefined })

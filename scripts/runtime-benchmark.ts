@@ -141,7 +141,8 @@ const server = Bun.serve({
       const base = url.searchParams.get("base")
       vcsReads.push({ mode, base })
       if (base === "missing-ref") return new Response("Unknown base reference", { status: 400 })
-      const file = mode === "working" ? "working.txt" : "branch.txt"
+      const file = `${mode}.txt`
+      if (mode === "committed" && base === "HEAD") return json({ location, data: [] })
       return json({
         location,
         data: [
@@ -461,6 +462,37 @@ try {
         await expect(review.getByText("After branch", { exact: true })).toBeVisible()
         expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
         await page.screenshot({ path: output.replace(/\.json$/, "-review-branch-narrow.png") })
+        await page.setViewportSize({ width: 1100, height: 800 })
+        await chooseMode("Committed changes")
+        await expect(review.getByText("committed.txt", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "committed", base: "release/narrow" })
+        await expect(
+          review.getByText(/Committed changes from the common ancestor with release\/narrow to HEAD/),
+        ).toBeVisible()
+        await review.getByText("committed.txt", { exact: true }).click()
+        await expect(review.getByText("After committed", { exact: true })).toBeVisible()
+        await page.screenshot({ path: output.replace(/\.json$/, "-review-committed.png") })
+        const committedReadsBeforeTyping = vcsReads.length
+        await base.fill("missing-ref")
+        expect(vcsReads).toHaveLength(committedReadsBeforeTyping)
+        await base.press("Enter")
+        await expect(review.getByRole("alert")).toContainText("Could not load changes")
+        await base.fill("HEAD")
+        await review.getByRole("button", { name: "Compare", exact: true }).click()
+        await expect(
+          review.getByText("No committed file changes against this base reference.", { exact: true }),
+        ).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "committed", base: "HEAD" })
+        await page.setViewportSize({ width: 390, height: 800 })
+        await base.fill("")
+        await expect(review.getByRole("button", { name: "Compare", exact: true })).toBeInViewport({ ratio: 1 })
+        await review.getByRole("button", { name: "Compare", exact: true }).click()
+        await expect(review.getByText("committed.txt", { exact: true })).toBeVisible()
+        expect(vcsReads.at(-1)).toEqual({ mode: "committed", base: null })
+        await review.getByText("committed.txt", { exact: true }).click()
+        await expect(review.getByText("After committed", { exact: true })).toBeVisible()
+        expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        await page.screenshot({ path: output.replace(/\.json$/, "-review-committed-narrow.png") })
         await page.setViewportSize({ width: 1100, height: 800 })
         await chooseMode("Latest turn")
         await expect(review.getByText("No file changes recorded for this turn.", { exact: true })).toBeVisible()
