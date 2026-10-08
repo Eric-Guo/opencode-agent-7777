@@ -30,7 +30,7 @@ export function createPlatformAttachments(
           const result = await openFilePicker({
             multiple: options.multiple ?? false,
             defaultPath: options.defaultPath,
-            extensions: ACCEPTED_FILE_EXTENSIONS,
+            extensions: [...ACCEPTED_FILE_EXTENSIONS],
           })
           if (!result) return
           try {

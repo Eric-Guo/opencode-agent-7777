@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from "bun:test"
 import { createRoot } from "solid-js"
+import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import type { ComposerPrompt } from "../types"
 import { createComposerAttachments } from "./attachments"
 
@@ -40,6 +41,33 @@ function fixture(
 }
 
 describe("composer attachments", () => {
+  test("preserves supported formats across picker calls even when a picker mutates its options", () => {
+    const expected = (
+      "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,application/json,application/ld+json," +
+      "application/toml,application/x-toml,application/x-yaml,application/xml,application/yaml," +
+      ".c,.cc,.cjs,.conf,.cpp,.css,.csv,.cts,.env,.go,.gql,.graphql,.h,.hh,.hpp,.htm,.html,.ini,.java,.js,.json," +
+      ".jsx,.log,.md,.mdx,.mjs,.mts,.py,.rb,.rs,.sass,.scss,.sh,.sql,.toml,.ts,.tsx,.txt,.xml,.yaml,.yml,.zsh"
+    ).split(",")
+    const filters: string[][] = []
+    const input = fixture(async () => ({ id: "unused", url: "unused" }), {
+      picker: async (options) => {
+        filters.push([...options.accept!])
+        options.accept!.splice(0)
+      },
+    })
+    const fallback = mock(() => {})
+    try {
+      input.attachments.pick(fallback)
+      input.attachments.pick(fallback)
+      expect(filters).toEqual([expected, expected])
+      expect(ACCEPTED_FILE_TYPES).toEqual(expected)
+      expect(fallback).not.toHaveBeenCalled()
+      expect(input.prompt()).toEqual([{ type: "text", content: "draft", start: 0, end: 5 }])
+    } finally {
+      input.dispose()
+    }
+  })
+
   test("keeps supplied durable blob references and rejects a duplicate without changing the draft", async () => {
     const store = mock(async () => ({ id: "content-hash", url: "data:text/plain;base64,bm90ZXM=" }))
     const input = fixture(store)

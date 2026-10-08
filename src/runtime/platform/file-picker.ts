@@ -1,9 +1,7 @@
-export const ACCEPTED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"]
+// One compact attachment policy for browser input, composer validation and desktop picker filters.
+export const ACCEPTED_IMAGE_TYPES = Object.freeze(["image/png", "image/jpeg", "image/gif", "image/webp"])
 
-export const ACCEPTED_FILE_TYPES = [
-  ...ACCEPTED_IMAGE_TYPES,
-  "application/pdf",
-  "text/*",
+export const ACCEPTED_TEXT_TYPES = Object.freeze([
   "application/json",
   "application/ld+json",
   "application/toml",
@@ -11,6 +9,13 @@ export const ACCEPTED_FILE_TYPES = [
   "application/x-yaml",
   "application/xml",
   "application/yaml",
+])
+
+export const ACCEPTED_FILE_TYPES = Object.freeze([
+  ...ACCEPTED_IMAGE_TYPES,
+  "application/pdf",
+  "text/*",
+  ...ACCEPTED_TEXT_TYPES,
   ".c",
   ".cc",
   ".cjs",
@@ -53,7 +58,7 @@ export const ACCEPTED_FILE_TYPES = [
   ".yaml",
   ".yml",
   ".zsh",
-]
+])
 
 const MIME_EXT = new Map([
   ["image/png", "png"],
@@ -72,16 +77,18 @@ const MIME_EXT = new Map([
 
 const TEXT_EXT = ["txt", "text", "md", "markdown", "log", "csv"]
 
-export const ACCEPTED_FILE_EXTENSIONS = Array.from(
-  new Set(
-    ACCEPTED_FILE_TYPES.flatMap((item) => {
-      if (item.startsWith(".")) return [item.slice(1)]
-      if (item === "text/*") return TEXT_EXT
-      const out = MIME_EXT.get(item)
-      return out ? [out] : []
-    }),
-  ),
-).sort()
+export const ACCEPTED_FILE_EXTENSIONS = Object.freeze(
+  Array.from(
+    new Set(
+      ACCEPTED_FILE_TYPES.flatMap((item) => {
+        if (item.startsWith(".")) return [item.slice(1)]
+        if (item === "text/*") return TEXT_EXT
+        const out = MIME_EXT.get(item)
+        return out ? [out] : []
+      }),
+    ),
+  ).sort(),
+)
 
 export function filePickerFilters(name: string, ext?: string[]) {
   if (!ext || ext.length === 0) return undefined

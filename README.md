@@ -264,6 +264,11 @@ file comments, disabled controls, optional queue editing, provider icons, hover-
 suggestion height. The main app's upload progress, path attachments, note cards, and boundary-aware suggestion sizing
 are outside this refactor. All implementations stay package-local or use public shared-package exports.
 
+`runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
+picker/validation and desktop extension filters. Exported lists are frozen and picker calls receive copies, preserving
+the existing formats without sharing mutable options with the host. This policy stays local because the main app's
+attachment destination/upload behavior differs; attachment handling remains in `composer/attachments/attachments.ts`.
+
 ## Recent Sessions
 
 Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar

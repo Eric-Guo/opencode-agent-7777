@@ -1,97 +1,70 @@
 # Code Layout Parity Review
 
-7777 is an independent Git repository. Runtime code, build configuration and assets must not import from
-`packages/app` or `packages/desktop`. Public OpenCode package exports are reusable, including `@opencode/session-ui`,
-`@opencode/gui-extensions`, `@opencode/client`, `@opencode/ui` and `@opencode/util`.
-Matching the main app's filenames describes local ownership, not a source dependency.
+7777 is an independent Git repository. Runtime, build configuration and assets must not depend on `packages/app`
+or `packages/desktop`. Reuse public OpenCode exports such as `@opencode/session-ui`, `@opencode/gui-extensions`,
+`@opencode/client`, `@opencode/ui` and `@opencode/util`. Matching upstream filenames does not imply source imports.
 
-This is a scoped refactor guide, not a full upstream audit. Keep existing behavior: ask before adding, removing or
-changing a feature. Intentional compact behavior is not a parity gap. Earlier comparisons, benchmark measurements
-and detailed change history remain in Git history; the current baseline is 7777 `2d0bb08` (2026-10-06).
+Refactor without changing features; ask before adding or removing behavior. The
+[README](../README.md#code-layout-parity-review) describes intentional compact differences. Earlier audits and
+measurements remain in Git. Local ownership below is not outstanding parity work.
 
-## Shared code and local boundaries
+## Ownership
 
-Paths are relative to `src/`. See the [README](../README.md#code-layout-parity-review) for behavior details.
+Paths are relative to `src/`.
 
 | Area | Public reuse | Local ownership |
 | --- | --- | --- |
-| Timeline | `@opencode/session-ui` timeline, document, actions, markdown and cards | `session/timeline/`: nine-dialog projection, binary Thinking setting, revert and historical comments |
-| Scrolling | `@opencode/ui/scroll-view` and `createAutoScroll` | `session/screen.tsx` and `session/timeline/interaction.ts`: viewport, pause/resume, arrival and resize handling |
-| Runtime | `createData` from `@opencode/client/solid`; promise client | `runtime/server/`: activation, bounded hydration, optimistic overlays, snapshot races, directory requests and one SSE stream |
-| Models/providers | Shared location resources, public client types and UI controls | `providers/{catalog,models}/`: defaults, visibility, Console groups, variants, OAuth footer and manager gate; `runtime/server/{types,global-sync/utils}.ts`: catalog view adapter |
-| Composer | Shared resources, attachment cards and controls | `composer/`: editor, serialization, drafts, history, prompt restoration and independent catalog failures |
-| File mentions | `encodeFilePath` from `@opencode/util/path` | `workspaces/files/{model,path}`: directory search, cancellation and absolute server URIs |
-| Requests | Shared `DockPrompt` and `DockSurface` | `session/requests/`: directory-wide discovery, child sessions, replies, notifications and web-search handoffs |
-| Queue/revert | Public client/schema types | `session/composer/queue.ts`, `session/revert.ts`, `composer/prompt.ts`: queue/steer, restoration and loaded-history undo/redo |
-| Recent sessions | Promise client and `displayLabel` from `@opencode/util/session-title-fallback` | `home/sessions/` and `session/title.ts`: directory search, 12-session cursor pages, popover and absent-title agent fallback |
-| Settings/embedding | Shared UI and i18n primitives | `runtime/{persistence,platform}/`, `settings/`, `new-session/`: storage, tab isolation, desktop bridge, local welcome and title policy |
-| Context usage | `@opencode/gui-extensions/usage/context-usage` | `session/header/session-context-usage-compact.tsx`: active-session token/model adapter |
-| Change review | `@opencode/session-ui/session-review`, public session/VCS APIs | `review/{model,panel,parts}` follows GUI extension boundaries; `trigger-compact.tsx` mounts a lazy dialog |
+| Timeline/scrolling | Session UI timeline, document, actions, markdown/cards; UI scroll primitives | `session/timeline/`, `session/screen.tsx`: nine dialogs, Thinking, restoration and reading intent |
+| Runtime | Client `createData`, location resources and promise APIs | `runtime/server/`: activation, hydration, overlays, snapshot races and one SSE stream |
+| Models/providers | Client catalog types/resources; UI controls | `providers/{catalog,models}/`: defaults, visibility, grouping, variants, OAuth footer and manager gate |
+| Composer/files | Session UI cards; utility path encoding | `composer/`, `workspaces/files/`: editing, drafts/history, serialization and search; `runtime/platform/file-picker.ts`: compact attachment policy |
+| Requests/queue | Shared dock controls; client/schema types | `session/requests/`, `session/composer/`, `session/revert.ts`: discovery, replies, queue/steer and undo/redo |
+| Recent sessions | Promise client; utility title fallback | `home/sessions/`, `session/title.ts`: directory search, 12-session pages and agent fallback |
+| Settings/embedding | UI/i18n primitives | `runtime/{persistence,platform}/`, `settings/`, `new-session/`: storage, bridge, welcome and title policy |
+| Usage/review | GUI extension `ContextUsage`; Session UI `SessionReview` | `session/header/session-context-usage-compact.tsx`, `review/`: adapters and lazy dialog; review model/panel/parts follow GUI extension boundaries |
 
 ## Refactor constraints
 
-- **Product:** preserve `HISTORY_DIALOG_LIMIT = 9`, the `current/9` counter, `SET_DOCUMENT_TITLE = false`, Electron
-  activation gating, source model defaults/visibility, `manageModels`, tab-specific session/draft keys, accepted prompt
-  history, local welcome content and package-owned assets.
-- **Runtime/history:** one disposable Solid root and shared data instance per activation own reads, subscriptions and
-  cancellation. Keep reactive references, skill/selection compatibility and missing-message hydration. Start with 36
-  records and follow advancing, nonempty cursors until nine user/shell roots or history end; queued prompts do not
-  consume dialogs. Preserve newer live rows/events and HTTP receipts until SSE or a later snapshot acknowledges them.
-- **Restoration:** preserve historical file URIs, queries, shifted mention offsets and comment compatibility through
-  `composer/{prompt,comment-note}.ts`. Queue undo retains full text/file bytes, rejects hidden context and malformed or
-  overlapping mentions, cancels before appending to the latest draft, restores focus and ignores stale activations.
-  Undo/redo uses loaded history. Recent titles retain the local-agent fallback.
-- **Scrolling:** retain shared keyboard/nested-scroll ownership, draggable scrollbar, selection/wheel/upward-key pause
-  and overflow anchoring. Delayed bottom events must not cancel reading intent. Arrival, content collapse, Jump to
-  latest and activation can resume following; observe late rendering and viewport/composer/dock resize.
-- **Models:** keep catalog/API IDs distinct, Console metadata/grouping before search, independent collapse state,
-  full-catalog switches and future-model defaults. The lazy ChatGPT-plan footer remains OpenAI active-OAuth-only,
-  works with `manageModels = false`, refreshes on reconnect/connection events, retries on reopening and aborts on
-  disposal. Optional footer failures do not disable selection; selection/Escape restores composer focus.
-- **Requests/review:** preserve directory-wide request discovery and child-session handling. Review opens on turn
-  changes; working/branch/committed reads are lazy, directory-scoped, use three context lines and share the existing
-  stream. Branch includes uncommitted changes from the common ancestor; committed ends at `HEAD`. Compare/Enter
-  applies the base. Keep retry, source-specific empty states, 100 ms file-event coalescing, stale-result guards and
-  cancellation on source/activation change or close. Preserve drafts and bounded-patch limitations.
+- Preserve nine dialogs and `current/9`, `SET_DOCUMENT_TITLE = false`, Electron gating, `manageModels`, source model
+  defaults/visibility, tab-specific keys, accepted-prompt history, local welcome and package-owned assets.
+- Each activation owns one disposable Solid root/data instance, subscriptions and cancellation. History starts with 36
+  records and advances nonempty cursors until nine user/shell roots or history end; queued prompts do not count.
+  Keep reactive references, skill/selection compatibility, missing-message hydration and live rows/HTTP receipts until acknowledged.
+- Preserve historical URIs, mention offsets and comment compatibility. Queue undo rejects hidden context and malformed/
+  overlapping mentions, cancels before merging into the latest draft, restores focus and ignores stale activations.
+  Undo/redo uses loaded history. Attachment formats, inline bytes and duplicate detection stay intact.
+- Preserve keyboard/nested-scroll ownership, draggable scrollbar, selection/wheel/upward-key pause, anchoring,
+  delayed-event guards and late-render/resize handling. Arrival, collapse, Jump to latest and activation can resume following.
+- Keep catalog/API IDs separate, Console grouping before search, independent collapse state, full-catalog switches and
+  future defaults. The lazy OpenAI active-OAuth footer remains optional, retryable and usable with `manageModels = false`;
+  refresh on reconnect/connection events and abort on disposal. Selection/Escape restores composer focus.
+- Preserve directory-wide/child requests and notifications. Review stays lazy, directory-scoped, uses three context lines
+  and the existing stream, with retry/empty states, 100 ms file-event coalescing and cancellation/stale-result guards.
+  Branch includes uncommitted changes from the common ancestor; committed ends at `HEAD`. Compare/Enter applies the base.
+  Preserve drafts and bounded-patch limitations.
 
-## Remaining feature decisions
+## Requires a product decision
 
-These require approval and cannot be closed by a behavior-preserving refactor:
-
-- Queue editing/reordering: the public inbox API has no atomic reorder; recreating/cancelling entries has partial-failure
-  and concurrent-delivery risks.
+- Queue editing/reordering: no atomic reorder; recreating entries risks partial failure/concurrent delivery.
 - Provider connection and credential management.
-- Staged-only review, arbitrary history ranges, comments and extension panel docking. Public VCS modes have no
-  staged-only mode or end-revision parameter.
-- Terminal, full usage/summary panels, browser, remote servers and extension hosting. Public built-in definitions do
-  not supply the GUI renderer host and its routing, tabs, settings and server contexts.
+- Staged-only review, arbitrary history ranges, comments and extension docking; public VCS lacks staged-only/end-revision modes.
+- Terminal, full usage/summary panels, browser, remote servers and extension hosting; public definitions lack the GUI host/contexts.
 
 ## Validation
 
-The catalog refactor derives server-owned view fields from public client types and uses one modality conversion for
-input/output. It preserves the adapter's output and existing filenames. Catalog normalization, cache invalidation,
-source immutability and model preferences remain covered by `runtime/server/global-sync/utils.test.ts`,
-`providers/catalog/providers.test.ts` and `providers/models/models.test.ts`.
+Run `bun test`, `bun run typecheck` and `bun run build` here. Re-check the running development page after interactions
+without restarting the app/server. Keep logs/screenshots in ignored `node_modules/.cache/`.
 
-Validated on 2026-10-06: 392 tests across 63 files, typecheck and production build pass. On the running development
-page, model search and Escape dismissal work, composer focus returns and no console errors are reported.
-Production benchmarks and extended scrolling/review checks were not rerun for this catalog-only change.
-
-Run from this repository:
+For session/timeline changes, compare production benchmarks before and after:
 
 ```sh
-bun test
-bun run typecheck
-bun run build
-# For session/timeline changes, compare production benchmarks before and after:
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
 BENCH_RUNS=3 bun run bench:runtime
-# Optional review-only or full UI checks:
+# Optional extended checks:
 BENCH_VERIFY_REVIEW=true bun run bench:runtime
 BENCH_VERIFY_UI=true bun run bench:runtime
 ```
 
-The fixture uses Playwright Chromium; `BENCH_BROWSER`, `BENCH_DIST` and `BENCH_OUTPUT` override the executable, bundle
-and results path. Keep logs/screenshots under ignored `node_modules/.cache/`. Re-check the running development page
-after interactions without restarting the app or server. Historical scrolling checks reproduced a 38 px initial-follow
-failure on both changed and unchanged baselines; that assertion remains and no scrolling fix is claimed here.
+The fixture uses Playwright Chromium; `BENCH_BROWSER`, `BENCH_DIST` and `BENCH_OUTPUT` override its executable, bundle
+and results path. The historical 38 px initial-follow failure reproduced on changed and unchanged baselines;
+retain the assertion and do not claim a scrolling fix without resolving it.

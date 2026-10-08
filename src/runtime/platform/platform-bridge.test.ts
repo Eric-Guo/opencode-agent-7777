@@ -3,6 +3,31 @@ import { createPlatformAttachments, isAgent7777Enabled, isElectronUserAgent } fr
 import { ACCEPTED_FILE_EXTENSIONS } from "./file-picker"
 
 describe("platform attachments", () => {
+  test("preserves desktop extensions across calls when the host mutates picker options", async () => {
+    const expected = (
+      "c,cc,cjs,conf,cpp,css,csv,cts,env,gif,go,gql,graphql,h,hh,hpp,htm,html,ini,java,jpg,js,json,jsonld,jsx," +
+      "log,markdown,md,mdx,mjs,mts,pdf,png,py,rb,rs,sass,scss,sh,sql,text,toml,ts,tsx,txt,webp,xml,yaml,yml,zsh"
+    ).split(",")
+    const filters: string[][] = []
+    const platform = createPlatformAttachments({
+      async openFilePicker(options) {
+        filters.push([...options!.extensions!])
+        options!.extensions!.splice(0)
+        return null
+      },
+      readPickedFile: async () => new ArrayBuffer(0),
+      releasePickedFiles: async () => {},
+    })
+    const onFile = mock(async () => {})
+
+    await platform.openAttachmentPickerDialog!({}, onFile)
+    await platform.openAttachmentPickerDialog!({}, onFile)
+
+    expect(filters).toEqual([expected, expected])
+    expect(ACCEPTED_FILE_EXTENSIONS).toEqual(expected)
+    expect(onFile).not.toHaveBeenCalled()
+  })
+
   test("keeps the browser picker fallback when native file support is absent or incomplete", () => {
     const openFilePicker = mock(async () => null)
 
