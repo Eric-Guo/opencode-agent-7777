@@ -1,16 +1,6 @@
 import type { ModelListOutput, ProviderListOutput } from "@opencode/client/promise"
 import { unwrap } from "solid-js/store"
-import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
-
-function modalities(values: string[]): Model["capabilities"]["input"] {
-  return {
-    text: values.includes("text"),
-    audio: values.includes("audio"),
-    image: values.includes("image"),
-    video: values.includes("video"),
-    pdf: values.includes("pdf"),
-  }
-}
+import type { Provider, ProviderListResponse } from "@/runtime/server/types"
 
 const providerCatalogs = new WeakMap<
   ProviderListOutput["data"],
@@ -36,9 +26,6 @@ export function normalizeProviderList(
       canonical: provider.canonical,
       integrationID: provider.integrationID,
       name: provider.name,
-      source: "custom",
-      env: [],
-      options: provider.settings ?? {},
       models: {},
     })
   }
@@ -52,18 +39,13 @@ export function normalizeProviderList(
       providerID: model.providerID,
       api: {
         id: model.modelID,
-        url: "",
-        npm: model.package ?? provider.id,
       },
       name: model.name,
       family: model.family,
       capabilities: {
-        temperature: false,
-        attachment: model.capabilities.input.some((item) => item !== "text"),
-        toolcall: model.capabilities.tools,
-        input: modalities(model.capabilities.input),
-        output: modalities(model.capabilities.output),
-        interleaved: false,
+        ...model.capabilities,
+        input: [...model.capabilities.input],
+        output: [...model.capabilities.output],
       },
       cost: {
         input: cost?.input ?? 0,
@@ -75,9 +57,6 @@ export function normalizeProviderList(
       },
       limit: model.limit,
       status: model.status,
-      options: model.settings ?? {},
-      headers: model.headers ?? {},
-      release_date: new Date(model.time.released).toISOString().slice(0, 10),
       variants: Object.fromEntries(model.variants.map((variant) => [variant.id, variant.settings ?? {}])),
     }
   }

@@ -1,40 +1,15 @@
 import type { ModelCost, ModelInfo, ProviderInfo } from "@opencode/client/promise"
 
-type Modalities = Record<"text" | "audio" | "image" | "video" | "pdf", boolean>
-type Cost = Omit<ModelCost, "tier">
-
-// Keep the catalog adapter's existing view shape while deriving server fields from public client types.
-// Unknown reasoning support stays unspecified.
-export type Model = Pick<ModelInfo, "id" | "providerID" | "name" | "family" | "limit" | "status"> & {
+// Keep public client capabilities intact; only picker-specific views need adaptation.
+export type Model = Pick<ModelInfo, "id" | "providerID" | "name" | "family" | "limit" | "status" | "capabilities"> & {
   api: {
-    id: string
-    url: string
-    npm: string
+    id: ModelInfo["modelID"]
   }
-  capabilities: {
-    temperature: boolean
-    reasoning?: boolean
-    attachment: boolean
-    toolcall: boolean
-    input: Modalities
-    output: Modalities
-    interleaved: boolean | { field: "reasoning" | "reasoning_content" | "reasoning_details" }
-  }
-  cost: Cost & {
-    tiers?: (Cost & { tier: NonNullable<ModelCost["tier"]> })[]
-    experimentalOver200K?: Cost
-  }
-  options: Record<string, unknown>
-  headers: NonNullable<ModelInfo["headers"]>
-  release_date: string
-  variants?: Record<string, Record<string, unknown>>
+  cost: Omit<ModelCost, "tier">
+  variants?: Record<string, NonNullable<ModelInfo["variants"][number]["settings"]>>
 }
 
 export type Provider = Pick<ProviderInfo, "id" | "canonical" | "integrationID" | "name"> & {
-  source: "env" | "config" | "custom" | "api"
-  env: string[]
-  key?: string
-  options: Record<string, unknown>
   models: Record<string, Model>
 }
 

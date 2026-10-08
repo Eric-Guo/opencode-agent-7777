@@ -48,16 +48,22 @@ describe("normalizeProviderList", () => {
       id: "configured-model",
       api: { id: "api-model" },
       capabilities: {
-        toolcall: true,
-        attachment: true,
-        input: { text: true, image: true, audio: false, video: false, pdf: true },
-        output: { text: true, image: false, audio: false, video: false, pdf: false },
+        tools: true,
+        input: ["text", "image", "pdf"],
+        output: ["text"],
       },
       cost: { input: 1, output: 2, cache: { read: 0.1, write: 0.2 } },
-      release_date: "2026-01-02",
       variants: { high: { effort: "high" } },
     })
-    expect(result.all.get("provider")?.models["configured-model"].capabilities.reasoning).toBeUndefined()
+    expect(result.all.get("provider")?.models["configured-model"].capabilities).not.toHaveProperty("reasoning")
+    expect({ providers, models }).toEqual(original)
+
+    // UI stores must not mutate capability arrays owned by the shared client resource.
+    const [state, setState] = createStore({ model: result.all.get("provider")!.models["configured-model"] })
+    setState("model", "capabilities", "input", 0, "audio")
+    setState("model", "capabilities", "output", 0, "image")
+    expect(state.model.capabilities.input).toEqual(["audio", "image", "pdf"])
+    expect(state.model.capabilities.output).toEqual(["image"])
     expect({ providers, models }).toEqual(original)
   })
 

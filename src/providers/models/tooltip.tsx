@@ -1,26 +1,20 @@
 import { Show, type Component, type JSX } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import type { Model } from "@/runtime/server/types"
 
 type InputKey = "text" | "image" | "audio" | "video" | "pdf"
-type InputMap = Record<InputKey, boolean>
 
-type ModelInfo = {
-  id: string
-  name: string
+type ModelInfo = Pick<Model, "id" | "name" | "limit"> & {
   provider: {
     name: string
   }
-  capabilities?: {
+  capabilities?: Pick<Model["capabilities"], "input"> & {
     reasoning?: boolean
-    input: InputMap
   }
   modalities?: {
     input: Array<string>
   }
   reasoning?: boolean
-  limit: {
-    context: number
-  }
 }
 
 function ModelTooltipRow(props: { name: JSX.Element; value: JSX.Element }) {
@@ -73,7 +67,7 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     if (props.model.capabilities) {
       const input = props.model.capabilities.input
       const order: Array<InputKey> = ["text", "image", "audio", "video", "pdf"]
-      const entries = order.filter((key) => input[key]).map((key) => inputLabel(key))
+      const entries = order.filter((key) => input.includes(key)).map((key) => inputLabel(key))
       return entries.length ? entries.join(", ") : undefined
     }
     const raw = props.model.modalities?.input

@@ -58,7 +58,7 @@ describe("provider catalog loader", () => {
     expect(result.all.get("anthropic")?.models["claude-sonnet"]).toMatchObject({
       id: "claude-sonnet",
       api: { id: "claude-sonnet-4" },
-      capabilities: { input: { text: true, image: true }, toolcall: true },
+      capabilities: { input: ["text", "image"], tools: true },
     })
   })
 })
