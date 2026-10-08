@@ -46,7 +46,7 @@ describe("composer attachments", () => {
       "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,application/json,application/ld+json," +
       "application/toml,application/x-toml,application/x-yaml,application/xml,application/yaml," +
       ".c,.cc,.cjs,.conf,.cpp,.css,.csv,.cts,.env,.go,.gql,.graphql,.h,.hh,.hpp,.htm,.html,.ini,.java,.js,.json," +
-      ".jsx,.log,.md,.mdx,.mjs,.mts,.py,.rb,.rs,.sass,.scss,.sh,.sql,.toml,.ts,.tsx,.txt,.xml,.yaml,.yml,.zsh"
+      ".jsx,.log,.m4a,.md,.mdx,.mjs,.mp3,.mts,.py,.rb,.rs,.sass,.scss,.sh,.sql,.toml,.ts,.tsx,.txt,.wav,.xml,.yaml,.yml,.zsh"
     ).split(",")
     const filters: string[][] = []
     const input = fixture(async () => ({ id: "unused", url: "unused" }), {
