@@ -6,7 +6,7 @@ describe("platform attachments", () => {
   test("preserves desktop extensions across calls when the host mutates picker options", async () => {
     const expected = (
       "c,cc,cjs,conf,cpp,css,csv,cts,env,gif,go,gql,graphql,h,hh,hpp,htm,html,ini,java,jpg,js,json,jsonld,jsx," +
-      "log,markdown,md,mdx,mjs,mts,pdf,png,py,rb,rs,sass,scss,sh,sql,text,toml,ts,tsx,txt,webp,xml,yaml,yml,zsh"
+      "log,m4a,markdown,md,mdx,mjs,mp3,mts,pdf,png,py,rb,rs,sass,scss,sh,sql,text,toml,ts,tsx,txt,wav,webp,xml,yaml,yml,zsh"
     ).split(",")
     const filters: string[][] = []
     const platform = createPlatformAttachments({
