@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, ManagedRuntime, Queue, Schema, Stream } from "effect"
-import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage } from "effect/unstable/rpc"
+import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage } from "effect/rpc"
 
 export const ServerReadyData = Schema.Struct({
   url: Schema.String,

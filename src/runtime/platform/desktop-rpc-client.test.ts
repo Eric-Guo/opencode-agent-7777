@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
-import type { RpcMessage } from "effect/unstable/rpc"
+import type { RpcMessage } from "effect/rpc"
 import { createDesktopApi, ServerReadyData } from "./desktop-rpc-client"
 import { resolveServer } from "@/runtime/server/resolver-compact"
 
