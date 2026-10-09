@@ -1,3 +1,4 @@
+import type { SessionInboxDelivery } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
 import type { ModelLoadStatus, ModelSelectorState } from "@/providers/models/selection"
 import type { PromptState } from "./state"
@@ -24,7 +25,7 @@ export type ComposerAdapter = {
   interrupt: () => void
 }
 
-export type ComposerDelivery = "steer" | "queue"
+export type ComposerDelivery = SessionInboxDelivery
 
 // Delivery follows the main app; queued editing is optional in the compact view.
 export type ComposerQueue = {

@@ -258,6 +258,11 @@ and URI helpers. It searches files and directories without file tabs or a worksp
 mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
 Agent suggestions exclude hidden and primary-only agents. App command-provider actions remain unavailable.
 
+`composer/request.ts` derives transport fields from the public client's `SessionPromptInput`; prompt and slash-command
+submission pass through that single payload builder. `composer/adapter.ts` reuses `SessionInboxDelivery` for queue/steer.
+Draft schemas, trimming, mention offsets, file names/URIs, optional-field omission, and submission lifecycle stay local
+and unchanged; no app source or additional dependency is needed.
+
 `composer/editor/editor.tsx` keeps the main app's editor, attachment, menu, suggestion, and submit component boundaries.
 Mention parsing preserves original metadata before updating content and offsets, and attachment classification lives
 in `composer/prompt-parts.ts`. The editor continues to share cursor helpers with local interaction code through

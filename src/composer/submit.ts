@@ -94,20 +94,14 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
           .command({
             sessionID: active.sessionID,
             name: command,
-            text: request.text,
-            files: request.files,
-            ...(request.skills ? { skills: request.skills } : {}),
-            ...(request.agents ? { agents: request.agents } : {}),
+            ...request,
             delivery,
           })
           .then(() => undefined)
       return active.client.session.prompt({
         sessionID: active.sessionID,
         id: messageID,
-        text: request.text,
-        files: request.files,
-        ...(request.skills ? { skills: request.skills } : {}),
-        ...(request.agents ? { agents: request.agents } : {}),
+        ...request,
         delivery,
         metadata: {
           agent: active.localAgent,

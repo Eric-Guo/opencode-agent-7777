@@ -1,11 +1,9 @@
+import type { SessionPromptInput } from "@opencode/client/promise"
 import { getFilename } from "@opencode/util/path"
 import type { PromptAttachment, PromptReference } from "./schema"
 
-type PromptRequestFile = {
-  uri: string
-  name: string
-  mention?: { text: string; start: number; end: number }
-}
+type PromptRequest = Pick<SessionPromptInput, "text" | "files" | "agents" | "skills">
+type PromptRequestFile = NonNullable<PromptRequest["files"]>[number]
 
 export function buildPromptRequest(input: {
   prompt: string
@@ -49,5 +47,5 @@ export function buildPromptRequest(input: {
     files: [...mentions, ...files],
     ...(skills.length ? { skills } : {}),
     ...(agents.length ? { agents } : {}),
-  }
+  } satisfies PromptRequest
 }
