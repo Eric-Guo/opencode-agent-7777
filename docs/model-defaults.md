@@ -448,11 +448,6 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "show"
       },
       {
-        "modelID": "minimax-m2.7",
-        "providerID": "opencode-go",
-        "visibility": "show"
-      },
-      {
         "modelID": "muse-spark-1.3-contributor",
         "providerID": "opencode-go",
         "visibility": "show"
@@ -561,6 +556,26 @@ bun run models:apply-localstorage <<'JSON'
         "modelID": "deepseek-ai/DeepSeek-V4-Pro",
         "providerID": "siliconflow-cn",
         "visibility": "show"
+      },
+      {
+        "modelID": "claude-haiku-5-5",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "step-5-preview-free",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "space-bunny",
+        "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "muse-spark-1.3",
+        "providerID": "opencode",
+        "visibility": "hide"
       }
     ],
     "disabledProviders": [
