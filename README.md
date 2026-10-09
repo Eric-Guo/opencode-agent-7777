@@ -212,6 +212,14 @@ and supplies transient submission/mutation overlays and skill/selection compatib
 and message-refresh queue are removed. `session-store-compact.ts` exposes reactive views plus local UI state;
 transport, directory-wide request discovery, and embedded behavior stay package-owned.
 
+`session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
+The permission and form adapters retain their public client endpoints, event filtering, child-session routing and
+notifications. Replies keep the request visible until accepted, block duplicate submissions, preserve failures for
+retry, and ignore results from an earlier activation even after returning to the same session. An older response
+cannot clear a newer pending reply. Web-search forms retain their separate promise-based submission lifecycle.
+This compact-only module replaces duplicated lifecycle code without depending on the main app or moving request
+policy into the shared `session-ui` rendering library.
+
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.
 

@@ -3,26 +3,16 @@ import type { OpenCodeEvent, PermissionRequest } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { translateSync, type TranslationKey } from "@/runtime/i18n/language"
 import { showPlatformNotification } from "@/runtime/platform/platform-bridge"
-import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { sessionPermissionRequest } from "@/session/requests/session-request-tree"
-import { readableError } from "@/shell/errors/readable"
+import { groupSessionRequests, respondToRequest } from "./sync-compact"
 
 function permissionDescription(permission: string) {
   const key = `settings.permissions.tool.${permission}.description` as TranslationKey
   const value = translateSync(key)
   if (value === key) return translateSync("notification.permission.title")
   return value
-}
-
-function groupPermissions(requests: PermissionRequest[]) {
-  return requests.reduce<Record<string, PermissionRequest[]>>((result, request) => {
-    const current = result[request.sessionID]
-    if (current) current.push(request)
-    if (!current) result[request.sessionID] = [request]
-    return result
-  }, {})
 }
 
 function currentPermission(requests: Record<string, PermissionRequest[] | undefined>) {
@@ -61,7 +51,7 @@ export function refreshPermissions() {
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
       if (!current()) return
-      const requests = groupPermissions(result.data)
+      const requests = groupSessionRequests(result.data)
       setState("permission", reconcile(requests))
       alertedPermissionIDs.clear()
       const request = currentPermission(requests)
@@ -95,31 +85,7 @@ export function handlePermissionEvent(event: OpenCodeEvent) {
 }
 
 export function decidePermission(request: PermissionRequest, response: "once" | "always" | "reject") {
-  const active = currentSession()
-  if (!active || !request || state.permissionResponding) return
-
-  setState("error", "")
-  setState("permissionResponding", request.id)
-  const runtime = currentRuntime()
-  const current = () => currentRuntime() === runtime && state.session?.id === active.sessionID
-  const reply = active.client.permission.reply({
-    sessionID: request.sessionID,
-    requestID: request.id,
-    decision: response,
-  })
-
-  void reply
-    .then(() => {
-      if (!current()) return
-      setState("permission", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
-      scheduleRefresh(120)
-    })
-    .catch((error) => {
-      if (!current()) return
-      setState("error", readableError(error))
-    })
-    .finally(() => {
-      if (!current()) return
-      setState("permissionResponding", (current) => (current === request.id ? undefined : current))
-    })
+  respondToRequest("permission", request, (client) =>
+    client.permission.reply({ sessionID: request.sessionID, requestID: request.id, decision: response }),
+  )
 }

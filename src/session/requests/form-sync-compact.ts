@@ -3,17 +3,8 @@ import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { currentSession, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
-import { readableError } from "@/shell/errors/readable"
 import { translateSync } from "@/runtime/i18n/language"
-
-function groupForms(forms: FormInfo[]) {
-  return forms.reduce<Record<string, FormInfo[]>>((result, form) => {
-    const current = result[form.sessionID]
-    if (current) current.push(form)
-    if (!current) result[form.sessionID] = [form]
-    return result
-  }, {})
-}
+import { groupSessionRequests, respondToRequest } from "./sync-compact"
 
 export function refreshForms() {
   const active = currentSession()
@@ -25,7 +16,7 @@ export function refreshForms() {
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
       if (currentRuntime() === runtime && state.session?.id === active.sessionID)
-        setState("form", reconcile(groupForms(result.data)))
+        setState("form", reconcile(groupSessionRequests(result.data)))
     })
     .finally(() => {
       if (currentRuntime() === runtime && state.session?.id === active.sessionID)
@@ -62,43 +53,13 @@ export async function replyForm(input: SessionFormReplyInput) {
 }
 
 export function replyQuestion(request: FormInfo, answer: FormAnswer) {
-  const active = currentSession()
-  const runtime = currentRuntime()
-  if (!request || !active || state.questionResponding) return
-
-  setState("error", "")
-  setState("questionResponding", request.id)
-  void replyForm({ sessionID: request.sessionID, formID: request.id, answer })
-    .catch((error) => {
-      if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
-      setState("error", readableError(error))
-    })
-    .finally(() => {
-      if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
-      setState("questionResponding", (current) => (current === request.id ? undefined : current))
-    })
+  respondToRequest("form", request, (client) =>
+    client.session.form.reply({ sessionID: request.sessionID, formID: request.id, answer }),
+  )
 }
 
 export function rejectQuestion(request: FormInfo) {
-  const active = currentSession()
-  const runtime = currentRuntime()
-  if (!request || !active || state.questionResponding) return
-
-  setState("error", "")
-  setState("questionResponding", request.id)
-  void active.client.session.form
-    .cancel({ sessionID: request.sessionID, formID: request.id })
-    .then(() => {
-      if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
-      setState("form", request.sessionID, (current = []) => current.filter((item) => item.id !== request.id))
-      scheduleRefresh(120)
-    })
-    .catch((error) => {
-      if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
-      setState("error", readableError(error))
-    })
-    .finally(() => {
-      if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
-      setState("questionResponding", (current) => (current === request.id ? undefined : current))
-    })
+  respondToRequest("form", request, (client) =>
+    client.session.form.cancel({ sessionID: request.sessionID, formID: request.id }),
+  )
 }
