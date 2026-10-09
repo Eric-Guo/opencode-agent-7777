@@ -181,6 +181,15 @@
   }
 }
 
+/* Keep the toolbar below the Windows caption buttons, without a right-side gap. */
+#oc-agent [data-slot="session-header"][data-windows-electron="true"] {
+  padding-top: 40px;
+}
+
+#oc-agent [data-slot="session-header"][data-windows-electron="true"] [data-slot="session-header-controls"] {
+  margin-top: 0;
+}
+
 /* Session drop feedback stays inside the embedded mount. */
 @keyframes oc-agent-session-dropzone-enter {
   from {

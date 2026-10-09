@@ -59,6 +59,7 @@ export function SessionHeader(props: {
   return (
     <header
       data-slot="session-header"
+      data-windows-electron={windowsElectron ? "true" : undefined}
       class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:flex-wrap max-[720px]:gap-2 max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
     >
       <div class="min-w-0 max-[720px]:w-full">
@@ -68,7 +69,6 @@ export function SessionHeader(props: {
       <div
         data-slot="session-header-controls"
         class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5 max-[720px]:mt-0 max-[720px]:max-w-full max-[720px]:flex-wrap"
-        classList={{ "mr-[138px]": windowsElectron }}
       >
         <Show when={cybrosCurrentUser()}>
           {(user) => (
