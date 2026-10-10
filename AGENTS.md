@@ -5,7 +5,7 @@
 - This checkout uses branch `plm-meeting` and package name `@opencode/plm-meeting` in the same Git repository as the sibling `7777` checkout.
 - The meeting desktop tab loads this branch's `sigma-agents/plm-meeting.html`; the 7777 tab loads `sigma-agents/7777.html`. Keep agent identity, welcome content, and session/draft storage keys in the distribution's `sigmaagents.jsonc`, with the PLM meeting prompt in `agents/plm-meeting.md`.
 - `bun run build` builds this checkout into its own `dist/`; `dev` and `serve` use this checkout too. Remove only the known legacy link to `../7777/dist` before building. Never build through that link or modify the sibling output.
-- Keep meeting-specific UI, including the recorder, in this branch. The desktop-tab manifest runs `build:shared` here and packages `dist-shared/` once under `sigma-agents/`. The shared build must resolve `@/` imports against the importing checkout and preserve each branch's UI.
+- Keep meeting-specific UI, including the recorder, in this branch. The desktop-tab manifest runs `build:shared` here, packages `dist-shared/sigma-agents/` under `sigma-agents/`, and merges `dist-shared/assets/` with the desktop renderer's `assets/`. The shared build must resolve `@/` imports against the importing checkout and preserve each branch's UI.
 - The original desktop renderer remains a separate build.
 
 ## Project Structure & Module Organization
