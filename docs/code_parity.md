@@ -35,6 +35,11 @@ File-mention search follows the main app's separate file-lifecycle machine patte
 `workspaces/files/search-machine.ts`. It owns request attempts and status transitions; `model.tsx` drives HTTP reads
 and cancellation through public `@opencode/util/abort`. Replaced or cleared requests cannot publish paths or change
 the current status. Query limits, deduplication, error recovery and the existing reactive status API are preserved.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
 
 ## Remaining compact responsibilities
 
