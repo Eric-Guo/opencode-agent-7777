@@ -20,6 +20,11 @@ without changing drafts. `/export` uses the public complete-transcript API, inde
 The desktop bridge derives preload types from local Effect schemas and keeps transport lazy.
 `session/session-ownership.ts` owns the activation check shared by submission, revert, queue and request adapters.
 Their endpoints and mutation policies stay local; stale responses cannot affect a later activation of the same ID.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
 
 ## Remaining compact responsibilities
 
