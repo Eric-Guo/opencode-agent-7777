@@ -25,6 +25,11 @@ one row builder, and context/file mentions are independent of runtime wiring. At
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
 Composer, suggestion, model and recent-session scrolling use native containers with public UI scrollbar styles,
 following the main app's boundaries. The timeline retains `ScrollView` for its custom thumb and keyboard navigation.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
 
 ## Remaining compact responsibilities
 
