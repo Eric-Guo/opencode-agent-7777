@@ -11,6 +11,8 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | --- | --- |
 | `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
 | `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
+| `@opencode/gui-extensions` | `ContextUsage` |
+| `@betteroffice/docx`, `@betteroffice/pptx`, `@betteroffice/xlsx`, `@betteroffice/fonts`, `@betteroffice/fonts-cjk` | Office preview engines and bundled Word/PowerPoint Latin/CJK fonts |
 | `@opencode/ui`, `@opencode/util` | Controls, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
@@ -35,6 +37,12 @@ and drop without a direct picker or its focus-completion lifecycle.
   three context lines, bounded patches and 100 ms file-event coalescing.
 
 ## Meeting features
+
+Read-only DOCX, PPTX, and XLSX rendering follows the GUI extension's `microsoft-office` module boundaries, copied at
+`dc2148dd6460a2ef4c10a58a6f25c4ee691b7558`. The local renderer replaces extension-host language, link, and clipboard
+services; the workers, pagination, text layer, image resolver, sheet grid, and RPC retain the reference behavior. Byte routing stays in
+`workspaces/files/artifact.ts`, while compact file loading and toolbar details stay in `session/files/file-tabs.tsx`.
+Vite serves Office assets without pre-bundling and removes unused emitted engines, as the main app does.
 
 Browser storage now follows the local `runtime/persistence/storage.ts` boundary across drafts, history,
 settings, language, model/session preferences, and file-tab layout. Model preference formats and recovery follow
