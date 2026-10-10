@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Skill } from "@opencode/schema/skill"
 import { Schema } from "effect"
 import { produce } from "solid-js/store"
-import { PromptDraft } from "./schema"
+import { PromptDraft, type PromptReference } from "./schema"
 import { createPromptState, type PromptAttachment } from "./state"
 
 const attachment = (id: string): PromptAttachment => ({
@@ -13,6 +13,35 @@ const attachment = (id: string): PromptAttachment => ({
 })
 
 describe("prompt state", () => {
+  test("restores ordered valid draft mentions and leaves malformed ranges as text", () => {
+    const references: PromptReference[] = [
+      { type: "file", path: "file", url: "file:///repo/file", content: "@file", start: 17, end: 22 },
+      { type: "agent", name: "agent", content: "@agent", start: 4, end: 10 },
+      { type: "file", path: "overlap", content: "@agent", start: 4, end: 10 },
+      { type: "agent", name: "missing", content: "@missing", start: 11, end: 16 },
+      { type: "agent", name: "fraction", content: " ", start: 10.5, end: 11 },
+      { type: "agent", name: "outside", content: "@file", start: 23, end: 28 },
+    ]
+    const before = structuredClone(references)
+    const state = createPromptState({ prompt: "Ask @agent about @file", attachments: [], references })
+
+    expect(state.store[0].prompt).toEqual([
+      { type: "text", content: "Ask ", start: 0, end: 4 },
+      { type: "agent", name: "agent", content: "@agent", start: 4, end: 10 },
+      { type: "text", content: " about ", start: 10, end: 17 },
+      { type: "file", path: "file", url: "file:///repo/file", content: "@file", start: 17, end: 22 },
+    ])
+    expect(state.capture()).toEqual({
+      prompt: "Ask @agent about @file",
+      attachments: [],
+      references: [
+        { type: "agent", name: "agent", content: "@agent", start: 4, end: 10 },
+        { type: "file", path: "file", url: "file:///repo/file", content: "@file", start: 17, end: 22 },
+      ],
+    })
+    expect(references).toEqual(before)
+  })
+
   test("captured agent mentions remain isolated from subsequent Solid store edits", () => {
     const draft = {
       prompt: "Ask @explore",

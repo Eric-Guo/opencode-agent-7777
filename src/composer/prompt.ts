@@ -1,6 +1,9 @@
 import type { SessionInboxInfo, SessionMessageUser } from "@opencode/client/promise"
 import { Skill } from "@opencode/schema/skill"
-import type { PromptDraft, PromptReference } from "./schema"
+import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
+import type { ComposerAttachment, ComposerPrompt } from "./types"
+import type { PromptAttachment, PromptDraft, PromptReference } from "./schema"
+import { isAttachment, promptText } from "./prompt-parts"
 import { readPromptPresentation } from "./comment-note"
 
 type PromptContent = Pick<SessionMessageUser, "text" | "files" | "agents" | "skills">
@@ -8,10 +11,10 @@ type PromptFile = NonNullable<PromptContent["files"]>[number]
 
 export function extractPromptFromMessage(message: SessionMessageUser): PromptDraft {
   const text = readPromptPresentation(message.metadata)?.displayText ?? message.text
-  const references = restoreReferences(text, promptReferences(message), false) ?? []
+  const references = restoreReferences(text, messageReferences(message), false) ?? []
   return {
     prompt: text,
-    attachments: promptAttachments(message.id, message),
+    attachments: messageAttachments(message.id, message),
     ...(references.length ? { references } : {}),
   }
 }
@@ -26,11 +29,11 @@ export function extractPromptFromQueued(item: Extract<SessionInboxInfo, { type: 
     payload.skills?.some((skill) => !skill.mention)
   )
     return
-  const references = restoreReferences(payload.text, promptReferences(payload, true), true)
+  const references = restoreReferences(payload.text, messageReferences(payload, true), true)
   if (!references) return
   return {
     prompt: payload.text,
-    attachments: promptAttachments(item.id, payload, true),
+    attachments: messageAttachments(item.id, payload, true),
     ...(references.length ? { references } : {}),
   }
 }
@@ -39,7 +42,7 @@ function fileUrl(file: PromptFile, snapshot: boolean) {
   return !snapshot && file.source.type === "uri" ? file.source.uri : `data:${file.mime};base64,${file.data}`
 }
 
-function promptAttachments(id: string, payload: PromptContent, snapshot = false): PromptDraft["attachments"] {
+function messageAttachments(id: string, payload: PromptContent, snapshot = false): PromptDraft["attachments"] {
   return (payload.files ?? []).flatMap((file, index) =>
     file.mention
       ? []
@@ -54,7 +57,7 @@ function promptAttachments(id: string, payload: PromptContent, snapshot = false)
   )
 }
 
-function promptReferences(payload: PromptContent, snapshot = false): PromptReference[] {
+function messageReferences(payload: PromptContent, snapshot = false): PromptReference[] {
   return [
     ...(payload.files ?? []).flatMap((file) =>
       file.mention
@@ -130,4 +133,94 @@ function restoreReferences(text: string, references: PromptReference[], exact: b
     position = end
   }
   return result
+}
+
+// The compact draft format stores mentions as ranges and attachments as URLs.
+// Keep conversions at the prompt boundary, separate from reactive state and storage.
+export function promptFromDraft(draft?: PromptDraft): ComposerPrompt {
+  const text = draft?.prompt ?? ""
+  const prompt: ComposerPrompt = []
+  // References overlay the prompt text; the editor stores mentions as inline parts instead.
+  const references = [...(draft?.references ?? [])].sort((left, right) => left.start - right.start)
+  let position = 0
+  for (const reference of references) {
+    if (
+      reference.start < position ||
+      !Number.isInteger(reference.start) ||
+      !Number.isInteger(reference.end) ||
+      reference.end <= reference.start ||
+      reference.end > text.length ||
+      text.slice(reference.start, reference.end) !== reference.content
+    )
+      continue
+    if (reference.start > position) {
+      prompt.push({
+        type: "text",
+        content: text.slice(position, reference.start),
+        start: position,
+        end: reference.start,
+      })
+    }
+    prompt.push({ ...reference })
+    position = reference.end
+  }
+  if (position < text.length || prompt.length === 0) {
+    prompt.push({ type: "text", content: text.slice(position), start: position, end: text.length })
+  }
+  return [...prompt, ...(draft?.attachments.map(attachmentFromDraft) ?? [])]
+}
+
+export function attachmentFromDraft(attachment: PromptAttachment): ComposerAttachment {
+  return {
+    type: "image",
+    id: attachment.id,
+    filename: attachment.filename,
+    sourcePath: attachment.sourcePath,
+    mime: attachment.mime,
+    blob: attachment.blobID
+      ? { id: attachment.blobID, url: attachment.url }
+      : createLegacyBlobReference(attachment.url),
+  }
+}
+
+export function draftAttachments(prompt: ComposerPrompt): PromptAttachment[] {
+  return prompt.flatMap((part) =>
+    isAttachment(part)
+      ? [
+          {
+            id: part.id,
+            filename: part.filename,
+            sourcePath: part.sourcePath,
+            mime: part.mime,
+            url: part.blob.url,
+            ...(part.blob.id === part.blob.url ? {} : { blobID: part.blob.id }),
+          },
+        ]
+      : [],
+  )
+}
+
+function draftReferences(prompt: ComposerPrompt): PromptReference[] {
+  return prompt.flatMap<PromptReference>((part) => {
+    if (part.type === "skill" || part.type === "agent") return [{ ...part }]
+    if (part.type !== "file") return []
+    const reference: PromptReference = {
+      type: "file",
+      path: part.path,
+      content: part.content,
+      start: part.start,
+      end: part.end,
+    }
+    if (part.url !== undefined) reference.url = part.url
+    return [reference]
+  })
+}
+
+export function draftFromPrompt(prompt: ComposerPrompt): PromptDraft {
+  const references = draftReferences(prompt)
+  return {
+    prompt: promptText(prompt),
+    attachments: draftAttachments(prompt),
+    ...(references.length ? { references } : {}),
+  }
 }
