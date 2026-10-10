@@ -18,8 +18,8 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 Local schema/persistence, composer DOM/suggestion sizing and permission notifications follow the main app's
 module boundaries; see the README for their contracts. `shell/notifications/notification.tsx` owns notification
 delivery, copy and deduplication; request adapters select the active request and signal refresh/reply boundaries.
-Attachment operations share error handling in `composer/attachments/attachments.ts`; picker focus completion follows
-`composer/editor/interaction.ts` and the existing menu-dismiss controller. Shared UI packages own Markdown dependencies.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle. Shared UI packages own Markdown dependencies.
 Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
