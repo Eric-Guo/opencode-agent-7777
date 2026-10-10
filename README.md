@@ -104,6 +104,21 @@ bun run build
 for the headless logic suites, preserving Solid's default and `--conditions=browser` module resolution. No
 `BUN_OPTIONS` override is needed. Development and production rendering still use Vite's Solid compiler.
 
+### Browser verification
+
+Keep the existing app and dev server running during verification. With Codex browser automation, select the
+existing meeting tab through the documented API:
+
+```javascript
+await cua.getState()
+const tab = await cua.getTab({ url: "http://localhost:4778/" }, { browser: "iab" })
+await tab.getScreenshot()
+```
+
+Renderer smoke verification requires the selected tab's accessibility state and a screenshot showing the meeting
+UI. Browser inventory only confirms that the tab exists. Exercise recording, transcription, and other interactions
+separately when verifying those behaviors.
+
 ## Direct Integration (Without an iframe)
 
 The app can mount directly inside another SolidJS web application. Add this package's source to the target
