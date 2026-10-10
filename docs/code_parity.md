@@ -18,6 +18,11 @@ Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.t
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 The README documents the local runtime/cache, desktop schemas, request widgets and routing contracts.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
 
 ## Remaining compact responsibilities
 
