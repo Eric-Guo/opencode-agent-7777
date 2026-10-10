@@ -16,7 +16,7 @@ try {
     const theme = await Bun.file(join(renderer.root, "public/oc-theme-preload.js")).text()
 
     await Bun.write(
-      join(staging, `${renderer.name}.html`),
+      join(staging, "sigma-agents", `${renderer.name}.html`),
       html
         .replace('src="/src/entry.tsx"', `src="/@fs/${normalizePath(renderer.root)}/src/entry.tsx"`)
         .replace(
@@ -70,7 +70,9 @@ try {
       emptyOutDir: true,
       manifest: true,
       rollupOptions: {
-        input: Object.fromEntries(renderers.map((renderer) => [renderer.name, join(staging, `${renderer.name}.html`)])),
+        input: Object.fromEntries(
+          renderers.map((renderer) => [renderer.name, join(staging, "sigma-agents", `${renderer.name}.html`)]),
+        ),
       },
     },
   })

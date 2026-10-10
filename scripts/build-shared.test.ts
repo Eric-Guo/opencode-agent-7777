@@ -30,7 +30,7 @@ async function fixture(conflict = false) {
       await Promise.all([
         Bun.write(
           join(directory, name, "index.html"),
-          '<!doctype html><html><head><script id="oc-theme-preload-script" src="/oc-theme-preload.js"></script></head><body><script type="module" src="/src/entry.tsx"></script></body></html>',
+          '<!doctype html><html><head><link rel="icon" href="/favicon.svg"><script id="oc-theme-preload-script" src="/oc-theme-preload.js"></script></head><body><script type="module" src="/src/entry.tsx"></script></body></html>',
         ),
         Bun.write(
           join(directory, name, "src/entry.tsx"),
@@ -39,6 +39,7 @@ async function fixture(conflict = false) {
         Bun.write(join(directory, name, "src/label.ts"), `export const label = "${name} renderer"`),
         Bun.write(join(directory, name, "src/lazy.ts"), `export const label = "${name} lazy"`),
         Bun.write(join(directory, name, "public/oc-theme-preload.js"), `document.title = "${name} theme"`),
+        Bun.write(join(directory, name, "public/favicon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"/>'),
         Bun.write(join(directory, name, "public/assets/shared.txt"), conflict ? name : "shared asset"),
         Bun.write(join(directory, name, "dist/index.html"), `${name} standalone`),
       ])
@@ -60,21 +61,27 @@ async function fixture(conflict = false) {
   return { directory, code, log: stdout + stderr, output: join(directory, "plm-meeting/dist-shared") }
 }
 
-test("builds distinct HTML entries with shared dependencies and branch-local imports", async () => {
+test("builds nested HTML entries that use root assets and preserve branch-local imports", async () => {
   const result = await fixture()
   expect(result.code, result.log).toBe(0)
 
   const manifest: Manifest = await Bun.file(join(result.output, ".vite/manifest.json")).json()
-  const entries = [manifest["7777.html"]!, manifest["plm-meeting.html"]!]
+  const entries = [manifest["sigma-agents/7777.html"]!, manifest["sigma-agents/plm-meeting.html"]!]
   const shared = entries[0]!.imports?.filter((name) => entries[1]!.imports?.includes(name))
   expect(shared?.length).toBeGreaterThan(0)
   expect(entries[0]!.file).not.toBe(entries[1]!.file)
 
   for (const name of ["7777", "plm-meeting"]) {
-    const entry = manifest[`${name}.html`]!
-    const html = await Bun.file(join(result.output, `${name}.html`)).text()
-    expect(html).toContain(`./${entry.file}`)
+    const entry = manifest[`sigma-agents/${name}.html`]!
+    const html = await Bun.file(join(result.output, "sigma-agents", `${name}.html`)).text()
+    expect(entry.file).toStartWith("assets/")
+    expect(html).toContain(`../${entry.file}`)
+    expect(html).toContain('href="../favicon.svg"')
     expect(html).toContain(`${name} theme`)
+    for (const dependency of shared!) {
+      expect(html).toContain(`../${manifest[dependency]!.file}`)
+      expect(await Bun.file(join(result.output, manifest[dependency]!.file)).exists()).toBe(true)
+    }
     expect(await Bun.file(join(result.output, entry.file)).text()).toContain(`${name} renderer`)
     expect(entry.dynamicImports).toHaveLength(1)
     expect(await Bun.file(join(result.output, manifest[entry.dynamicImports![0]!]!.file)).text()).toContain(
