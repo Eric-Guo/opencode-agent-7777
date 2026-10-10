@@ -7,12 +7,13 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 
 ## Shared and local boundaries
 
-| Public package                   | Reused responsibility                                                                                                     |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `@opencode/client`               | Data, catalogs, APIs, transport types and context-usage selection                                                         |
-| `@opencode/gui-plugins`          | Display-only context-usage ring                                                                                          |
-| `@opencode/session-ui`           | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers                  |
-| `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, tooltips, image previews, touch visibility, scrolling, i18n, paths and titles              |
+| Public package | Reused responsibility |
+| --- | --- |
+| `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
+| `@opencode/gui-plugins` | Display-only context-usage ring |
+| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
+| `@betteroffice/docx`, `@betteroffice/pptx`, `@betteroffice/xlsx`, `@betteroffice/fonts`, `@betteroffice/fonts-cjk` | Office preview engines and bundled Word/PowerPoint Latin/CJK fonts |
+| `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, tooltips, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 The header uses the public `ContextUsage` indicator from `@opencode/gui-plugins/context/context-usage`.
 The compact adapter owns the button, localized cost/context/token tooltip, and dialog focus restoration.
@@ -300,6 +301,12 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 - Review requests retain three context lines, bounded patches and 100 ms file-event coalescing.
 
 ## Meeting features
+
+Read-only DOCX, PPTX, and XLSX rendering follows the GUI extension's `microsoft-office` module boundaries, copied at
+`dc2148dd6460a2ef4c10a58a6f25c4ee691b7558`. The local renderer replaces extension-host language, link, and clipboard
+services; the workers, pagination, text layer, image resolver, sheet grid, and RPC retain the reference behavior. Byte routing stays in
+`workspaces/files/artifact.ts`, while compact file loading and toolbar details stay in `session/files/file-tabs.tsx`.
+Vite serves Office assets without pre-bundling and removes unused emitted engines, as the main app does.
 
 Browser storage now follows the local `runtime/persistence/storage.ts` boundary across drafts, history,
 settings, language, model/session preferences, and file-tab layout. Model preference formats and recovery follow
