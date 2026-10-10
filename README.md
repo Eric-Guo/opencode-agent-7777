@@ -64,6 +64,11 @@ Agent identity and session/draft keys still come from `sigmaagents.jsonc`. Run `
 `packages/plm-meeting` to rebuild only this common distribution; deploy the entire directory so both HTML pages
 can load their shared chunks. The original desktop renderer remains a separate build.
 
+With `OPENCODE_DESKTOP_EXTENSION` exported to the desktop-tab checkout, `bun run build` from `packages/desktop`
+also rebuilds this shared distribution automatically. No separate renderer build is needed before packaging.
+Follow [Adding another Sigma agent](../desktop-tab/README.md#adding-another-sigma-agent) when extending the shared
+renderer list or reusing an existing UI for another configured agent.
+
 Each checkout's `bun run build` still produces its standalone `dist/index.html`. These standalone outputs are
 not packaged by the desktop extension. Do not copy `dist`, `dist-shared`, or `node_modules` from another machine.
 The meeting standalone build safely removes the old `dist -> ../7777/dist` link before building its own output.
