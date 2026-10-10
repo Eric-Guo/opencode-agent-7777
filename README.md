@@ -164,6 +164,8 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
+7777 is an independent Git repository. Refactors stay inside this checkout; shared OpenCode packages are dependencies,
+while `packages/app` remains a reference for copying and aligning local code.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
 agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
@@ -272,8 +274,11 @@ Draft schemas, trimming, mention offsets, file names/URIs, optional-field omissi
 and unchanged; no app source or additional dependency is needed.
 
 `composer/editor/editor.tsx` keeps the main app's editor, attachment, menu, suggestion, and submit component boundaries.
-Mention parsing preserves original metadata before updating content and offsets, and attachment classification lives
-in `composer/prompt-parts.ts`. The editor continues to share cursor helpers with local interaction code through
+Mention parsing preserves original metadata before updating content and offsets. `composer/prompt-parts.ts` owns
+prompt text extraction, attachment classification and cloning for draft state, editor actions, suggestions, history
+and submission. History reuses the same clone operation while retaining its normalization, deduplication, byte budget
+and stored format; inline blob references and file selections remain isolated from mutable Solid drafts.
+The editor continues to share cursor helpers with local interaction code through
 `composer/editor/dom.ts`. Compact differences remain intentional: inline attachment URLs and file-type filtering,
 file comments, disabled controls, optional queue editing, provider icons, hover-only removal buttons, and the fixed
 suggestion height. The main app's upload progress, path attachments, note cards, and boundary-aware suggestion sizing

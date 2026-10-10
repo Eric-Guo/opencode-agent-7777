@@ -5,12 +5,16 @@ export function isAttachment<T extends ContentPart>(part: T): part is Extract<T,
   return part.type === "image"
 }
 
-export function clonePrompt(prompt: Prompt): Prompt {
+export function clonePrompt<T extends ContentPart>(prompt: T[]): T[] {
   return prompt.map((part) => {
     if (isAttachment(part)) return { ...part, blob: { ...part.blob } }
     if (part.type === "file") return { ...part, selection: part.selection ? { ...part.selection } : undefined }
     return { ...part }
   })
+}
+
+export function promptText(prompt: Prompt) {
+  return prompt.map((part) => ("content" in part ? part.content : "")).join("")
 }
 
 export function promptLength(prompt: Prompt) {

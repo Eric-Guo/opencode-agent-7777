@@ -3,6 +3,7 @@ import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { ComposerAttachment, ComposerPersistedState, ComposerPrompt } from "@/composer/types"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
 import type { PromptAttachment, PromptDraft, PromptReference } from "./schema"
+import { isAttachment, promptText } from "./prompt-parts"
 
 export type { Prompt } from "@/composer/types"
 export type { PromptAttachment, PromptDraft } from "./schema"
@@ -74,13 +75,9 @@ function promptState(draft?: PromptDraft): ComposerPersistedState {
   }
 }
 
-function promptText(prompt: ComposerPrompt) {
-  return prompt.map((part) => ("content" in part ? part.content : "")).join("")
-}
-
 function promptAttachments(prompt: ComposerPrompt): PromptAttachment[] {
   return prompt.flatMap((part) =>
-    part.type === "image"
+    isAttachment(part)
       ? [
           {
             id: part.id,
@@ -138,7 +135,7 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
       batch(() => {
         setStore("prompt", (parts) => [
           { type: "text", content: value, start: 0, end: value.length },
-          ...parts.filter((part) => part.type === "image"),
+          ...parts.filter(isAttachment),
         ])
         setStore("cursor", value.length)
       })
@@ -161,7 +158,7 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
       changed()
     },
     removeAttachment(id: string) {
-      setStore("prompt", (parts) => parts.filter((part) => part.type !== "image" || part.id !== id))
+      setStore("prompt", (parts) => parts.filter((part) => !isAttachment(part) || part.id !== id))
       changed()
     },
     restore(draft?: PromptDraft) {

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
+import { Skill } from "@opencode/schema/skill"
 import type { Prompt } from "./state"
-import { clonePrompt, promptLength } from "./prompt-parts"
+import { clonePrompt, promptLength, promptText } from "./prompt-parts"
 
 describe("composer prompt parts", () => {
   test("copies file selections and attachment references independently", () => {
@@ -33,13 +34,26 @@ describe("composer prompt parts", () => {
     expect(original[1].selection?.startLine).toBe(1)
   })
 
-  test("counts the content of text and mention parts", () => {
+  test("reads text and mention content in order without attachment bytes or trimming", () => {
     const prompt: Prompt = [
-      { type: "text", content: "one", start: 0, end: 3 },
-      { type: "agent", content: "@build", start: 3, end: 9, name: "build" },
+      { type: "text", content: " one\n", start: 0, end: 5 },
+      { type: "agent", content: "@build", start: 5, end: 11, name: "build" },
       { type: "image", id: "1", filename: "img.png", mime: "image/png", blob: { id: "blob", url: "blob:test" } },
+      { type: "file", content: "@a.ts", start: 11, end: 16, path: "a.ts", url: "file:///project/a.ts" },
+      {
+        type: "skill",
+        content: "@review",
+        start: 16,
+        end: 23,
+        id: Skill.ID.make("review"),
+        name: Skill.Name.make("Review"),
+      },
+      { type: "text", content: "  ", start: 23, end: 25 },
     ]
 
-    expect(promptLength(prompt)).toBe(9)
+    expect(promptText(prompt)).toBe(" one\n@build@a.ts@review  ")
+    expect(promptLength(prompt)).toBe(25)
+    expect(promptText([])).toBe("")
+    expect(promptLength([])).toBe(0)
   })
 })

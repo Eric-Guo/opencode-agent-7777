@@ -20,7 +20,7 @@ import {
   type ComposerInteractionCommand,
   type ComposerInteractionEvent,
 } from "../suggestions/machine"
-import { clonePrompt, promptLength } from "../prompt-parts"
+import { clonePrompt, isAttachment, promptLength, promptText } from "../prompt-parts"
 import type { ComposerQueue } from "../adapter"
 
 export type ComposerSelectControl = {
@@ -95,7 +95,7 @@ export function createComposerEditor(input: {
     )
   }
   function addPart(part: ComposerPersistedState["prompt"][number]) {
-    if (part.type === "image") return false
+    if (isAttachment(part)) return false
     if (part.type === "file" || part.type === "agent") {
       draft.addMention(part)
       return true
@@ -203,10 +203,7 @@ export function createComposerEditor(input: {
     if (event.type === "popover.select") {
       if (!action || state.popover.type !== "command-menu") result.commands.forEach(execute)
       if (action && event.item.kind === "command" && state.popover.type !== "command-menu") {
-        draft.setPrompt(
-          draft.state.prompt.filter((part): part is ComposerAttachment => part.type === "image"),
-          0,
-        )
+        draft.setPrompt(draft.state.prompt.filter(isAttachment), 0)
       }
     }
     setState(reconcile(result.state))
@@ -304,7 +301,7 @@ export function createComposerEditor(input: {
     if (!input.history || !editor) return false
     const selection = window.getSelection()
     if (!selection?.isCollapsed || !editor.contains(selection.anchorNode)) return false
-    const text = draft.state.prompt.map((part) => ("content" in part ? part.content : "")).join("")
+    const text = promptText(draft.state.prompt)
     if (!canNavigateHistory(direction, text, getCursorPosition(editor), state.historyIndex >= 0)) return false
     const entries = input.history.entries(state.mode)
     if (direction === "up") {
@@ -341,7 +338,7 @@ export function createComposerEditor(input: {
     dispatch,
     onKeyDown,
     value() {
-      return draft.state.prompt.map((part) => ("content" in part ? part.content : "")).join("")
+      return promptText(draft.state.prompt)
     },
     parts() {
       return draft.state.prompt
@@ -353,7 +350,7 @@ export function createComposerEditor(input: {
       return draft.state.context.items.filter((item) => !!item.comment?.trim())
     },
     attachments(): ComposerAttachment[] {
-      return draft.state.prompt.filter((part): part is ComposerAttachment => part.type === "image")
+      return draft.state.prompt.filter(isAttachment)
     },
     toggleContext(id: string) {
       dispatch({ type: "context.active", id })
@@ -378,7 +375,7 @@ export function createComposerEditor(input: {
       if (state.mode === "shell") {
         return persisted.prompt.some((part) => "content" in part && !!part.content.trim())
       }
-      if (persisted.prompt.some((part) => part.type === "image")) return true
+      if (persisted.prompt.some(isAttachment)) return true
       if (persisted.context.items.some((item) => !!item.comment?.trim())) return true
       return persisted.prompt.some((part) => "content" in part && !!part.content.trim())
     },

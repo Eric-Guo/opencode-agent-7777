@@ -4,6 +4,7 @@ import { createBlobReference } from "@/runtime/persistence/drafts"
 import { uuid } from "@/runtime/persistence/uuid"
 import { ACCEPTED_FILE_TYPES, ACCEPTED_IMAGE_TYPES, ACCEPTED_TEXT_TYPES } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
+import { isAttachment } from "../prompt-parts"
 
 type PromptTarget = {
   current: () => ComposerPrompt
@@ -72,7 +73,7 @@ export function createComposerAttachments(
       .current()
       .some(
         (part) =>
-          part.type === "image" &&
+          isAttachment(part) &&
           part.blob.id === blob.id &&
           (sourcePath
             ? part.sourcePath === sourcePath

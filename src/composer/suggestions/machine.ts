@@ -1,4 +1,5 @@
 import type { ComposerCapabilities, ComposerHistoryEntry, ComposerPersistedState, ComposerSuggestion } from "../types"
+import { isAttachment, promptText } from "../prompt-parts"
 
 export type ComposerInteractionState = {
   mode: "normal" | "shell"
@@ -175,7 +176,7 @@ function suggestionSelected(
   item: ComposerSuggestion,
   persisted: ComposerPersistedState,
 ): ComposerEditorTransition {
-  const current = promptText(persisted)
+  const current = promptText(persisted.prompt)
   const commands: ComposerInteractionCommand[] = []
   if (item.kind === "command") {
     commands.push(
@@ -234,15 +235,11 @@ function keyDown(
   return changed({ ...state, popover: { ...state.popover, activeID: event.ids[index] } }, [], true)
 }
 
-function promptText(persisted: ComposerPersistedState) {
-  return persisted.prompt.map((part) => ("content" in part ? part.content : "")).join("")
-}
-
 function populated(persisted: ComposerPersistedState) {
   return (
-    !!promptText(persisted).trim() ||
+    !!promptText(persisted.prompt).trim() ||
     persisted.context.items.length > 0 ||
-    persisted.prompt.some((part) => part.type === "file" || part.type === "image")
+    persisted.prompt.some((part) => part.type === "file" || isAttachment(part))
   )
 }
 

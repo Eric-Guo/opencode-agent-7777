@@ -1,5 +1,6 @@
 import type { PromptHistoryEntry } from "../schema"
 import type { ComposerPrompt } from "../types"
+import { clonePrompt, isAttachment, promptText } from "../prompt-parts"
 
 export type { PromptHistoryEntry } from "../schema"
 export const MAX_HISTORY = 100
@@ -8,7 +9,7 @@ export const MAX_HISTORY_CHARS = 1_000_000
 
 export function cloneHistoryEntry(entry: PromptHistoryEntry): PromptHistoryEntry {
   return {
-    prompt: entry.prompt.map((part) => (part.type === "image" ? { ...part, blob: { ...part.blob } } : { ...part })),
+    prompt: clonePrompt(entry.prompt),
   }
 }
 
@@ -26,8 +27,8 @@ export function limitHistoryEntries(entries: PromptHistoryEntry[], max = MAX_HIS
 }
 
 export function prependHistoryEntry(entries: PromptHistoryEntry[], prompt: ComposerPrompt) {
-  const content = prompt.map((part) => ("content" in part ? part.content : "")).join("")
-  const attachments = prompt.filter((part) => part.type === "image")
+  const content = promptText(prompt)
+  const attachments = prompt.filter(isAttachment)
   if (!content.trim() && !attachments.length) return entries
   let offset = 0
   let text = ""
@@ -38,7 +39,7 @@ export function prependHistoryEntry(entries: PromptHistoryEntry[], prompt: Compo
     text = ""
   }
   for (const part of prompt) {
-    if (part.type === "image") continue
+    if (isAttachment(part)) continue
     if (part.type === "skill" || part.type === "file" || part.type === "agent") {
       flush()
       parts.push({ ...part, start: offset, end: offset + part.content.length })

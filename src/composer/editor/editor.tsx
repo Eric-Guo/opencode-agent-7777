@@ -29,7 +29,7 @@ import type {
   ComposerSuggestion,
 } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
-import { isAttachment } from "../prompt-parts"
+import { isAttachment, promptText } from "../prompt-parts"
 import { getCursorPosition } from "./dom"
 
 export type {
@@ -267,7 +267,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
               const prompt = parseComposerEditor(event.currentTarget)
               const attachments = props.controller.parts().filter(isAttachment)
               localInput = true
-              props.controller.onInput(prompt.map((part) => part.content).join(""), [...prompt, ...attachments], cursor)
+              props.controller.onInput(promptText(prompt), [...prompt, ...attachments], cursor)
             }}
             onKeyDown={(event) => {
               if (!view.draftOnly && props.controller.onKeyDown(event)) return
