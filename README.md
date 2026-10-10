@@ -203,7 +203,7 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 `scripts/build-shared.ts` owns the compact agents' shared distribution build. It is maintained on `main`
 and inherited by `plm-meeting`; either sibling checkout can run `bun run build:shared` to write its own
 `dist-shared/`. It preserves branch-local imports and standalone outputs while sharing dependencies.
-The desktop extension packages that folder once. Tabs load `sigma-agents/plm-meeting.html` and `sigma-agents/7777.html`.
+The desktop extension packages its HTML under `sigma-agents/` and merges `assets/` with the desktop renderer's assets. Tabs load `sigma-agents/plm-meeting.html` and `sigma-agents/7777.html`.
 
 The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
