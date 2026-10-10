@@ -3,7 +3,9 @@ import { Button } from "@opencode/ui/button"
 import { Spinner } from "@opencode/ui/spinner"
 import { Match, Show, Switch, createEffect, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
+import { OfficePreview } from "@/microsoft-office/renderer"
 import { useLanguage } from "@/runtime/i18n/language"
+import { fileContentFromBytes, type FilePreviewContent } from "@/workspaces/files/artifact"
 import { OpenInAppButton } from "./open-in-app-button"
 import { resolveOpenInAppPath } from "./open-in-app-path"
 import type { SessionFiles } from "./session-side-panel"
@@ -15,7 +17,13 @@ export function SessionFileView(props: {
   disabled: boolean
 }) {
   const language = useLanguage()
-  const [preview, setPreview] = createStore({ loading: true, text: "", url: "", mime: "", binary: false, error: "" })
+  const [preview, setPreview] = createStore<{
+    loading: boolean
+    content: FilePreviewContent
+    url: string
+    error: string
+    details: readonly string[]
+  }>({ loading: true, content: { kind: "text", text: "" }, url: "", error: "", details: [] })
   let audio: HTMLAudioElement | undefined
   createEffect(() => {
     props.model.view.revision
@@ -25,33 +33,16 @@ export function SessionFileView(props: {
     if (!client || !directory) return
     const abort = new AbortController()
     let url = ""
-    setPreview({ loading: true, text: "", url: "", mime: "", binary: false, error: "" })
+    setPreview({ loading: true, content: { kind: "text", text: "" }, url: "", error: "", details: [] })
     void client.file
       .read({ path, location: { directory } }, { signal: abort.signal })
       .then((bytes) => {
         if (abort.signal.aborted) return
-        const extension = path.split(".").at(-1)?.toLowerCase() ?? ""
-        const mime =
-          (
-            {
-              png: "image/png",
-              jpg: "image/jpeg",
-              jpeg: "image/jpeg",
-              gif: "image/gif",
-              webp: "image/webp",
-              svg: "image/svg+xml",
-              pdf: "application/pdf",
-              mp3: "audio/mpeg",
-            } as Record<string, string>
-          )[extension] ?? ""
-        // Meeting recordings can exceed the image/PDF preview size limit.
-        if (mime && (mime === "audio/mpeg" || bytes.length <= 25 * 1024 * 1024)) {
-          url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: mime }))
-          setPreview({ loading: false, url, mime })
-          return
+        const content = fileContentFromBytes(path, bytes)
+        if (content.kind === "media") {
+          url = URL.createObjectURL(new Blob([new Uint8Array(content.bytes)], { type: content.mime }))
         }
-        const binary = bytes.length > 1024 * 1024 || bytes.subarray(0, 8192).includes(0)
-        setPreview({ loading: false, binary, text: binary ? "" : new TextDecoder().decode(bytes) })
+        setPreview({ loading: false, content, url })
       })
       .catch((error) => {
         if (!abort.signal.aborted) setPreview({ loading: false, error: String(error) })
@@ -76,6 +67,9 @@ export function SessionFileView(props: {
         <span class="min-w-0 flex-1 truncate" title={props.path}>
           {props.path}
         </span>
+        <Show when={preview.details.length}>
+          <span class="shrink-0 text-v2-text-text-weak">{preview.details.join(" · ")}</span>
+        </Show>
         <Show when={props.model.view.preview === props.path}>
           <Button variant="ghost" size="small" onClick={() => props.model.open(props.path)}>
             {language.t("files.keepOpen")}
@@ -89,7 +83,7 @@ export function SessionFileView(props: {
           path={() => resolveOpenInAppPath(props.model.file.directory(), props.path)}
         />
       </div>
-      <div class="min-h-0 flex-1 overflow-auto">
+      <div class="flex min-h-0 flex-1 flex-col overflow-auto">
         <Switch>
           <Match when={preview.loading}>
             <div class="file-panel-status" role="status">
@@ -102,10 +96,26 @@ export function SessionFileView(props: {
               {language.t("files.loadFailed")}: {preview.error}
             </div>
           </Match>
-          <Match when={preview.binary}>
-            <div class="file-panel-status">{language.t("files.previewUnavailable")}</div>
+          <Match when={preview.content.kind === "binary" && preview.content}>
+            {(content) => (
+              <div class="file-panel-status">
+                <Show when={content().problem} fallback={language.t("files.previewUnavailable")}>
+                  {(problem) => language.t(`office.problem.${problem()}`)}
+                </Show>
+              </div>
+            )}
           </Match>
-          <Match when={preview.url && preview.mime === "audio/mpeg"}>
+          <Match when={preview.content.kind === "office" && preview.content}>
+            {(content) => (
+              <OfficePreview
+                bytes={content().bytes}
+                format={content().format}
+                onDetails={(details) => setPreview({ details })}
+                onError={() => setPreview({ content: { kind: "binary" }, details: [] })}
+              />
+            )}
+          </Match>
+          <Match when={preview.url && preview.content.kind === "media" && preview.content.mime === "audio/mpeg"}>
             <div class="flex h-full items-center justify-center p-4">
               <audio
                 ref={audio}
@@ -120,7 +130,7 @@ export function SessionFileView(props: {
           </Match>
           <Match when={preview.url}>
             <Show
-              when={preview.mime === "application/pdf"}
+              when={preview.content.kind === "media" && preview.content.mime === "application/pdf"}
               fallback={
                 <img class="mx-auto max-h-full max-w-full object-contain p-4" src={preview.url} alt={props.path} />
               }
@@ -128,8 +138,8 @@ export function SessionFileView(props: {
               <iframe class="h-full min-h-[400px] w-full border-0" src={preview.url} title={props.path} />
             </Show>
           </Match>
-          <Match when={!preview.loading}>
-            <File mode="text" file={{ name: props.path, contents: preview.text }} />
+          <Match when={preview.content.kind === "text" && preview.content}>
+            {(content) => <File mode="text" file={{ name: props.path, contents: content().text }} />}
           </Match>
         </Switch>
       </div>
