@@ -428,17 +428,17 @@ The main app's upload progress, path attachments, and note cards remain outside 
 All implementations stay package-local or use public shared-package exports.
 Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
 direct dependencies on `marked` or `dompurify`.
+The PLM meeting prompt omits the direct file picker and its Mod+U shortcut. Its **+** menu offers Commands and Context;
+workspace references, pasted or dropped attachments, and restored drafts keep their existing behavior.
 
-`runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
-picker/validation and desktop extension filters. Shared format entries supply MIME lists, native filters and image/PDF
+`runtime/platform/file-picker.ts` owns the compact attachment format policy used by composer validation and desktop
+extension filters. Shared format entries supply MIME lists, native filters and image/PDF
 filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
 and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
 options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
 differs; attachment handling remains in `composer/attachments/attachments.ts`.
-That module now owns error reporting for picker, input, paste and drop operations, retaining files already added
-when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
-following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
-for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
+That module owns error reporting for attachment operations, retaining files already added when a later read fails.
+The PLM composer uses its paste and drop entry points; picker completion and focus restoration remain outside this UI.
 Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
 
 File browsing follows the main app's `session/files/{file-tree-v2,file-tree-v2-model,open-in-app,
