@@ -49,9 +49,6 @@ export type ComposerEditorView = {
   draftOnly?: boolean
   placeholder?: Accessor<string>
   notice?: Accessor<string | undefined>
-  add?: {
-    onAttach: () => void
-  }
   agent?: ComposerSelectControl
   variant?: ComposerSelectControl
   submit: {
@@ -89,11 +86,9 @@ export function createComposerEditor(input: {
   scope?: Accessor<unknown>
 }) {
   let editor: HTMLElement | undefined
-  let fileInput: HTMLInputElement | undefined
   onCleanup(() => {
     cancelFocus()
     editor = undefined
-    fileInput = undefined
   })
   const draft = createComposerEditorActions(input.store, input.onChange)
   const capabilities = {
@@ -199,16 +194,6 @@ export function createComposerEditor(input: {
         setDraggingType: (type) => dispatch({ type: type ? "drag.enter" : "drag.leave" }),
       })
     : undefined
-  const attach = (afterClose?: (callback: () => void) => void) => {
-    if (!attachments) {
-      input.view.add?.onAttach()
-      return
-    }
-    const done = attachmentFocus(afterClose)
-    return attachments.pick(() => {
-      fileInput?.click()
-    }, done)
-  }
   const searchOwner = createMemo(() => ({
     identity: input.identity?.(),
     scope: scope(),
@@ -349,17 +334,6 @@ export function createComposerEditor(input: {
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (
-      mode() === "normal" &&
-      (event.metaKey || event.ctrlKey) &&
-      !event.altKey &&
-      !event.shiftKey &&
-      event.key.toLowerCase() === "u"
-    ) {
-      event.preventDefault()
-      attach()
-      return true
-    }
     const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
     let handled = dispatch({
       type: "key.down",
@@ -620,19 +594,6 @@ export function createComposerEditor(input: {
         return
       }
       event.preventDefault()
-    },
-    attach,
-    setFileInput(element: HTMLInputElement) {
-      fileInput = element
-    },
-    addAttachments(files: File[]) {
-      return attachments?.addAttachments(files, true, undefined, attachmentFocus())
-    },
-    acceptPickedFiles(files: File[]) {
-      return attachments?.acceptPickedFiles(files, attachmentFocus())
-    },
-    cancelAttachments() {
-      attachments?.cancelPicker()
     },
     setQuery(value: string) {
       dispatch({ type: "popover.query", value })

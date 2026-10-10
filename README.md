@@ -887,17 +887,17 @@ Upload progress and authoring path attachments or plugin notes belong to the mai
 All implementations stay package-local or use public shared-package exports.
 Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
 direct dependencies on `marked` or `dompurify`.
+The PLM meeting prompt omits the direct file picker and its Mod+U shortcut. Its **+** menu offers Commands and Context;
+workspace references, pasted or dropped attachments, and restored drafts keep their existing behavior.
 
-`runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
-picker/validation and desktop extension filters. Shared format entries supply MIME lists, native filters and image/PDF
+`runtime/platform/file-picker.ts` owns the compact attachment format policy used by composer validation and desktop
+extension filters. Shared format entries supply MIME lists, native filters and image/PDF
 filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
 and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
 options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
 differs; attachment handling remains in `composer/attachments/attachments.ts`.
-That module now owns error reporting for picker, input, paste and drop operations, retaining files already added
-when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
-following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
-for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
+That module owns error reporting for attachment operations, retaining files already added when a later read fails.
+The PLM composer uses its paste and drop entry points.
 `runtime/persistence/drafts.ts` snapshots attachment content once, so a file from disk or the clipboard only
 needs to remain readable until its data URL is ready. On secure origins it hashes the bytes of that URL with
 SHA-256 using the public `@opencode/util/base64` decoder. Browsers without SubtleCrypto retain random 16-byte
@@ -913,14 +913,13 @@ animations/transitions release their element; missing events fall back to the co
 retire previous exit work. Immutable snapshots stay outside Solid stores. Existing drop feedback and alternate
 delivery styles remain owned by their components; no app-source imports or shared exports are introduced.
 
-The compact-only `shell/commands/menu-dismiss{,-machine}.ts` adapter shares deferred close work between the model
-picker and attachment menu. Like the main app's model drawer it bounds close-before-action work, here at 600 ms,
+The compact-only `shell/commands/menu-dismiss{,-machine}.ts` adapter owns deferred close work for the model
+picker. Like the main app's model drawer it bounds close-before-action work, here at 600 ms,
 while retaining the compact two-frame focus-settlement delay after detachment. Each gesture captures its original
 element and opening attempt. Reopening, draft/session replacement and disposal cancel old callbacks and scheduled
-work; a late model-manager import also checks that captured ownership. Attachment pickers still open synchronously
-within the user gesture, and only their focus restoration waits for menu teardown. Outside-click focus, keyboard
+work; a late model-manager import also checks that captured ownership. PLM meeting keeps its picker-free Add menu
+and uses this adapter only for the model picker. Outside-click focus, keyboard
 navigation and search behavior remain owned by the existing public Menu/Popover/SearchList controls.
-The Add menu closes during the attachment selection gesture so an immediate keyboard reopen gets a fresh opening.
 
 Attachment preparation now follows local `composer/attachments/{preparation-machine,preparation}.ts` boundaries.
 The main app's upload lifecycle is the structural reference; 7777 deliberately keeps inline files and has no server

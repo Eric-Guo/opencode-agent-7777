@@ -263,14 +263,15 @@ release them on settlement or navigation, and offer Retry on a failed read or a 
 The recent-session picker retains its 12-row pages.
 
 Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
-app's upload machine/driver separation without adopting server uploads or a global upload service. Picker, paste,
-drop and input gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal
-retire pending reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second
-inactivity deadline begins after selection and renews after each processed file. Send and alternate delivery wait
-for all preparation, with a public `Loader` and cancellation control; typing and Stop remain available. Native
-picker tokens are released once, even for late selections, and cleanup does not block sending. Inline formats,
-filtering, duplicate detection, RPC schemas and persistence stay local and unchanged. Tests cover stale results,
-partial failures, cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
+app's upload machine/driver separation without adopting server uploads or a global upload service. Paste and drop
+gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal retire pending
+reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second inactivity deadline
+begins after selection and renews after each processed file. Send and alternate delivery wait for all preparation,
+with a public `Loader` and cancellation control; typing and Stop remain available. Attachment format detection and
+picker filters share `runtime/platform/file-picker.ts`; notification delivery uses the shell boundary. Attachment
+operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste and drop
+without a direct picker or its focus-completion lifecycle. Tests cover stale results, partial failures,
+cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
 
 Inline attachment persistence follows the main app's `runtime/persistence/drafts.ts` boundary. The compact
 adapter reads the source once to produce the stored data URL. It derives the SHA-256 ID from those same bytes
@@ -282,11 +283,10 @@ app's machine/driver boundary. Visibility, retained values and minimum-duration 
 DOM listeners, reduced-motion observation and timers stay in the driver. CSS animation and transition exits have
 computed deadlines with 50 ms grace, including a 250 ms base for animations with no duration. Reappearance,
 identity/element changes and disposal retire old exits. Existing component styles and accessor contracts remain.
-The compact-only `shell/commands/menu-dismiss{,-machine}.ts` shares close ownership between the model picker
-and attachment menu: detach, retain the existing two-frame focus delay, then act once, with a 600 ms deadline.
-Gesture-time captures prevent late attachment completion from acquiring a newer opening. Reopening, draft/session
-replacement and disposal cancel stale callbacks; lazy model-manager completion checks the same ownership.
-Native/browser pickers still open in the user gesture. These implementations use existing public UI motion and
+The compact-only `shell/commands/menu-dismiss{,-machine}.ts` owns model-picker close work: detach, retain the
+existing two-frame focus delay, then act once, with a 600 ms deadline. Reopening, draft/session replacement and
+disposal cancel stale callbacks; lazy model-manager completion checks the same ownership. PLM meeting omits the
+attachment picker and keeps Commands and Context in its Add menu. These implementations use existing public UI motion and
 control APIs, with no parent-package edits, app-source imports or new shared exports.
 
 ## Remaining compact responsibilities
@@ -614,11 +614,6 @@ with both live processes running. The component suite passed 50 of 51 tests. The
 at the same assertion in an isolated checkout of the original code. Three-run production medians before and after
 were 185/181 ms for entry, 66/67 ms for switching and 172/179 ms for streaming. Evidence is in
 `node_modules/.cache/nine-dialog-history/`.
-
-Attachment menu focus validation (2026-11-18). The original menu closed on a timer and dropped an immediate Arrow
-Down reopen. Closing in the picker gesture restored keyboard reopening and preserved menu focus after a late read.
-The regression passed five focused runs and the full 51-test component suite passed. The live app and backend stayed
-running. Evidence is in ignored `node_modules/.cache/attachment-menu-focus/`.
 
 Permission notification validation (2026-11-18). Eight delayed-delivery regressions reproduced against the original
 implementation and pass with the refactor. All 683 Bun tests, typecheck and the production build passed. The component
