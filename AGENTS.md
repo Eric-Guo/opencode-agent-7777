@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Standalone build output goes to `dist/`; the sibling `plm-meeting` checkout's `build:shared` compiles both branches into `plm-meeting/dist-shared/`, with HTML entries under `sigma-agents/` and assets merged into the desktop's `assets/`. Generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `node_modules/`, or `.turbo/`.
+This package is a small SolidJS/Vite workspace app under `packages/7777`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Standalone build output goes to `dist/`; `build:shared` compiles this checkout and the sibling `plm-meeting` checkout into this checkout's `dist-shared/`, with HTML entries under `sigma-agents/` and assets merged into the desktop's `assets/`. Generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist/`, `dist-shared/`, `node_modules/`, or `.turbo/`.
 
 The Vite config uses `@` as an alias for `./src` and serves package-owned assets from `./public`. Keep those assets
 local; this nested repository must not require files from `../app` at runtime or build time.
@@ -14,6 +14,7 @@ Use Bun from the monorepo root or this package.
 - `bun run dev`: start the Vite dev server on port `4777`.
 - `bun test`: run the colocated Bun test suite.
 - `bun run build`: build the package with Vite into `dist/`.
+- `bun run build:shared`: build both sibling checkouts into `dist-shared/`.
 - `bun run serve`: preview the production build locally.
 - `bun run typecheck`: run `tsgo -b` using `tsconfig.json`.
 - From the repo root, use `bun --cwd packages/7777 <script>`.

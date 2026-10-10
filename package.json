@@ -7,6 +7,7 @@
     "typecheck": "tsgo -b",
     "dev": "vite",
     "build": "vite build",
+    "build:shared": "bun scripts/build-shared.ts",
     "serve": "vite preview",
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts",
     "bench:runtime": "bun scripts/runtime-benchmark.ts"

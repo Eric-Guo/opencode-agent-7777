@@ -12,22 +12,15 @@ const serverUsername = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
 
 export default defineConfig({
   base: "./",
-  plugins: [
-    {
-      name: "opencode-7777:config",
-      config() {
-        return {
-          resolve: {
-            alias: {
-              "@": fileURLToPath(new URL("./src", import.meta.url)),
-            },
-          },
-          worker: {
-            format: "es",
-          },
-        }
-      },
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
+  },
+  worker: {
+    format: "es",
+  },
+  plugins: [
     {
       name: "opencode-7777:theme-preload",
       transformIndexHtml(html) {
