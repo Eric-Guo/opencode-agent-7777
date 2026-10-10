@@ -7,8 +7,8 @@ SolidJS/Vite renderer, including the recorder control and transcription flow.
 
 - `bun run build` builds this checkout into its own `dist/`. The build safely removes a legacy link to `../7777/dist`.
 - `bun dev` serves this checkout on port 4778; `bun run serve` previews its own production build.
-- The desktop extension builds and packages both branches. The meeting tab loads `plm-meeting/index.html`;
-  the 7777 tab loads `7777/index.html`.
+- `bun run build:shared` builds both branches into `dist-shared/` with common dependencies and named HTML entries.
+- The desktop extension packages that folder once. Tabs load `sigma-agents/plm-meeting.html` and `sigma-agents/7777.html`.
 - `ELECTRON_PLM_MEETING_RENDERER_URL` selects the meeting development server independently of `ELECTRON_7777_RENDERER_URL`.
 - The `plm-meeting` entry in `<repo-root>/packages/desktop/resources/thape-config/sigmaagents.jsonc` supplies the agent
   identity, welcome content, and independent session/draft storage keys. Its server profile is `agents/plm-meeting.md`

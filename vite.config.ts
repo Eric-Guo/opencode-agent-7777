@@ -38,32 +38,25 @@ const dropUnloadedOfficeFiles: Plugin = {
 
 export default defineConfig({
   base: "./",
-  plugins: [
-    {
-      name: "opencode-plm-meeting:config",
-      config() {
-        return {
-          resolve: {
-            alias: {
-              "@": fileURLToPath(new URL("./src", import.meta.url)),
-            },
-          },
-          worker: {
-            format: "es",
-          },
-          // Pre-bundling moves import.meta.url away from the Office WASM and font assets.
-          optimizeDeps: {
-            exclude: [
-              "@betteroffice/docx",
-              "@betteroffice/fonts",
-              "@betteroffice/fonts-cjk",
-              "@betteroffice/pptx",
-              "@betteroffice/xlsx",
-            ],
-          },
-        }
-      },
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
+  },
+  worker: {
+    format: "es",
+  },
+  // Pre-bundling moves import.meta.url away from the Office WASM and font assets.
+  optimizeDeps: {
+    exclude: [
+      "@betteroffice/docx",
+      "@betteroffice/fonts",
+      "@betteroffice/fonts-cjk",
+      "@betteroffice/pptx",
+      "@betteroffice/xlsx",
+    ],
+  },
+  plugins: [
     dropUnloadedOfficeFiles,
     {
       name: "opencode-plm-meeting:theme-preload",

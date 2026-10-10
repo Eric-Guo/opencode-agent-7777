@@ -3,14 +3,14 @@
 ## PLM meeting checkout
 
 - This checkout uses branch `plm-meeting` and package name `@opencode/plm-meeting` in the same Git repository as the sibling `7777` checkout.
-- The meeting desktop tab loads this branch's `plm-meeting/index.html`; the 7777 tab loads `7777/index.html`. Keep agent identity, welcome content, and session/draft storage keys in the distribution's `sigmaagents.jsonc`, with the PLM meeting prompt in `agents/plm-meeting.md`.
+- The meeting desktop tab loads this branch's `sigma-agents/plm-meeting.html`; the 7777 tab loads `sigma-agents/7777.html`. Keep agent identity, welcome content, and session/draft storage keys in the distribution's `sigmaagents.jsonc`, with the PLM meeting prompt in `agents/plm-meeting.md`.
 - `bun run build` builds this checkout into its own `dist/`; `dev` and `serve` use this checkout too. Remove only the known legacy link to `../7777/dist` before building. Never build through that link or modify the sibling output.
-- Keep meeting-specific UI, including the recorder, in this branch. The desktop-tab manifest must build and package both renderer outputs separately.
+- Keep meeting-specific UI, including the recorder, in this branch. The desktop-tab manifest runs `build:shared` here and packages `dist-shared/` once under `sigma-agents/`. The shared build must resolve `@/` imports against the importing checkout and preserve each branch's UI.
 - The original desktop renderer remains a separate build.
 
 ## Project Structure & Module Organization
 
-This package is a copy of the small SolidJS/Vite workspace app under `packages/7777`, checked out at `packages/plm-meeting`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Standalone build output goes to `dist/`; `build:shared` compiles this checkout and the sibling `7777` checkout into `dist-shared/`, with HTML entries under `sigma-agents/` and assets merged into the desktop's `assets/`. Generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist`, `node_modules/`, or `.turbo/`.
+This package is a copy of the small SolidJS/Vite workspace app under `packages/7777`, checked out at `packages/plm-meeting`. This guide is copied and adapted from `<repo-root>/packages/app/AGENTS.md`; reference that file when aligning with the main app. Runtime code lives in `src/`, with UI logic in `src/entry.tsx`, global styles in `src/index.css`, and ambient types in `src/env.d.ts`. `index.html` is the Vite entry document. Standalone build output goes to `dist/`; `build:shared` compiles this checkout and the sibling `7777` checkout into `dist-shared/`, with HTML entries under `sigma-agents/` and assets merged into the desktop's `assets/`. Generated TypeScript declarations go under `node_modules/.ts-dist/`. Do not commit `dist`, `dist-shared`, `node_modules/`, or `.turbo/`.
 
 The Vite config uses `@` as an alias for `./src` and serves package-owned assets from `./public`. Keep those assets
 local; this nested repository must not require files from `../app` at runtime or build time.
