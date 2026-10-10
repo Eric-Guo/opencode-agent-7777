@@ -23,6 +23,11 @@ captured runtime; its data adapter composes the message cache and pending receip
 the main app. Their dock adapters map form fields and supply compact copy; routing, response ownership and
 web-search setup also stay local. Only the prompt shell and styles come from `session-ui`.
 Package-local component tests exercise these widgets with `bun run test:components`.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
 
 ## Remaining compact responsibilities
 
