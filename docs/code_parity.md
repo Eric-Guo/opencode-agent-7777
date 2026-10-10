@@ -125,14 +125,15 @@ SSE acknowledgement and a subsequent reply. Child routing, notification delivery
 behavior retain their existing owners. No app-source imports, parent edits or shared-package exports are added.
 
 Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
-app's upload machine/driver separation without adopting server uploads or a global upload service. Picker, paste,
-drop and input gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal
-retire pending reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second
-inactivity deadline begins after selection and renews after each processed file. Send and alternate delivery wait
-for all preparation, with a public `Loader` and cancellation control; typing and Stop remain available. Native
-picker tokens are released once, even for late selections, and cleanup does not block sending. Inline formats,
-filtering, duplicate detection, RPC schemas and persistence stay local and unchanged. Tests cover stale results,
-partial failures, cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
+app's upload machine/driver separation without adopting server uploads or a global upload service. Paste and drop
+gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal retire pending
+reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second inactivity deadline
+begins after selection and renews after each processed file. Send and alternate delivery wait for all preparation,
+with a public `Loader` and cancellation control; typing and Stop remain available. Attachment format detection and
+picker filters share `runtime/platform/file-picker.ts`; notification delivery uses the shell boundary. Attachment
+operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste and drop
+without a direct picker or its focus-completion lifecycle. Tests cover stale results, partial failures,
+cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
 
 ## Remaining compact responsibilities
 
