@@ -22,6 +22,12 @@ Composer suggestion filtering, keyboard selection and compact sizing stay local.
 The compact desktop bridge derives preload payload types from its Effect schemas; the transport stays lazy and local.
 Local `/export` follows the session-command boundary and uses the public client's complete JSON transfer API,
 browser downloads and shared toast feedback, independently of the visible history limit.
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
+
 Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session data/search.
