@@ -16,7 +16,6 @@ import { typeLabel } from "@opencode/session-ui/message-file"
 import "../attachments/attachments.css"
 import "./editor.css"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
-import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import type {
   ComposerAttachment,
   ComposerComment,
@@ -55,7 +54,6 @@ export type ComposerLabels = {
   normalPlaceholder: string
   shellPlaceholder: string
   add: string
-  attach: string
   context: string
   shell: string
   chooseAgent: string
@@ -74,8 +72,6 @@ export type ComposerEditorProps = {
   agentControl?: JSX.Element
   modelControl?: JSX.Element
   modelControlsVisible?: boolean
-  attachKeybind?: string[]
-  attachShortcut?: string
   alternateKeybind?: string[]
   exitShellKeybind?: string[]
   suggestionBoundary?: () => HTMLElement | undefined
@@ -94,8 +90,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
     prompt: i18n.t("ui.promptInput.label"),
     normalPlaceholder: i18n.t("ui.promptInput.placeholder.normal", { slash: "/", at: "@" }),
     shellPlaceholder: i18n.t("ui.promptInput.placeholder.shell"),
-    add: i18n.t("ui.promptInput.add"),
-    attach: i18n.t("ui.promptInput.attachments"),
+    add: i18n.t("ui.common.add"),
     context: i18n.t("ui.promptInput.context"),
     shell: i18n.t("ui.promptInput.shell"),
     chooseAgent: i18n.t("ui.promptInput.chooseAgent"),
@@ -159,18 +154,6 @@ export function ComposerEditor(props: ComposerEditorProps) {
 
   return (
     <div class={`relative size-full flex flex-col gap-0 ${props.class ?? ""}`}>
-      <input
-        ref={props.controller.setFileInput}
-        type="file"
-        multiple
-        accept={ACCEPTED_FILE_TYPES.join(",")}
-        class="hidden"
-        onChange={(event) => {
-          const list = event.currentTarget.files
-          if (list) props.controller.addAttachments(Array.from(list))
-          event.currentTarget.value = ""
-        }}
-      />
       <Show when={!view.draftOnly && state.popover.type !== "closed"}>
         <ComposerEditorPopover
           emptyLabel={labels().empty}
@@ -327,13 +310,9 @@ export function ComposerEditor(props: ComposerEditorProps) {
             <ComposerEditorAddMenu
               disabled={view.draftOnly || props.disabled || state.mode === "shell"}
               title={labels().add}
-              keybind={props.attachKeybind ?? ["Mod", "U"]}
-              attachLabel={labels().attach}
-              attachShortcut={props.attachShortcut ?? "Mod+U"}
               commandsLabel={labels().commands}
               contextLabel={labels().context}
               shellLabel={labels().shell}
-              onAttach={props.controller.attach}
               onCommands={props.controller.capabilities.commands ? () => props.controller.openCommands() : undefined}
               onContext={props.controller.capabilities.context ? () => props.controller.openContext() : undefined}
               onShell={props.controller.capabilities.shell ? () => props.controller.openShell() : undefined}
@@ -529,31 +508,19 @@ function ComposerAttachmentRemoveButton(props: { label: string; disabled?: boole
 export function ComposerEditorAddMenu(props: {
   disabled?: boolean
   title: string
-  keybind?: string[]
-  attachLabel: string
-  attachShortcut?: string
   commandsLabel: string
   contextLabel: string
   shellLabel: string
-  onAttach: () => void
   onCommands?: () => void
   onContext?: () => void
   onShell?: () => void
 }) {
   return (
-    <Tooltip
-      placement="top"
-      value={
-        <>
-          {props.title}
-          <Keybind keys={props.keybind ?? []} variant="neutral" />
-        </>
-      }
-    >
+    <Tooltip placement="top" value={props.title}>
       <Menu gutter={6} modal={false} placement="top-start">
         <Menu.Trigger
           as={IconButton}
-          data-action="composer-attach"
+          data-action="composer-add"
           type="button"
           icon={<Icon name="plus" />}
           variant="ghost-muted"
@@ -566,12 +533,6 @@ export function ComposerEditorAddMenu(props: {
             class="[&_[data-slot=menu-v2-item-shortcut]]:w-5 [&_[data-slot=menu-v2-item-shortcut]]:justify-center"
             style={{ "min-width": "180px" }}
           >
-            <Menu.Item onSelect={props.onAttach} shortcut={props.attachShortcut}>
-              {props.attachLabel}
-            </Menu.Item>
-            <Show when={props.onCommands || props.onContext || props.onShell}>
-              <Menu.Separator />
-            </Show>
             <Show when={props.onCommands}>
               {(onCommands) => (
                 <Menu.Item onSelect={onCommands()} shortcut="/">
