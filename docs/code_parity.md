@@ -116,6 +116,12 @@ survive older snapshots, and settled IDs cannot be resurrected. Attempt IDs reje
 SSE acknowledgement and a subsequent reply. Child routing, notification delivery, answer state and web-search
 behavior retain their existing owners. No app-source imports, parent edits or shared-package exports are added.
 
+Composer caret reads, attachment capture and rendering share
+`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
+notification delivery uses the shell boundary.
+Attachment operations share error handling in `composer/attachments/attachments.ts`; the PLM composer retains paste
+and drop without a direct picker or its focus-completion lifecycle.
+
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
