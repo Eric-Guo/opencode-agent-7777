@@ -11,6 +11,13 @@ consolidated prompt/request helpers; earlier audits remain in Git.
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, scrolling, i18n, paths and title fallback |
 
+## Closed code boundary gaps
+
+- Session data adaptation now lives in `runtime/server/data.ts`, matching the main app's separation from runtime
+  orchestration. `runtime.ts` owns activation lifetime, publication, scheduling and bounded hydration; the adapter
+  owns guarded snapshots and optimistic/event overlays around public `createData`. Existing runtime integration
+  tests continue to cover their combined behavior. Single-session compatibility stays local.
+
 ## Refactor constraints
 
 - Embedding: `current/9`, `SET_DOCUMENT_TITLE = false`, Electron gating, `manageModels`, source defaults/visibility,

@@ -207,11 +207,16 @@ revert or reconnect, and abort on source change, close or session change. VCS mo
 Errors can be retried and drafts are preserved. Staged-only review (unsupported by the current public API),
 comments, arbitrary history ranges, and docked extension panels remain outside this compact view.
 
-`runtime/server/runtime.ts` follows the main app's runtime boundary and owns one disposable `createData` instance
-from `@opencode/client/solid` per activation. Shared data owns session records, messages, pending inbox snapshots,
-and location catalogs. The compact adapter preserves live rows during history refreshes, hydrates nine dialogs,
-and supplies transient submission/mutation overlays and skill/selection compatibility. The former local reducer
-and message-refresh queue are removed. `session-store-compact.ts` exposes reactive views plus local UI state;
+`runtime/server/runtime.ts` and `runtime/server/data.ts` follow the main app's separate orchestration and data-adapter
+boundaries. The runtime owns the activation's disposable Solid root, cancellation, publication, refresh scheduling
+and nine-dialog hydration. The data adapter creates one `createData` instance from `@opencode/client/solid` inside
+that root and owns snapshot guards, transient submission/mutation overlays and skill/selection compatibility.
+Shared data still owns session records, messages, pending inbox snapshots and location catalogs. The adapter batches
+local overlays with shared events so readers cannot observe half-applied transitions, retains live rows across stale
+history reads, and retires HTTP receipts only when a newer snapshot acknowledges them. It receives the runtime's
+cancellation signal and refresh callback; it creates no root, timer or SSE connection of its own. These responsibilities
+stay local because the main app's data adapter handles different mutations. The existing `runtime.test.ts` integration
+suite covers the combined public contract. `session-store-compact.ts` exposes reactive views plus local UI state;
 transport, directory-wide request discovery, and embedded behavior stay package-owned.
 
 `session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
