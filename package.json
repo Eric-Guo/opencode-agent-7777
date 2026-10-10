@@ -14,6 +14,11 @@
     "bench:runtime": "bun scripts/runtime-benchmark.ts"
   },
   "dependencies": {
+    "@betteroffice/docx": "0.4.3",
+    "@betteroffice/fonts": "0.4.0",
+    "@betteroffice/fonts-cjk": "0.4.0",
+    "@betteroffice/pptx": "0.2.0",
+    "@betteroffice/xlsx": "0.3.0",
     "@dnd-kit/abstract": "0.5.0",
     "@dnd-kit/dom": "0.5.0",
     "@dnd-kit/solid": "0.5.0",
@@ -24,6 +29,7 @@
     "@opencode/ui": "workspace:*",
     "@opencode/util": "workspace:*",
     "@solid-primitives/event-listener": "catalog:",
+    "@solid-primitives/resize-observer": "catalog:",
     "@tanstack/solid-virtual": "catalog:",
     "echarts": "6.1.0",
     "effect": "catalog:",

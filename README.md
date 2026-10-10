@@ -238,10 +238,22 @@ Effect schemas, including mutable arrays and optional host capabilities. This co
 duplicated preload declarations; it does not import the main app or desktop package. The adapter retains the
 structured-clone protocol, legacy initialization fields and native `ArrayBuffer` results, and omits absent picker
 options when encoding requests. Browser consumers use type-only imports, keeping the RPC transport lazy.
+
 `shell/routes/session-ui-provider.tsx` follows the main app's session UI provider boundary and supplies the shared
 Markdown renderer's local-file callback. In the desktop host, file links open through `FilesOpenPath` in the system's
 default application (for example, Excel for `.xlsx`); relative paths resolve against the current session directory.
 The compact provider reports native opening errors through a toast and leaves browser-only file links inert.
+
+DOCX, PPTX, and XLSX previews follow the Office viewers at parent `dc2148dd6460a2ef4c10a58a6f25c4ee691b7558` in
+`packages/gui-extensions/src/microsoft-office`. Local `microsoft-office` modules retain the reference filenames for
+document, presentation, and spreadsheet viewers, workers, protocols, and rendering helpers. They preserve Word
+pagination and selectable text, PowerPoint slides and speaker notes, Excel sheet tabs and cell selection, embedded
+images, and bundled Word/PowerPoint CJK fonts. The compact renderer adapts language, links, and clipboard access
+without an extension host; `workspaces/files/artifact.ts` follows the main app's byte-classification boundary and
+checks format signatures and the 25 MiB Office file limit before loading an engine. `session/files/file-tabs.tsx`
+keeps compact file loading, existing text/media previews, and toolbar details. Each Office engine loads only when its
+format opens. Legacy binary `.doc`, `.ppt`, and `.xls` files remain unsupported.
+
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
 agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
 prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
