@@ -35,9 +35,6 @@ export type ComposerEditorView = {
   draftOnly?: boolean
   placeholder?: Accessor<string>
   notice?: Accessor<string | undefined>
-  add?: {
-    onAttach: () => void
-  }
   agent?: ComposerSelectControl
   variant?: ComposerSelectControl
   submit: {
@@ -78,7 +75,6 @@ export function createComposerEditor(input: {
   identity?: Accessor<unknown>
 }) {
   let editor: HTMLElement | undefined
-  let fileInput: HTMLInputElement | undefined
   const draft = createComposerEditorActions(input.store, input.onChange)
   const capabilities = {
     commands: input.capabilities?.commands !== false,
@@ -119,13 +115,6 @@ export function createComposerEditor(input: {
         setDraggingType: (type) => dispatch({ type: type ? "drag.enter" : "drag.leave" }),
       })
     : undefined
-  const attach = () => {
-    if (!attachments) {
-      input.view.add?.onAttach()
-      return
-    }
-    attachments.pick(() => fileInput?.click())
-  }
   const contextList = useFilteredList<ComposerSuggestion>({
     items: async (query) => {
       const fixed = input.context().filter((item) => item.kind !== "file")
@@ -223,17 +212,6 @@ export function createComposerEditor(input: {
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (
-      state.mode === "normal" &&
-      (event.metaKey || event.ctrlKey) &&
-      !event.altKey &&
-      !event.shiftKey &&
-      event.key.toLowerCase() === "u"
-    ) {
-      event.preventDefault()
-      attach()
-      return true
-    }
     const handled = dispatch({
       type: "key.down",
       key: event.key,
@@ -476,13 +454,6 @@ export function createComposerEditor(input: {
         return
       }
       event.preventDefault()
-    },
-    attach,
-    setFileInput(element: HTMLInputElement) {
-      fileInput = element
-    },
-    addAttachments(files: File[]) {
-      if (attachments) void attachments.addAttachments(files)
     },
     setQuery(value: string) {
       dispatch({ type: "popover.query", value })

@@ -121,7 +121,6 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     },
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
-      picker: platform.openAttachmentPickerDialog,
       directory: () => state.session?.location.directory ?? "",
       isDialogActive: () => adapter.disabled() || !!dialog.active,
       warn: () => adapter.onAttachmentError(language.t("prompt.unsupportedFiles")),
