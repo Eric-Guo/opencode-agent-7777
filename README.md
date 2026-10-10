@@ -92,6 +92,18 @@ export VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 bun run dev
 ```
 
+Run the checks from this repository:
+
+```bash
+bun test
+bun run typecheck
+bun run build
+```
+
+`bunfig.toml` loads `src/test/preload.ts` only for tests. It compiles imported JSX with Solid's hyperscript runtime
+for the headless logic suites, preserving Solid's default and `--conditions=browser` module resolution. No
+`BUN_OPTIONS` override is needed. Development and production rendering still use Vite's Solid compiler.
+
 ## Direct Integration (Without an iframe)
 
 The app can mount directly inside another SolidJS web application. Add this package's source to the target
