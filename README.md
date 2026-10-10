@@ -56,11 +56,16 @@ cd packages/desktop-tab
 bun run build
 ```
 
-That build runs each branch's own renderer build, then builds the desktop shell. The extension packages `7777/dist`
-at `7777/` and `plm-meeting/dist` at `plm-meeting/`. The tabs load `7777/index.html` and `plm-meeting/index.html`
-respectively, with their agent identity and session/draft keys supplied by `sigmaagents.jsonc`. Do not copy `dist`
-or `node_modules` from the old machine. The meeting build removes the old `dist -> ../7777/dist` link before
-building its own output, leaving the sibling output untouched. The original desktop renderer remains separate.
+That build compiles both branch entry points together into `plm-meeting/dist-shared/`, then builds the desktop shell.
+The extension packages this directory once as `sigma-agents/`. The tabs load `sigma-agents/7777.html` and
+`sigma-agents/plm-meeting.html`, sharing dependency chunks and public assets while retaining each branch's UI.
+Agent identity and session/draft keys still come from `sigmaagents.jsonc`. Run `bun run build:shared` in
+`packages/plm-meeting` to rebuild only this common distribution; deploy the entire directory so both HTML pages
+can load their shared chunks. The original desktop renderer remains separate.
+
+Each checkout's `bun run build` still produces its standalone `dist/index.html`. These standalone outputs are
+not packaged by the desktop extension. Do not copy `dist`, `dist-shared`, or `node_modules` from another machine.
+The meeting standalone build safely removes the old `dist -> ../7777/dist` link before building its own output.
 
 To run the desktop shell with both configured agents, use the extension's development command:
 
