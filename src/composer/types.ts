@@ -1,11 +1,7 @@
 import type { SessionMessage } from "@opencode/schema/session-message"
-import type { Skill } from "@opencode/schema/skill"
+import type { AgentPart, ImageAttachmentPart, PromptFileReference, SkillPart, TextPart } from "./schema"
 
-interface PartBase {
-  content: string
-  start: number
-  end: number
-}
+export type { AgentPart, ImageAttachmentPart, SkillPart, TextPart } from "./schema"
 
 export type FileSelection = {
   startLine: number
@@ -27,38 +23,12 @@ export type FilePartSource =
     }
   | { text: FilePartSourceText; type: "resource"; clientName: string; uri: string }
 
-export interface TextPart extends PartBase {
-  type: "text"
-}
-
-export interface FileAttachmentPart extends PartBase {
-  type: "file"
-  path: string
+// Editor-only metadata extends the persisted reference without changing its storage format.
+export interface FileAttachmentPart extends PromptFileReference {
   selection?: FileSelection
   mime?: string
   filename?: string
-  url?: string
   source?: FilePartSource
-}
-
-export interface AgentPart extends PartBase {
-  type: "agent"
-  name: string
-}
-
-export interface SkillPart extends PartBase {
-  type: "skill"
-  id: Skill.ID
-  name: Skill.Name
-}
-
-export interface ImageAttachmentPart {
-  type: "image"
-  id: string
-  filename: string
-  sourcePath?: string
-  mime: string
-  blob: { id: string; url: string }
 }
 
 export type ContentPart = TextPart | FileAttachmentPart | AgentPart | SkillPart | ImageAttachmentPart

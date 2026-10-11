@@ -308,6 +308,11 @@ app's prompt-conversion boundary. Draft restoration and attachment insertion sha
 local, including legacy blob IDs, absolute file URIs, mention validation, and isolated snapshots. Existing state,
 prompt, submission, queue, revert, and persistence tests cover these conversions through their consumers.
 
+`composer/schema.ts` follows the main app's schema boundary for text, agent, skill, and inline attachment parts.
+`composer/types.ts` re-exports their inferred types and extends the stored file reference with editor-only metadata,
+removing duplicate field definitions. The compact draft and history formats retain their existing validation,
+recovery, field order, and mutable decoded objects; file selections and source metadata remain editor-only.
+
 Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
 `composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` reads commands, skills, and agents from the active
 runtime's shared location resources and retains independent loading/failure states. Providers and models use the

@@ -1,48 +1,45 @@
 # Code Layout Parity Review
 
-7777 is an independent Git repository: copy/align locally, without feature changes or source/build/runtime dependencies
-on `packages/app` or `packages/desktop`. The [README](../README.md#code-layout-parity-review) records boundaries and
-consolidated prompt conversion/request helpers; earlier audits remain in Git.
+7777 is an independent Git repository. Copy/align locally with `packages/app`; never depend on its source, build
+or runtime, or on `packages/desktop`. Preserve existing features and ask before adding any.
+See the [README](../README.md#code-layout-parity-review) for module boundaries and behavior contracts, and
+[AGENTS.md](../AGENTS.md) for deployment rules. Earlier audits remain in Git.
 
-| Package | Shared responsibility |
+## Shared and local boundaries
+
+| Public package | Reused responsibility |
 | --- | --- |
-| `@opencode/client` | `createData`, catalogs, APIs, prompt fields and queue/steer types |
+| `@opencode/client` | Data, catalogs, APIs and transport types |
 | `@opencode/session-ui` | Timeline, attachment/comment cards, `DockPrompt`, `SessionReview` |
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, scrolling, i18n, paths and title fallback |
 
-## Refactor constraints
+Composer editor types now derive from local persistence schemas, following the main app's schema boundary.
+Compact adapters retain these responsibilities:
 
-- Embedding: `current/9`, `SET_DOCUMENT_TITLE = false`, Electron gating, `manageModels`, source defaults/visibility,
-  tab-specific keys, Thinking, welcome, local assets. Recent sessions: directory search, 12-row pages, agent title fallback.
-- Runtime: one disposable Solid root/data instance and SSE stream per activation; cancellation, reactivity, compatibility,
-  snapshot guards. Start at 36 records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts.
-  Hydrate missing messages; retain live rows/HTTP receipts until acknowledged.
-- Composer: URIs, mentions, comments, attachment bytes/formats/deduplication, accepted history, loaded-history undo/redo.
-  Queue undo: reject hidden/malformed context, cancel before merging the latest draft, restore focus, ignore stale activations.
-- Scrolling: ownership, scrollbar, reading/selection pauses, anchoring, delayed-event/resize guards, resume triggers.
-- Models: separate catalog/API IDs, isolated capability arrays, tooltip order, costs, variants, Console grouping, search/collapse
-  state, full-catalog switches/future defaults, focus restoration. OAuth: optional, lazy, retryable, cancellable,
-  event-refreshed, including with `manageModels = false`.
-- Requests/review: directory/child routing, notifications, activation/pending-reply guards, drafts, three context lines,
-  retry/empty states, existing-stream refresh, 100 ms file-event coalescing and stale-result guards. Compare/Enter applies
-  the base; branch includes uncommitted changes from the common ancestor, committed ends at `HEAD`. Retain bounded-patch limits.
+- Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
+- One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
+  records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
+  messages; retain live rows/HTTP receipts until acknowledged.
+- Draft/history formats, attachments, mentions, comments, undo/redo, request routing and notifications.
+  Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
+- Scroll ownership and pause/resume guards; model catalog/selection policies; optional, lazy, retryable OAuth reads;
+  review lifecycle, three context lines, bounded patches and 100 ms file-event coalescing.
 
-Ask before adding queue editing/reordering, provider credentials, staged/history/comment review, extension docking,
-terminal, full usage/summary panels, browser, remote servers or extension hosting. Public APIs lack atomic queue
+Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, full usage/summary panels,
+browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
 reordering, staged-only/end-revision diffs and GUI host contexts.
 
 ## Validation
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
-Save evidence under ignored `node_modules/.cache/`. For session/timeline changes, compare production benchmarks:
+Keep evidence in ignored `node_modules/.cache/`. For session/timeline changes, compare production benchmarks:
 
 ```sh
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
 BENCH_RUNS=3 bun run bench:runtime
-# Optional: BENCH_VERIFY_REVIEW=true or BENCH_VERIFY_UI=true
 ```
 
-The fixture uses Playwright Chromium; override executable/bundle/results with `BENCH_BROWSER`/`BENCH_DIST`/`BENCH_OUTPUT`.
-The historical 38 px initial-follow failure also reproduced on unchanged baselines; retain its assertion and resolve
-it before claiming a scrolling fix.
+Optional checks: `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`; overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
+The historical 38 px initial-follow failure also reproduced on unchanged baselines; retain its assertion and
+resolve it before claiming a scrolling fix.
