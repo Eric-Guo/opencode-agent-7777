@@ -330,16 +330,20 @@ submission pass through that single payload builder. `composer/adapter.ts` reuse
 Draft schemas, trimming, mention offsets, file names/URIs, optional-field omission, and submission lifecycle stay local
 and unchanged; no app source or additional dependency is needed.
 
-`composer/editor/editor.tsx` keeps the main app's editor, attachment, menu, suggestion, and submit component boundaries.
-Mention parsing preserves original metadata before updating content and offsets. `composer/prompt-parts.ts` owns
-prompt text extraction, attachment classification and cloning for draft state, editor actions, suggestions, history
+`composer/editor/editor.tsx` owns editor presentation, attachments, menus, suggestions, and submit controls.
+`composer/editor/dom.ts` owns DOM rendering, mention parsing, and cursor helpers, keeping conversion out of the renderer.
+Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
+fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
+`composer/prompt-parts.ts` owns prompt text extraction, attachment classification and cloning for draft state,
+editor actions, suggestions, history
 and submission. History reuses the same clone operation while retaining its normalization, deduplication, byte budget
 and stored format; inline blob references and file selections remain isolated from mutable Solid drafts.
-The editor continues to share cursor helpers with local interaction code through
-`composer/editor/dom.ts`. Compact differences remain intentional: inline attachment URLs and file-type filtering,
+Compact differences remain intentional: inline attachment URLs and file-type filtering,
 file comments, disabled controls, optional queue editing, provider icons, hover-only removal buttons, and the fixed
 suggestion height. The main app's upload progress, path attachments, note cards, and boundary-aware suggestion sizing
 are outside this refactor. All implementations stay package-local or use public shared-package exports.
+Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
+direct dependencies on `marked` or `dompurify`.
 
 `runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
 picker/validation and desktop extension filters. Exported lists are frozen and picker calls receive copies, preserving

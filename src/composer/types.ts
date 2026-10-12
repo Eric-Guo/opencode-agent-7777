@@ -1,12 +1,12 @@
 import type { SessionMessage } from "@opencode/schema/session-message"
+import type { CommentCardTarget } from "@opencode/session-ui/comment-card"
 import type { AgentPart, ImageAttachmentPart, PromptFileReference, SkillPart, TextPart } from "./schema"
 
 export type { AgentPart, ImageAttachmentPart, SkillPart, TextPart } from "./schema"
 
-export type FileSelection = {
-  startLine: number
+// Share the rendered file-line contract, retaining the compact editor's character offsets.
+export type FileSelection = NonNullable<Extract<CommentCardTarget, { type: "file" }>["selection"]> & {
   startChar: number
-  endLine: number
   endChar: number
 }
 
