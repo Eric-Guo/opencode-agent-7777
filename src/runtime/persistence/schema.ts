@@ -17,8 +17,16 @@ export function struct<const Fields extends Schema.Struct.Fields>(fields: Fields
   return Schema.Struct(fields).mapFields(Struct.map(Schema.mutableKey))
 }
 
+// Legacy records retain fields that the current reader does not interpret.
+export function legacy<const Fields extends Schema.Struct.Fields>(fields: Fields) {
+  return Schema.StructWithRest(struct(fields), [Schema.Record(Schema.String, Schema.Unknown)])
+}
+
 // Recover individual entries rather than discarding a whole history or collection.
-export function array<S extends Schema.ConstraintCodec<unknown, unknown>>(schema: S) {
+export function array<S extends Schema.ConstraintCodec<unknown, unknown>>(
+  schema: S,
+  initial: () => S["Type"][] = () => [],
+) {
   const decode = Schema.decodeUnknownOption(schema)
   const encode = Schema.encodeSync(schema)
   return fallback(
@@ -28,6 +36,6 @@ export function array<S extends Schema.ConstraintCodec<unknown, unknown>>(schema
         encode: SchemaGetter.transform((items) => items.map((item) => encode(item))),
       }),
     ),
-    () => [],
+    initial,
   )
 }

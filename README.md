@@ -271,7 +271,10 @@ See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary com
 Persistence follows the main app's `runtime/persistence/storage.ts` and `runtime/server/persistence.ts`
 boundaries with package-local implementations. The compact storage adapter is synchronous; drafts, history,
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
-Model preference recovery remains separate from catalog and visibility operations in `providers/models/models.tsx`.
+Model preferences use the main app's `ModelState` schema boundary in `runtime/server/persistence.ts`; selection,
+visibility and config types derive from those local schemas. Recovery preserves extra legacy entry fields, partial
+config defaults and independent mutable values. The local `Persistence.array` accepts a fresh fallback factory for
+compact provider defaults. Catalog and visibility operations remain in `providers/models/models.tsx`.
 
 The model manager follows `providers/models/manage.tsx`, `providers/models/provider-group.tsx`,
 `providers/catalog/console.ts`, and `settings/{list,row}.tsx`. Console integrations nest under an OpenCode Console

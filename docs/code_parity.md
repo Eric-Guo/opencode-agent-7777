@@ -14,7 +14,7 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, scrolling, i18n, paths and title fallback |
 
-Composer editor types now derive from local persistence schemas, following the main app's schema boundary.
+Composer parts and model configuration now derive types and recovery from local persistence schemas aligned with the app.
 Compact adapters retain these responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.

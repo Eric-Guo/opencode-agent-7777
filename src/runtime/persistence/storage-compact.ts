@@ -3,17 +3,15 @@ import { MODEL_SELECTION_KEY, SESSION_MODEL_SELECTION_KEY } from "@/constants/se
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 import { sessionDirectory } from "@/session/directory"
 import { storageGet, storageSet } from "./storage"
+import type { ModelSelection } from "@/runtime/server/persistence"
+
+export type { ModelSelection } from "@/runtime/server/persistence"
 
 // Narrow persistence helpers rather than the main app's reactive local-preferences context.
 
 export type SessionRecord = {
   id: string
   directory?: string
-}
-
-export type ModelSelection = {
-  providerID: string
-  modelID: string
 }
 
 export type SessionModelSelection = {

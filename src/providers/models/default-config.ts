@@ -1,11 +1,9 @@
 import config from "@/providers/models/default-config.json"
+import type { ModelSelection, Visibility } from "@/runtime/server/persistence"
 
-export type Visibility = "show" | "hide"
+export type { Visibility } from "@/runtime/server/persistence"
 
-export type DefaultModelSelection = {
-  providerID: string
-  modelID: string
-}
+export type DefaultModelSelection = ModelSelection
 
 type DefaultModelConfig = {
   // Set true for developer/debug builds that should expose the Manage models dialog in the selector UI.
