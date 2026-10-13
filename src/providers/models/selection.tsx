@@ -10,7 +10,7 @@ import {
   writeModelSelection,
   writeSessionModelSelections,
   type SessionModelSelection,
-} from "@/runtime/persistence/storage-compact"
+} from "@/runtime/server/persistence"
 import { currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 

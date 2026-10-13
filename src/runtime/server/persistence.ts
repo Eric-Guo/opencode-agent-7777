@@ -1,4 +1,5 @@
 import { Effect, Option, Schema } from "effect"
+import { MODEL_SELECTION_KEY, SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { Persistence } from "@/runtime/persistence/schema"
 import { storageGet, storageSet } from "@/runtime/persistence/storage"
@@ -10,12 +11,48 @@ export type Visibility = typeof Visibility.Type
 export const ModelSelection = Persistence.struct({ providerID: Schema.String, modelID: Schema.String })
 export type ModelSelection = typeof ModelSelection.Type
 
+// Per-session choices retain legacy fields; null explicitly selects Default instead of a preferred variant.
+const StoredModelSelection = Persistence.legacy(ModelSelection.fields)
+export const SessionModelSelection = Persistence.legacy({
+  model: StoredModelSelection,
+  variant: Schema.NullOr(Schema.String),
+})
+export type SessionModelSelection = typeof SessionModelSelection.Type
+
+const SessionModelSelections = Schema.Record(
+  Schema.String,
+  Schema.mutableKey(
+    Schema.UndefinedOr(SessionModelSelection).pipe(Schema.catchDecoding(() => Effect.succeed(Option.none()))),
+  ),
+)
+export type SessionModelSelections = typeof SessionModelSelections.Type
+
+const decodeModelSelection = Schema.decodeUnknownOption(Schema.fromJsonString(ModelSelection))
+const decodeSessionModelSelections = Schema.decodeUnknownOption(Schema.fromJsonString(SessionModelSelections))
+
+export function readModelSelection(): ModelSelection | undefined {
+  return Option.getOrUndefined(decodeModelSelection(storageGet(MODEL_SELECTION_KEY)))
+}
+
+export function writeModelSelection(model: ModelSelection | undefined) {
+  if (!model) return
+  storageSet(MODEL_SELECTION_KEY, JSON.stringify(model))
+}
+
+export function readSessionModelSelections(): SessionModelSelections {
+  return Option.getOrElse(decodeSessionModelSelections(storageGet(SESSION_MODEL_SELECTION_KEY)), () => ({}))
+}
+
+export function writeSessionModelSelections(value: SessionModelSelections) {
+  storageSet(SESSION_MODEL_SELECTION_KEY, JSON.stringify(value))
+}
+
 // Keep the main app's ModelState boundary, with the compact provider defaults and legacy entry fields.
 export const ModelState = Persistence.struct({
   user: Persistence.array(Persistence.legacy({ ...ModelSelection.fields, visibility: Visibility })),
   disabledProviders: Persistence.array(Schema.String, () => [...DEFAULT_MODEL_CONFIG.disabledProviders]),
   popularProviders: Persistence.array(Persistence.legacy({ providerID: Schema.String, visibility: Visibility })),
-  recent: Persistence.array(Persistence.legacy(ModelSelection.fields)),
+  recent: Persistence.array(StoredModelSelection),
   variant: Persistence.optional(
     Schema.Record(
       Schema.String,

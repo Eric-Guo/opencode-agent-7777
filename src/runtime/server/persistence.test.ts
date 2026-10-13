@@ -1,7 +1,16 @@
-import { afterEach, beforeEach, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { createStore, reconcile } from "solid-js/store"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
-import { readModelConfig, writeModelConfig, type ModelConfig } from "./persistence"
+import { MODEL_SELECTION_KEY, SESSION_MODEL_SELECTION_KEY } from "@/constants/session"
+import {
+  readModelConfig,
+  writeModelConfig,
+  readModelSelection,
+  writeModelSelection,
+  readSessionModelSelections,
+  writeSessionModelSelections,
+  type ModelConfig,
+} from "./persistence"
 
 const key = "opencode.7777.model.config"
 const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
@@ -155,4 +164,119 @@ test("continues with independent defaults when storage is unavailable", () => {
   value.user.length = 0
   expect(readModelConfig()).toEqual(expected)
   expect(() => writeModelConfig(value)).not.toThrow()
+})
+
+describe("global model preference storage", () => {
+  test.each([
+    undefined,
+    "",
+    "broken",
+    "null",
+    "[]",
+    '"text"',
+    "false",
+    "{}",
+    '{"providerID":"provider"}',
+    '{"providerID":"provider","modelID":3}',
+  ])("ignores malformed or absent selections: %s", (value) => {
+    if (value !== undefined) saved.set(MODEL_SELECTION_KEY, value)
+    expect(readModelSelection()).toBeUndefined()
+  })
+
+  test("keeps only model identifiers, including empty strings, without changing the storage key", () => {
+    saved.set(MODEL_SELECTION_KEY, '{"providerID":"","modelID":"","legacy":true}')
+    expect(readModelSelection()).toEqual({ providerID: "", modelID: "" })
+    writeModelSelection({ providerID: "provider", modelID: "model" })
+    const [store, setStore] = createStore(readModelSelection()!)
+    setStore("modelID", "edited")
+    expect(store.modelID).toBe("edited")
+    expect(readModelSelection()).toEqual({ providerID: "provider", modelID: "model" })
+    writeModelSelection(undefined)
+    expect(saved.get(MODEL_SELECTION_KEY)).toBe('{"providerID":"provider","modelID":"model"}')
+    expect([...saved.keys()]).toEqual([MODEL_SELECTION_KEY])
+  })
+})
+
+describe("session model preference storage", () => {
+  test("round-trips independent session choices and Default without sharing mutable values", () => {
+    writeSessionModelSelections({
+      first: { model: { providerID: "provider", modelID: "model" }, variant: "high" },
+      second: { model: { providerID: "provider", modelID: "model" }, variant: null },
+      cleared: undefined,
+    })
+    const value = readSessionModelSelections()
+    expect(value).toEqual({
+      first: { model: { providerID: "provider", modelID: "model" }, variant: "high" },
+      second: { model: { providerID: "provider", modelID: "model" }, variant: null },
+    })
+    value.first!.model.modelID = "mutated"
+    expect(readSessionModelSelections().first?.model.modelID).toBe("model")
+  })
+
+  test.each([
+    "null",
+    "[]",
+    "broken",
+    '"text"',
+    "false",
+    "0",
+    '[{"model":{"providerID":"p","modelID":"m"},"variant":null}]',
+  ])("ignores malformed storage: %s", (value) => {
+    saved.set(SESSION_MODEL_SELECTION_KEY, value)
+    expect(readSessionModelSelections()).toEqual({})
+  })
+
+  test("drops invalid entries while retaining explicit Default", () => {
+    saved.set(
+      SESSION_MODEL_SELECTION_KEY,
+      JSON.stringify({
+        valid: { model: { providerID: "provider", modelID: "model" }, variant: null },
+        missing: {},
+        badModel: { model: { providerID: 3, modelID: "model" }, variant: "high" },
+        badVariant: { model: { providerID: "provider", modelID: "model" }, variant: false },
+        noVariant: { model: { providerID: "provider", modelID: "model" } },
+        badContainer: [],
+        badModelContainer: { model: [], variant: null },
+        badVariantContainer: { model: { providerID: "provider", modelID: "model" }, variant: [] },
+        empty: null,
+      }),
+    )
+    expect(readSessionModelSelections()).toEqual({
+      valid: { model: { providerID: "provider", modelID: "model" }, variant: null },
+    })
+  })
+
+  test("retains legacy fields and literal record keys through writes and isolated Solid edits", () => {
+    const json =
+      '{"__proto__":{"model":{"providerID":"","modelID":"","legacy":{"label":"model"}},"variant":"","legacy":{"label":"session"}},"constructor":{"model":{"providerID":"p","modelID":"m"},"variant":null}}'
+    saved.set(SESSION_MODEL_SELECTION_KEY, json)
+    const choices = readSessionModelSelections()
+    expect(choices).toEqual(JSON.parse(json))
+    const [store, setStore] = createStore({ choice: choices["__proto__"]! })
+    setStore("choice", "model", "modelID", "edited")
+    setStore("choice", "variant", "high")
+    expect(store.choice.model.modelID).toBe("edited")
+    expect(readSessionModelSelections()).toEqual(JSON.parse(json))
+    writeSessionModelSelections(readSessionModelSelections())
+    expect(JSON.parse(saved.get(SESSION_MODEL_SELECTION_KEY)!)).toEqual(JSON.parse(json))
+    expect([...saved.keys()]).toEqual([SESSION_MODEL_SELECTION_KEY])
+  })
+
+  test("keeps storage failures nonfatal", () => {
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: {
+        getItem() {
+          throw new Error("unavailable")
+        },
+        setItem() {
+          throw new Error("quota")
+        },
+      },
+    })
+    expect(readSessionModelSelections()).toEqual({})
+    expect(() => writeSessionModelSelections({})).not.toThrow()
+    expect(readModelSelection()).toBeUndefined()
+    expect(() => writeModelSelection({ providerID: "provider", modelID: "model" })).not.toThrow()
+  })
 })

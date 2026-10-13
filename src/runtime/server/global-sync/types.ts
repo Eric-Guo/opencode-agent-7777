@@ -1,4 +1,4 @@
-import type { ModelSelection } from "@/runtime/persistence/storage-compact"
+import type { ModelSelection } from "@/runtime/server/persistence"
 import type { ModelLoadStatus } from "@/providers/models/selection"
 import type { ModelOption } from "@/providers/models/models"
 import type { ServerInfo } from "@/runtime/server/resolver-compact"

@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js"
 import { createStore } from "solid-js/store"
 import { readModelConfig, writeModelConfig, type ModelConfig, type Visibility } from "@/runtime/server/persistence"
-import type { ModelSelection } from "@/runtime/persistence/storage-compact"
+import type { ModelSelection } from "@/runtime/server/persistence"
 import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
 import { popularProviders } from "@/providers/catalog/order"
 
