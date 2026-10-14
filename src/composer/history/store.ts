@@ -1,6 +1,5 @@
 import { Option, Schema } from "effect"
-import { createStore } from "solid-js/store"
-import { storageGet, storageSet } from "@/runtime/persistence/storage"
+import { persisted, storageGet, storageSet } from "@/runtime/persistence/storage"
 import { PromptHistoryState } from "../schema"
 import type { ComposerHistory } from "../types"
 import { cloneHistoryEntry, limitHistoryEntries, prependHistoryEntry } from "./entry"
@@ -17,7 +16,16 @@ export function createComposerHistory(): ComposerHistory {
       return []
     }
   }
-  const [store, setStore] = createStore({ entries: read() })
+  const [store, setStore] = persisted({
+    read: () => ({ entries: read() }),
+    write(value) {
+      try {
+        storageSet(PROMPT_HISTORY_KEY, JSON.stringify(value))
+      } catch {
+        // Storage may be full or unavailable; recall remains usable for this page's lifetime.
+      }
+    },
+  })
   return {
     // Clone at the editor boundary: a Solid draft may mutate nested attachment references in place.
     entries: (mode) => (mode === "normal" ? store.entries.map(cloneHistoryEntry) : []),
@@ -26,11 +34,6 @@ export function createComposerHistory(): ComposerHistory {
       const entries = prependHistoryEntry(store.entries, prompt)
       if (entries === store.entries) return
       setStore("entries", entries)
-      try {
-        storageSet(PROMPT_HISTORY_KEY, JSON.stringify({ entries }))
-      } catch {
-        // Storage may be full or unavailable; recall remains usable for this page's lifetime.
-      }
     },
   }
 }

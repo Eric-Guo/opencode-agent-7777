@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js"
-import { createStore } from "solid-js/store"
-import { readModelConfig, writeModelConfig, type ModelConfig, type Visibility } from "@/runtime/server/persistence"
+import { readModelConfig, writeModelConfig, type Visibility } from "@/runtime/server/persistence"
 import type { ModelSelection } from "@/runtime/server/persistence"
+import { persisted } from "@/runtime/persistence/storage"
 import type { Model, Provider, ProviderListResponse } from "@/runtime/server/types"
 import { popularProviders } from "@/providers/catalog/order"
 
@@ -67,7 +67,7 @@ export function modelOptions(catalog: ProviderListResponse): ModelOption[] {
 
 // One catalog supplies model visibility and recency; source defaults stay local to 7777.
 export function createModelsController(list: () => ModelOption[]) {
-  const [modelConfig, setModelConfig] = createStore<ModelConfig>(readModelConfig())
+  const [modelConfig, setModelConfig] = persisted({ read: readModelConfig, write: writeModelConfig })
   const popularProviderSet = new Set<string>(popularProviders)
   const visibilityMaps = {
     model: createMemo(() => {
@@ -81,16 +81,6 @@ export function createModelsController(list: () => ModelOption[]) {
       return map
     }),
     disabledProvider: createMemo(() => new Set(modelConfig.disabledProviders)),
-  }
-
-  function persistConfig(next: ModelConfig = modelConfig) {
-    writeModelConfig({
-      user: [...next.user],
-      disabledProviders: [...next.disabledProviders],
-      popularProviders: [...next.popularProviders],
-      recent: [...next.recent],
-      ...(next.variant ? { variant: { ...next.variant } } : {}),
-    })
   }
 
   function visibilityMap() {
@@ -117,7 +107,6 @@ export function createModelsController(list: () => ModelOption[]) {
     const nextUser = modelConfig.user.filter((item) => !sameModel(item, model))
     if (nextUser.length === modelConfig.user.length) return
     setModelConfig("user", nextUser)
-    persistConfig({ ...modelConfig, user: nextUser })
   }
 
   function updateModelVisibility(model: ModelSelection, visibility: Visibility) {
@@ -129,7 +118,6 @@ export function createModelsController(list: () => ModelOption[]) {
     const index = modelConfig.user.findIndex((item) => sameModel(item, model))
     if (index >= 0) setModelConfig("user", index, { ...model, visibility })
     else setModelConfig("user", modelConfig.user.length, { ...model, visibility })
-    persistConfig()
   }
 
   function updateProviderVisibility(providerID: string, visibility: Visibility) {
@@ -146,13 +134,6 @@ export function createModelsController(list: () => ModelOption[]) {
       else nextPopularProviders.push({ providerID, visibility })
 
       setModelConfig({
-        ...modelConfig,
-        user: nextUser,
-        disabledProviders: nextDisabledProviders,
-        popularProviders: nextPopularProviders,
-      })
-      persistConfig({
-        ...modelConfig,
         user: nextUser,
         disabledProviders: nextDisabledProviders,
         popularProviders: nextPopularProviders,
@@ -161,8 +142,7 @@ export function createModelsController(list: () => ModelOption[]) {
     }
 
     if (visibility === "hide") nextDisabledProviders.push(providerID)
-    setModelConfig({ ...modelConfig, user: nextUser, disabledProviders: nextDisabledProviders })
-    persistConfig({ ...modelConfig, user: nextUser, disabledProviders: nextDisabledProviders })
+    setModelConfig({ user: nextUser, disabledProviders: nextDisabledProviders })
   }
 
   function compactPopularProviderConfig(options: ModelOption[]) {
@@ -203,8 +183,7 @@ export function createModelsController(list: () => ModelOption[]) {
     }
 
     if (!changed) return
-    setModelConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
-    persistConfig({ ...modelConfig, user: nextUser, popularProviders: nextPopularProviders })
+    setModelConfig({ user: nextUser, popularProviders: nextPopularProviders })
   }
 
   function migrateModelIDs() {
@@ -230,7 +209,6 @@ export function createModelsController(list: () => ModelOption[]) {
     )
       return
     setModelConfig({ user, recent })
-    persistConfig()
   }
 
   function pushRecentModel(model: ModelSelection) {
@@ -239,7 +217,6 @@ export function createModelsController(list: () => ModelOption[]) {
       RECENT_LIMIT,
     )
     setModelConfig("recent", unique)
-    persistConfig({ ...modelConfig, recent: unique })
   }
 
   function visibleModel(model: ModelSelection) {
@@ -255,7 +232,6 @@ export function createModelsController(list: () => ModelOption[]) {
     const resolved = findModel(list(), model)
     if (!resolved || (value && value !== "default" && !Object.hasOwn(resolved.variants ?? {}, value))) return
     setModelConfig("variant", { ...modelConfig.variant, [variantKey(resolved)]: value ?? "default" })
-    persistConfig()
   }
 
   return {

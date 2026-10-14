@@ -271,6 +271,10 @@ See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary com
 Persistence follows the main app's `runtime/persistence/storage.ts` and `runtime/server/persistence.ts`
 boundaries with package-local implementations. The compact storage adapter is synchronous; drafts, history,
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
+Model preferences, per-session choices, and accepted-prompt history use its local `persisted` store helper, following
+the main app's storage boundary. Solid setters save synchronously without subscribing callers to serialized fields;
+initial reads do not rewrite storage. Consumer-owned readers and writers retain recovery, limits, and error handling.
+This compact helper stays in `storage.ts` because it has no separate asynchronous hydration or save scheduler.
 Model preferences use the main app's `ModelState` schema boundary in `runtime/server/persistence.ts`; selection,
 visibility and config types derive from those local schemas. Global and per-session model choices now share that
 module's schema-based readers and writers, leaving session identity keys in `storage-compact.ts`. The compact-only

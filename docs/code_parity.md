@@ -15,8 +15,9 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/ui`, `@opencode/util` | Controls, scrolling, i18n, paths and title fallback |
 
 Composer/model types derive from local persistence schemas. `runtime/server/persistence.ts` owns model config and
-global/session-choice recovery; `composer/editor/dom.ts` owns DOM conversion and cursor helpers.
-Shared UI packages own Markdown dependencies. Remaining compact responsibilities:
+global/session-choice recovery. The local `runtime/persistence/storage.ts` persisted-store helper handles model and
+history saves; `composer/editor/dom.ts` owns DOM conversion and cursor helpers. Shared UI packages own Markdown
+dependencies. Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36

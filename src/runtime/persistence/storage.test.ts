@@ -1,10 +1,13 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
+import { batch, createMemo, createRoot } from "solid-js"
+import { reconcile } from "solid-js/store"
 import { createComposerHistory } from "@/composer/history/store"
 import { translateSync } from "@/runtime/i18n/language"
 import { readModelConfig, writeModelConfig } from "@/runtime/server/persistence"
 import { createSettings } from "@/settings/model"
 import { clearPromptDraft, readPromptDraft, writePromptDraft } from "./drafts"
 import { readSessionRecord } from "./storage-compact"
+import { persisted } from "./storage"
 
 const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
@@ -24,6 +27,45 @@ beforeEach(() => {
 afterEach(() => {
   if (original) Object.defineProperty(globalThis, "localStorage", original)
   else delete (globalThis as { localStorage?: Storage }).localStorage
+})
+
+test("persisted setters save nested updates and replacements synchronously, including inside a batch", () => {
+  const writes: string[] = []
+  const [store, setStore] = persisted({
+    read: () => ({ model: { id: "one" }, recent: ["one"] }),
+    write: (value) => writes.push(JSON.stringify(value)),
+  })
+  expect(writes).toEqual([])
+  batch(() => {
+    setStore("model", "id", "two")
+    expect(writes).toEqual(['{"model":{"id":"two"},"recent":["one"]}'])
+    setStore("recent", (items) => ["two", ...items])
+    expect(writes.at(-1)).toBe('{"model":{"id":"two"},"recent":["two","one"]}')
+  })
+  setStore(reconcile({ model: { id: "three" }, recent: [] }))
+  expect(writes).toHaveLength(3)
+  expect(writes.at(-1)).toBe('{"model":{"id":"three"},"recent":[]}')
+  expect(store).toEqual({ model: { id: "three" }, recent: [] })
+})
+
+test("persisting does not subscribe a caller to unrelated store fields", () => {
+  createRoot((dispose) => {
+    const [store, setStore] = persisted({
+      read: () => ({ selected: "one", unrelated: "initial" }),
+      write: (value) => saved.set("reactive-preferences", JSON.stringify(value)),
+    })
+    let runs = 0
+    createMemo(() => {
+      runs++
+      setStore("selected", "two")
+    })
+    expect(runs).toBe(1)
+    setStore("unrelated", "changed")
+    expect(runs).toBe(1)
+    expect(store).toEqual({ selected: "two", unrelated: "changed" })
+    expect(saved.get("reactive-preferences")).toBe('{"selected":"two","unrelated":"changed"}')
+    dispose()
+  })
 })
 
 test.each(["missing", "getter", "operations"])("consumers remain usable with %s storage", (mode) => {
@@ -52,9 +94,7 @@ test.each(["missing", "getter", "operations"])("consumers remain usable with %s 
 
   const history = createComposerHistory()
   history.add([{ type: "text", content: "remember", start: 0, end: 8 }], "normal")
-  expect(history.entries("normal")).toEqual([
-    { prompt: [{ type: "text", content: "remember", start: 0, end: 8 }] },
-  ])
+  expect(history.entries("normal")).toEqual([{ prompt: [{ type: "text", content: "remember", start: 0, end: 8 }] }])
 })
 
 test.each(["zh", '{"locale":"zh-CN"}'])("keeps plain and legacy locale preferences: %s", (value) => {

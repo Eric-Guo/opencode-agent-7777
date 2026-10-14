@@ -1,5 +1,5 @@
 import { batch, createRoot } from "solid-js"
-import { createStore } from "solid-js/store"
+import { persisted } from "@/runtime/persistence/storage"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
 import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } from "./variant"
@@ -35,7 +35,7 @@ export type ModelSelectorState = {
 }
 
 const models = createRoot(() => createModelsController(() => state.models))
-const [choices, setChoices] = createStore(readSessionModelSelections())
+const [choices, setChoices] = persisted({ read: readSessionModelSelections, write: writeSessionModelSelections })
 const pending = new Map<string, SessionModelSelection>()
 
 function scope() {
@@ -47,7 +47,6 @@ function scope() {
 function writeChoice(key: string, value: SessionModelSelection | undefined) {
   // Whole values avoid mutating snapshots retained by an in-flight submission.
   setChoices(key, () => value && { model: { ...value.model }, variant: value.variant })
-  writeSessionModelSelections(choices)
 }
 
 function durable() {
