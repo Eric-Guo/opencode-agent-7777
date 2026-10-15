@@ -461,15 +461,11 @@ export function ComposerAttachments(props: {
                     onClick={() => props.onCommentClick?.(comment)}
                   />
                 </Tooltip>
-                <button
-                  type="button"
+                <ComposerAttachmentRemoveButton
                   disabled={props.disabled}
-                  onClick={() => props.onCommentRemove?.(comment)}
-                  class="absolute -top-1 -end-1 size-4 rounded-full bg-v2-icon-icon-muted outline-solid outline-1 outline-v2-icon-icon-contrast flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:hidden"
-                  aria-label={props.removeLabel}
-                >
-                  <Icon name="outline-xmark" class="text-v2-icon-icon-contrast" />
-                </button>
+                  onRemove={() => props.onCommentRemove?.(comment)}
+                  label={props.removeLabel}
+                />
               </div>
             )}
           </For>
@@ -494,15 +490,11 @@ export function ComposerAttachments(props: {
                     <div class="absolute inset-0 rounded-[6px] shadow-[inset_0_0_0_0.5px_var(--v2-border-border-base)] pointer-events-none" />
                   </Show>
                 </Tooltip>
-                <button
-                  type="button"
+                <ComposerAttachmentRemoveButton
                   disabled={props.disabled}
-                  onClick={() => props.onAttachmentRemove(attachment)}
-                  class="absolute -top-1 -end-1 size-4 rounded-full bg-v2-icon-icon-muted outline-solid outline-1 outline-v2-icon-icon-contrast flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:hidden"
-                  aria-label={props.removeLabel}
-                >
-                  <Icon name="outline-xmark" class="text-v2-icon-icon-contrast" />
-                </button>
+                  onRemove={() => props.onAttachmentRemove(attachment)}
+                  label={props.removeLabel}
+                />
               </div>
             )}
           </For>
@@ -517,6 +509,20 @@ export function ComposerAttachments(props: {
         />
       </div>
     </Show>
+  )
+}
+
+function ComposerAttachmentRemoveButton(props: { label: string; disabled?: boolean; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      disabled={props.disabled}
+      onClick={props.onRemove}
+      class="absolute -top-1 -end-1 size-4 rounded-full bg-v2-icon-icon-muted outline-solid outline-1 outline-v2-icon-icon-contrast flex items-center justify-center hover-reveal group-hover:opacity-100 focus-visible:opacity-100 disabled:hidden"
+      aria-label={props.label}
+    >
+      <Icon name="outline-xmark" class="text-v2-icon-icon-contrast" />
+    </button>
   )
 }
 

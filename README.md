@@ -354,8 +354,12 @@ hint, and adapt when the window, draft or request dock changes size. Search, key
 draft contents retain their existing behavior. Missing or detached boundaries use the normal capped height.
 This local implementation uses the browser's `ResizeObserver` without an additional dependency.
 
+Attachment and file-comment removal share a local button in `composer/editor/editor.tsx`. It uses the public UI
+package's `hover-reveal` utility, matching the main app's touch visibility, and also reveals the control on keyboard
+focus. Mouse hover behavior, labels, removal callbacks, and hidden/disabled controls retain their existing behavior.
+
 Compact differences remain intentional: inline attachment URLs and file-type filtering,
-file comments, disabled controls, optional queue editing, provider icons, and hover-only removal buttons.
+file comments, disabled controls, optional queue editing, and provider icons.
 The main app's upload progress, path attachments, and note cards remain outside this view.
 All implementations stay package-local or use public shared-package exports.
 Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused

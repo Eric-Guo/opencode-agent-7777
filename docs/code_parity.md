@@ -13,7 +13,7 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/client` | Data, catalogs, APIs and transport types |
 | `@opencode/session-ui` | Timeline, attachment/comment cards and line-selection types, `DockPrompt`, `SessionReview` |
 | `@opencode/gui-extensions` | `ContextUsage` |
-| `@opencode/ui`, `@opencode/util` | Controls, scrolling, i18n, paths and title fallback |
+| `@opencode/ui`, `@opencode/util` | Controls, touch-aware visibility, scrolling, i18n, paths and title fallback |
 
 Composer/model types derive from local persistence schemas. `runtime/server/persistence.ts` owns model config and
 global/session-choice recovery. The local `runtime/persistence/storage.ts` persisted-store helper handles model and
