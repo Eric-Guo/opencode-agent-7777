@@ -10,7 +10,7 @@ import type { ComposerModel } from "./model"
 
 const IS_MAC = typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform)
 
-export function Composer(props: { model: ComposerModel }) {
+export function Composer(props: { model: ComposerModel; suggestionBoundary?: () => HTMLElement | undefined }) {
   const language = useLanguage()
   const selectedModel = createMemo(() => props.model.model.selection.current())
   const modelName = createMemo(() => {
@@ -30,6 +30,7 @@ export function Composer(props: { model: ComposerModel }) {
   return (
     <ComposerEditor
       controller={props.model}
+      suggestionBoundary={props.suggestionBoundary}
       disabled={props.model.disabled()}
       class="mx-auto max-w-[1120px]"
       alternateKeybind={[IS_MAC ? "⌘" : language.t("common.key.ctrl"), "↵"]}

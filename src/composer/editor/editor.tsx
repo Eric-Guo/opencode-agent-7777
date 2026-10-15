@@ -39,6 +39,13 @@ export type {
 
 export type ComposerMode = "normal" | "shell"
 
+const COMPOSER_SUGGESTION_MAX_HEIGHT = 320
+const COMPOSER_SUGGESTION_ROW_HEIGHT = 28
+const COMPOSER_SUGGESTION_ROW_PEEK = 18
+const COMPOSER_SUGGESTION_TOP_PADDING = 8
+const COMPOSER_SUGGESTION_SEARCH_HEIGHT = 28
+const COMPOSER_SUGGESTION_CONTEXT_RESERVE = 80
+
 export type ComposerLabels = {
   empty: string
   commands: string
@@ -71,6 +78,7 @@ export type ComposerEditorProps = {
   attachShortcut?: string
   alternateKeybind?: string[]
   exitShellKeybind?: string[]
+  suggestionBoundary?: () => HTMLElement | undefined
   labels?: Partial<ComposerLabels>
 }
 
@@ -167,6 +175,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
         <ComposerEditorPopover
           emptyLabel={labels().empty}
           items={props.controller.suggestions()}
+          boundary={props.suggestionBoundary}
           activeID={state.popover.type === "closed" ? undefined : state.popover.activeID}
           search={search()}
           onActiveChange={(item) => props.controller.dispatch({ type: "popover.active", id: item.id })}
@@ -680,18 +689,40 @@ export function ComposerEditorPopover(props: {
     onValueChange: (value: string) => void
     onKeyDown: (event: KeyboardEvent) => void
   }
+  boundary?: () => HTMLElement | undefined
   onActiveChange: (item: ComposerSuggestion) => void
   onSelect: (item: ComposerSuggestion) => void
 }) {
+  const [store, setStore] = createStore({ maxHeight: COMPOSER_SUGGESTION_MAX_HEIGHT })
+  const search = createMemo(() => props.search !== undefined)
+
+  createEffect(() => {
+    const element = props.boundary?.()
+    // Session transitions can briefly leave a detached boundary with a zero height.
+    const boundary = element?.isConnected ? element : undefined
+    const hasSearch = search()
+    const resize = () =>
+      setStore(
+        "maxHeight",
+        composerSuggestionMaxHeight(boundary?.clientHeight ?? COMPOSER_SUGGESTION_MAX_HEIGHT * 2, hasSearch),
+      )
+    resize()
+    if (!boundary) return
+    const observer = new ResizeObserver(resize)
+    observer.observe(boundary)
+    onCleanup(() => observer.disconnect())
+  })
+
   return (
     <div
       data-component="composer-suggestions"
-      class="absolute inset-x-0 -top-2 z-40 flex max-h-80 -translate-y-full flex-col overflow-auto rounded-xl bg-v2-background-bg-base p-2 shadow-[var(--v2-elevation-raised)] no-scrollbar"
+      class="absolute inset-x-0 -top-2 z-40 flex -translate-y-full scroll-pb-[18px] flex-col overflow-auto rounded-xl bg-v2-background-bg-base p-2 shadow-[var(--v2-elevation-raised)] no-scrollbar"
+      style={{ "max-height": `${store.maxHeight}px` }}
       onMouseDown={(event) => event.preventDefault()}
     >
       <Show when={props.search}>
         {(search) => (
-          <div class="px-2 py-1">
+          <div class="shrink-0 px-2 py-1">
             <input
               ref={(element) => requestAnimationFrame(() => element.focus())}
               value={search().value}
@@ -715,7 +746,7 @@ export function ComposerEditorPopover(props: {
               type="button"
               data-suggestion-id={item.id}
               data-active={props.activeID === item.id ? "" : undefined}
-              class="flex w-full items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
+              class="flex h-7 w-full shrink-0 items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
               classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
               onPointerMove={() => props.onActiveChange(item)}
               onClick={() => props.onSelect(item)}
@@ -737,6 +768,19 @@ export function ComposerEditorPopover(props: {
         </For>
       </Show>
     </div>
+  )
+}
+
+function composerSuggestionMaxHeight(boundaryHeight: number, search: boolean) {
+  const reserve = Math.min(COMPOSER_SUGGESTION_CONTEXT_RESERVE, boundaryHeight / 4)
+  const limit = Math.min(COMPOSER_SUGGESTION_MAX_HEIGHT, boundaryHeight - reserve)
+  const chrome = COMPOSER_SUGGESTION_TOP_PADDING + (search ? COMPOSER_SUGGESTION_SEARCH_HEIGHT : 0)
+  if (limit < chrome + COMPOSER_SUGGESTION_ROW_HEIGHT + COMPOSER_SUGGESTION_ROW_PEEK) return limit
+  return (
+    chrome +
+    Math.floor((limit - chrome - COMPOSER_SUGGESTION_ROW_PEEK) / COMPOSER_SUGGESTION_ROW_HEIGHT) *
+      COMPOSER_SUGGESTION_ROW_HEIGHT +
+    COMPOSER_SUGGESTION_ROW_PEEK
   )
 }
 

@@ -124,7 +124,7 @@ export function SessionPage() {
 
       <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
 
-      <ActiveSessionComposerRegion model={region.active} />
+      <ActiveSessionComposerRegion model={region.active} suggestionBoundary={interaction.scroller} />
     </div>
   )
 }

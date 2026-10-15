@@ -1,7 +1,8 @@
 # Code Layout Parity Review
 
 7777 is an independent Git repository. Keep implementations local or use public shared-package exports;
-never depend on `packages/app` or `packages/desktop` source, build or runtime. Preserve features; ask before adding any.
+never depend on `packages/app` or `packages/desktop` source, build or runtime. Preserve existing features and
+deployment controls.
 See the [README](../README.md#code-layout-parity-review) for module boundaries and behavior contracts, and
 [AGENTS.md](../AGENTS.md) for deployment rules. Earlier audits remain in Git.
 
@@ -16,7 +17,8 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 
 Composer/model types derive from local persistence schemas. `runtime/server/persistence.ts` owns model config and
 global/session-choice recovery. The local `runtime/persistence/storage.ts` persisted-store helper handles model and
-history saves; `composer/editor/dom.ts` owns DOM conversion and cursor helpers. Shared UI packages own Markdown
+history saves; `composer/editor/dom.ts` owns DOM conversion and cursor helpers. `composer/editor/editor.tsx` sizes
+suggestions against the timeline viewport, following the main app's component boundaries. Shared UI packages own Markdown
 dependencies. Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.

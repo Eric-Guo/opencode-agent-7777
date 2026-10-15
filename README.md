@@ -346,10 +346,18 @@ fields from the public `@opencode/session-ui/comment-card` contract and retain l
 editor actions, suggestions, history
 and submission. History reuses the same clone operation while retaining its normalization, deduplication, byte budget
 and stored format; inline blob references and file selections remain isolated from mutable Solid drafts.
+
+Suggestion sizing now follows the main app's `composer/editor/editor.tsx` boundary. The session screen passes its
+timeline viewport through `session/composer/region.tsx` and `composer/composer.tsx`; the editor observes its height
+only while a menu is open. Menus reserve visible conversation space, keep fixed-height rows and a partial next-row
+hint, and adapt when the window, draft or request dock changes size. Search, keyboard selection, empty states and
+draft contents retain their existing behavior. Missing or detached boundaries use the normal capped height.
+This local implementation uses the browser's `ResizeObserver` without an additional dependency.
+
 Compact differences remain intentional: inline attachment URLs and file-type filtering,
-file comments, disabled controls, optional queue editing, provider icons, hover-only removal buttons, and the fixed
-suggestion height. The main app's upload progress, path attachments, note cards, and boundary-aware suggestion sizing
-are outside this refactor. All implementations stay package-local or use public shared-package exports.
+file comments, disabled controls, optional queue editing, provider icons, and hover-only removal buttons.
+The main app's upload progress, path attachments, and note cards remain outside this view.
+All implementations stay package-local or use public shared-package exports.
 Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
 direct dependencies on `marked` or `dompurify`.
 
