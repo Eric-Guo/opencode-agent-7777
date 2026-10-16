@@ -11,7 +11,7 @@ export function groupSessionRequests<T extends { sessionID: string }>(requests: 
 }
 
 // Permission and question replies share the same activation and pending-request lifecycle.
-// Directory discovery, event filtering and permission notifications stay with their adapters.
+// Directory discovery, event filtering and notification triggers stay with their adapters.
 export function respondToRequest(
   kind: "permission" | "form",
   request: { id: string; sessionID: string },

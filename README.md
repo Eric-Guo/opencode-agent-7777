@@ -258,12 +258,19 @@ suite covers the combined public contract. `session-store-compact.ts` exposes re
 transport, directory-wide request discovery, and embedded behavior stay package-owned.
 
 `session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
-The permission and form adapters retain their public client endpoints, event filtering, child-session routing and
-notifications. Replies keep the request visible until accepted, block duplicate submissions, preserve failures for
-retry, and ignore results from an earlier activation even after returning to the same session. An older response
+The permission and form adapters retain their public client endpoints, event filtering and child-session routing.
+Replies keep the request visible until accepted, block duplicate submissions, preserve failures for retry,
+and ignore results from an earlier activation even after returning to the same session. An older response
 cannot clear a newer pending reply. Web-search forms retain their separate promise-based submission lifecycle.
 This compact-only module replaces duplicated lifecycle code without depending on the main app or moving request
 policy into the shared `session-ui` rendering library.
+
+Permission notification delivery follows the main app's `shell/notifications/notification.tsx` boundary with a
+package-local controller. It owns translated copy, request-ID deduplication, desktop delivery and the browser fallback;
+the request adapter selects the active tree's request and resets or retires notification IDs on refresh or reply.
+Existing permission prompts, denial handling and refresh notifications are preserved. The compact shell has no
+notification inbox, sound preferences or unread-session tracking. Integration coverage stays in
+`session/requests/permission-sync-compact.test.ts` to verify delivery through the real request lifecycle.
 
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.

@@ -15,17 +15,16 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, touch-aware visibility, scrolling, i18n, paths and title fallback |
 
-Composer/model types derive from local persistence schemas. `runtime/server/persistence.ts` owns model config and
-global/session-choice recovery. The local `runtime/persistence/storage.ts` persisted-store helper handles model and
-history saves; `composer/editor/dom.ts` owns DOM conversion and cursor helpers. `composer/editor/editor.tsx` sizes
-suggestions against the timeline viewport, following the main app's component boundaries. Shared UI packages own Markdown
-dependencies. Remaining compact responsibilities:
+Local schema/persistence, composer DOM/suggestion sizing and permission notifications follow the main app's
+module boundaries; see the README for their contracts. `shell/notifications/notification.tsx` owns notification
+delivery, copy and deduplication; request adapters select the active request and signal refresh/reply boundaries.
+Shared UI packages own Markdown dependencies. Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
   records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
   messages; retain live rows/HTTP receipts until acknowledged.
-- Draft/history formats, attachments, mentions, comments, undo/redo, request routing and notifications.
+- Draft/history formats, attachments, mentions, comments, undo/redo and request routing.
   Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
 - Scroll pause/resume; model catalog/selection; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
