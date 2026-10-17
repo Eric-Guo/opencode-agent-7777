@@ -294,7 +294,15 @@ per-session format stays here rather than in the main app's `providers/models/se
 does not import the selection controller. Recovery preserves existing keys, extra legacy session/model fields,
 partial config defaults, explicit Default variants, and independent mutable values while dropping invalid entries.
 The local `Persistence.array` accepts a fresh fallback factory for compact provider defaults. Catalog and visibility
-operations remain in `providers/models/models.tsx`; selection precedence and acknowledgement stay in `selection.tsx`.
+operations remain in `providers/models/models.tsx`. `providers/models/selection.tsx` owns shared scoped choices,
+the persisted global fallback and server acknowledgement; it does not import the composer controller.
+
+`composer/selection.ts` owns active model precedence, variant resolution and recent-model cycling, following the main
+app's composer boundary. Both the editor and submit path use it. Unsent choices still precede the durable session
+model and global fallback; explicit Default variants, agent defaults, hidden-model filtering and recency order are
+preserved. Provider-owned choices and pending acknowledgements outlive individual composer instances. The moved
+contracts live in `composer/selection.test.ts`, including cancellation of older sends after a newer selection is pending;
+catalog fallback coverage remains in `providers/models/selection.test.ts`.
 
 The model manager follows `providers/models/manage.tsx`, `providers/models/provider-group.tsx`,
 `providers/catalog/console.ts`, and `settings/{list,row}.tsx`. Console integrations nest under an OpenCode Console

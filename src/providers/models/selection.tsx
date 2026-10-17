@@ -2,7 +2,6 @@ import { batch, createRoot } from "solid-js"
 import { persisted } from "@/runtime/persistence/storage"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
-import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } from "./variant"
 import type { ProviderListResponse } from "@/runtime/server/types"
 import {
   readModelSelection,
@@ -114,118 +113,36 @@ export function syncModelSelection(catalog: ProviderListResponse) {
   reconcileModelSelection()
 }
 
-// Active-session selection delegates visibility and recency to the models controller.
-export function createModelSelection(): ModelSelectorState {
-  const choice = () => {
-    const key = scope()
-    const value = key ? choices[key] : undefined
-    return value && models.find(value.model) ? value : undefined
-  }
-  const current = () =>
-    models.find(choice()?.model) ?? models.find(durable()?.model) ?? models.find(state.selectedModel)
-  const variants = () => Object.keys(current()?.variants ?? {}).filter((value) => value !== "default")
-  const configured = (model = current()) => {
-    const agent = state.agentModels[currentLocalAgent()]
-    return getConfiguredAgentVariant({ agent: agent && { model: agent, variant: agent.variant }, model })
-  }
-  const selectedVariant = () => {
-    const draft = choice()
-    if (draft) return draft.variant
-    const value = durable()
-    if (value && models.find(value.model)) return value.variant
-  }
-  const selection: ModelSelectorState = {
-    current,
-    list: models.list,
-    recent: () =>
-      models.recent.list().flatMap((key) => {
-        const model = models.find(key)
-        return model && models.visible(model) ? [model] : []
-      }),
-    cycle(direction) {
-      const items = selection.recent()
-      const item = current()
-      if (!item || !items.length) return
-      const index = items.findIndex((entry) => entry.providerID === item.providerID && entry.modelID === item.modelID)
-      const next =
-        index < 0 ? (direction === 1 ? 0 : items.length - 1) : (index + direction + items.length) % items.length
-      // Cycling must not reorder the recent list or it would bounce between two models.
-      selection.set(items[next])
-    },
-    set(model, options) {
-      const resolved = models.find(model)
-      if (model && !resolved) return
-      const selected = resolved ? { providerID: resolved.providerID, modelID: resolved.modelID } : undefined
-      const previous = current()
-      const same = selected && previous?.providerID === selected.providerID && previous.modelID === selected.modelID
-      const variant = same ? (selection.variant.current() ?? null) : undefined
-      batch(() => {
-        const key = scope()
-        if (key) {
-          // Resolve the new model's preference independently from the previous session model.
-          const nextVariant =
-            variant !== undefined
-              ? variant
-              : resolveModelVariant({
-                  variants: Object.keys(resolved?.variants ?? {}),
-                  selected: undefined,
-                  configured: resolved ? configured(resolved) : undefined,
-                  preferred: selected ? models.variant.get(selected) : undefined,
-                })
-          writeChoice(key, selected ? { model: selected, variant: nextVariant ?? null } : undefined)
-        }
-        setState("selectedModel", selected)
-        writeModelSelection(selected)
-        if (!selected) return
-        models.setVisibility(selected, true)
-        if (options?.recent) models.recent.push(selected)
-      })
-    },
-    visible: models.visible,
-    setVisibility: models.setVisibility,
-    setProviderVisibility: models.setProviderVisibility,
-    trackSessionCommit(value) {
+// Shared local choices outlive individual composer controllers. Only this boundary writes preferences
+// or retires an acknowledged draft; composer/selection.ts owns precedence and user interactions.
+export const localModelSelection = {
+  models,
+  draft: {
+    current() {
       const key = scope()
-      if (!key) return () => {}
-      const expected = { model: { ...value.model }, variant: value.variant }
-      pending.set(key, expected)
-      reconcileModelSelection()
-      return () => {
-        if (pending.get(key) === expected) pending.delete(key)
-      }
+      return key ? choices[key] : undefined
     },
-    variant: {
-      current() {
-        const model = current()
-        return resolveModelVariant({
-          variants: variants(),
-          selected: selectedVariant(),
-          configured: configured(),
-          preferred: model ? models.variant.get(model) : undefined,
-        })
-      },
-      list: variants,
-      set(value) {
-        const model = current()
-        if (!model || (value !== undefined && value !== "default" && !variants().includes(value))) return
-        batch(() => {
-          const key = scope()
-          if (key)
-            writeChoice(key, {
-              model: { providerID: model.providerID, modelID: model.modelID },
-              variant: value && value !== "default" ? value : null,
-            })
-          models.variant.set(model, value)
-        })
-      },
-      cycle() {
-        const items = variants()
-        if (!items.length) return
-        selection.variant.set(
-          cycleModelVariant({ variants: items, selected: selection.variant.current() ?? null, configured: undefined }),
-        )
-      },
+    set(value: SessionModelSelection | undefined) {
+      const key = scope()
+      if (key) writeChoice(key, value)
     },
-  }
-  return selection
+  },
+  durable,
+  fallback: {
+    current: () => state.selectedModel,
+    set(model: ModelKey | undefined) {
+      setState("selectedModel", model)
+      writeModelSelection(model)
+    },
+  },
+  trackSessionCommit(value: SessionModelSelection) {
+    const key = scope()
+    if (!key) return () => {}
+    const expected = { model: { ...value.model }, variant: value.variant }
+    pending.set(key, expected)
+    reconcileModelSelection()
+    return () => {
+      if (pending.get(key) === expected) pending.delete(key)
+    }
+  },
 }

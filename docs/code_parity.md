@@ -15,7 +15,7 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, touch-aware visibility, scrolling, i18n, paths and title fallback |
 
-Local schema/persistence, composer DOM/suggestion sizing and permission notifications follow the main app's
+Local schema/persistence, composer DOM/selection/suggestion sizing and permission notifications follow the main app's
 module boundaries; see the README for their contracts. Composer caret reads, attachment capture and rendering share
 `composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
 errors and focus use the attachment/editor boundaries. Notification delivery uses the shell boundary.
@@ -28,7 +28,7 @@ Remaining compact responsibilities:
   messages; retain live rows/HTTP receipts until acknowledged.
 - Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo and request routing.
   Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
-- Scroll pause/resume; model catalog/selection; lazy, retryable OAuth reads; review lifecycle,
+- Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, full usage/summary panels,

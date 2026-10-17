@@ -6,7 +6,7 @@ import { abortPrompt, submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { idleStatus, setSessionStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
-import { createModelSelection } from "@/providers/models/selection"
+import { createPromptModelSelection } from "./selection"
 import type { ModelOption } from "@/providers/models/models"
 import { composerHistory } from "./history/store"
 import { browserSuite } from "@/runtime/server/runtime.test-fixture"
@@ -364,7 +364,7 @@ browserSuite(import.meta.path, () => {
       const configured = Promise.withResolvers<void>()
       const model = { providerID: "submission-variant-test", modelID: "reasoning", variants: { low: {}, high: {} } }
       setState("models", [{ ...model }] as unknown as ModelOption[])
-      const selection = createModelSelection()
+      const selection = createPromptModelSelection()
       selection.set(model)
       selection.variant.set("high")
       setSessionClient({
@@ -406,7 +406,7 @@ browserSuite(import.meta.path, () => {
       const requests: SessionPromptInput[] = []
       const model = { providerID: "submission-variant-test", modelID: "default", variants: { high: {} } }
       setState("models", [{ ...model }] as unknown as ModelOption[])
-      const selection = createModelSelection()
+      const selection = createPromptModelSelection()
       selection.set(model)
       selection.variant.set("high")
       selection.variant.set(undefined)

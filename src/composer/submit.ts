@@ -1,6 +1,5 @@
 import { SessionMessage } from "@opencode/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
-import { createModelSelection } from "@/providers/models/selection"
 import {
   dropPendingEcho,
   echoPendingUserMessage,
@@ -24,6 +23,7 @@ import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
 import { composerHistory } from "./history/store"
 import { clonePrompt } from "./prompt-parts"
+import { createPromptModelSelection } from "./selection"
 
 // Compact single-session submit orchestration for the shared composer boundary.
 
@@ -39,7 +39,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   const historyPrompt = clonePrompt(prompt.store[0].prompt)
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
-  const selection = createModelSelection()
+  const selection = createPromptModelSelection()
   const selected = selection.current()
   const selectedModel = selected ? { providerID: selected.providerID, modelID: selected.modelID } : undefined
   const variant = selection.variant.current()

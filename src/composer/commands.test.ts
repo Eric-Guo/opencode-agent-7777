@@ -1,5 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
-import { createModelSelection } from "@/providers/models/selection"
+import { createPromptModelSelection } from "./selection"
 import { composerModelCommand, useComposerCommands } from "./commands"
 
 function keyEvent(overrides: Partial<KeyboardEvent> = {}) {
@@ -48,7 +48,7 @@ describe("composer model commands", () => {
   })
 
   test("blocks disabled and unavailable actions without consuming the key", () => {
-    const selection = createModelSelection()
+    const selection = createPromptModelSelection()
     const cycle = mock(() => {})
     const variantCycle = mock(() => {})
     let disabled = true
