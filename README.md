@@ -352,9 +352,12 @@ and unchanged; no app source or additional dependency is needed.
 
 `composer/editor/editor.tsx` owns editor presentation, attachments, menus, suggestions, and submit controls.
 `composer/editor/dom.ts` owns DOM rendering, mention parsing, and cursor helpers, keeping conversion out of the renderer.
-Caret reads, restoration, and focused re-rendering share that local DOM boundary, following the main app's handling
-of `<br>` line breaks and atomic mention pills. Restoration handles nested inline text and empty drafts without
-placing the caret inside a mention. Literal zero-width characters remain part of the compact draft's text and offsets.
+Caret reads, attachment capture, restoration, and focused re-rendering share that local DOM boundary, following the
+main app's handling of `<br>` line breaks and atomic mention pills. Restoration handles nested inline text and empty
+drafts without placing the caret inside a mention. Literal zero-width characters remain part of the compact draft's
+text and offsets.
+Attachment capture keeps a stored draft cursor when available; otherwise it uses the selection start, including for
+backward selections. An absent or external selection retains the attachment controller's zero-offset fallback.
 DOM regression tests use a test-only `happy-dom` dependency; runtime code has no dependency on the main app.
 Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
 fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
@@ -382,9 +385,11 @@ Markdown parsing and sanitization dependencies belong to the shared UI packages;
 direct dependencies on `marked` or `dompurify`.
 
 `runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
-picker/validation and desktop extension filters. Exported lists are frozen and picker calls receive copies, preserving
-the existing formats without sharing mutable options with the host. This policy stays local because the main app's
-attachment destination/upload behavior differs; attachment handling remains in `composer/attachments/attachments.ts`.
+picker/validation and desktop extension filters. Shared format entries supply MIME lists, native filters and image/PDF
+filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
+and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
+options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
+differs; attachment handling remains in `composer/attachments/attachments.ts`.
 That module now owns error reporting for picker, input, paste and drop operations, retaining files already added
 when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
 following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait

@@ -1,6 +1,7 @@
 import { describe, expect, mock, test } from "bun:test"
 import { createRoot } from "solid-js"
 import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
+import { installDOM } from "@/test/dom"
 import type { ComposerPrompt } from "../types"
 import { createComposerAttachments } from "./attachments"
 
@@ -41,6 +42,83 @@ function fixture(
 }
 
 describe("composer attachments", () => {
+  test.each([
+    { name: "unknown", type: "IMAGE/PNG; charset=binary", bytes: "\0", mime: "image/png" },
+    { name: "photo.JPG", type: "", bytes: "\0", mime: "image/jpeg" },
+    { name: "photo.jpeg", type: "application/octet-stream", bytes: "\0", mime: "image/jpeg" },
+    { name: "image.gif", type: "", bytes: "\0", mime: "image/gif" },
+    { name: "image.webp", type: "", bytes: "\0", mime: "image/webp" },
+    { name: "document.PDF", type: "", bytes: "\0", mime: "application/pdf" },
+    { name: "document", type: "application/pdf", bytes: "\0", mime: "application/pdf" },
+    { name: "photo.jpg", type: "text/plain", bytes: "\0", mime: "text/plain" },
+    { name: "data", type: "application/json", bytes: "\0", mime: "text/plain" },
+    { name: "data", type: "application/vnd.example+json", bytes: "\0", mime: "text/plain" },
+    { name: "data", type: "application/x-yaml", bytes: "\0", mime: "text/plain" },
+    { name: "drawing.svg", type: "image/svg+xml", bytes: "<svg/>", mime: "text/plain" },
+    { name: "script", type: "", bytes: "hello\tworld\n", mime: "text/plain" },
+    { name: "empty", type: "", bytes: "", mime: "text/plain" },
+    { name: "unknown.bin", type: "application/octet-stream", bytes: "readable", mime: "text/plain" },
+    { name: "unknown.bin", type: "", bytes: "\x01\x02\x037890abc", mime: "text/plain" },
+    { name: "unknown.bin", type: "", bytes: "\x01\x02\x03abc", mime: undefined },
+    { name: "notes.txt", type: "", bytes: "hidden\0binary", mime: undefined },
+    { name: "photo.png", type: "application/x-binary", bytes: "\0", mime: undefined },
+    { name: "large", type: "", bytes: "a".repeat(4096) + "\0", mime: "text/plain" },
+  ])("preserves attachment admission for $name ($type)", async ({ name, type, bytes, mime }) => {
+    const store = mock(async () => ({ id: "hash", url: "data:application/octet-stream;base64,YQ==" }))
+    const warn = mock(() => {})
+    const input = fixture(store, { warn })
+    try {
+      await input.attachments.addAttachments([new File([bytes], name, { type })], true, input.target)
+      expect(store).toHaveBeenCalledTimes(mime ? 1 : 0)
+      expect(warn).toHaveBeenCalledTimes(mime ? 0 : 1)
+      expect(input.prompt()).toHaveLength(mime ? 2 : 1)
+      expect(input.prompt()[0]).toEqual({ type: "text", content: "draft", start: 0, end: 5 })
+      if (mime) expect(input.prompt()[1]).toMatchObject({ type: "image", filename: name, mime })
+    } finally {
+      input.dispose()
+    }
+  })
+
+  test.each([
+    { selection: "caret", expected: 10 },
+    { selection: "forward", expected: 3 },
+    { selection: "backward", expected: 3 },
+    { selection: "stored", expected: 2 },
+    { selection: "outside", expected: 0 },
+    { selection: "missing", expected: 0 },
+  ])("captures the attachment insertion position for $selection selections", async ({ selection, expected }) => {
+    const cleanup = installDOM()
+    const editor = document.createElement("div")
+    editor.innerHTML = 'a\u200B<br><span data-mention="file" contenteditable="false">@file</span><br>z'
+    document.body.append(editor)
+    const selected = window.getSelection()!
+    if (selection !== "missing") {
+      const range = document.createRange()
+      range.selectNodeContents(editor)
+      range.collapse(false)
+      if (selection === "forward" || selection === "backward") range.setStart(editor, 2)
+      if (selection === "outside") range.selectNodeContents(document.body)
+      selected.addRange(range)
+      if (selection === "backward") selected.setBaseAndExtent(editor, 5, editor, 2)
+    }
+    let cursor: number | undefined
+    const input = fixture(async () => ({ id: "hash", url: "data:text/plain;base64,YQ==" }), {
+      editor: () => editor,
+      capture: () => ({
+        current: () => [{ type: "text", content: "a\u200B\n@file\nz", start: 0, end: 10 }],
+        cursor: () => (selection === "stored" ? 2 : undefined),
+        set: (_prompt, value) => (cursor = value),
+      }),
+    })
+    try {
+      await input.attachments.addAttachments([new File(["a"], "notes.txt")])
+      expect(cursor).toBe(expected)
+    } finally {
+      input.dispose()
+      cleanup()
+    }
+  })
+
   test.each(["picker", "input", "paste", "drop"] as const)(
     "%s reports read failures once and retains attachments already added",
     async (source) => {

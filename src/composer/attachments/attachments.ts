@@ -2,9 +2,10 @@ import { onCleanup, onMount } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createBlobReference } from "@/runtime/persistence/drafts"
 import { uuid } from "@/runtime/persistence/uuid"
-import { ACCEPTED_FILE_TYPES, ACCEPTED_IMAGE_TYPES, ACCEPTED_TEXT_TYPES } from "@/runtime/platform/file-picker"
+import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 import { isAttachment } from "../prompt-parts"
+import { getCursorPosition } from "../editor/dom"
 
 type PromptTarget = {
   current: () => ComposerPrompt
@@ -56,7 +57,7 @@ export function createComposerAttachments(
     const prompt = input.capture()
     const editor = input.editor()
     if (!editor) return
-    return { prompt, cursor: prompt.cursor() ?? cursorPosition(editor) }
+    return { prompt, cursor: prompt.cursor() ?? getCursorPosition(editor, "start") }
   }
   const add = async (file: File, toast = true, target = capture(), clipboard = false) => {
     if (!target) return false
@@ -198,45 +199,6 @@ export function createComposerAttachments(
       })
     },
   }
-}
-
-const imageMimes = new Set(ACCEPTED_IMAGE_TYPES)
-
-const imageExtensions = new Map([
-  ["gif", "image/gif"],
-  ["jpeg", "image/jpeg"],
-  ["jpg", "image/jpeg"],
-  ["png", "image/png"],
-  ["webp", "image/webp"],
-])
-const textMimes = new Set(ACCEPTED_TEXT_TYPES)
-
-async function attachmentMime(file: File) {
-  const type = file.type.split(";", 1)[0]?.trim().toLowerCase() ?? ""
-  if (imageMimes.has(type) || type === "application/pdf") return type
-  const index = file.name.lastIndexOf(".")
-  const suffix = index === -1 ? "" : file.name.slice(index + 1).toLowerCase()
-  const fallback = imageExtensions.get(suffix) ?? (suffix === "pdf" ? "application/pdf" : undefined)
-  if ((!type || type === "application/octet-stream") && fallback) return fallback
-  if (type.startsWith("text/") || textMimes.has(type) || type.endsWith("+json") || type.endsWith("+xml")) {
-    return "text/plain"
-  }
-  const bytes = new Uint8Array(await file.slice(0, 4096).arrayBuffer())
-  if (bytes.some((byte) => byte === 0)) return
-  const control = bytes.filter((byte) => byte < 9 || (byte > 13 && byte < 32)).length
-  if (bytes.length > 0 && control / bytes.length > 0.3) return
-  return "text/plain"
-}
-
-function cursorPosition(editor: HTMLElement) {
-  const selection = window.getSelection()
-  if (!selection || selection.rangeCount === 0) return 0
-  const range = selection.getRangeAt(0)
-  if (!editor.contains(range.startContainer)) return 0
-  const before = range.cloneRange()
-  before.selectNodeContents(editor)
-  before.setEnd(range.startContainer, range.startOffset)
-  return before.toString().replace(/\u200B/g, "").length
 }
 
 function largePaste(text: string) {

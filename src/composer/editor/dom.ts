@@ -14,13 +14,16 @@ function getTextLength(node: Node): number {
   return Array.from(node.childNodes).reduce((length, child) => length + getTextLength(child), 0)
 }
 
-export function getCursorPosition(editor: HTMLElement) {
+// Attachments capture the beginning of a selection; typing follows its anchor.
+export function getCursorPosition(editor: HTMLElement, edge: "anchor" | "start" = "anchor") {
   const selection = window.getSelection()
-  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return getTextLength(editor)
-  const range = selection.getRangeAt(0).cloneRange()
-  range.selectNodeContents(editor)
-  range.setEnd(selection.anchorNode!, selection.anchorOffset)
-  return getTextLength(range.cloneContents())
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : undefined
+  const node = edge === "start" ? range?.startContainer : selection?.anchorNode
+  if (!range || !node || !editor.contains(node)) return edge === "start" ? 0 : getTextLength(editor)
+  const before = range.cloneRange()
+  before.selectNodeContents(editor)
+  before.setEnd(node, edge === "start" ? range.startOffset : selection!.anchorOffset)
+  return getTextLength(before.cloneContents())
 }
 
 export function setCursorPosition(editor: HTMLElement | undefined, cursor: number) {

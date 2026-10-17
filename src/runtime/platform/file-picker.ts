@@ -1,19 +1,27 @@
-// One compact attachment policy for browser input, composer validation and desktop picker filters.
-export const ACCEPTED_IMAGE_TYPES = Object.freeze(["image/png", "image/jpeg", "image/gif", "image/webp"])
+// One compact attachment policy for browser input, content detection and desktop picker filters.
+const IMAGE_FORMATS = [
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/gif", "gif"],
+  ["image/webp", "webp"],
+] as const
+const PDF_FORMAT = ["application/pdf", "pdf"] as const
+const TEXT_FORMATS = [
+  ["application/json", "json"],
+  ["application/ld+json", "jsonld"],
+  ["application/toml", "toml"],
+  ["application/x-toml", "toml"],
+  ["application/x-yaml", "yaml"],
+  ["application/xml", "xml"],
+  ["application/yaml", "yaml"],
+] as const
 
-export const ACCEPTED_TEXT_TYPES = Object.freeze([
-  "application/json",
-  "application/ld+json",
-  "application/toml",
-  "application/x-toml",
-  "application/x-yaml",
-  "application/xml",
-  "application/yaml",
-])
+export const ACCEPTED_IMAGE_TYPES: readonly string[] = Object.freeze(IMAGE_FORMATS.map(([mime]) => mime))
+export const ACCEPTED_TEXT_TYPES: readonly string[] = Object.freeze(TEXT_FORMATS.map(([mime]) => mime))
 
 export const ACCEPTED_FILE_TYPES = Object.freeze([
   ...ACCEPTED_IMAGE_TYPES,
-  "application/pdf",
+  PDF_FORMAT[0],
   "text/*",
   ...ACCEPTED_TEXT_TYPES,
   ".c",
@@ -60,20 +68,14 @@ export const ACCEPTED_FILE_TYPES = Object.freeze([
   ".zsh",
 ])
 
-const MIME_EXT = new Map([
-  ["image/png", "png"],
-  ["image/jpeg", "jpg"],
-  ["image/gif", "gif"],
-  ["image/webp", "webp"],
-  ["application/pdf", "pdf"],
-  ["application/json", "json"],
-  ["application/ld+json", "jsonld"],
-  ["application/toml", "toml"],
-  ["application/x-toml", "toml"],
-  ["application/x-yaml", "yaml"],
-  ["application/xml", "xml"],
-  ["application/yaml", "yaml"],
-])
+const MIME_EXT = new Map<string, string>([...IMAGE_FORMATS, PDF_FORMAT, ...TEXT_FORMATS])
+const imageMimes = new Set<string>(ACCEPTED_IMAGE_TYPES)
+const textMimes = new Set<string>(ACCEPTED_TEXT_TYPES)
+const inlineExtensions = new Map<string, string>(
+  [...IMAGE_FORMATS, PDF_FORMAT].map(([mime, extension]) => [extension, mime]),
+)
+// Accept the legacy filename alias without changing the native picker's existing .jpg filter.
+inlineExtensions.set("jpeg", "image/jpeg")
 
 const TEXT_EXT = ["txt", "text", "md", "markdown", "log", "csv"]
 
@@ -93,4 +95,21 @@ export const ACCEPTED_FILE_EXTENSIONS = Object.freeze(
 export function filePickerFilters(name: string, ext?: string[]) {
   if (!ext || ext.length === 0) return undefined
   return [{ name, extensions: ext }]
+}
+
+export async function attachmentMime(file: File) {
+  const type = file.type.split(";", 1)[0]?.trim().toLowerCase() ?? ""
+  if (imageMimes.has(type) || type === PDF_FORMAT[0]) return type
+  const index = file.name.lastIndexOf(".")
+  const suffix = index === -1 ? "" : file.name.slice(index + 1).toLowerCase()
+  const fallback = inlineExtensions.get(suffix)
+  if ((!type || type === "application/octet-stream") && fallback) return fallback
+  if (type.startsWith("text/") || textMimes.has(type) || type.endsWith("+json") || type.endsWith("+xml")) {
+    return "text/plain"
+  }
+  const bytes = new Uint8Array(await file.slice(0, 4096).arrayBuffer())
+  if (bytes.some((byte) => byte === 0)) return
+  const control = bytes.filter((byte) => byte < 9 || (byte > 13 && byte < 32)).length
+  if (bytes.length > 0 && control / bytes.length > 0.3) return
+  return "text/plain"
 }
