@@ -2,9 +2,11 @@ import { describe, expect, mock, test } from "bun:test"
 import { createStore } from "solid-js/store"
 import { renderToString } from "solid-js/web"
 import { Skill } from "@opencode/schema/skill"
+import { installDOM } from "@/test/dom"
 import type { ComposerPersistedState } from "../types"
 import { createComposerEditor, shouldHandlePasteAsAttachment } from "./interaction"
 import { createComposerHistory } from "../history/store"
+import { renderComposerEditor, setCursorPosition } from "./dom"
 
 describe("attachment focus", () => {
   test.each([
@@ -19,12 +21,11 @@ describe("attachment focus", () => {
     "dialog",
     "unmounted",
   ] as const)("restores typing focus only for the current composer after %s completion", async (source) => {
-    const globals = ["document", "NodeFilter", "requestAnimationFrame"] as const
+    const cleanup = installDOM()
+    const globals = ["requestAnimationFrame"] as const
     const previous = globals.map((name) => Object.getOwnPropertyDescriptor(globalThis, name))
     const frames: FrameRequestCallback[] = []
     Object.defineProperties(globalThis, {
-      document: { configurable: true, value: { createTreeWalker: () => ({ nextNode: () => null }) } },
-      NodeFilter: { configurable: true, value: { SHOW_TEXT: 4 } },
       requestAnimationFrame: { configurable: true, value: (callback: FrameRequestCallback) => frames.push(callback) },
     })
     let finish!: () => void
@@ -33,7 +34,10 @@ describe("attachment focus", () => {
     let dialog = false
     let close: (() => void) | undefined
     const browser = source === "browser-menu" || source === "browser-canceled"
-    const target = { focus: mock(() => {}), isConnected: true } as unknown as HTMLElement
+    const target = document.createElement("div")
+    target.textContent = "draft"
+    target.focus = mock(() => {})
+    document.body.append(target)
     const onError = mock(() => {})
     let editor!: ReturnType<typeof createComposerEditor>
     try {
@@ -102,6 +106,7 @@ describe("attachment focus", () => {
         ["failed", "canceled", "browser-canceled", "unsupported"].includes(source) ? 1 : 2,
       )
     } finally {
+      cleanup()
       globals.forEach((name, index) => {
         const descriptor = previous[index]
         if (descriptor) Object.defineProperty(globalThis, name, descriptor)
@@ -315,7 +320,7 @@ describe("composer paste", () => {
 
 describe("composer history navigation", () => {
   test("recalls older prompts at the boundary and restores the attachment draft", () => {
-    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
+    const cleanup = installDOM()
     const previousFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame")
     try {
       renderToString(() => {
@@ -341,27 +346,14 @@ describe("composer history navigation", () => {
           view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
         })
         let collapsed = true
-        Object.defineProperty(globalThis, "window", {
-          configurable: true,
-          value: {
-            getSelection: () => ({
-              isCollapsed: collapsed,
-              anchorNode: {},
-              anchorOffset: 0,
-              rangeCount: 1,
-              getRangeAt: () => ({
-                cloneRange: () => ({
-                  selectNodeContents() {},
-                  setEnd() {},
-                  toString: () => "x".repeat(store[0].cursor ?? 0),
-                }),
-              }),
-            }),
-          },
-        })
+        const target = document.createElement("div")
+        document.body.append(target)
         Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: () => 1 })
-        editor.setEditor({ contains: () => true } as unknown as HTMLElement)
+        editor.setEditor(target)
         const key = (key: string, extra = {}) => {
+          renderComposerEditor(target, editor.parts())
+          setCursorPosition(target, store[0].cursor ?? 0)
+          if (!collapsed) window.getSelection()!.selectAllChildren(target)
           const event = { key, preventDefault: mock(() => {}), ...extra } as unknown as KeyboardEvent
           editor.onKeyDown(event)
           return event
@@ -399,8 +391,7 @@ describe("composer history navigation", () => {
         return ""
       })
     } finally {
-      if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow)
-      else delete (globalThis as { window?: typeof globalThis.window }).window
+      cleanup()
       if (previousFrame) Object.defineProperty(globalThis, "requestAnimationFrame", previousFrame)
       else
         delete (globalThis as { requestAnimationFrame?: typeof globalThis.requestAnimationFrame }).requestAnimationFrame

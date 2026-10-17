@@ -16,10 +16,9 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/ui`, `@opencode/util` | Controls, touch-aware visibility, scrolling, i18n, paths and title fallback |
 
 Local schema/persistence, composer DOM/suggestion sizing and permission notifications follow the main app's
-module boundaries; see the README for their contracts. `shell/notifications/notification.tsx` owns notification
-delivery, copy and deduplication; request adapters select the active request and signal refresh/reply boundaries.
-Attachment operations share error handling in `composer/attachments/attachments.ts`; picker focus completion follows
-`composer/editor/interaction.ts` and the existing menu-dismiss controller. Shared UI packages own Markdown dependencies.
+module boundaries; see the README for their contracts. Composer caret reads, restoration and focused rendering
+share `composer/editor/dom.ts`, including line breaks and atomic mentions. Attachment errors and picker focus use
+the attachment/editor boundaries; notification delivery uses the shell boundary. Shared UI packages own Markdown dependencies.
 Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.

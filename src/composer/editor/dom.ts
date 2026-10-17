@@ -8,34 +8,58 @@ import type {
 } from "../types"
 import { isAttachment } from "../prompt-parts"
 
+function getTextLength(node: Node): number {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent?.length ?? 0
+  if (node instanceof HTMLElement && node.tagName === "BR") return 1
+  return Array.from(node.childNodes).reduce((length, child) => length + getTextLength(child), 0)
+}
+
 export function getCursorPosition(editor: HTMLElement) {
   const selection = window.getSelection()
-  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return editor.textContent?.length ?? 0
+  if (!selection?.rangeCount || !editor.contains(selection.anchorNode)) return getTextLength(editor)
   const range = selection.getRangeAt(0).cloneRange()
   range.selectNodeContents(editor)
   range.setEnd(selection.anchorNode!, selection.anchorOffset)
-  return range.toString().length
+  return getTextLength(range.cloneContents())
 }
 
 export function setCursorPosition(editor: HTMLElement | undefined, cursor: number) {
   if (!editor) return
-  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT)
-  let remaining = cursor
-  let node = walker.nextNode()
-  while (node) {
-    const length = node.textContent?.length ?? 0
-    if (remaining <= length) {
-      const range = document.createRange()
-      range.setStart(node, remaining)
-      range.collapse(true)
-      const selection = window.getSelection()
-      selection?.removeAllRanges()
-      selection?.addRange(range)
-      return
+  const range = document.createRange()
+  let remaining = Math.max(0, cursor)
+  const visit = (node: Node): boolean => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const length = node.textContent?.length ?? 0
+      if (remaining <= length) {
+        range.setStart(node, remaining)
+        return true
+      }
+      remaining -= length
+      return false
     }
-    remaining -= length
-    node = walker.nextNode()
+    if (!(node instanceof HTMLElement)) return false
+    const mention = !!node.dataset.mention
+    if (mention || node.tagName === "BR") {
+      const length = mention ? (node.textContent?.length ?? 0) : 1
+      if (remaining <= length) {
+        // Mentions are atomic, non-editable pills. Never place a caret in their text node.
+        if (remaining === 0) range.setStartBefore(node)
+        else if (!mention && node.nextSibling?.nodeType === Node.TEXT_NODE) range.setStart(node.nextSibling, 0)
+        else range.setStartAfter(node)
+        return true
+      }
+      remaining -= length
+      return false
+    }
+    return Array.from(node.childNodes).some(visit)
   }
+  if (!Array.from(editor.childNodes).some(visit)) {
+    range.selectNodeContents(editor)
+    range.collapse(false)
+  } else range.collapse(true)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
 }
 
 const mentionParts = new WeakMap<HTMLElement, Exclude<ComposerPrompt[number], ComposerAttachment | { type: "text" }>>()
@@ -76,12 +100,7 @@ export function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPro
   )
 
   if (!active) return
-  const selection = window.getSelection()
-  const range = document.createRange()
-  range.selectNodeContents(editor)
-  range.collapse(false)
-  selection?.removeAllRanges()
-  selection?.addRange(range)
+  setCursorPosition(editor, getTextLength(editor))
 }
 
 export function parseComposerEditor(editor: HTMLDivElement) {

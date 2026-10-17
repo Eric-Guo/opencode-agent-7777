@@ -352,6 +352,10 @@ and unchanged; no app source or additional dependency is needed.
 
 `composer/editor/editor.tsx` owns editor presentation, attachments, menus, suggestions, and submit controls.
 `composer/editor/dom.ts` owns DOM rendering, mention parsing, and cursor helpers, keeping conversion out of the renderer.
+Caret reads, restoration, and focused re-rendering share that local DOM boundary, following the main app's handling
+of `<br>` line breaks and atomic mention pills. Restoration handles nested inline text and empty drafts without
+placing the caret inside a mention. Literal zero-width characters remain part of the compact draft's text and offsets.
+DOM regression tests use a test-only `happy-dom` dependency; runtime code has no dependency on the main app.
 Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
 fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
 `composer/prompt-parts.ts` owns prompt text extraction, attachment classification and cloning for draft state,
