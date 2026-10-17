@@ -18,13 +18,15 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 Local schema/persistence, composer DOM/suggestion sizing and permission notifications follow the main app's
 module boundaries; see the README for their contracts. `shell/notifications/notification.tsx` owns notification
 delivery, copy and deduplication; request adapters select the active request and signal refresh/reply boundaries.
-Shared UI packages own Markdown dependencies. Remaining compact responsibilities:
+Attachment operations share error handling in `composer/attachments/attachments.ts`; picker focus completion follows
+`composer/editor/interaction.ts` and the existing menu-dismiss controller. Shared UI packages own Markdown dependencies.
+Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
   records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
   messages; retain live rows/HTTP receipts until acknowledged.
-- Draft/history formats, attachments, mentions, comments, undo/redo and request routing.
+- Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo and request routing.
   Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
 - Scroll pause/resume; model catalog/selection; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.

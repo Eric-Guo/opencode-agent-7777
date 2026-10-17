@@ -154,6 +154,15 @@ export function createComposerAttachments(
     await addAttachments(Array.from(files))
   }
 
+  // All attachment entry points report failures through the same composer error surface.
+  const run = async <T>(action: () => Promise<T>) => {
+    try {
+      return await action()
+    } catch (error) {
+      input.onError(error)
+    }
+  }
+
   onMount(() => {
     const cancel = input.onDragCancel?.(clearDrag)
     if (cancel) onCleanup(cancel)
@@ -166,23 +175,27 @@ export function createComposerAttachments(
     })
     makeEventListener(document, "dragend", clearDrag)
     makeEventListener(window, "blur", clearDrag)
-    makeEventListener(target, "drop", (event) => void handleDrop(event).catch(input.onError))
+    makeEventListener(target, "drop", (event) => void run(() => handleDrop(event)))
   })
 
   return {
-    addAttachments,
-    handlePaste,
-    handleDrop,
+    addAttachments: (...args: Parameters<typeof addAttachments>) => run(() => addAttachments(...args)),
+    handlePaste: (event: ClipboardEvent) => run(() => handlePaste(event)),
+    handleDrop: (event: DragEvent) => run(() => handleDrop(event)),
     handleDragOver,
     handleDragLeave,
-    pick(fallback: () => void) {
+    pick(fallback: () => void, done?: () => void) {
       if (!input.picker) {
         fallback()
         return
       }
-      void input
-        .picker({ defaultPath: input.directory(), multiple: true, accept: [...ACCEPTED_FILE_TYPES] }, (file) => add(file))
-        .catch(input.onError)
+      return run(async () => {
+        await input.picker!(
+          { defaultPath: input.directory(), multiple: true, accept: [...ACCEPTED_FILE_TYPES] },
+          (file) => add(file),
+        )
+        done?.()
+      })
     },
   }
 }

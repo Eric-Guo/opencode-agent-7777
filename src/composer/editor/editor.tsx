@@ -17,6 +17,7 @@ import "../attachments/attachments.css"
 import "./editor.css"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
 import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
+import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import type {
   ComposerAttachment,
   ComposerComment,
@@ -165,6 +166,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
         multiple
         accept={ACCEPTED_FILE_TYPES.join(",")}
         class="hidden"
+        onCancel={props.controller.cancelAttachments}
         onChange={(event) => {
           const list = event.currentTarget.files
           if (list) props.controller.addAttachments(Array.from(list))
@@ -535,11 +537,13 @@ export function ComposerEditorAddMenu(props: {
   commandsLabel: string
   contextLabel: string
   shellLabel: string
-  onAttach: () => void
+  onAttach: (afterClose?: (callback: () => void) => void) => void
   onCommands?: () => void
   onContext?: () => void
   onShell?: () => void
 }) {
+  let content: HTMLDivElement | undefined
+  const dismiss = createMenuDismissController(() => content)
   return (
     <Tooltip
       placement="top"
@@ -550,7 +554,14 @@ export function ComposerEditorAddMenu(props: {
         </>
       }
     >
-      <Menu gutter={6} modal={false} placement="top-start">
+      <Menu
+        gutter={6}
+        modal={false}
+        placement="top-start"
+        onOpenChange={(open) => {
+          if (open) dismiss.allowTriggerRestore()
+        }}
+      >
         <Menu.Trigger
           as={IconButton}
           data-action="composer-attach"
@@ -563,10 +574,19 @@ export function ComposerEditorAddMenu(props: {
         />
         <Menu.Portal>
           <Menu.Content
+            ref={(element: HTMLDivElement) => (content = element)}
+            onCloseAutoFocus={dismiss.onCloseAutoFocus}
             class="[&_[data-slot=menu-v2-item-shortcut]]:w-5 [&_[data-slot=menu-v2-item-shortcut]]:justify-center"
             style={{ "min-width": "180px" }}
           >
-            <Menu.Item onSelect={props.onAttach} shortcut={props.attachShortcut}>
+            <Menu.Item
+              onSelect={() => {
+                // File selection restores the editor; menu teardown must not steal that focus.
+                dismiss.preventTriggerRestore()
+                props.onAttach(dismiss.afterClose)
+              }}
+              shortcut={props.attachShortcut}
+            >
               {props.attachLabel}
             </Menu.Item>
             <Show when={props.onCommands || props.onContext || props.onShell}>

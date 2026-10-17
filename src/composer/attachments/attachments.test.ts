@@ -41,6 +41,60 @@ function fixture(
 }
 
 describe("composer attachments", () => {
+  test.each(["picker", "input", "paste", "drop"] as const)(
+    "%s reports read failures once and retains attachments already added",
+    async (source) => {
+      const error = new Error("Could not read attachment")
+      const files = [new File(["notes"], "notes.txt"), new File(["broken"], "broken.txt")]
+      const onError = mock(() => {})
+      const done = mock(() => {})
+      const input = fixture(
+        async (file) => {
+          if (file.name === "broken.txt") throw error
+          return { id: "notes", url: "data:text/plain;base64,bm90ZXM=" }
+        },
+        {
+          editor: () => ({}) as HTMLElement,
+          onError,
+          picker: async (_options, onFile) => {
+            for (const file of files) await onFile(file)
+          },
+        },
+      )
+      try {
+        if (source === "picker") await input.attachments.pick(() => {}, done)
+        if (source === "input") await input.attachments.addAttachments(files)
+        if (source === "paste")
+          await input.attachments.handlePaste({
+            clipboardData: { items: files.map((file) => ({ kind: "file", getAsFile: () => file })) },
+            preventDefault() {},
+            stopPropagation() {},
+          } as unknown as ClipboardEvent)
+        if (source === "drop")
+          await input.attachments.handleDrop({
+            dataTransfer: { files, getData: () => "" },
+            preventDefault() {},
+          } as unknown as DragEvent)
+        expect(onError).toHaveBeenCalledTimes(1)
+        expect(onError).toHaveBeenCalledWith(error)
+        expect(done).not.toHaveBeenCalled()
+        expect(input.prompt()).toEqual([
+          { type: "text", content: "draft", start: 0, end: 5 },
+          {
+            type: "image",
+            id: expect.any(String),
+            filename: "notes.txt",
+            sourcePath: undefined,
+            mime: "text/plain",
+            blob: { id: "notes", url: "data:text/plain;base64,bm90ZXM=" },
+          },
+        ])
+      } finally {
+        input.dispose()
+      }
+    },
+  )
+
   test("preserves supported formats across picker calls even when a picker mutates its options", () => {
     const expected = (
       "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/*,application/json,application/ld+json," +

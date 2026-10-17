@@ -376,6 +376,11 @@ direct dependencies on `marked` or `dompurify`.
 picker/validation and desktop extension filters. Exported lists are frozen and picker calls receive copies, preserving
 the existing formats without sharing mutable options with the host. This policy stays local because the main app's
 attachment destination/upload behavior differs; attachment handling remains in `composer/attachments/attachments.ts`.
+That module now owns error reporting for picker, input, paste and drop operations, retaining files already added
+when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
+following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
+for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
+Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
 
 ## Recent Sessions
 

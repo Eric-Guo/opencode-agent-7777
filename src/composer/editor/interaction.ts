@@ -78,6 +78,7 @@ export function createComposerEditor(input: {
 }) {
   let editor: HTMLElement | undefined
   let fileInput: HTMLInputElement | undefined
+  let finishPicker: (() => void) | undefined
   const draft = createComposerEditorActions(input.store, input.onChange)
   const capabilities = {
     commands: input.capabilities?.commands !== false,
@@ -117,12 +118,16 @@ export function createComposerEditor(input: {
         setDraggingType: (type) => dispatch({ type: type ? "drag.enter" : "drag.leave" }),
       })
     : undefined
-  const attach = () => {
+  const attach = (afterClose?: (callback: () => void) => void) => {
     if (!attachments) {
       input.view.add?.onAttach()
       return
     }
-    attachments.pick(() => fileInput?.click())
+    const done = attachmentFocus(afterClose)
+    return attachments.pick(() => {
+      finishPicker = done
+      fileInput?.click()
+    }, done)
   }
   const contextList = useFilteredList<ComposerSuggestion>({
     items: async (query) => {
@@ -289,6 +294,18 @@ export function createComposerEditor(input: {
       editor?.focus()
       setCursorPosition(editor, cursor)
     })
+  }
+
+  const attachmentFocus = (afterClose = (callback: () => void) => callback()) => {
+    const target = editor
+    const identity = input.identity?.()
+    return () =>
+      afterClose(() => {
+        // A picker or file read may finish after switching sessions or opening another dialog.
+        if (editor !== target || !target?.isConnected || input.identity?.() !== identity) return
+        if (input.attachments?.isDialogActive()) return
+        restoreFocus()
+      })
   }
 
   const applyHistory = (entry: ComposerHistoryEntry, position: "start" | "end") => {
@@ -466,7 +483,7 @@ export function createComposerEditor(input: {
       dispatch({ type: "drag.leave" })
       if (attachments) {
         event.stopPropagation()
-        void attachments.handleDrop(event).catch(input.attachments!.onError)
+        void attachments.handleDrop(event)
         return
       }
       event.preventDefault()
@@ -476,7 +493,17 @@ export function createComposerEditor(input: {
       fileInput = element
     },
     addAttachments(files: File[]) {
-      if (attachments) void attachments.addAttachments(files)
+      if (!attachments) return
+      const done = finishPicker ?? attachmentFocus()
+      finishPicker = undefined
+      return attachments.addAttachments(files).then((added) => {
+        if (added !== undefined) done()
+      })
+    },
+    cancelAttachments() {
+      const done = finishPicker
+      finishPicker = undefined
+      done?.()
     },
     setQuery(value: string) {
       dispatch({ type: "popover.query", value })
