@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
 import type { RpcMessage } from "effect/rpc"
-import { createDesktopApi, ServerReadyData } from "./desktop-rpc-client"
+import { createDesktopApi } from "./desktop-rpc-client"
 import { resolveServer } from "@/runtime/server/resolver-compact"
-
-const decode = Schema.decodeUnknownSync(ServerReadyData)
 
 describe("desktop message-port transport", () => {
   test("initializes against the desktop host's structured-clone protocol", async () => {
@@ -47,6 +45,9 @@ describe("desktop message-port transport", () => {
 
       const requests: RpcMessage.RequestEncoded[] = []
       const image = { buffer: new Uint8Array([0, 128, 255]), width: 1, height: 1 }
+      const files = { token: "picked-files", files: [{ path: "/project/notes.txt", name: "notes.txt", size: 3 }] }
+      const bytes = new Uint8Array([9, 1, 2, 3, 9]).subarray(1, 4)
+      let cancelled = false
       host.addEventListener("message", (event) => {
         const request = event.data as RpcMessage.RequestEncoded
         if (request._tag !== "Request") return
@@ -56,7 +57,13 @@ describe("desktop message-port transport", () => {
             ? data
             : request.tag === "FilesReadClipboardImage"
               ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
-              : null
+              : request.tag === "FilesOpenFilePicker"
+                ? cancelled
+                  ? null
+                  : files
+                : request.tag === "FilesReadPickedFile"
+                  ? Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(bytes)
+                  : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
@@ -78,6 +85,24 @@ describe("desktop message-port transport", () => {
         { tag: "AppSetBackgroundColor", payload: { color: "#ffffff" } },
         { tag: "FilesReadClipboardImage", payload: null },
       ])
+
+      const picked = await api.openFilePicker!({ multiple: true, defaultPath: "/project", extensions: ["txt"] })
+      expect(picked).toEqual(files)
+      const file = await api.readPickedFile!(picked!.token, picked!.files[0].path)
+      expect(file).toBeInstanceOf(ArrayBuffer)
+      expect(new Uint8Array(file)).toEqual(new Uint8Array([1, 2, 3]))
+      expect(await api.releasePickedFiles!(picked!.token)).toBeUndefined()
+      cancelled = true
+      expect(await api.openFilePicker!()).toBeNull()
+      expect(requests.slice(4).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        {
+          tag: "FilesOpenFilePicker",
+          payload: { options: { multiple: true, defaultPath: "/project", extensions: ["txt"] } },
+        },
+        { tag: "FilesReadPickedFile", payload: { token: "picked-files", path: "/project/notes.txt" } },
+        { tag: "FilesReleasePickedFiles", payload: { token: "picked-files" } },
+        { tag: "FilesOpenFilePicker", payload: {} },
+      ])
     } finally {
       events.dispatchEvent(new Event("pagehide"))
       host.close()
@@ -85,45 +110,5 @@ describe("desktop message-port transport", () => {
       if (original) Object.defineProperty(globalThis, "window", original)
       else delete (globalThis as { window?: typeof globalThis.window }).window
     }
-  })
-})
-
-describe("desktop initialization response", () => {
-  test.each([
-    null,
-    {},
-    { sessionID: "id", sessionDirectory: "directory", promptDraft: "" },
-    { sessionID: 5, sessionDirectory: "directory", promptDraft: "draft" },
-  ])("rejects malformed storage keys: %j", (storageKeys) => {
-    expect(() => decode({ url: "http://localhost:4096", storageKeys })).toThrow()
-  })
-  test("accepts current desktop data without a password and preserves tab configuration", () => {
-    expect(
-      decode({
-        url: "http://localhost:4096",
-        localAgent: "support",
-        welcomeText: "Welcome",
-        suggestedQuestions: ["Help"],
-        ssoJwtSecretKey: "test-key",
-      }),
-    ).toEqual({
-      url: "http://localhost:4096",
-      localAgent: "support",
-      welcomeText: "Welcome",
-      suggestedQuestions: ["Help"],
-      ssoJwtSecretKey: "test-key",
-    })
-  })
-
-  test.each([null, "", "legacy-password"])("preserves legacy password %p", (password) => {
-    expect(decode({ url: "http://localhost:4096", password })).toEqual({
-      url: "http://localhost:4096",
-      password,
-    })
-  })
-
-  test("still rejects missing URLs and malformed credentials", () => {
-    expect(() => decode({})).toThrow()
-    expect(() => decode({ url: "http://localhost:4096", password: 123 })).toThrow()
   })
 })

@@ -3,6 +3,7 @@ import { createResource, createSignal, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
+import type { CybrosCurrentUser } from "@/runtime/platform/desktop-api"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
@@ -12,11 +13,6 @@ import { SettingsGeneral } from "@/settings/general/general"
 import { ReviewTrigger } from "@/review/trigger-compact"
 
 const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
-
-type CybrosCurrentUser = {
-  chinese_name: string
-  clerk_code: string
-}
 
 function nextLocale(locale: Locale): Locale {
   return locale === "en" ? "zh" : "en"

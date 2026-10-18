@@ -19,6 +19,7 @@ Schema/persistence, composer DOM/selection/sizing, attachment handling, notifica
 the reference boundaries with local implementations. Model headings reuse provider icons and Console catalog labels;
 shared UI owns search fields, clearing, result scrolling (including composer suggestions) and Markdown dependencies.
 Composer suggestion filtering, keyboard selection and compact sizing stay local. See the README for compact contracts.
+The compact desktop bridge derives preload payload types from its Effect schemas; the transport stays lazy and local.
 Local `/export` follows the session-command boundary and uses the public client's complete JSON transfer API,
 browser downloads and shared toast feedback, independently of the visible history limit.
 Remaining compact responsibilities:

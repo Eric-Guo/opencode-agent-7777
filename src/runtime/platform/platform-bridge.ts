@@ -1,7 +1,8 @@
 import { ACCEPTED_FILE_EXTENSIONS } from "./file-picker"
+import type { DesktopAPI } from "./desktop-api"
 
 type DesktopAttachmentAPI = Pick<
-  NonNullable<Window["api"]>,
+  DesktopAPI,
   "openFilePicker" | "readPickedFile" | "releasePickedFiles" | "getPathForFile" | "readClipboardImage"
 >
 

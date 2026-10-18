@@ -1,34 +1,14 @@
 import { Context, Effect, Layer, ManagedRuntime, Queue, Schema, Stream } from "effect"
 import { Rpc, RpcClient, RpcClientError, RpcGroup, RpcMessage } from "effect/rpc"
+import {
+  ClipboardImage,
+  CybrosCurrentUser,
+  FilePickerOptions,
+  PickedFiles,
+  ServerReadyData,
+  type DesktopAPI,
+} from "./desktop-api"
 
-export const ServerReadyData = Schema.Struct({
-  url: Schema.String,
-  // Current desktop hosts omit credentials; older hosts may still send a password or null.
-  password: Schema.optionalKey(Schema.NullOr(Schema.String)),
-  ssoJwtSecretKey: Schema.optionalKey(Schema.String),
-  localAgent: Schema.optionalKey(Schema.String),
-  welcomeText: Schema.optionalKey(Schema.String),
-  suggestedQuestions: Schema.optionalKey(Schema.Array(Schema.String)),
-  storageKeys: Schema.optionalKey(
-    Schema.Struct({
-      sessionID: Schema.NonEmptyString,
-      sessionDirectory: Schema.NonEmptyString,
-      promptDraft: Schema.NonEmptyString,
-    }),
-  ),
-})
-const CybrosCurrentUser = Schema.Struct({ chinese_name: Schema.String, clerk_code: Schema.String })
-const FilePickerOptions = Schema.Struct({
-  multiple: Schema.optionalKey(Schema.Boolean),
-  title: Schema.optionalKey(Schema.String),
-  defaultPath: Schema.optionalKey(Schema.String),
-  extensions: Schema.optionalKey(Schema.Array(Schema.String)),
-})
-const PickedFiles = Schema.Struct({
-  token: Schema.String,
-  files: Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String, size: Schema.Number })),
-})
-const ClipboardImage = Schema.Struct({ buffer: Schema.Uint8Array, width: Schema.Number, height: Schema.Number })
 const AppAwaitInitialization = Rpc.make("AppAwaitInitialization", { success: ServerReadyData })
 const AppGetCybrosCurrentUser = Rpc.make("AppGetCybrosCurrentUser", {
   success: Schema.NullOr(CybrosCurrentUser),
@@ -59,20 +39,13 @@ type InvokeTag = keyof DesktopRpcClient
 type InvokeArgs<Tag extends InvokeTag> = Parameters<DesktopRpcClient[Tag]>
 type InvokeResult<Tag extends InvokeTag> =
   ReturnType<DesktopRpcClient[Tag]> extends Effect.Effect<infer Value, unknown> ? Value : never
-type Mutable<Value> =
-  Value extends ReadonlyArray<unknown>
-    ? { -readonly [Key in keyof Value]: Mutable<Value[Key]> }
-    : Value extends object
-      ? { -readonly [Key in keyof Value]: Mutable<Value[Key]> }
-      : Value
 
 class DesktopClient extends Context.Service<DesktopClient, DesktopRpcClient>()("opencode/7777/DesktopClient") {}
 
-const mutable = <Value>(value: Value) => value as Mutable<Value>
 const toArrayBuffer = (value: Uint8Array) =>
   value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) as ArrayBuffer
 
-export function createDesktopApi(port: Promise<MessagePort>): NonNullable<Window["api"]> {
+export function createDesktopApi(port: Promise<MessagePort>): DesktopAPI {
   const ClientProtocolLive = Layer.unwrap(Effect.promise(() => port).pipe(Effect.map(clientProtocol)))
   const ClientLive = Layer.effect(DesktopClient, RpcClient.make(DesktopRpcs)).pipe(Layer.provide(ClientProtocolLive))
   const runtime = ManagedRuntime.make(ClientLive)
@@ -87,9 +60,9 @@ export function createDesktopApi(port: Promise<MessagePort>): NonNullable<Window
 
   window.addEventListener("pagehide", () => void runtime.dispose(), { once: true })
   return {
-    awaitInitialization: () => invoke("AppAwaitInitialization").then(mutable),
-    getCybrosCurrentUser: () => invoke("AppGetCybrosCurrentUser").then(mutable),
-    openFilePicker: (options) => invoke("FilesOpenFilePicker", { options }).then(mutable),
+    awaitInitialization: () => invoke("AppAwaitInitialization"),
+    getCybrosCurrentUser: () => invoke("AppGetCybrosCurrentUser"),
+    openFilePicker: (options) => invoke("FilesOpenFilePicker", options ? { options } : {}),
     readPickedFile: (token, path) => invoke("FilesReadPickedFile", { token, path }).then(toArrayBuffer),
     releasePickedFiles: (token) => invoke("FilesReleasePickedFiles", { token }),
     getPathForFile: (file) => window.electron.getPathForFile(file),

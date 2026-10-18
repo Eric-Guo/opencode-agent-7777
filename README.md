@@ -210,6 +210,12 @@ not shared imports: see the parity table for actual public exports and the remai
 7777 is an independent Git repository. Refactors stay inside this checkout; shared OpenCode packages are dependencies,
 while `packages/app` remains a reference for copying and aligning local code.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
+The embedding host's payload schemas and `DesktopAPI` contract live in `runtime/platform/desktop-api.ts`.
+Ambient window declarations, header identity types and the lazy RPC adapter derive their payload types from those
+Effect schemas, including mutable arrays and optional host capabilities. This compact-only contract replaces
+duplicated preload declarations; it does not import the main app or desktop package. The adapter retains the
+structured-clone protocol, legacy initialization fields and native `ArrayBuffer` results, and omits absent picker
+options when encoding requests. Browser consumers use type-only imports, keeping the RPC transport lazy.
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
 agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
 prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
