@@ -11,7 +11,7 @@ import { createFileSearch } from "@/workspaces/files/model"
 import { fileUrl } from "@/workspaces/files/path"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { createComposerCatalog } from "./catalog-compact"
-import { parseSlashCommand } from "./client-slash-command"
+import { createClientSlashCommands, parseSlashCommand } from "./client-slash-command"
 import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 import { composerHistory } from "./history/store"
@@ -55,16 +55,29 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   })
   onCleanup(catalog.clear)
   onCleanup(files.clear)
-  const slashCommands = createMemo<ComposerSuggestion[]>(() =>
-    catalog.state.commands.map((command) => ({
-      id: `custom.${command.name}`,
-      kind: "command",
-      label: `/${command.name}`,
-      trigger: command.name,
-      title: command.name,
-      description: command.description,
-    })),
-  )
+  const clientCommands = () => adapter.commands?.() ?? []
+  const localCommands = createClientSlashCommands({
+    commands: clientCommands,
+    draft: adapter.state,
+    beforeSelect: () => {
+      controller.resetHistory()
+      controller.restoreFocus()
+    },
+    onArguments: (command) => adapter.onAttachmentError(language.t("prompt.command.noArguments", { command })),
+  })
+  const slashCommands = createMemo<ComposerSuggestion[]>(() => [
+    ...localCommands.suggestions(),
+    ...catalog.state.commands
+      .filter((command) => !clientCommands().some((item) => item.trigger === command.name))
+      .map((command) => ({
+        id: `custom.${command.name}`,
+        kind: "command" as const,
+        label: `/${command.name}`,
+        trigger: command.name,
+        title: command.name,
+        description: command.description,
+      })),
+  ])
   const context = createMemo<ComposerSuggestion[]>(() => [
     ...catalog.state.skills.map((skill) => ({
       id: `skill:${skill.id}`,
@@ -106,6 +119,10 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       shell: false,
     },
     commands: slashCommands,
+    onSuggestionSelect: (item) => {
+      if (adapter.disabled()) return
+      return localCommands.select(item.id)
+    },
     context,
     searchContextFiles: async (query) => {
       const active = location()
@@ -164,6 +181,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
           }
           const queue = options?.queue
           const parsed = parseSlashCommand(adapter.state.current().trim())
+          if (localCommands.submit(adapter.state.current())) return
           const command = catalog.state.commands.find((item) => item.name === parsed?.name)?.name
           if (parsed && catalog.state.commandStatus === "loading") return
           controller.resetHistory()

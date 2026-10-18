@@ -4,12 +4,14 @@ import { currentLocalAgent, setState, state } from "@/runtime/server/session-sto
 import { prompt } from "@/composer/persistence-singleton"
 import { abortPrompt, submitPrompt } from "@/composer/submit"
 import type { ComposerAdapter, ComposerControls } from "@/composer/adapter"
+import { useSessionCommands } from "@/session/commands/use-session-commands"
 
 export function createActiveComposerAdapter(input: {
   controls: Accessor<ComposerControls>
   disabled: Accessor<boolean>
 }): ComposerAdapter {
   const language = useLanguage()
+  const commands = useSessionCommands()
   return {
     state: prompt,
     identity: () => state.session?.id,
@@ -18,6 +20,7 @@ export function createActiveComposerAdapter(input: {
     working: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
     submitting: () => state.submitting,
     placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
+    commands,
     onAttachmentError: (message: string) => setState("error", message),
     submit: submitPrompt,
     interrupt: abortPrompt,

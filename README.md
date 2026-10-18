@@ -363,7 +363,17 @@ same resources, with the explicit server-default-model read first and compact se
 main app's `workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller
 and URI helpers. It searches files and directories without file tabs or a workspace provider. File, skill, and agent
 mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
-Agent suggestions exclude hidden and primary-only agents. App command-provider actions remain unavailable.
+Agent suggestions exclude hidden and primary-only agents. Local session actions enter through the composer adapter;
+the broader app command provider remains unavailable.
+
+Session JSON export follows `session/commands/{export,use-session-commands}` and
+`composer/client-slash-command.ts`. The public client's `session.export` transfer API supplies the complete saved
+transcript, independently of the compact timeline's nine-dialog window. The browser download uses the native
+`{ info, messages }` transfer shape with pretty JSON and a safe title-based filename (falling back to the session ID).
+The shared UI toast reports preparation, download initiation or failure; concurrent export requests are ignored
+until the current one finishes. Local `/export` takes precedence over a same-named server command and never submits
+a prompt or changes model/session settings. Inline execution preserves attachments; choosing it from the Add menu
+preserves the existing draft and mentions. It needs no app imports, host command provider or native save dialog.
 
 `composer/request.ts` derives transport fields from the public client's `SessionPromptInput`; prompt and slash-command
 submission pass through that single payload builder. `composer/adapter.ts` reuses `SessionInboxDelivery` for queue/steer.
@@ -451,6 +461,12 @@ Use **Arrow Up/Down** to choose a result, **Tab** or **Enter** to insert it, and
 The **+** menu also offers Commands and Context. Selected skills and agents stay attached when editing, reloading,
 or recalling an accepted prompt. Sending a recognized `/command` invokes the server command with the remaining text
 as arguments; unrecognized command text is sent as an ordinary prompt.
+
+Use **/export** to download the current session as a `.json` file. Select the suggestion, or type `/export` and
+press **Send**. The export includes the full saved transcript, including messages outside the visible nine-dialog
+window, in `{ "info": ..., "messages": [...] }` format. It does not send a message to the model or include unsent
+drafts and queued prompts. The command takes no arguments; extra text is kept in the composer for correction.
+You can also choose **/export** from **Add → Commands** while keeping an existing draft.
 
 With the message editor focused and its text empty, press **Arrow Up** to recall the latest accepted prompt.
 At the start or end of a recalled prompt, **Arrow Up** and **Arrow Down** move through history; moving past the newest

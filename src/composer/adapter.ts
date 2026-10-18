@@ -2,6 +2,7 @@ import type { SessionInboxDelivery } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
 import type { ModelLoadStatus, ModelSelectorState } from "@/providers/models/selection"
 import type { PromptState } from "./state"
+import type { ClientSlashCommand } from "./client-slash-command"
 
 export type ComposerControls = {
   agent: string
@@ -20,6 +21,7 @@ export type ComposerAdapter = {
   working: Accessor<boolean>
   submitting: Accessor<boolean>
   placeholder: Accessor<string>
+  commands?: Accessor<ClientSlashCommand[]>
   onAttachmentError: (message: string) => void
   submit: (options?: { delivery?: ComposerDelivery; command?: string }) => void
   interrupt: () => void

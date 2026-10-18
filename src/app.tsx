@@ -6,6 +6,7 @@ import { DialogProvider } from "@opencode/ui/context/dialog"
 import { FileComponentProvider } from "@opencode/ui/context/file"
 import { MarkedProvider } from "@opencode/ui/context/marked"
 import { ThemeProvider } from "@opencode/ui/theme/context"
+import { Toast } from "@opencode/ui/toast"
 import { type ParentProps } from "solid-js"
 import { syncPlatformBackgroundColor } from "@/runtime/platform/platform-bridge"
 import { LanguageProvider, type Locale, useLanguage } from "@/runtime/i18n/language"
@@ -33,6 +34,7 @@ export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
     >
       <LanguageProvider locale={props.locale}>
         <UiI18nBridge>
+          <Toast.Region />
           <DialogProvider>
             <SettingsProvider>
               <MarkedProvider>
