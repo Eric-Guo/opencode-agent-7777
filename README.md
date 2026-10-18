@@ -338,6 +338,12 @@ filtering, selection and focus restoration while the shared controls own field s
 Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
 its header popover intentionally differs from the main app's routed Home view.
 
+Composer suggestion popups also reuse `TextInput` and `ScrollView` in `composer/editor/editor.tsx`.
+The shared field owns command-search styling and clearing, and the shared viewport owns scrolling and its thumb.
+Local code retains filtering, keyboard selection, focus restoration, draft preservation and boundary-based sizing,
+including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
+same viewport without adding a separate search field.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`

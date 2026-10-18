@@ -10,6 +10,7 @@ import { Keybind } from "@opencode/ui/keybind"
 import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { ScrollView } from "@opencode/ui/scroll-view"
+import { TextInput } from "@opencode/ui/text-input"
 import { AttachmentCard } from "@opencode/session-ui/attachment-card"
 import { CommentCard } from "@opencode/session-ui/comment-card"
 import { typeLabel } from "@opencode/session-ui/message-file"
@@ -18,12 +19,7 @@ import "./editor.css"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
 import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
-import type {
-  ComposerAttachment,
-  ComposerComment,
-  ComposerOption,
-  ComposerSuggestion,
-} from "../types"
+import type { ComposerAttachment, ComposerComment, ComposerOption, ComposerSuggestion } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
 import { isAttachment, promptText } from "../prompt-parts"
 import { getCursorPosition, parseComposerEditor, renderComposerEditor } from "./dom"
@@ -721,6 +717,7 @@ export function ComposerEditorPopover(props: {
 }) {
   const [store, setStore] = createStore({ maxHeight: COMPOSER_SUGGESTION_MAX_HEIGHT })
   const search = createMemo(() => props.search !== undefined)
+  let searchInput: HTMLInputElement | undefined
 
   createEffect(() => {
     const element = props.boundary?.()
@@ -742,57 +739,69 @@ export function ComposerEditorPopover(props: {
   return (
     <div
       data-component="composer-suggestions"
-      class="absolute inset-x-0 -top-2 z-40 flex -translate-y-full scroll-pb-[18px] flex-col overflow-auto rounded-xl bg-v2-background-bg-base p-2 shadow-[var(--v2-elevation-raised)] no-scrollbar"
+      class="absolute inset-x-0 -top-2 z-40 flex -translate-y-full flex-col overflow-hidden rounded-xl bg-v2-background-bg-base shadow-[var(--v2-elevation-raised)]"
       style={{ "max-height": `${store.maxHeight}px` }}
       onMouseDown={(event) => event.preventDefault()}
     >
-      <Show when={props.search}>
-        {(search) => (
-          <div class="shrink-0 px-2 py-1">
-            <input
-              ref={(element) => requestAnimationFrame(() => element.focus())}
-              value={search().value}
-              aria-label={search().label}
-              placeholder={search().placeholder}
-              class="w-full bg-transparent text-[13px] leading-5 text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint"
-              onInput={(event) => search().onValueChange(event.currentTarget.value)}
-              onKeyDown={(event) => search().onKeyDown(event)}
-              onMouseDown={(event) => event.stopPropagation()}
-            />
-          </div>
-        )}
-      </Show>
-      <Show
-        when={props.items.length > 0}
-        fallback={<div class="px-2 py-1 text-v2-text-text-muted">{props.emptyLabel}</div>}
-      >
-        <For each={props.items}>
-          {(item) => (
-            <button
-              type="button"
-              data-suggestion-id={item.id}
-              data-active={props.activeID === item.id ? "" : undefined}
-              class="flex h-7 w-full shrink-0 items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
-              classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
-              onPointerMove={() => props.onActiveChange(item)}
-              onClick={() => props.onSelect(item)}
-            >
-              <div class="flex min-w-0 flex-1 items-center gap-2">
-                <ComposerSuggestionIcon item={item} />
-                <bdi dir="auto" class="shrink-0 text-v2-text-text-base">
-                  {item.label}
-                </bdi>
-                <Show when={item.description}>
-                  <span class="min-w-0 truncate text-v2-text-text-muted">{item.description}</span>
-                </Show>
+      <ScrollView class="[&>.scroll-view__viewport]:scroll-pb-[18px]">
+        <div class="flex flex-col p-2">
+          <Show when={props.search}>
+            {(search) => (
+              <div class="shrink-0 px-2">
+                <TextInput
+                  ref={(element) => {
+                    searchInput = element
+                    requestAnimationFrame(() => element.isConnected && element.focus())
+                  }}
+                  value={search().value}
+                  aria-label={search().label}
+                  placeholder={search().placeholder}
+                  class="w-full"
+                  showClearButton={!!search().value}
+                  onClearClick={() => {
+                    search().onValueChange("")
+                    searchInput?.focus()
+                  }}
+                  onInput={(event) => search().onValueChange(event.currentTarget.value)}
+                  onKeyDown={(event) => search().onKeyDown(event)}
+                  onMouseDown={(event) => event.stopPropagation()}
+                />
               </div>
-              <Show when={item.keybind?.length}>
-                <span class="shrink-0 text-v2-text-text-muted">{item.keybind?.join("+")}</span>
-              </Show>
-            </button>
-          )}
-        </For>
-      </Show>
+            )}
+          </Show>
+          <Show
+            when={props.items.length > 0}
+            fallback={<div class="px-2 py-1 text-v2-text-text-muted">{props.emptyLabel}</div>}
+          >
+            <For each={props.items}>
+              {(item) => (
+                <button
+                  type="button"
+                  data-suggestion-id={item.id}
+                  data-active={props.activeID === item.id ? "" : undefined}
+                  class="flex h-7 w-full shrink-0 items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
+                  classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
+                  onPointerMove={() => props.onActiveChange(item)}
+                  onClick={() => props.onSelect(item)}
+                >
+                  <div class="flex min-w-0 flex-1 items-center gap-2">
+                    <ComposerSuggestionIcon item={item} />
+                    <bdi dir="auto" class="shrink-0 text-v2-text-text-base">
+                      {item.label}
+                    </bdi>
+                    <Show when={item.description}>
+                      <span class="min-w-0 truncate text-v2-text-text-muted">{item.description}</span>
+                    </Show>
+                  </div>
+                  <Show when={item.keybind?.length}>
+                    <span class="shrink-0 text-v2-text-text-muted">{item.keybind?.join("+")}</span>
+                  </Show>
+                </button>
+              )}
+            </For>
+          </Show>
+        </div>
+      </ScrollView>
     </div>
   )
 }
