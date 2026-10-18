@@ -326,6 +326,12 @@ Failed or outdated reads hide the footer while model selection stays usable; reo
 integration reads with the activation. Model defaults, visibility, storage formats, and the `manageModels` gate stay
 unchanged, and the footer is available when model management is disabled. No app imports or new dependencies are used.
 
+Model picker headings now reuse `ProviderModelIcon` and the Console catalog helpers for short provider names and
+workspace badges when the same provider is also connected directly. Label resolution uses the full catalog, so
+search and visibility filtering cannot hide the workspace identity. This presentation logic stays in
+`providers/catalog/console.ts`; free-model classification follows `providers/models/models.tsx`. Model management
+uses the shared `TextInput` clear action, including its focus behavior, without a separate button or positioning CSS.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`

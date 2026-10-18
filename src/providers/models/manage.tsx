@@ -1,6 +1,4 @@
 import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode/ui/dialog"
-import { Icon } from "@opencode/ui/icon"
-import { IconButton } from "@opencode/ui/icon-button"
 import { Switch } from "@opencode/ui/switch"
 import { TextInput } from "@opencode/ui/text-input"
 import { useFilteredList } from "@opencode/ui/hooks"
@@ -78,33 +76,24 @@ export const DialogManageModels: Component<{ model: ModelSelectorState }> = (pro
       </DialogHeader>
       <DialogBody class="flex min-h-0 flex-1 flex-col">
         <div class="px-4 pt-px pb-3">
-          <div class="relative">
-            <TextInput
-              type="search"
-              appearance="base"
-              class="!w-full self-stretch"
-              value={list.filter()}
-              onInput={(event) => list.onInput(event.currentTarget.value)}
-              placeholder={language.t("dialog.model.search.placeholder")}
-              spellcheck={false}
-              autocorrect="off"
-              autocomplete="off"
-              autocapitalize="off"
-              autofocus
-              aria-label={language.t("dialog.model.search.placeholder")}
-            />
-            <Show when={list.filter()}>
-              <IconButton
-                type="button"
-                variant="ghost-muted"
-                size="small"
-                class="settings-tab-search-clear"
-                icon={<Icon name="close" size="large" class="text-v2-icon-icon-muted" />}
-                onClick={() => list.clear()}
-                aria-label={language.t("common.clear")}
-              />
-            </Show>
-          </div>
+          <TextInput
+            type="search"
+            appearance="base"
+            class="!w-full self-stretch"
+            value={list.filter()}
+            onInput={(event) => list.onInput(event.currentTarget.value)}
+            placeholder={language.t("dialog.model.search.placeholder")}
+            spellcheck={false}
+            autocorrect="off"
+            autocomplete="off"
+            autocapitalize="off"
+            autofocus
+            aria-label={language.t("dialog.model.search.placeholder")}
+            showClearButton={!!list.filter()}
+            clearIcon="circle-xmark"
+            clearLabel={language.t("common.clear")}
+            onClearClick={() => list.clear()}
+          />
         </div>
         <div data-slot="manage-models-scroll" class="relative min-h-0 flex-1">
           <div class="settings-panel settings-models h-full px-4 pt-1 pb-4">

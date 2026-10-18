@@ -13,13 +13,11 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/client` | Data, catalogs, APIs and transport types |
 | `@opencode/session-ui` | Timeline, attachment/comment cards and line-selection types, `DockPrompt`, `SessionReview` |
 | `@opencode/gui-extensions` | `ContextUsage` |
-| `@opencode/ui`, `@opencode/util` | Controls, touch-aware visibility, scrolling, i18n, paths and title fallback |
+| `@opencode/ui`, `@opencode/util` | Controls (including search clearing), touch visibility, scrolling, i18n, paths and titles |
 
-Local schema/persistence, composer DOM/selection/suggestion sizing and permission notifications follow the main app's
-module boundaries; see the README for their contracts. Composer caret reads, attachment capture and rendering share
-`composer/editor/dom.ts`. Attachment format detection and picker filters share `runtime/platform/file-picker.ts`;
-errors and focus use the attachment/editor boundaries. Notification delivery uses the shell boundary.
-Shared UI packages own Markdown dependencies.
+Schema/persistence, composer DOM/selection/sizing, attachment handling, notifications and model presentation follow
+the reference boundaries with local implementations. Model headings reuse provider icons and Console catalog labels;
+shared UI owns search-clear controls and Markdown dependencies. See the README for contracts and compact exceptions.
 Remaining compact responsibilities:
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.

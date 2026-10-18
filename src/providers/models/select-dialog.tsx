@@ -11,6 +11,7 @@ import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
 import { sortProviderGroups } from "@/providers/catalog/order"
+import { consoleProviderLabels } from "@/providers/catalog/console"
 import { createIntegrationCatalog, usesChatGPTPlan } from "@/providers/catalog/integrations"
 import { ExternalLink } from "@/runtime/platform/external-link"
 import { currentRuntime, state } from "@/runtime/server/session-store-compact"
@@ -18,11 +19,9 @@ import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import { matchesModelSearch } from "./search"
+import { isFreeModel } from "./models"
 import { ModelTooltip } from "./tooltip"
 import { ProviderModelIcon } from "./provider-group"
-
-const isFree = (provider: string, cost: { input: number } | undefined) =>
-  provider === "opencode" && (!cost || cost.input === 0)
 
 type ModelItem = ReturnType<ModelSelectorState["list"]>[number]
 
@@ -56,6 +55,7 @@ export function ModelSelectorPopover(props: {
   return (
     <ModelSelectorPopoverView
       trigger={props.trigger}
+      all={controller.all}
       models={controller.models}
       groups={controller.groups}
       current={controller.current()}
@@ -89,6 +89,7 @@ function createModelSelectorController(input: {
   )
 
   return {
+    all: () => input.model.list().filter((item) => !input.provider() || item.provider.id === input.provider()),
     models: (search: string) => {
       const query = search.trim()
       const filtered = query
@@ -116,6 +117,7 @@ function createModelSelectorController(input: {
 
 export function ModelSelectorPopoverView(props: {
   trigger: ModelSelectorTrigger
+  all: () => ModelItem[]
   models: (search: string) => ModelItem[]
   groups: (models: ModelItem[]) => { category: string; items: ModelItem[] }[]
   current: string | undefined
@@ -133,6 +135,7 @@ export function ModelSelectorPopoverView(props: {
 
   const models = createMemo(() => props.models(store.search))
   const groups = createMemo(() => props.groups(models()))
+  const providerLabel = createMemo(() => consoleProviderLabels(props.all().map((item) => item.provider)))
   const keys = () => {
     const options = groups().flatMap((group) => group.items.map(modelKey))
     return props.onManage ? [...options, manageKey] : options
@@ -280,8 +283,15 @@ export function ModelSelectorPopoverView(props: {
                 <For each={groups()}>
                   {(group) => (
                     <Menu.Group>
-                      <Menu.GroupLabel class="gap-2 px-3">
-                        <span class="min-w-0 truncate">{group.items[0].provider.name}</span>
+                      <Menu.GroupLabel
+                        class="gap-1.5 pe-3"
+                        style={{ "padding-inline-start": group.category === "opencode" ? "10px" : "12px" }}
+                      >
+                        <ProviderModelIcon provider={group.items[0].provider} class="shrink-0" />
+                        <span class="min-w-0 truncate">{providerLabel()(group.items[0].provider).name}</span>
+                        <Show when={providerLabel()(group.items[0].provider).workspace}>
+                          {(workspace) => <Badge class="shrink-0">{workspace()}</Badge>}
+                        </Show>
                       </Menu.GroupLabel>
                       <Menu.RadioGroup value={props.current}>
                         <For each={group.items}>
@@ -295,7 +305,7 @@ export function ModelSelectorPopoverView(props: {
                                 <ModelTooltip
                                   model={item}
                                   latest={item.latest}
-                                  free={isFree(item.provider.id, item.cost)}
+                                  free={isFreeModel(item)}
                                   v2
                                 />
                               }
@@ -313,7 +323,7 @@ export function ModelSelectorPopoverView(props: {
                                 onSelect={() => selectModel(item)}
                               >
                                 <span class="min-w-0 truncate leading-5">{item.name}</span>
-                                <Show when={isFree(item.provider.id, item.cost)}>
+                                <Show when={isFreeModel(item)}>
                                   <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
                                 </Show>
                                 <Show when={item.latest}>
