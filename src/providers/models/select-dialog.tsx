@@ -2,6 +2,7 @@ import { ScrollView } from "@opencode/ui/scroll-view"
 import { Badge } from "@opencode/ui/badge"
 import { Icon } from "@opencode/ui/icon"
 import { Menu } from "@opencode/ui/menu"
+import { TextInput } from "@opencode/ui/text-input"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { type ComponentProps, createEffect, createMemo, For, type JSX, Show } from "solid-js"
@@ -217,57 +218,52 @@ export function ModelSelectorPopoverView(props: {
           onCloseAutoFocus={dismiss.onCloseAutoFocus}
         >
           <div class="flex flex-col p-0.5">
-            <div class="flex h-7 items-center gap-2 rounded-sm pl-3 pr-2.5 text-v2-icon-icon-muted">
-              <Icon name="magnifying-glass" size="small" class="shrink-0" />
-              <input
-                ref={(el) => (searchRef = el)}
-                value={store.search}
-                placeholder={language.t("dialog.model.search.placeholder")}
-                class="h-7 min-w-0 flex-1 border-0 bg-transparent text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint"
-                spellcheck={false}
-                autocorrect="off"
-                autocomplete="off"
-                autocapitalize="off"
-                onInput={(event) => setSearch(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Tab") return
-                  event.stopPropagation()
-                  if (event.key === "Escape") {
-                    event.preventDefault()
-                    dismiss.preventTriggerRestore()
-                    setOpen(false)
-                    dismiss.afterClose(props.onClose)
-                    return
-                  }
-                  if (event.altKey || event.metaKey) return
-                  if (event.key === "ArrowDown") {
-                    event.preventDefault()
-                    moveActive(1)
-                    return
-                  }
-                  if (event.key === "ArrowUp") {
-                    event.preventDefault()
-                    moveActive(-1)
-                    return
-                  }
-                  if (event.key === "Enter" && !event.isComposing) {
-                    event.preventDefault()
-                    selectActive()
-                  }
-                }}
-              />
-              <Show when={store.search.trim()}>
-                <button
-                  type="button"
-                  class="flex size-5 items-center justify-center rounded-sm text-v2-icon-icon-muted hover:bg-v2-overlay-simple-overlay-hover"
-                  onPointerDown={(event) => event.preventDefault()}
-                  onClick={() => setSearch("")}
-                  aria-label={language.t("common.clear")}
-                >
-                  <Icon name="close" size="small" />
-                </button>
-              </Show>
-            </div>
+            <TextInput
+              ref={(el) => (searchRef = el)}
+              value={store.search}
+              placeholder={language.t("dialog.model.search.placeholder")}
+              class="w-full"
+              aria-label={language.t("dialog.model.search.placeholder")}
+              leadingIcon={<Icon name="magnifying-glass" size="small" />}
+              showClearButton={!!store.search.trim()}
+              clearIcon="close"
+              clearLabel={language.t("common.clear")}
+              onClearClick={() => {
+                setSearch("")
+                searchRef?.focus()
+              }}
+              spellcheck={false}
+              autocorrect="off"
+              autocomplete="off"
+              autocapitalize="off"
+              onInput={(event) => setSearch(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Tab") return
+                event.stopPropagation()
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  dismiss.preventTriggerRestore()
+                  setOpen(false)
+                  dismiss.afterClose(props.onClose)
+                  return
+                }
+                if (event.altKey || event.metaKey) return
+                if (event.key === "ArrowDown") {
+                  event.preventDefault()
+                  moveActive(1)
+                  return
+                }
+                if (event.key === "ArrowUp") {
+                  event.preventDefault()
+                  moveActive(-1)
+                  return
+                }
+                if (event.key === "Enter" && !event.isComposing) {
+                  event.preventDefault()
+                  selectActive()
+                }
+              }}
+            />
           </div>
           <div class="h-px bg-v2-border-border-muted" />
           <ScrollView data-slot="model-selector-scroll" class="max-h-[220px] min-h-0">
@@ -301,14 +297,7 @@ export function ModelSelectorPopoverView(props: {
                               placement="right-start"
                               gutter={6}
                               openDelay={0}
-                              value={
-                                <ModelTooltip
-                                  model={item}
-                                  latest={item.latest}
-                                  free={isFreeModel(item)}
-                                  v2
-                                />
-                              }
+                              value={<ModelTooltip model={item} latest={item.latest} free={isFreeModel(item)} v2 />}
                             >
                               <Menu.RadioItem
                                 value={modelKey(item)}

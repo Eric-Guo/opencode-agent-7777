@@ -332,6 +332,12 @@ search and visibility filtering cannot hide the workspace identity. This present
 `providers/catalog/console.ts`; free-model classification follows `providers/models/models.tsx`. Model management
 uses the shared `TextInput` clear action, including its focus behavior, without a separate button or positioning CSS.
 
+The model picker and compact recent-session search also use the public `TextInput`, and recent results use
+`ScrollView`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
+filtering, selection and focus restoration while the shared controls own field styling, clearing and scrollbars.
+Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
+its header popover intentionally differs from the main app's routed Home view.
+
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`

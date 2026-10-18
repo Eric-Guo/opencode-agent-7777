@@ -17,10 +17,10 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 
 Schema/persistence, composer DOM/selection/sizing, attachment handling, notifications and model presentation follow
 the reference boundaries with local implementations. Model headings reuse provider icons and Console catalog labels;
-shared UI owns search-clear controls and Markdown dependencies. See the README for contracts and compact exceptions.
+shared UI owns search fields, clearing, result scrolling and Markdown dependencies. See the README for compact contracts.
 Remaining compact responsibilities:
 
-- Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session search.
+- Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and recent-session data/search.
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
   records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
   messages; retain live rows/HTTP receipts until acknowledged.

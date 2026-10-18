@@ -1,4 +1,6 @@
 import { Icon } from "@opencode/ui/icon"
+import { ScrollView } from "@opencode/ui/scroll-view"
+import { TextInput } from "@opencode/ui/text-input"
 import { createMemo, createUniqueId, For, onCleanup, onMount, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { groupSessions, type HomeSessionsController } from "./controller"
@@ -46,56 +48,49 @@ export function HomeSessionsView(props: {
 
   return (
     <div data-component="home-sessions">
-      <div class="flex h-8 items-center gap-2 rounded-md border border-v2-border-border-base px-2">
-        <Icon name="magnifying-glass" size="small" class="shrink-0 text-v2-icon-icon-muted" />
-        <input
-          ref={input}
-          type="text"
-          role="combobox"
-          aria-label={language.t("home.sessions.search.placeholder")}
-          aria-controls={listID}
-          aria-expanded="true"
-          aria-autocomplete="list"
-          aria-activedescendant={active() ? optionID(active()!) : undefined}
-          value={props.search.query.value()}
-          placeholder={language.t("home.sessions.search.placeholder")}
-          autocomplete="off"
-          spellcheck={false}
-          class="min-w-0 flex-1 bg-transparent text-[13px] leading-5 text-v2-text-text-base outline-none placeholder:text-v2-text-text-faint"
-          onInput={(event) => props.search.query.input(event.currentTarget.value)}
-          onKeyDown={(event) => {
-            if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-              event.preventDefault()
-              move(event.key === "ArrowDown" ? 1 : -1)
-            }
-            if (event.key === "Enter") {
-              event.preventDefault()
-              if (!event.repeat && props.search.result.selectActive()) props.onClose()
-            }
-          }}
-        />
-        <Show when={props.search.query.value()}>
-          <button
-            type="button"
-            aria-label={language.t("common.clear")}
-            class="grid size-5 shrink-0 place-items-center rounded-sm text-v2-icon-icon-muted hover:bg-v2-overlay-simple-overlay-hover"
-            onClick={() => {
-              props.search.query.input("")
-              input.focus()
-            }}
-          >
-            <Icon name="close" size="small" />
-          </button>
-        </Show>
-      </div>
-      <div
+      <TextInput
+        ref={input}
+        type="text"
+        role="combobox"
+        aria-label={language.t("home.sessions.search.placeholder")}
+        aria-controls={listID}
+        aria-expanded="true"
+        aria-autocomplete="list"
+        aria-activedescendant={active() ? optionID(active()!) : undefined}
+        value={props.search.query.value()}
+        placeholder={language.t("home.sessions.search.placeholder")}
+        autocomplete="off"
+        spellcheck={false}
+        class="w-full"
+        appearance="large"
+        leadingIcon={<Icon name="magnifying-glass" size="small" />}
+        showClearButton={!!props.search.query.value()}
+        clearIcon="close"
+        clearLabel={language.t("common.clear")}
+        onClearClick={() => {
+          props.search.query.input("")
+          input.focus()
+        }}
+        onInput={(event) => props.search.query.input(event.currentTarget.value)}
+        onKeyDown={(event) => {
+          if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault()
+            move(event.key === "ArrowDown" ? 1 : -1)
+          }
+          if (event.key === "Enter") {
+            event.preventDefault()
+            if (!event.repeat && props.search.result.selectActive()) props.onClose()
+          }
+        }}
+      />
+      <ScrollView
         ref={list}
         id={listID}
         role="listbox"
         aria-label={language.t("session.recent")}
         aria-busy={props.sessions.data.loading() || props.sessions.session.switching()}
-        class="mt-2 max-h-[min(360px,50vh)] overflow-y-auto"
+        class="mt-2 max-h-[min(360px,50vh)]"
       >
         <For each={groups()}>
           {(group) => (
@@ -135,7 +130,7 @@ export function HomeSessionsView(props: {
             </div>
           )}
         </For>
-      </div>
+      </ScrollView>
       <Show when={props.sessions.data.failed()}>
         <div role="alert" class="px-2 py-2 text-[13px] leading-5 text-v2-text-text-muted">
           {language.t("home.sessions.loadFailed")}
