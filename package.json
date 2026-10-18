@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsgo -b",
+    "typecheck": "tsc -b",
     "dev": "vite",
     "build": "vite build",
     "build:shared": "bun scripts/build-shared.ts",
@@ -30,7 +30,7 @@
     "@tsconfig/bun": "catalog:",
     "@types/bun": "catalog:",
     "@types/node": "catalog:",
-    "@typescript/native-preview": "catalog:",
+    "@typescript/native": "catalog:",
     "happy-dom": "20.11.1",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",

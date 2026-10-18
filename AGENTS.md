@@ -16,7 +16,7 @@ Use Bun from the monorepo root or this package.
 - `bun run build`: build the package with Vite into `dist/`.
 - `bun run build:shared`: build both sibling checkouts into `dist-shared/`.
 - `bun run serve`: preview the production build locally.
-- `bun run typecheck`: run `tsgo -b` using `tsconfig.json`.
+- `bun run typecheck`: run `tsc -b` using `tsconfig.json`.
 - From the repo root, use `bun --cwd packages/7777 <script>`.
 
 ## Coding Style & Naming Conventions
