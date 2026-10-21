@@ -3,7 +3,7 @@ import { Popover } from "@opencode/ui/popover"
 import { createEffect, createMemo, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
-import { state } from "@/runtime/server/session-store-compact"
+import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { sessionDirectory } from "@/session/directory"
 import { createHomeSessionsController } from "./controller"
@@ -59,7 +59,12 @@ export function HomeSessionsRegion() {
       trigger={<Icon name="bullet-list" />}
     >
       <Show when={local.open}>
-        <HomeSessionsView sessions={sessions} search={search} onClose={() => setOpen(false)} />
+        <HomeSessionsView
+          sessions={sessions}
+          search={search}
+          fallbackTitle={currentLocalAgent()}
+          onClose={() => setOpen(false)}
+        />
       </Show>
     </Popover>
   )

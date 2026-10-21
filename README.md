@@ -344,6 +344,13 @@ filtering, selection and focus restoration while the shared controls own field s
 Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
 its header popover intentionally differs from the main app's routed Home view.
 
+Recent-session ordering, calendar-day grouping and display labels now live in `home/sessions/records.ts`, following
+the main app's record boundary. Controllers and views no longer import the directory-sync adapter for presentation
+helpers. The header region supplies the active agent's fallback title; record helpers remain independent of runtime
+state. Activity ordering (including ID ties), local dates, invalid-date fallback, twelve-row pagination and full-history
+search are preserved. The existing grouping and ordering tests now live in `home/sessions/records.test.ts`;
+`controller.test.ts` retains coverage for selecting the latest record and rejecting stale selections.
+
 Composer suggestion popups also reuse `TextInput` and `ScrollView` in `composer/editor/editor.tsx`.
 The shared field owns command-search styling and clearing, and the shared viewport owns scrolling and its thumb.
 Local code retains filtering, keyboard selection, focus restoration, draft preservation and boundary-based sizing,

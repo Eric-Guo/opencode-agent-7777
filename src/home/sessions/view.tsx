@@ -3,13 +3,14 @@ import { ScrollView } from "@opencode/ui/scroll-view"
 import { TextInput } from "@opencode/ui/text-input"
 import { createMemo, createUniqueId, For, onCleanup, onMount, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
-import { groupSessions, type HomeSessionsController } from "./controller"
-import { recentSessionDescription, recentSessionTitle } from "./recent-compact"
+import type { HomeSessionsController } from "./controller"
+import { groupSessions, recentSessionDescription, recentSessionTitle } from "./records"
 import type { HomeSessionSearchController } from "./search"
 
 export function HomeSessionsView(props: {
   sessions: HomeSessionsController
   search: HomeSessionSearchController
+  fallbackTitle: string
   onClose: () => void
 }) {
   const language = useLanguage()
@@ -118,7 +119,7 @@ export function HomeSessionsView(props: {
                       }}
                     >
                       <span dir="auto" class="block truncate">
-                        {recentSessionTitle(session)}
+                        {recentSessionTitle(session, props.fallbackTitle)}
                       </span>
                       <span class="block truncate text-xs leading-5 text-v2-text-text-muted">
                         {recentSessionDescription(session, language.intl())}
