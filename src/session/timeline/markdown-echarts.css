@@ -1,0 +1,31 @@
+[data-component="markdown-echarts"] {
+  margin-block: 12px;
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.markdown-echarts-toolbar {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 48px 4px 8px;
+  font-size: 13px;
+  line-height: var(--line-height-base, 20px);
+  background: var(--v2-background-bg-layer-02);
+}
+
+.markdown-echarts-canvas {
+  width: 100%;
+  height: 400px;
+  background: #fff;
+}
+
+[data-component="markdown-code"][data-echarts-ready="true"][data-echarts-source="false"] > pre {
+  display: none;
+}
+
+[data-component="markdown-code"][data-echarts-ready="true"] > [data-slot="markdown-copy-button"] {
+  top: 4px;
+  opacity: 1;
+}

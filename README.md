@@ -238,6 +238,32 @@ to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking show
 individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
 from the broader timeline-detail settings.
 
+`session/timeline/markdown-echarts.tsx` is a 7777-only adapter over the public shared timeline. It observes assistant
+response Markdown and adds interactive ECharts SVG charts without replacing the shared parser or code nodes.
+ECharts is loaded only when a completed chart block is found. Charts resize with their containers and are disposed
+when messages leave the timeline. **Show source / Hide source** reveals the original JSON; the existing copy button
+always copies that source. Loading or rendering failures leave the source readable. Controls use English fallback
+until translations are reviewed.
+
+Use a fenced `echarts` block containing a direct, strict JSON option object, for example:
+
+````markdown
+```echarts
+{"title":{"text":"Example"},"series":[{"type":"pie","data":[{"name":"A","value":2},{"name":"B","value":3}]}]}
+```
+````
+
+Fenced `json` blocks are also recognized when they contain a nonempty `series` object/array with supported built-in
+types and `data`, `nodes`, or a `dataset`. Other JSON remains code. A chart appears when its fence closes or the
+message finishes; incomplete JSON stays visible during streaming. Charts use the available width, a 400px height,
+and a white surface with ECharts' light defaults while honoring supplied colors and background options.
+
+The local `markdown-echarts-options.ts` boundary accepts JSON data only. JavaScript callbacks, custom/plugin chart
+types, maps, and option wrappers (`option`, `baseOption`, `options`, `media`) are unsupported. Tooltip rendering uses
+rich text; HTML data views, navigation links, image resources, prototype keys, and regex dataset filters are excluded.
+Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
+messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
+
 The header reuses the GUI extension's `ContextUsage` display through its public
 `@opencode/gui-extensions/usage/context-usage` export. `session/header/session-context-usage-compact.tsx`
 adapts the active session, latest reported assistant tokens, and model catalog without an extension host.

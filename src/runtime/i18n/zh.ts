@@ -183,6 +183,11 @@ export const dict = {
   "timeline.role.user": "你",
   "timeline.copy": "复制消息",
   "timeline.copied": "已复制",
+  "timeline.chart.showSource": "显示源码",
+  "timeline.chart.hideSource": "隐藏源码",
+  "timeline.chart.loading": "正在加载图表…",
+  "timeline.chart.error": "无法渲染此图表，下方显示原始源码。",
+  "timeline.chart.label": "交互式图表",
   "timeline.reasoningSummary": "推理摘要",
   "timeline.reasoningSummaryIndexed": "推理摘要 {{index}}",
 

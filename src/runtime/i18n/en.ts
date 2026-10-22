@@ -181,6 +181,11 @@ export const dict = {
   "timeline.role.user": "You",
   "timeline.copy": "Copy message",
   "timeline.copied": "Copied",
+  "timeline.chart.showSource": "Show source",
+  "timeline.chart.hideSource": "Hide source",
+  "timeline.chart.loading": "Loading chart…",
+  "timeline.chart.error": "Could not render this chart. The original source is shown below.",
+  "timeline.chart.label": "Interactive chart",
   "timeline.reasoningSummary": "Reasoning summary",
   "timeline.reasoningSummaryIndexed": "Reasoning summary {{index}}",
 
