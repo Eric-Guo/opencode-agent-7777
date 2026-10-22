@@ -244,6 +244,8 @@ ECharts is loaded only when a completed chart block is found. Charts resize with
 when messages leave the timeline. **Show source / Hide source** reveals the original JSON; the existing copy button
 always copies that source. Loading or rendering failures leave the source readable. Controls use English fallback
 until translations are reviewed.
+**Reset** recreates only that chart from its original options, clearing zoom, pan, dragged-node positions, and legend
+selections while preserving source visibility.
 
 Use a fenced `echarts` block containing a direct, strict JSON option object, for example:
 

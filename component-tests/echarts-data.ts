@@ -38,6 +38,33 @@ export const lineOptions = {
 }
 
 export const lineSource = JSON.stringify(lineOptions, null, 2)
+export const zoomSource = JSON.stringify({
+  ...lineOptions,
+  animation: false,
+  tooltip: { show: false },
+  legend: { bottom: 0, selected: { MAU: false } },
+  dataZoom: [{ type: "inside", start: 20, end: 80 }],
+})
+export const graphSource = JSON.stringify({
+  animation: false,
+  title: { text: "Draggable graph" },
+  series: [
+    {
+      type: "graph",
+      layout: "force",
+      roam: true,
+      draggable: true,
+      symbolSize: 36,
+      emphasis: { disabled: true },
+      force: { repulsion: 0, gravity: 0, layoutAnimation: true },
+      data: [
+        { name: "Gateway", x: 0, y: 0, itemStyle: { color: "#11aa77" } },
+        { name: "Service", x: 100, y: 100, itemStyle: { color: "#cc2277" } },
+      ],
+      links: [{ source: "Gateway", target: "Service", ignoreForceLayout: true }],
+    },
+  ],
+})
 export const pieSource = JSON.stringify({
   title: { text: "Pie replacement" },
   series: [

@@ -6,7 +6,7 @@ import { CurrentSessionProviders, STORY_MODEL, STORY_TIME } from "@opencode/sess
 import { Button } from "@opencode/ui/button"
 import { AppBaseProviders } from "../src/app"
 import { CompactMessageTimeline } from "../src/session/timeline/message-timeline-compact"
-import { fence, lineSource, pieSource } from "./echarts-data"
+import { fence, graphSource, lineSource, pieSource, zoomSource } from "./echarts-data"
 
 const scenario = new URLSearchParams(location.search).get("scenario")
 const examples: Record<string, string> = {
@@ -20,6 +20,7 @@ const examples: Record<string, string> = {
   plain: fence('{"hello":"world"}', "json"),
   invalid: fence("{invalid}"),
   renderError: fence('{"series":[{"type":"line","data":[1,2]}]}'),
+  reset: [fence(zoomSource), fence(graphSource)].join("\n\n"),
 }
 
 function Fixture() {

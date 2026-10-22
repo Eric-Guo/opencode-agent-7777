@@ -183,6 +183,7 @@ export const dict = {
   "timeline.copied": "Copied",
   "timeline.chart.showSource": "Show source",
   "timeline.chart.hideSource": "Hide source",
+  "timeline.chart.reset": "Reset",
   "timeline.chart.loading": "Loading chart…",
   "timeline.chart.error": "Could not render this chart. The original source is shown below.",
   "timeline.chart.label": "Interactive chart",

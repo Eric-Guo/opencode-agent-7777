@@ -156,6 +156,7 @@ function Chart(props: {
   const previousID = source?.getAttribute("id")
   source?.setAttribute("id", id)
   let container!: HTMLDivElement
+  let library: typeof import("echarts") | undefined
   let instance: EChartsType | undefined
   let resize: ResizeObserver | undefined
   let closed = false
@@ -165,27 +166,35 @@ function Chart(props: {
     props.wrapper.dataset.echartsSource = String(state.source)
   })
 
+  function draw() {
+    if (closed || !props.current() || !library || state.error || props.result.kind !== "chart") return
+    if (!container.clientWidth || !container.clientHeight) return
+    try {
+      if (instance) {
+        instance.resize()
+        return
+      }
+      instance = library.init(container, undefined, { renderer: "svg" })
+      // Keep the original options untouched so every reset starts from the same input.
+      instance.setOption(structuredClone(props.result.option), { notMerge: true })
+      setState("ready", true)
+    } catch {
+      instance?.dispose()
+      instance = undefined
+      setState({ error: "render", ready: false })
+    }
+  }
+
+  function reset() {
+    if (closed || !props.current() || !instance) return
+    // Recreate views too: graph layouts can retain dragged positions across option updates.
+    instance.dispose()
+    instance = undefined
+    draw()
+  }
+
   onMount(() => {
     if (props.result.kind !== "chart") return
-    const option = props.result.option
-    let library: typeof import("echarts") | undefined
-    const draw = () => {
-      if (closed || !props.current() || !library || state.error) return
-      if (!container.clientWidth || !container.clientHeight) return
-      try {
-        if (instance) {
-          instance.resize()
-          return
-        }
-        instance = library.init(container, undefined, { renderer: "svg" })
-        instance.setOption(option, { notMerge: true })
-        setState("ready", true)
-      } catch {
-        instance?.dispose()
-        instance = undefined
-        setState({ error: "render", ready: false })
-      }
-    }
     resize = new ResizeObserver(draw)
     resize.observe(container)
     void loadCharts()
@@ -225,6 +234,9 @@ function Chart(props: {
             onClick={() => setState("source", !state.source)}
           >
             {props.language.t(state.source ? "timeline.chart.hideSource" : "timeline.chart.showSource")}
+          </Button>
+          <Button size="small" variant="ghost" onClick={reset}>
+            {props.language.t("timeline.chart.reset")}
           </Button>
         </Show>
       </div>
