@@ -568,18 +568,58 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "hide"
       },
       {
-        "modelID": "deepseek-ai/DeepSeek-V3.1-Terminus",
         "providerID": "siliconflow-cn",
+        "modelID": "deepseek-ai/DeepSeek-V3.1-Terminus",
         "visibility": "show"
       },
       {
+        "providerID": "opencode-go",
         "modelID": "gemini-4-argon-contributor",
+        "visibility": "show"
+      },
+      {
+        "providerID": "opencode-go",
+        "modelID": "step-5-preview",
+        "visibility": "show"
+      },
+      {
+        "modelID": "beam-free",
         "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "step-5-preview",
+        "modelID": "minimax-m3.1-flash-free",
         "providerID": "opencode-go",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3.5-flash-lite",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3.5-flash",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3.1-flash-image",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-3-pro-image",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-pro-latest",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "MiniMax-M3.1-Flash",
+        "providerID": "minimax",
         "visibility": "show"
       }
     ],
