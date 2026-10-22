@@ -245,7 +245,27 @@ when messages leave the timeline. **Show source / Hide source** reveals the orig
 always copies that source. Loading or rendering failures leave the source readable. Controls use English fallback
 until translations are reviewed.
 **Reset** recreates only that chart from its original options, clearing zoom, pan, dragged-node positions, and legend
-selections while preserving source visibility.
+selections while preserving source visibility and the chosen size/proportion. The adjacent **Small / Medium / Large**
+and **Wide / Square** selectors change one chart's viewport without resetting interactions. Choices are temporary.
+
+`session/timeline/markdown-echarts-layout.ts` selects initial layouts from series types, coordinates, and density.
+The defaults were checked against the 24 chart examples in the compact timeline:
+
+| Size   | Square                                                          | Wide                                                                              |
+| ------ | --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Small  | Gauge, completion doughnut, simple pies with up to three slices | Available as a manual choice                                                      |
+| Medium | Labeled pie, rose, radar, funnel, polar bars                    | Line, stacked/grouped bars, scatter, bubble, boxplot, step/area, pictorial bars   |
+| Large  | Force graph, sunburst                                           | Heatmap, Sankey, candlestick, tree, theme river, parallel coordinates, Gantt bars |
+
+Small/medium/large widths are capped at 420/560/680px for square views and 640/840/1000px for wide views. All shrink to
+the available pane width. Wide views use 16:9 with a 280px minimum height on narrow panes; square views remain 1:1.
+Dense series, multiple grids, and multiple pie/gauge plots receive more space. Mixed chart types use the largest
+required size. Radial trees and chord diagrams use square views; treemaps use large wide views.
+
+Display-only adjustments reserve room for outside sunburst labels and separate a bottom legend from a bottom zoom
+slider. A theme-river-only option missing `singleAxis` gets a time axis in place of unused Cartesian axes. Explicit
+single-axis configurations remain intact. These defaults improve common layouts; arbitrary authored labels and
+positions can still require manual sizing. Source JSON is preserved exactly.
 
 Use a fenced `echarts` block containing a direct, strict JSON option object, for example:
 
@@ -257,8 +277,8 @@ Use a fenced `echarts` block containing a direct, strict JSON option object, for
 
 Fenced `json` blocks are also recognized when they contain a nonempty `series` object/array with supported built-in
 types and `data`, `nodes`, or a `dataset`. Other JSON remains code. A chart appears when its fence closes or the
-message finishes; incomplete JSON stays visible during streaming. Charts use the available width, a 400px height,
-and a white surface with ECharts' light defaults while honoring supplied colors and background options.
+message finishes; incomplete JSON stays visible during streaming. Charts use a white surface with ECharts' light
+defaults while honoring supplied colors and background options.
 
 The local `markdown-echarts-options.ts` boundary accepts JSON data only. JavaScript callbacks, custom/plugin chart
 types, maps, and option wrappers (`option`, `baseOption`, `options`, `media`) are unsupported. Tooltip rendering uses

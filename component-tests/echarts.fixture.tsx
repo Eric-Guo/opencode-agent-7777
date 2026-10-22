@@ -7,6 +7,7 @@ import { Button } from "@opencode/ui/button"
 import { AppBaseProviders } from "../src/app"
 import { CompactMessageTimeline } from "../src/session/timeline/message-timeline-compact"
 import { fence, graphSource, lineSource, pieSource, zoomSource } from "./echarts-data"
+import layoutExamples from "./echarts-layout-examples.json"
 
 const scenario = new URLSearchParams(location.search).get("scenario")
 const examples: Record<string, string> = {
@@ -21,6 +22,7 @@ const examples: Record<string, string> = {
   invalid: fence("{invalid}"),
   renderError: fence('{"series":[{"type":"line","data":[1,2]}]}'),
   reset: [fence(zoomSource), fence(graphSource)].join("\n\n"),
+  layout: layoutExamples.map((option) => fence(JSON.stringify(option))).join("\n\n"),
 }
 
 function Fixture() {

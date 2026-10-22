@@ -1,4 +1,5 @@
 import { Button } from "@opencode/ui/button"
+import { Select } from "@opencode/ui/select"
 import type { EChartsType } from "echarts"
 import { createEffect, createUniqueId, onCleanup, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
@@ -6,6 +7,13 @@ import { render } from "solid-js/web"
 import "./markdown-echarts.css"
 import { useLanguage } from "@/runtime/i18n/language"
 import { parseChartOptions } from "./markdown-echarts-options"
+import {
+  chartDisplayOption,
+  chartLayout,
+  chartWidth,
+  type ChartSize,
+  type ChartProportion,
+} from "./markdown-echarts-layout"
 
 const CODE = '[data-component="text-part"] [data-slot="text-part-body"] [data-component="markdown"] pre > code'
 const OWNED = '[data-component="markdown-echarts"]'
@@ -147,6 +155,9 @@ function Chart(props: {
   current: () => boolean
 }) {
   const [state, setState] = createStore({
+    ...(props.result.kind === "chart"
+      ? chartLayout(props.result.option)
+      : { size: "medium" as ChartSize, proportion: "wide" as ChartProportion }),
     ready: false,
     source: false,
     error: props.result.kind === "error" ? props.result.reason : "",
@@ -164,6 +175,8 @@ function Chart(props: {
   createEffect(() => {
     props.wrapper.dataset.echartsReady = String(state.ready)
     props.wrapper.dataset.echartsSource = String(state.source)
+    props.wrapper.dataset.echartsLayout = String(!state.error && props.result.kind === "chart")
+    props.wrapper.style.setProperty("--markdown-chart-width", `${chartWidth(state.size, state.proportion)}px`)
   })
 
   function draw() {
@@ -176,7 +189,9 @@ function Chart(props: {
       }
       instance = library.init(container, undefined, { renderer: "svg" })
       // Keep the original options untouched so every reset starts from the same input.
-      instance.setOption(structuredClone(props.result.option), { notMerge: true })
+      instance.setOption(chartDisplayOption(props.result.option, container.clientWidth, container.clientHeight), {
+        notMerge: true,
+      })
       setState("ready", true)
     } catch {
       instance?.dispose()
@@ -211,6 +226,8 @@ function Chart(props: {
     closed = true
     resize?.disconnect()
     instance?.dispose()
+    delete props.wrapper.dataset.echartsLayout
+    props.wrapper.style.removeProperty("--markdown-chart-width")
     if (previousID === null) source?.removeAttribute("id")
     else if (previousID !== undefined) source?.setAttribute("id", previousID)
   })
@@ -238,12 +255,27 @@ function Chart(props: {
           <Button size="small" variant="ghost" onClick={reset}>
             {props.language.t("timeline.chart.reset")}
           </Button>
+          <Select<ChartSize>
+            aria-label={props.language.t("timeline.chart.size")}
+            options={["small", "medium", "large"]}
+            current={state.size}
+            label={(value) => props.language.t(`timeline.chart.size.${value}`)}
+            onSelect={(value) => value && setState("size", value)}
+          />
+          <Select<ChartProportion>
+            aria-label={props.language.t("timeline.chart.proportion")}
+            options={["wide", "square"]}
+            current={state.proportion}
+            label={(value) => props.language.t(`timeline.chart.proportion.${value}`)}
+            onSelect={(value) => value && setState("proportion", value)}
+          />
         </Show>
       </div>
       <Show when={!state.error}>
         <div
           ref={container}
           class="markdown-echarts-canvas"
+          data-proportion={state.proportion}
           role="img"
           aria-label={props.language.t("timeline.chart.label")}
         />

@@ -1,0 +1,462 @@
+[
+  {
+    "title": {
+      "text": "浏览器市场份额",
+      "left": "center"
+    },
+    "tooltip": {
+      "trigger": "item",
+      "formatter": "{a}<br/>{b}: {c} ({d}%)"
+    },
+    "legend": {
+      "orient": "vertical",
+      "left": "left"
+    },
+    "series": [
+      {
+        "name": "份额",
+        "type": "pie",
+        "radius": "55%",
+        "center": ["55%", "55%"],
+        "data": [
+          {
+            "value": 1048,
+            "name": "Chrome"
+          },
+          {
+            "value": 735,
+            "name": "Edge"
+          },
+          {
+            "value": 580,
+            "name": "Firefox"
+          },
+          {
+            "value": 484,
+            "name": "Safari"
+          },
+          {
+            "value": 300,
+            "name": "其他"
+          }
+        ],
+        "label": {
+          "formatter": "{b}\n{d}%"
+        },
+        "itemStyle": {
+          "borderRadius": 6,
+          "borderColor": "#fff",
+          "borderWidth": 2
+        }
+      }
+    ],
+    "animation": false
+  },
+  {
+    "title": {
+      "text": "服务器负载",
+      "left": "center"
+    },
+    "series": [
+      {
+        "type": "gauge",
+        "startAngle": 210,
+        "endAngle": -30,
+        "min": 0,
+        "max": 100,
+        "splitNumber": 10,
+        "radius": "78%",
+        "center": ["50%", "60%"],
+        "axisLine": {
+          "lineStyle": {
+            "width": 12,
+            "color": [
+              [0.3, "#67e0e3"],
+              [0.7, "#37a2da"],
+              [1, "#fd666d"]
+            ]
+          }
+        },
+        "pointer": {
+          "itemStyle": {
+            "color": "auto"
+          },
+          "length": "60%",
+          "width": 5
+        },
+        "axisTick": {
+          "distance": -12,
+          "length": 6,
+          "lineStyle": {
+            "color": "#fff",
+            "width": 1
+          }
+        },
+        "splitLine": {
+          "distance": -12,
+          "length": 12,
+          "lineStyle": {
+            "color": "#fff",
+            "width": 2
+          }
+        },
+        "axisLabel": {
+          "distance": 16,
+          "color": "#666",
+          "fontSize": 12
+        },
+        "anchor": {
+          "show": true,
+          "size": 12,
+          "itemStyle": {
+            "color": "auto"
+          }
+        },
+        "detail": {
+          "valueAnimation": true,
+          "fontSize": 26,
+          "color": "auto",
+          "formatter": "{value}%"
+        },
+        "data": [
+          {
+            "value": 58,
+            "name": "CPU"
+          }
+        ]
+      }
+    ],
+    "animation": false
+  },
+  {
+    "title": {
+      "text": "日K线（模拟）",
+      "left": "center"
+    },
+    "tooltip": {
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "cross"
+      }
+    },
+    "legend": {
+      "bottom": 0,
+      "data": ["日K", "MA5"]
+    },
+    "grid": {
+      "left": "10%",
+      "right": "12%",
+      "bottom": "14%",
+      "top": "16%"
+    },
+    "xAxis": {
+      "type": "category",
+      "data": [
+        "D1",
+        "D2",
+        "D3",
+        "D4",
+        "D5",
+        "D6",
+        "D7",
+        "D8",
+        "D9",
+        "D10",
+        "D11",
+        "D12",
+        "D13",
+        "D14",
+        "D15",
+        "D16",
+        "D17",
+        "D18",
+        "D19",
+        "D20"
+      ],
+      "boundaryGap": true
+    },
+    "yAxis": {
+      "scale": true
+    },
+    "dataZoom": [
+      {
+        "type": "inside",
+        "start": 50,
+        "end": 100
+      },
+      {
+        "type": "slider",
+        "bottom": 0,
+        "start": 50,
+        "end": 100
+      }
+    ],
+    "series": [
+      {
+        "name": "日K",
+        "type": "candlestick",
+        "data": [
+          [20, 34, 10, 38],
+          [34, 38, 30, 45],
+          [38, 25, 20, 45],
+          [25, 12, 10, 27],
+          [12, 16, 8, 20],
+          [16, 30, 14, 34],
+          [30, 28, 20, 36],
+          [28, 22, 18, 32],
+          [22, 18, 12, 25],
+          [18, 24, 16, 28],
+          [24, 40, 22, 44],
+          [40, 36, 30, 42],
+          [36, 32, 28, 38],
+          [32, 44, 30, 46],
+          [44, 40, 34, 48],
+          [40, 30, 26, 42],
+          [30, 26, 22, 34],
+          [26, 32, 24, 35],
+          [32, 46, 30, 48],
+          [46, 42, 36, 50]
+        ],
+        "itemStyle": {
+          "color": "#ec0000",
+          "color0": "#00da3c",
+          "borderColor": "#ec0000",
+          "borderColor0": "#00da3c"
+        }
+      },
+      {
+        "name": "MA5",
+        "type": "line",
+        "smooth": true,
+        "showSymbol": false,
+        "data": [
+          null,
+          null,
+          null,
+          null,
+          23.4,
+          25.8,
+          24.6,
+          23.8,
+          23,
+          21.6,
+          22.4,
+          24.8,
+          28,
+          31.2,
+          33.6,
+          36,
+          37.2,
+          36,
+          36.4,
+          38.2
+        ]
+      }
+    ],
+    "animation": false
+  },
+  {
+    "title": {
+      "text": "旭日图",
+      "left": "center"
+    },
+    "tooltip": {
+      "trigger": "item"
+    },
+    "series": [
+      {
+        "type": "sunburst",
+        "radius": [0, "90%"],
+        "center": ["50%", "52%"],
+        "label": {
+          "rotate": "radial",
+          "fontSize": 12
+        },
+        "itemStyle": {
+          "borderColor": "#fff",
+          "borderWidth": 1
+        },
+        "levels": [
+          {},
+          {
+            "r0": "12%",
+            "r": "38%",
+            "label": {
+              "rotate": 0
+            }
+          },
+          {
+            "r0": "38%",
+            "r": "66%",
+            "label": {
+              "rotate": "tangential"
+            }
+          },
+          {
+            "r0": "66%",
+            "r": "90%",
+            "label": {
+              "position": "outside"
+            }
+          }
+        ],
+        "data": [
+          {
+            "name": "GrandA",
+            "children": [
+              {
+                "name": "A1",
+                "value": 10
+              },
+              {
+                "name": "A2",
+                "value": 8
+              },
+              {
+                "name": "A3",
+                "children": [
+                  {
+                    "name": "A31",
+                    "value": 4
+                  },
+                  {
+                    "name": "A32",
+                    "value": 3
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "GrandB",
+            "children": [
+              {
+                "name": "B1",
+                "value": 9
+              },
+              {
+                "name": "B2",
+                "children": [
+                  {
+                    "name": "B21",
+                    "value": 5
+                  },
+                  {
+                    "name": "B22",
+                    "value": 4
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "GrandC",
+            "value": 7
+          }
+        ]
+      }
+    ],
+    "animation": false
+  },
+  {
+    "title": {
+      "text": "极坐标柱状图",
+      "left": "center"
+    },
+    "tooltip": {},
+    "angleAxis": {
+      "type": "category",
+      "data": ["北", "东北", "东", "东南", "南", "西南", "西", "西北"],
+      "startAngle": 90
+    },
+    "radiusAxis": {
+      "type": "value"
+    },
+    "polar": {},
+    "series": [
+      {
+        "type": "bar",
+        "coordinateSystem": "polar",
+        "name": "风速",
+        "data": [2, 4, 6, 8, 10, 7, 5, 3],
+        "itemStyle": {
+          "color": "#73c0de",
+          "borderRadius": 4
+        },
+        "label": {
+          "show": true,
+          "position": "middle",
+          "formatter": "{c}"
+        }
+      }
+    ],
+    "animation": false
+  },
+  {
+    "title": {
+      "text": "主题河流图",
+      "left": "center"
+    },
+    "tooltip": {
+      "trigger": "axis",
+      "axisPointer": {
+        "type": "line",
+        "lineStyle": {
+          "color": "rgba(0,0,0,0.2)"
+        }
+      }
+    },
+    "legend": {
+      "bottom": 0
+    },
+    "grid": {
+      "left": "6%",
+      "right": "8%",
+      "bottom": "14%",
+      "top": "16%",
+      "containLabel": true
+    },
+    "xAxis": {
+      "type": "time",
+      "boundaryGap": false
+    },
+    "yAxis": {
+      "type": "value"
+    },
+    "series": [
+      {
+        "type": "themeRiver",
+        "emphasis": {
+          "itemStyle": {
+            "shadowBlur": 20,
+            "shadowColor": "rgba(0,0,0,0.5)"
+          }
+        },
+        "color": ["#5470c6", "#91cc75", "#fac858", "#ee6666"],
+        "data": [
+          ["2026/10/01", 10, "A"],
+          ["2026/10/02", 15, "A"],
+          ["2026/10/03", 35, "A"],
+          ["2026/10/04", 50, "A"],
+          ["2026/10/05", 55, "A"],
+          ["2026/10/01", 35, "B"],
+          ["2026/10/02", 36, "B"],
+          ["2026/10/03", 20, "B"],
+          ["2026/10/04", 20, "B"],
+          ["2026/10/05", 20, "B"],
+          ["2026/10/01", 21, "C"],
+          ["2026/10/02", 25, "C"],
+          ["2026/10/03", 10, "C"],
+          ["2026/10/04", 12, "C"],
+          ["2026/10/05", 15, "C"],
+          ["2026/10/01", 34, "D"],
+          ["2026/10/02", 24, "D"],
+          ["2026/10/03", 35, "D"],
+          ["2026/10/04", 18, "D"],
+          ["2026/10/05", 10, "D"]
+        ]
+      }
+    ],
+    "animation": false
+  }
+]
