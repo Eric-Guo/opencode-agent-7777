@@ -11,14 +11,13 @@ import { buildPromptRequest } from "@/composer/request"
 import { createComposerSubmission } from "@/composer/submission-state"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import {
-  currentSession,
-  currentRuntime,
   updateSession,
   setSessionStatus,
   idleStatus,
   setState,
   state,
 } from "@/runtime/server/session-store-compact"
+import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
 import { composerHistory } from "./history/store"
@@ -28,9 +27,7 @@ import { createPromptModelSelection } from "./selection"
 // Compact single-session submit orchestration for the shared composer boundary.
 
 export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: string }) {
-  const active = currentSession()
-  const runtime = currentRuntime()
-  const ownsSession = () => currentRuntime() === runtime && state.session?.id === active?.sessionID
+  const active = captureSessionOwnership()
   const submission = createComposerSubmission({ target: prompt })
   const attachments = submission.prompt.attachments
   const command = options?.command
@@ -111,7 +108,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
     })
     .then((admitted) => {
       composerHistory.add(historyPrompt, "normal")
-      if (!ownsSession()) return
+      if (!active.current()) return
       // SSE may already have delivered or cancelled this admission before HTTP returns.
       if (admitted && pendingInboxRevision() === revision) {
         updatePendingInbox((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
@@ -121,7 +118,7 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
     })
     .catch((error) => {
       cancelCommit?.()
-      if (!ownsSession()) return
+      if (!active.current()) return
       dropPendingEcho(messageID)
       const restored = submission.restore()
       if (restored) restored.target.restore(restored.prompt)
@@ -133,21 +130,19 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
       scheduleRefresh(0)
     })
     .finally(() => {
-      if (ownsSession()) setState("submitting", false)
+      if (active.current()) setState("submitting", false)
     })
 }
 
 export function abortPrompt() {
-  const active = currentSession()
-  const runtime = currentRuntime()
+  const active = captureSessionOwnership()
   if (!active) return
   void active.client.session
     .interrupt({ sessionID: active.sessionID, resume: true })
     .catch((error) => {
-      if (currentRuntime() === runtime && state.session?.id === active.sessionID)
-        setState("error", readableError(error))
+      if (active.current()) setState("error", readableError(error))
     })
     .finally(() => {
-      if (currentRuntime() === runtime && state.session?.id === active.sessionID) scheduleRefresh()
+      if (active.current()) scheduleRefresh()
     })
 }

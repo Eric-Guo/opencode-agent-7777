@@ -18,6 +18,8 @@ Local schema/persistence, composer, notifications, models and recent-session rec
 Shared UI owns search fields, result scrolling, Markdown and image previews; `composer/model.ts` connects previews
 without changing drafts. `/export` uses the public complete-transcript API, independent of the visible history limit.
 The desktop bridge derives preload types from local Effect schemas and keeps transport lazy.
+`session/session-ownership.ts` owns the activation check shared by submission, revert, queue and request adapters.
+Their endpoints and mutation policies stay local; stale responses cannot affect a later activation of the same ID.
 
 ## Remaining compact responsibilities
 
@@ -27,7 +29,7 @@ The desktop bridge derives preload types from local Effect schemas and keeps tra
   messages; retain live rows/HTTP receipts until acknowledged.
 - Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo, request routing,
   and suggestion filtering, keyboard selection and compact sizing.
-  Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
+  Queue undo rejects hidden/malformed context and cancels before merging the latest draft.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 

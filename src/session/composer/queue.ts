@@ -5,9 +5,10 @@ import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
 import { extractPromptFromQueued as queuedPromptUndoDraft } from "@/composer/prompt"
 import type { PromptState } from "@/composer/state"
 import { translateSync } from "@/runtime/i18n/language"
-import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import { setState, state } from "@/runtime/server/session-store-compact"
 import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
+import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 
 export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
@@ -37,10 +38,8 @@ export function createSessionQueue(input: {
       setState("error", translateSync("session.queue.undoUnavailable"))
       return
     }
-    const active = currentSession()
+    const active = captureSessionOwnership()
     if (!active) return
-    const runtime = currentRuntime()
-    const ownsSession = () => currentRuntime() === runtime && state.session?.id === active.sessionID
     setMutation({ pending: true, undoing: action === "undo" })
     setState("error", "")
     try {
@@ -49,7 +48,7 @@ export function createSessionQueue(input: {
       } else {
         await active.client.session.inbox.cancel({ sessionID: active.sessionID, inboxID: id })
       }
-      if (!ownsSession()) return
+      if (!active.current()) return
       updatePendingInbox((items) =>
         action === "steer"
           ? items.map((item) => (item.id === id ? { ...item, delivery: "steer" } : item))
@@ -76,7 +75,7 @@ export function createSessionQueue(input: {
       }
       scheduleRefresh(0)
     } catch (error) {
-      if (ownsSession()) setState("error", readableError(error))
+      if (active.current()) setState("error", readableError(error))
     } finally {
       setMutation({ pending: false, undoing: false })
     }

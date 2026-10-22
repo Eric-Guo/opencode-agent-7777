@@ -1,26 +1,24 @@
 import type { FormAnswer, FormInfo, SessionFormReplyInput, OpenCodeEvent } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
-import { currentSession, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
+import { captureSessionOwnership } from "@/session/session-ownership"
 import { translateSync } from "@/runtime/i18n/language"
 import { groupSessionRequests, respondToRequest } from "./sync-compact"
 
 export function refreshForms() {
-  const active = currentSession()
-  const runtime = currentRuntime()
+  const active = captureSessionOwnership()
   const session = state.session
   if (!active || !session) return Promise.resolve()
 
   return active.client.form
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
-      if (currentRuntime() === runtime && state.session?.id === active.sessionID)
-        setState("form", reconcile(groupSessionRequests(result.data)))
+      if (active.current()) setState("form", reconcile(groupSessionRequests(result.data)))
     })
     .finally(() => {
-      if (currentRuntime() === runtime && state.session?.id === active.sessionID)
-        setState("questionResponding", undefined)
+      if (active.current()) setState("questionResponding", undefined)
     })
 }
 
@@ -43,11 +41,10 @@ export function handleFormEvent(event: OpenCodeEvent) {
 }
 
 export async function replyForm(input: SessionFormReplyInput) {
-  const active = currentSession()
-  const runtime = currentRuntime()
+  const active = captureSessionOwnership()
   if (!active) throw new Error(translateSync("error.sessionNotReady"))
   await active.client.session.form.reply(input)
-  if (currentRuntime() !== runtime || state.session?.id !== active.sessionID) return
+  if (!active.current()) return
   setState("form", input.sessionID, (current = []) => current.filter((form) => form.id !== input.formID))
   scheduleRefresh(120)
 }

@@ -1,8 +1,9 @@
 // Imperative directory request sync and replies for the compact session tree.
 import type { OpenCodeEvent, PermissionRequest } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { currentSession, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
+import { captureSessionOwnership } from "@/session/session-ownership"
 import { sessionPermissionRequest } from "@/session/requests/session-request-tree"
 import { createPermissionNotifications } from "@/shell/notifications/notification"
 import { groupSessionRequests, respondToRequest } from "./sync-compact"
@@ -15,16 +16,14 @@ function currentPermission(requests: Record<string, PermissionRequest[] | undefi
 }
 
 export function refreshPermissions() {
-  const active = currentSession()
+  const active = captureSessionOwnership()
   const session = state.session
   if (!active || !session) return Promise.resolve()
 
-  const runtime = currentRuntime()
-  const current = () => currentRuntime() === runtime && state.session?.id === active.sessionID
   return active.client.permission.request
     .list({ location: { directory: sessionDirectory(session) } })
     .then((result) => {
-      if (!current()) return
+      if (!active.current()) return
       const requests = groupSessionRequests(result.data)
       setState("permission", reconcile(requests))
       notifications.clear()
@@ -32,7 +31,7 @@ export function refreshPermissions() {
       if (request) notifications.notify(request)
     })
     .finally(() => {
-      if (current()) setState("permissionResponding", undefined)
+      if (active.current()) setState("permissionResponding", undefined)
     })
 }
 

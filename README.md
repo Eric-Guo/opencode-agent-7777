@@ -268,6 +268,13 @@ stay local because the main app's data adapter handles different mutations. The 
 suite covers the combined public contract. `session-store-compact.ts` exposes reactive views plus local UI state;
 transport, directory-wide request discovery, and embedded behavior stay package-owned.
 
+`session/session-ownership.ts` centralizes capture of the active request client, session ID and local agent together
+with the activation check used by submit/interrupt, undo/redo, queue actions, and permission/form reads and replies.
+It follows the main app's ownership boundary using the compact runtime's identity instead of a routed key watcher.
+Returning to the same session with the same client still invalidates earlier results; changing the selected ID before
+activation also rejects stale writes. The helper adds no subscriptions or cancellation policy. Existing consumer
+tests retain coverage for draft restoration, request routing, pending flags, errors and successful prompt history.
+
 `session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
 The permission and form adapters retain their public client endpoints, event filtering and child-session routing.
 Replies keep the request visible until accepted, block duplicate submissions, preserve failures for retry,

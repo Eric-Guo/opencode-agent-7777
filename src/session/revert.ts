@@ -5,9 +5,10 @@ import { prompt } from "@/composer/persistence-singleton"
 import { extractPromptFromMessage } from "@/composer/prompt"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import { refreshMessages } from "@/runtime/server/global-sync/session-cache-messages"
-import { currentRuntime, currentSession, updateSession, setState, state } from "@/runtime/server/session-store-compact"
+import { updateSession, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { selectSessionUserMessages } from "./session-domain"
+import { captureSessionOwnership } from "./session-ownership"
 
 export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}) {
   const [mutation, setMutation] = createStore({ pending: false })
@@ -32,10 +33,8 @@ export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}
 
   const change = async (message?: SessionMessageUser) => {
     if (disabled()) return
-    const active = currentSession()
+    const active = captureSessionOwnership()
     if (!active) return
-    const runtime = currentRuntime()
-    const ownsSession = () => currentRuntime() === runtime && state.session?.id === active.sessionID
     const draft = message ? extractPromptFromMessage(message) : undefined
     const originalParts = prompt.store[0].prompt
     const originalDraft = JSON.stringify(prompt.capture())
@@ -45,7 +44,7 @@ export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}
       const result = message
         ? await active.client.session.revert.stage({ sessionID: active.sessionID, messageID: message.id })
         : await active.client.session.revert.clear({ sessionID: active.sessionID })
-      if (!ownsSession()) return
+      if (!active.current()) return
       updateSession((session) => ({ ...session, revert: result ? structuredClone(result) : undefined }))
       // The editor is disabled during the request, but other draft writers
       // (for example welcome suggestions) can still run while it is in flight.
@@ -53,7 +52,7 @@ export function createSessionRevert(input: { disabled?: Accessor<boolean> } = {}
         prompt.restore(draft)
       await refreshMessages(FETCH_MESSAGE_LIMIT)
     } catch (error) {
-      if (ownsSession()) setState("error", readableError(error))
+      if (active.current()) setState("error", readableError(error))
     } finally {
       setMutation("pending", false)
     }
