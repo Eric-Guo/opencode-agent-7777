@@ -1,6 +1,7 @@
 import { useDialog } from "@opencode/ui/context/dialog"
+import { ImagePreview } from "@opencode/ui/image-preview"
 import { Skill } from "@opencode/schema/skill"
-import { createEffect, createMemo, onCleanup } from "solid-js"
+import { createComponent, createEffect, createMemo, onCleanup } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
@@ -135,6 +136,13 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
         // Pin the original directory so the single draft and cross-session history keep the selected file.
         mention: { type: "file", path, url: fileUrl(active.directory, path), content: `@${path}`, start: 0, end: 0 },
       }))
+    },
+    openAttachment: (attachment) => {
+      // Compact attachments include PDFs/text under the same part type; only images have a preview.
+      if (!attachment.mime.startsWith("image/")) return
+      const { url: src } = attachment.blob
+      const alt = attachment.filename
+      void dialog.show(() => createComponent(ImagePreview, { src, alt }))
     },
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,

@@ -426,6 +426,11 @@ Attachment and file-comment removal share a local button in `composer/editor/edi
 package's `hover-reveal` utility, matching the main app's touch visibility, and also reveals the control on keyboard
 focus. Mouse hover behavior, labels, removal callbacks, and hidden/disabled controls retain their existing behavior.
 
+Image attachment previews use the public `@opencode/ui/image-preview` component, connected in `composer/model.ts`
+through the editor's existing attachment callback, matching the main app's boundary. Thumbnails are named buttons
+that open with a click, Enter or Space; the shared dialog handles dismissal and focus return. Previewing keeps the
+draft intact and reads its existing inline URL. PDFs and text files keep their attachment cards and removal behavior.
+
 Compact differences remain intentional: inline attachment URLs and file-type filtering,
 file comments, disabled controls, optional queue editing, and provider icons.
 The main app's upload progress, path attachments, and note cards remain outside this view.

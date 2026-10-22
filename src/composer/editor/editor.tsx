@@ -479,13 +479,19 @@ export function ComposerAttachments(props: {
                       </AttachmentCard>
                     }
                   >
-                    <img
-                      src={attachment.blob.url}
-                      alt={attachment.filename}
-                      class="w-[58px] h-[46px] rounded-[6px] object-cover"
+                    <button
+                      type="button"
+                      aria-haspopup="dialog"
+                      class="relative block w-[58px] h-[46px] rounded-[6px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
                       onClick={() => props.onAttachmentClick?.(attachment)}
-                    />
-                    <div class="absolute inset-0 rounded-[6px] shadow-[inset_0_0_0_0.5px_var(--v2-border-border-base)] pointer-events-none" />
+                    >
+                      <img
+                        src={attachment.blob.url}
+                        alt={attachment.filename}
+                        class="size-full rounded-[6px] object-cover"
+                      />
+                      <div class="absolute inset-0 rounded-[6px] shadow-[inset_0_0_0_0.5px_var(--v2-border-border-base)] pointer-events-none" />
+                    </button>
                   </Show>
                 </Tooltip>
                 <ComposerAttachmentRemoveButton

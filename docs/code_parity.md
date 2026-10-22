@@ -1,10 +1,9 @@
 # Code Layout Parity Review
 
-7777 is an independent Git repository. Keep implementations local or use public shared-package exports;
-never depend on `packages/app` or `packages/desktop` source, build or runtime. Preserve existing features and
-deployment controls.
-See the [README](../README.md#code-layout-parity-review) for module boundaries and behavior contracts, and
-[AGENTS.md](../AGENTS.md) for deployment rules. Earlier audits remain in Git.
+7777 is an independent Git repository: use local implementations or public shared-package exports, never
+`packages/app` or `packages/desktop` source at build or runtime. Preserve existing features and deployment controls.
+The [README](../README.md#code-layout-parity-review) owns detailed boundaries and contracts;
+[AGENTS.md](../AGENTS.md) owns deployment rules. Earlier audits remain in Git.
 
 ## Shared and local boundaries
 
@@ -13,23 +12,21 @@ See the [README](../README.md#code-layout-parity-review) for module boundaries a
 | `@opencode/client` | Data, catalogs, APIs and transport types |
 | `@opencode/session-ui` | Timeline, attachment/comment cards and line-selection types, `DockPrompt`, `SessionReview` |
 | `@opencode/gui-extensions` | `ContextUsage` |
-| `@opencode/ui`, `@opencode/util` | Controls (including search clearing), touch visibility, scrolling, i18n, paths and titles |
+| `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
-Schema/persistence, composer DOM/selection/sizing, attachment handling, notifications and model presentation follow
-the reference boundaries with local implementations. Model headings reuse provider icons and Console catalog labels;
-shared UI owns search fields, clearing, result scrolling (including composer suggestions) and Markdown dependencies.
-Composer suggestion filtering, keyboard selection and compact sizing stay local. See the README for compact contracts.
-Recent-session record ordering, grouping and labels follow `home/sessions/records.ts`, independent of runtime sync.
-The compact desktop bridge derives preload payload types from its Effect schemas; the transport stays lazy and local.
-Local `/export` follows the session-command boundary and uses the public client's complete JSON transfer API,
-browser downloads and shared toast feedback, independently of the visible history limit.
-Remaining compact responsibilities:
+Local schema/persistence, composer, notifications, models and recent-session records follow reference boundaries.
+Shared UI owns search fields, result scrolling, Markdown and image previews; `composer/model.ts` connects previews
+without changing drafts. `/export` uses the public complete-transcript API, independent of the visible history limit.
+The desktop bridge derives preload types from local Effect schemas and keeps transport lazy.
+
+## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
   records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
   messages; retain live rows/HTTP receipts until acknowledged.
-- Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo and request routing.
+- Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo, request routing,
+  and suggestion filtering, keyboard selection and compact sizing.
   Queue undo rejects hidden/malformed context, cancels before merging the latest draft, and guards stale activations.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
