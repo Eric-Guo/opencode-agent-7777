@@ -7,6 +7,13 @@ This package is a small SolidJS/Vite workspace app under `packages/7777`. This g
 The Vite config uses `@` as an alias for `./src` and serves package-owned assets from `./public`. Keep those assets
 local; this nested repository must not require files from `../app` at runtime or build time.
 
+## UI Component Ownership and Reuse
+
+- Strongly prefer reusing existing public UI components from the main repository, especially `@opencode/ui` and `@opencode/session-ui`. Compose them with local adapters when the compact app needs different behavior.
+- Keep new or compact-specific components, their adapters, fixtures, stories, and tests inside this repository. Do not add components or public exports to the parent repository merely to implement a 7777 feature or remove local duplication.
+- The local permission and question prompts in `src/session/requests/` are examples of this boundary: their behavior belongs to 7777, while existing shared controls, the `DockPrompt` shell, and styles remain reusable.
+- Similarity to a main-app component does not authorize extracting or promoting a 7777 component into `packages/app`, `packages/ui`, `packages/session-ui`, or another parent package. Only move a component upstream or introduce a new shared component when the user explicitly requests that scope.
+
 ## Build, Test, and Development Commands
 
 Use Bun from the monorepo root or this package.
