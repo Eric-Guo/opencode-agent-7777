@@ -14,12 +14,13 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
-Local schema/persistence, composer, notifications, models and recent-session records follow reference boundaries.
-Shared UI owns search fields, result scrolling, Markdown and image previews; `composer/model.ts` connects previews
-without changing drafts. `/export` uses the public complete-transcript API, independent of the visible history limit.
-The desktop bridge derives preload types from local Effect schemas and keeps transport lazy.
-`session/session-ownership.ts` owns the activation check shared by submission, revert, queue and request adapters.
-Their endpoints and mutation policies stay local; stale responses cannot affect a later activation of the same ID.
+Local persistence, composer, notifications, models and recent-session records retain compact contracts.
+Shared UI owns search fields, scrolling, Markdown and previews; `composer/model.ts` connects previews without
+changing drafts. `/export` uses the public complete-transcript API outside the visible history limit.
+Local Effect schemas derive desktop preload types; transport stays lazy. `session/session-ownership.ts` guards
+submission, revert, queue and request adapters across activations; endpoints and mutation policies stay local.
+`composer/prompt.ts` owns mention-range validation for drafts, historical messages and queue undo, preserving each
+source's recovery policy. The model picker keeps its active compact tooltip layout.
 
 ## Remaining compact responsibilities
 
@@ -27,8 +28,7 @@ Their endpoints and mutation policies stay local; stale responses cannot affect 
 - One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
   records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
   messages; retain live rows/HTTP receipts until acknowledged.
-- Draft/history formats, inline-URL attachment policy, mentions, comments, undo/redo, request routing,
-  and suggestion filtering, keyboard selection and compact sizing.
+- Draft/history formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo rejects hidden/malformed context and cancels before merging the latest draft.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.

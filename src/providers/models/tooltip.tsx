@@ -26,21 +26,8 @@ function ModelTooltipRow(props: { name: JSX.Element; value: JSX.Element }) {
   )
 }
 
-export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?: boolean; v2?: boolean }> = (
-  props,
-) => {
+export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?: boolean }> = (props) => {
   const language = useLanguage()
-  const sourceName = (model: ModelInfo) => {
-    const value = `${model.id} ${model.name}`.toLowerCase()
-
-    if (/claude|anthropic/.test(value)) return language.t("model.provider.anthropic")
-    if (/gpt|o[1-4]|codex|openai/.test(value)) return language.t("model.provider.openai")
-    if (/gemini|palm|bard|google/.test(value)) return language.t("model.provider.google")
-    if (/grok|xai/.test(value)) return language.t("model.provider.xai")
-    if (/llama|meta/.test(value)) return language.t("model.provider.meta")
-
-    return model.provider.name
-  }
   const inputLabel = (value: string) => {
     if (value === "text") return language.t("model.input.text")
     if (value === "image") return language.t("model.input.image")
@@ -48,13 +35,6 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     if (value === "video") return language.t("model.input.video")
     if (value === "pdf") return language.t("model.input.pdf")
     return value
-  }
-  const title = () => {
-    const tags: Array<string> = []
-    if (props.latest) tags.push(language.t("model.tag.latest"))
-    if (props.free) tags.push(language.t("model.tag.free"))
-    const suffix = tags.length ? ` (${tags.join(", ")})` : ""
-    return `${sourceName(props.model)} ${props.model.name}${suffix}`
   }
   const name = () => {
     const tags: Array<string> = []
@@ -81,37 +61,19 @@ export const ModelTooltip: Component<{ model: ModelInfo; latest?: boolean; free?
     if (value === undefined) return
     return value ? language.t("model.tooltip.reasoning.allowed") : language.t("model.tooltip.reasoning.none")
   }
-  const context = () => language.t("model.tooltip.context", { limit: props.model.limit.context.toLocaleString() })
   const contextLimit = () => props.model.limit.context.toLocaleString(language.intl())
 
-  if (props.v2) {
-    return (
-      <div class="flex w-[180px] flex-col gap-2">
-        <ModelTooltipRow name={language.t("model.tooltip.model")} value={name()} />
-        <ModelTooltipRow name={language.t("model.tooltip.provider")} value={props.model.provider.name} />
-        <Show when={inputs()}>
-          {(value) => <ModelTooltipRow name={language.t("model.tooltip.inputs")} value={value()} />}
-        </Show>
-        <Show when={reasoning()}>
-          {(value) => <ModelTooltipRow name={language.t("model.tooltip.reasoning")} value={value()} />}
-        </Show>
-        <ModelTooltipRow name={language.t("model.tooltip.context.label")} value={contextLimit()} />
-      </div>
-    )
-  }
-
   return (
-    <div class="flex flex-col gap-1 py-1">
-      <div class="text-13-medium">{title()}</div>
+    <div class="flex w-[180px] flex-col gap-2">
+      <ModelTooltipRow name={language.t("model.tooltip.model")} value={name()} />
+      <ModelTooltipRow name={language.t("model.tooltip.provider")} value={props.model.provider.name} />
       <Show when={inputs()}>
-        {(value) => (
-          <div class="text-12-regular text-text-invert-base">
-            {language.t("model.tooltip.allows", { inputs: value() })}
-          </div>
-        )}
+        {(value) => <ModelTooltipRow name={language.t("model.tooltip.inputs")} value={value()} />}
       </Show>
-      <Show when={reasoning()}>{(value) => <div class="text-12-regular text-text-invert-base">{value()}</div>}</Show>
-      <div class="text-12-regular text-text-invert-base">{context()}</div>
+      <Show when={reasoning()}>
+        {(value) => <ModelTooltipRow name={language.t("model.tooltip.reasoning")} value={value()} />}
+      </Show>
+      <ModelTooltipRow name={language.t("model.tooltip.context.label")} value={contextLimit()} />
     </div>
   )
 }

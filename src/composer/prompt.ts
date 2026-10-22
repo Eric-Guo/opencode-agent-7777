@@ -11,7 +11,7 @@ type PromptFile = NonNullable<PromptContent["files"]>[number]
 
 export function extractPromptFromMessage(message: SessionMessageUser): PromptDraft {
   const text = readPromptPresentation(message.metadata)?.displayText ?? message.text
-  const references = restoreReferences(text, messageReferences(message), false) ?? []
+  const references = restoreReferences(text, messageReferences(message), "message") ?? []
   return {
     prompt: text,
     attachments: messageAttachments(message.id, message),
@@ -29,7 +29,7 @@ export function extractPromptFromQueued(item: Extract<SessionInboxInfo, { type: 
     payload.skills?.some((skill) => !skill.mention)
   )
     return
-  const references = restoreReferences(payload.text, messageReferences(payload, true), true)
+  const references = restoreReferences(payload.text, messageReferences(payload, true), "queue")
   if (!references) return
   return {
     prompt: payload.text,
@@ -103,10 +103,12 @@ function messageReferences(payload: PromptContent, snapshot = false): PromptRefe
   ]
 }
 
-function restoreReferences(text: string, references: PromptReference[], exact: boolean): PromptReference[] | undefined {
+function restoreReferences(text: string, references: PromptReference[], source: "message" | "queue" | "draft") {
   const result: PromptReference[] = []
   let position = 0
-  for (const reference of references.sort((a, b) => a.start - b.start || a.end - b.end)) {
+  // Draft ties preserve stored order; transport references prefer the shorter range.
+  const sorted = [...references].sort((a, b) => a.start - b.start || (source === "draft" ? 0 : a.end - b.end))
+  for (const reference of sorted) {
     if (
       !Number.isInteger(reference.start) ||
       !Number.isInteger(reference.end) ||
@@ -114,18 +116,18 @@ function restoreReferences(text: string, references: PromptReference[], exact: b
       reference.end <= reference.start ||
       !reference.content
     ) {
-      if (exact) return
+      if (source === "queue") return
       continue
     }
     const matches =
       reference.start >= position &&
       reference.end <= text.length &&
       text.slice(reference.start, reference.end) === reference.content
-    // Historical display text can have different offsets. Match each mention in
-    // order, as the main app does, without bringing hidden notes into the editor.
-    const start = matches ? reference.start : exact ? -1 : text.indexOf(reference.content, position)
+    // Only historical display text may relocate mentions. Drafts skip mismatches;
+    // queue cancellation rejects them so context cannot be silently lost.
+    const start = matches ? reference.start : source === "message" ? text.indexOf(reference.content, position) : -1
     if (start < 0) {
-      if (exact) return
+      if (source === "queue") return
       continue
     }
     const end = start + reference.content.length
@@ -141,18 +143,9 @@ export function promptFromDraft(draft?: PromptDraft): ComposerPrompt {
   const text = draft?.prompt ?? ""
   const prompt: ComposerPrompt = []
   // References overlay the prompt text; the editor stores mentions as inline parts instead.
-  const references = [...(draft?.references ?? [])].sort((left, right) => left.start - right.start)
+  const references = restoreReferences(text, draft?.references ?? [], "draft") ?? []
   let position = 0
   for (const reference of references) {
-    if (
-      reference.start < position ||
-      !Number.isInteger(reference.start) ||
-      !Number.isInteger(reference.end) ||
-      reference.end <= reference.start ||
-      reference.end > text.length ||
-      text.slice(reference.start, reference.end) !== reference.content
-    )
-      continue
     if (reference.start > position) {
       prompt.push({
         type: "text",
@@ -161,7 +154,7 @@ export function promptFromDraft(draft?: PromptDraft): ComposerPrompt {
         end: reference.start,
       })
     }
-    prompt.push({ ...reference })
+    prompt.push(reference)
     position = reference.end
   }
   if (position < text.length || prompt.length === 0) {

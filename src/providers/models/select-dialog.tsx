@@ -297,7 +297,7 @@ export function ModelSelectorPopoverView(props: {
                               placement="right-start"
                               gutter={6}
                               openDelay={0}
-                              value={<ModelTooltip model={item} latest={item.latest} free={isFreeModel(item)} v2 />}
+                              value={<ModelTooltip model={item} latest={item.latest} free={isFreeModel(item)} />}
                             >
                               <Menu.RadioItem
                                 value={modelKey(item)}

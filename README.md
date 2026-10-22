@@ -207,8 +207,8 @@ The desktop extension packages its HTML under `sigma-agents/` and merges `assets
 
 The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
 not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
-7777 is an independent Git repository. Refactors stay inside this checkout; shared OpenCode packages are dependencies,
-while `packages/app` remains a reference for copying and aligning local code.
+7777 is an independent Git repository. Refactors use this checkout's behavior and public shared-package exports;
+they do not rely on `packages/app` source.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
 The embedding host's payload schemas and `DesktopAPI` contract live in `runtime/platform/desktop-api.ts`.
 Ambient window declarations, header identity types and the lazy RPC adapter derive their payload types from those
@@ -344,6 +344,8 @@ workspace badges when the same provider is also connected directly. Label resolu
 search and visibility filtering cannot hide the workspace identity. This presentation logic stays in
 `providers/catalog/console.ts`; free-model classification follows `providers/models/models.tsx`. Model management
 uses the shared `TextInput` clear action, including its focus behavior, without a separate button or positioning CSS.
+`providers/models/tooltip.tsx` keeps the compact layout used by the picker; the unused legacy layout and its provider
+name heuristics are removed. Model tags, input ordering, optional reasoning information and locale-aware limits remain.
 
 The model picker and compact recent-session search also use the public `TextInput`, and recent results use
 `ScrollView`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
@@ -376,6 +378,9 @@ app's prompt-conversion boundary. Draft restoration and attachment insertion sha
 `composer/state.ts` owns reactive state and change notifications. The compact URL/range storage format remains
 local, including legacy blob IDs, absolute file URIs, mention validation, and isolated snapshots. Existing state,
 prompt, submission, queue, revert, and persistence tests cover these conversions through their consumers.
+One range validator now serves draft, message and queue restoration: drafts skip mismatches, historical display text
+can relocate mentions, and queue undo rejects invalid context. Draft ties retain stored order; transport ties prefer
+shorter ranges. Validation copies references before sorting and restoration keeps them isolated from mutable stores.
 
 `composer/schema.ts` follows the main app's schema boundary for text, agent, skill, and inline attachment parts.
 `composer/types.ts` re-exports their inferred types and extends the stored file reference with editor-only metadata,
