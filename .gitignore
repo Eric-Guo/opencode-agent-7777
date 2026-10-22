@@ -7,3 +7,4 @@ dist/
 *.local
 dist-shared/
 .DS_Store
+component-tests/test-results/

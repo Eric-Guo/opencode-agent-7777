@@ -1,5 +1,5 @@
 import type { PermissionRequest } from "@opencode/client/promise"
-import { PermissionPrompt, type PermissionPromptProps } from "@opencode/session-ui/permission-prompt"
+import { PermissionPrompt, type PermissionPromptProps } from "./permission-prompt"
 import { useLanguage } from "@/runtime/i18n/language"
 
 export function SessionPermissionDock(props: {

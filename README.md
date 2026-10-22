@@ -283,16 +283,17 @@ cannot clear a newer pending reply. Web-search forms retain their separate promi
 This compact-only module replaces duplicated lifecycle code without depending on the main app or moving request
 policy into the shared `session-ui` rendering library.
 
-The question and permission docks now adapt the public `@opencode/session-ui/question-prompt` and
-`@opencode/session-ui/permission-prompt` widgets. These shared exports were extracted from 7777, alongside their
-existing shared shell and styles. They own answer selection, custom text, progress navigation, keyboard focus,
-pending controls and permission decisions. The local `session-question-dock.tsx` and `session-permission-dock.tsx`
-boundaries retain form-field filtering, label fallbacks, compact translations and the existing callbacks.
-Each request still mounts a fresh question widget. Scalar/multiselect payloads, unanswered-field omission,
-custom-answer trimming and deduplication, Escape and modifier-Enter behavior are preserved. The shared stories
-exercise the production widgets rather than duplicating their markup. This removes 497 lines from the two local
-docks by transferring reusable UI ownership; it does not reduce total workspace code. Both repositories' changes
-must ship together. Web-search setup and response lifecycle policies remain local.
+The question and permission docks adapt package-local `question-prompt.tsx` and `permission-prompt.tsx` widgets
+under `src/session/requests/`. These widgets own answer selection, custom text, progress navigation, keyboard focus,
+pending controls and permission decisions. Only the existing `@opencode/session-ui/dock-prompt` shell and styles
+are shared. The main app keeps its own prompt implementations, including its question draft cache, collapse controls,
+global shortcuts and viewport sizing. Compact widgets are not exported by `session-ui` or consumed by the main app.
+The `session-question-dock.tsx` and `session-permission-dock.tsx` boundaries retain form-field filtering, label
+fallbacks, compact translations and the existing callbacks. Each request mounts a fresh question widget.
+Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming and deduplication, Escape and
+modifier-Enter behavior are preserved. Package-local browser fixtures render the production widgets; run
+`bun run test:components` from this checkout to exercise them without a backend. Web-search setup and response
+lifecycle policies also remain local.
 
 Permission notification delivery follows the main app's `shell/notifications/notification.tsx` boundary with a
 package-local controller. It owns translated copy, request-ID deduplication, desktop delivery and the browser fallback;

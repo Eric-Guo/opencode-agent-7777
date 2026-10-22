@@ -1,5 +1,5 @@
 import type { FormAnswer, FormInfo } from "@opencode/client/promise"
-import { QuestionPrompt } from "@opencode/session-ui/question-prompt"
+import { QuestionPrompt } from "./question-prompt"
 import { createMemo } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 

@@ -10,7 +10,7 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | Public package | Reused responsibility |
 | --- | --- |
 | `@opencode/client` | Data, catalogs, APIs and transport types |
-| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, question/permission prompts, `SessionReview` |
+| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview` |
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
@@ -21,10 +21,10 @@ Local Effect schemas derive desktop preload types; transport stays lazy. `sessio
 submission, revert, queue and request adapters across activations; endpoints and mutation policies stay local.
 `composer/prompt.ts` owns mention-range validation for drafts, historical messages and queue undo, preserving each
 source's recovery policy. The model picker keeps its active compact tooltip layout.
-`QuestionPrompt` and `PermissionPrompt` extend the shared library to own request widgets and interactions.
-Local docks only map form fields and supply compact copy; routing, response ownership and web-search setup stay local.
-Ship these adapters with the shared package's new public exports; this reduces local ownership by 497 lines,
-not total workspace code. Shared interactive stories exercise the same widgets.
+`QuestionPrompt` and `PermissionPrompt` live in this checkout's `src/session/requests/` and are not shared with
+the main app. Their dock adapters map form fields and supply compact copy; routing, response ownership and
+web-search setup also stay local. Only the prompt shell and styles come from `session-ui`.
+Package-local component tests exercise these widgets with `bun run test:components`.
 
 ## Remaining compact responsibilities
 

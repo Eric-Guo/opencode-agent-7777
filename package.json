@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -b",
+    "test:components": "playwright test --config playwright.components.config.ts",
     "dev": "vite",
     "build": "vite build",
     "build:shared": "bun scripts/build-shared.ts",
