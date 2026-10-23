@@ -48,6 +48,7 @@ describe("desktop message-port transport", () => {
       const files = { token: "picked-files", files: [{ path: "/project/notes.txt", name: "notes.txt", size: 3 }] }
       const bytes = new Uint8Array([9, 1, 2, 3, 9]).subarray(1, 4)
       let cancelled = false
+      let openError: string | null = null
       host.addEventListener("message", (event) => {
         const request = event.data as RpcMessage.RequestEncoded
         if (request._tag !== "Request") return
@@ -55,15 +56,17 @@ describe("desktop message-port transport", () => {
         const value =
           request.tag === "AppAwaitInitialization"
             ? data
-            : request.tag === "FilesReadClipboardImage"
-              ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
-              : request.tag === "FilesOpenFilePicker"
-                ? cancelled
-                  ? null
-                  : files
-                : request.tag === "FilesReadPickedFile"
-                  ? Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(bytes)
-                  : null
+            : request.tag === "FilesOpenPath"
+              ? openError
+              : request.tag === "FilesReadClipboardImage"
+                ? { ...image, buffer: Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(image.buffer) }
+                : request.tag === "FilesOpenFilePicker"
+                  ? cancelled
+                    ? null
+                    : files
+                  : request.tag === "FilesReadPickedFile"
+                    ? Schema.encodeSync(Schema.toCodecJson(Schema.Uint8Array))(bytes)
+                    : null
         host.postMessage({
           _tag: "Exit",
           requestId: request.id,
@@ -102,6 +105,15 @@ describe("desktop message-port transport", () => {
         { tag: "FilesReadPickedFile", payload: { token: "picked-files", path: "/project/notes.txt" } },
         { tag: "FilesReleasePickedFiles", payload: { token: "picked-files" } },
         { tag: "FilesOpenFilePicker", payload: {} },
+      ])
+
+      const path = "C:/workspace/上海天华撤销生产部门明细.xlsx"
+      expect(await api.openPath!(path)).toBeUndefined()
+      openError = "No application is associated with this file"
+      expect(await api.openPath!(path)).toBe(openError)
+      expect(requests.slice(-2).map(({ tag, payload }) => ({ tag, payload }))).toEqual([
+        { tag: "FilesOpenPath", payload: { path } },
+        { tag: "FilesOpenPath", payload: { path } },
       ])
     } finally {
       events.dispatchEvent(new Event("pagehide"))

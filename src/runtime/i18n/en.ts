@@ -41,6 +41,7 @@ export const dict = {
   "toast.session.export.success.title": "Session export ready",
   "toast.session.export.success.description": "Download started: {{filename}}",
   "toast.session.export.failed.title": "Could not export session",
+  "toast.file.open.failed.title": "Could not open file",
   "session.thinking": "Thinking",
   "session.thinking.toggle": "Show or hide reasoning summaries",
   "session.messages.jumpToLatest": "Jump to latest",

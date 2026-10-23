@@ -2,7 +2,6 @@ import { Spinner } from "@opencode/ui/spinner"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import { ScrollView } from "@opencode/ui/scroll-view"
-import { DataProvider } from "@opencode/session-ui/context"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { SessionHeader } from "@/session/header/session-header"
 import { useSettings } from "@/settings/model"
@@ -10,6 +9,7 @@ import { ComposerDropzone } from "@/composer/dropzone"
 import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync-session-compact"
 import { currentLocalAgent, currentRuntime, state } from "@/runtime/server/session-store-compact"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
+import { SessionUIProvider } from "@/shell/routes/session-ui-provider"
 import { AgentWelcome } from "@/session/agent-welcome-compact"
 import { createActiveSessionRegion, ActiveSessionComposerRegion } from "@/session/composer/region"
 import {
@@ -24,7 +24,7 @@ import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
 import { sessionDirectory } from "@/session/directory"
 
-type SessionUiData = ComponentProps<typeof DataProvider>["data"]
+type SessionUiData = ComponentProps<typeof SessionUIProvider>["data"]
 
 export function SessionPage() {
   const settings = useSettings()
@@ -97,14 +97,17 @@ export function SessionPage() {
                   </div>
                 }
               >
-                <DataProvider data={sessionUiData()} directory={state.session ? sessionDirectory(state.session) : ""}>
+                <SessionUIProvider
+                  data={sessionUiData()}
+                  directory={state.session ? sessionDirectory(state.session) : ""}
+                >
                   <CompactMessageTimeline
                     document={timeline.document()}
                     actions={region.actions.timeline}
                     showReasoningSummaries={settings.general.showReasoningSummaries()}
                     onPointerGesture={interaction.view.markUserScroll}
                   />
-                </DataProvider>
+                </SessionUIProvider>
               </Show>
             </Show>
           </div>

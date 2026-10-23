@@ -14,6 +14,10 @@ const AppGetCybrosCurrentUser = Rpc.make("AppGetCybrosCurrentUser", {
   success: Schema.NullOr(CybrosCurrentUser),
 })
 const AppSetBackgroundColor = Rpc.make("AppSetBackgroundColor", { payload: { color: Schema.String } })
+const FilesOpenPath = Rpc.make("FilesOpenPath", {
+  payload: { path: Schema.String },
+  success: Schema.NullOr(Schema.String),
+})
 const FilesOpenFilePicker = Rpc.make("FilesOpenFilePicker", {
   payload: { options: Schema.optionalKey(FilePickerOptions) },
   success: Schema.NullOr(PickedFiles),
@@ -28,6 +32,7 @@ const DesktopRpcs = RpcGroup.make(
   AppAwaitInitialization,
   AppGetCybrosCurrentUser,
   AppSetBackgroundColor,
+  FilesOpenPath,
   FilesOpenFilePicker,
   FilesReadPickedFile,
   FilesReleasePickedFiles,
@@ -62,6 +67,7 @@ export function createDesktopApi(port: Promise<MessagePort>): DesktopAPI {
   return {
     awaitInitialization: () => invoke("AppAwaitInitialization"),
     getCybrosCurrentUser: () => invoke("AppGetCybrosCurrentUser"),
+    openPath: (path) => invoke("FilesOpenPath", { path }).then((error) => error ?? undefined),
     openFilePicker: (options) => invoke("FilesOpenFilePicker", options ? { options } : {}),
     readPickedFile: (token, path) => invoke("FilesReadPickedFile", { token, path }).then(toArrayBuffer),
     releasePickedFiles: (token) => invoke("FilesReleasePickedFiles", { token }),

@@ -43,6 +43,7 @@ export const dict = {
   "toast.session.export.success.title": "会话导出已就绪",
   "toast.session.export.success.description": "已开始下载：{{filename}}",
   "toast.session.export.failed.title": "无法导出会话",
+  "toast.file.open.failed.title": "无法打开文件",
   "session.thinking": "思考",
   "session.thinking.toggle": "显示或隐藏推理摘要",
   "session.messages.jumpToLatest": "跳转到最新消息",
