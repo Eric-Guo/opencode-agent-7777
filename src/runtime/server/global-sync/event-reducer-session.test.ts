@@ -29,7 +29,7 @@ browserSuite(import.meta.path, () => {
       get: async () => session(),
       message: {
         get: async () => ({
-          id: "model",
+          id: "msg_model",
           type: "model-switched",
           model: { id: "model", providerID: "provider", variant: "high" },
           time: { created: 10 },
@@ -52,14 +52,14 @@ browserSuite(import.meta.path, () => {
       setSessionClient(client)
       const model = { providerID: "provider", id: "model", variant: "high" }
       applySessionEvent(
-        event({ ...base, id: "model", type: "session.model.selected", data: { sessionID: "session", model } }),
+        event({ ...base, id: "evt_model", type: "session.model.selected", data: { sessionID: "session", model } }),
         { refresh: () => {} },
       )
       applySessionEvent(
         event({
           ...base,
           created: 11,
-          id: "agent",
+          id: "evt_agent",
           type: "session.agent.selected",
           data: { sessionID: "session", agent: "7777" },
         }),
