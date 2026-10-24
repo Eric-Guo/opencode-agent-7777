@@ -1,5 +1,10 @@
 import type { SessionMessageInfo, SessionMessageUser } from "@opencode/client/promise"
 
+// A shell invocation occupies one dialog in both hydration and the compact timeline.
+export function isSessionDialogRoot(message: SessionMessageInfo) {
+  return message.type === "user" || message.type === "shell"
+}
+
 export function normalizeSessionTab(tab: string, normalizeFileTab: (tab: string) => string) {
   if (!tab.startsWith("file://")) return tab
   return normalizeFileTab(tab)

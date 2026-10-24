@@ -1,22 +1,9 @@
 import { SessionMessage } from "@opencode/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
-import {
-  dropPendingEcho,
-  echoPendingUserMessage,
-  pendingInboxRevision,
-  updatePendingInbox,
-} from "@/runtime/server/global-sync/session-cache-messages"
 import { prompt } from "@/composer/persistence-singleton"
 import { buildPromptRequest } from "@/composer/request"
 import { createComposerSubmission } from "@/composer/submission-state"
-import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
-import {
-  updateSession,
-  setSessionStatus,
-  idleStatus,
-  setState,
-  state,
-} from "@/runtime/server/session-store-compact"
+import { idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
@@ -42,19 +29,19 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   const variant = selection.variant.current()
   const model = selectedModel ? { ...selectedModel, ...(variant ? { variant } : {}) } : undefined
   const optimisticBusy = state.sessionStatus.type === "idle"
-  const revision = pendingInboxRevision()
+  const revision = active.runtime.pendingRevision()
 
   const messageID = SessionMessage.ID.create()
 
   submission.clear()
   setState("error", "")
   setState("submitting", true)
-  if (optimisticBusy) setSessionStatus({ type: "busy" })
+  if (optimisticBusy) active.runtime.setStatus({ type: "busy" })
   if (state.session?.revert) {
-    updateSession((session) => ({ ...session, revert: undefined }))
+    active.runtime.setSession({ ...active.runtime.view().session, revert: undefined })
   }
   if (delivery === "steer" && !command)
-    echoPendingUserMessage({
+    active.runtime.echo({
       id: messageID,
       type: "user",
       text: request.text,
@@ -110,24 +97,24 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
       composerHistory.add(historyPrompt, "normal")
       if (!active.current()) return
       // SSE may already have delivered or cancelled this admission before HTTP returns.
-      if (admitted && pendingInboxRevision() === revision) {
-        updatePendingInbox((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
+      if (admitted && active.runtime.pendingRevision() === revision) {
+        active.runtime.updatePending((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
       }
-      scheduleRefresh(250)
+      active.runtime.schedule(250)
       return refreshRecentSessions()
     })
     .catch((error) => {
       cancelCommit?.()
       if (!active.current()) return
-      dropPendingEcho(messageID)
+      active.runtime.dropEcho(messageID)
       const restored = submission.restore()
       if (restored) restored.target.restore(restored.prompt)
       if (previousRevert && !state.session?.revert) {
-        updateSession((session) => ({ ...session, revert: previousRevert }))
+        active.runtime.setSession({ ...active.runtime.view().session, revert: previousRevert })
       }
       setState("error", readableError(error))
-      if (optimisticBusy) setSessionStatus(idleStatus)
-      scheduleRefresh(0)
+      if (optimisticBusy) active.runtime.setStatus(idleStatus)
+      active.runtime.schedule(0)
     })
     .finally(() => {
       if (active.current()) setState("submitting", false)
@@ -143,6 +130,6 @@ export function abortPrompt() {
       if (active.current()) setState("error", readableError(error))
     })
     .finally(() => {
-      if (active.current()) scheduleRefresh()
+      if (active.current()) active.runtime.schedule()
     })
 }

@@ -10,6 +10,7 @@ import type {
 import { createComputed, createRoot, onCleanup, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { FETCH_MESSAGE_LIMIT, HISTORY_DIALOG_LIMIT } from "@/constants/session"
+import { isSessionDialogRoot } from "@/session/session-domain"
 import { createSessionData, type SessionDataView } from "./data"
 
 export type SessionView = SessionDataView & { messagesLoading: boolean }
@@ -88,8 +89,7 @@ export function createSessionRuntime(input: {
           sessionData.acknowledgePending(started)
           abort.signal.throwIfAborted()
           while (
-            sessionData.messages().filter((row) => row.type === "user" || row.type === "shell").length <
-              HISTORY_DIALOG_LIMIT &&
+            sessionData.messages().filter(isSessionDialogRoot).length < HISTORY_DIALOG_LIMIT &&
             data.session.message.more(id)
           ) {
             await data.session.message.loadMore(id, { signal: abort.signal })

@@ -4,8 +4,14 @@ import { Skill } from "@opencode/schema/skill"
 import { prompt } from "./persistence-singleton"
 import { abortPrompt, submitPrompt } from "./submit"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
-import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
-import { idleStatus, setSessionStatus, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
+import {
+  currentRuntime,
+  idleStatus,
+  setSessionStatus,
+  setSessionClient,
+  setState,
+  state,
+} from "@/runtime/server/session-store-compact"
 import { createPromptModelSelection } from "./selection"
 import type { ModelOption } from "@/providers/models/models"
 import { composerHistory } from "./history/store"
@@ -557,7 +563,7 @@ browserSuite(import.meta.path, () => {
       const admission = Promise.withResolvers<unknown>()
       setSessionClient(client({ send: () => admission.promise }))
       const pending = submitPrompt({ delivery: "queue" })
-      updatePendingInbox(() => [])
+      currentRuntime()!.updatePending(() => [])
       admission.resolve({
         id: "already-delivered",
         sessionID: "session",

@@ -17,7 +17,8 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 Composer conversion and part edits are centralized in `composer/{prompt,prompt-parts}.ts`; clipboard insertion and
 caret handling belong to `composer/editor/dom.ts`. UI adapters retain routing, persistence and recovery policies.
 Shared UI owns fields, scrolling, Markdown and previews; `/export` reads the complete transcript through the client.
-Local schemas type the lazy desktop transport; `session/session-ownership.ts` guards activation-owned mutations.
+Local schemas type the lazy desktop transport. `session/session-ownership.ts` binds mutations and refreshes to the
+captured runtime; its data adapter composes the message cache and pending receipts without global cache forwarding.
 `QuestionPrompt` and `PermissionPrompt` live in this checkout's `src/session/requests/` and are not shared with
 the main app. Their dock adapters map form fields and supply compact copy; routing, response ownership and
 web-search setup also stay local. Only the prompt shell and styles come from `session-ui`.
@@ -26,9 +27,7 @@ Package-local component tests exercise these widgets with `bun run test:componen
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
-- One disposable root/data instance and SSE stream per activation, cancellation and snapshot guards. Start at 36
-  records; follow nonempty cursors to nine user/shell roots or end, excluding queued prompts. Hydrate missing
-  messages; retain live rows/HTTP receipts until acknowledged.
+- The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
 - Draft/history formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo rejects hidden/malformed context and cancels before merging the latest draft.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,

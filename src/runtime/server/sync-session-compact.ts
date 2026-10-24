@@ -27,10 +27,6 @@ function scheduleMessageRefresh(delay = 120) {
   currentRuntime()?.schedule(delay)
 }
 
-export function scheduleRefresh(delay = 120) {
-  scheduleMessageRefresh(delay)
-}
-
 function handleEvent(event: OpenCodeEvent) {
   if (event.type === "server.connected") {
     scheduleMessageRefresh(0)

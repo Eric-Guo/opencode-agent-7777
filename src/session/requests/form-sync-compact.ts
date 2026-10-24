@@ -1,6 +1,5 @@
 import type { FormAnswer, FormInfo, SessionFormReplyInput, OpenCodeEvent } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { captureSessionOwnership } from "@/session/session-ownership"
@@ -46,7 +45,7 @@ export async function replyForm(input: SessionFormReplyInput) {
   await active.client.session.form.reply(input)
   if (!active.current()) return
   setState("form", input.sessionID, (current = []) => current.filter((form) => form.id !== input.formID))
-  scheduleRefresh(120)
+  active.runtime.schedule(120)
 }
 
 export function replyQuestion(request: FormInfo, answer: FormAnswer) {

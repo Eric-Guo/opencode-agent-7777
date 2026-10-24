@@ -5,11 +5,12 @@ import { currentRuntime, currentSession, state } from "@/runtime/server/session-
 // when it reuses the client. The session ID also guards selection before activation.
 export function captureSessionOwnership() {
   const active = currentSession()
-  if (!active) return
   const runtime = currentRuntime()
+  if (!active || !runtime?.alive()) return
 
   return {
     ...active,
-    current: () => currentRuntime() === runtime && state.session?.id === active.sessionID,
+    runtime,
+    current: () => runtime.alive() && currentRuntime() === runtime && state.session?.id === active.sessionID,
   }
 }

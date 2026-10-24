@@ -9,7 +9,7 @@ import {
 } from "@opencode/client/promise"
 import { unwrap } from "solid-js/store"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
-import { createSessionRuntime } from "./runtime"
+import { createSessionRuntime, type SessionView } from "./runtime"
 import { browserSuite } from "./runtime.test-fixture"
 
 browserSuite(import.meta.path, () => {
@@ -50,6 +50,7 @@ browserSuite(import.meta.path, () => {
     let read: ((url: URL) => Promise<unknown> | unknown) | undefined
     let sequence = 0
     let publications = 0
+    const views: SessionView[] = []
     const client = OpenCode.make({
       baseUrl: "http://fixture.local",
       fetch: (async (input, init) => {
@@ -71,7 +72,10 @@ browserSuite(import.meta.path, () => {
     const runtime = createSessionRuntime({
       client,
       session: initial,
-      changed: () => publications++,
+      changed: (view) => {
+        publications++
+        views.push(structuredClone(unwrap(view)))
+      },
       error: (error) => failures.push(error),
     })
     disposers.push(runtime.dispose)
@@ -92,6 +96,7 @@ browserSuite(import.meta.path, () => {
       requests,
       failures,
       publications: () => publications,
+      views,
       snapshot: (rows: SessionMessageInfo[], items: SessionInboxInfo[] = []) => {
         messages = rows
         pending = items
@@ -141,6 +146,67 @@ browserSuite(import.meta.path, () => {
     await f.runtime.refreshMessages()
     expect(f.rows()).toEqual([user(1)])
     expect(f.requests.filter((url) => url.pathname.endsWith("/message"))).toHaveLength(2)
+  })
+
+  test("hydration counts shell dialogs and excludes queued inputs from the nine-root target", async () => {
+    const f = fixture()
+    const shell: SessionMessageInfo = {
+      id: "msg_shell",
+      type: "shell",
+      shellID: "shell",
+      command: "pwd",
+      status: "exited",
+      output: { output: "/repo", cursor: 5, size: 5, truncated: false },
+      time: { created: 20, completed: 21 },
+    }
+    f.read((url) => {
+      if (url.pathname.endsWith("/inbox")) return { data: [inbox()] }
+      if (!url.pathname.endsWith("/message")) return
+      if (!url.searchParams.has("cursor"))
+        return {
+          data: [shell, ...Array.from({ length: 7 }, (_, index) => user(10 - index))],
+          cursor: { next: "older" },
+        }
+      return { data: [user(3)], cursor: { next: "unneeded" } }
+    })
+    await f.runtime.refreshMessages()
+    const timeline = createCompactTimelineModel({
+      sessionID: () => "session",
+      messages: () => f.runtime.view().sessionMessages,
+      loading: () => false,
+    })
+    expect(f.requests.filter((url) => url.pathname.endsWith("/message"))).toHaveLength(2)
+    expect(timeline.userDialogCount()).toBe(9)
+    expect(timeline.visibleMessages().map((row) => row.id)).toEqual([
+      "msg_003",
+      "msg_004",
+      "msg_005",
+      "msg_006",
+      "msg_007",
+      "msg_008",
+      "msg_009",
+      "msg_010",
+      "msg_shell",
+    ])
+    expect(f.pending()).toEqual([inbox()])
+  })
+
+  test("publishes inbox promotion and HTTP cancellation atomically with transcript overlays", () => {
+    const f = fixture()
+    f.runtime.updatePending(() => [inbox()])
+    f.views.length = 0
+    f.emit("session.inbox.delivery.changed", { inboxID: "pending", delivery: "steer" })
+    expect(
+      f.views.map((view) => ({
+        messages: view.sessionMessages.map((row) => row.id),
+        pending: view.sessionPending.map((item) => [item.id, item.delivery]),
+      })),
+    ).toEqual([{ messages: ["pending"], pending: [["pending", "steer"]] }])
+    f.views.length = 0
+    f.runtime.updatePending(() => [])
+    expect(f.views.map((view) => ({ messages: view.sessionMessages, pending: view.sessionPending }))).toEqual([
+      { messages: [], pending: [] },
+    ])
   })
 
   test("queue hydration, promotion and cancellation use one shared inbox without consuming dialogs", async () => {

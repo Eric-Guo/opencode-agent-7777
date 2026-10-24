@@ -6,8 +6,6 @@ import { extractPromptFromQueued as queuedPromptUndoDraft } from "@/composer/pro
 import type { PromptState } from "@/composer/state"
 import { translateSync } from "@/runtime/i18n/language"
 import { setState, state } from "@/runtime/server/session-store-compact"
-import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
-import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 
@@ -49,7 +47,7 @@ export function createSessionQueue(input: {
         await active.client.session.inbox.cancel({ sessionID: active.sessionID, inboxID: id })
       }
       if (!active.current()) return
-      updatePendingInbox((items) =>
+      active.runtime.updatePending((items) =>
         action === "steer"
           ? items.map((item) => (item.id === id ? { ...item, delivery: "steer" } : item))
           : items.filter((item) => item.id !== id),
@@ -73,7 +71,7 @@ export function createSessionQueue(input: {
         })
         input.restoreFocus(input.draft.current().length)
       }
-      scheduleRefresh(0)
+      active.runtime.schedule(0)
     } catch (error) {
       if (active.current()) setState("error", readableError(error))
     } finally {

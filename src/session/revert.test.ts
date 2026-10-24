@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
 import { OpenCode, type SessionInfo, type SessionMessageInfo } from "@opencode/client/promise"
 import { prompt } from "@/composer/persistence-singleton"
-import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
 import { currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { createSessionRevert } from "./revert"
 import { browserSuite } from "@/runtime/server/runtime.test-fixture"
@@ -171,7 +170,7 @@ browserSuite(import.meta.path, () => {
       if (condition === "loading") setState("messagesLoading", true)
       if (condition === "offline") setState("status", "failed")
       if (condition === "queued")
-        updatePendingInbox(() => [
+        currentRuntime()!.updatePending(() => [
           {
             id: "queued",
             sessionID: "session",

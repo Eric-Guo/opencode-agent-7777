@@ -2,8 +2,7 @@ import { afterEach, beforeEach, expect, test } from "bun:test"
 import { OpenCode, type SessionInfo } from "@opencode/client/promise"
 import { Skill } from "@opencode/schema/skill"
 import { Schema } from "effect"
-import { updatePendingInbox } from "@/runtime/server/global-sync/session-cache-messages"
-import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { createPromptState, type PromptDraft } from "@/composer/state"
 import { buildPromptRequest } from "@/composer/request"
 import { PromptDraft as PromptDraftSchema } from "@/composer/schema"
@@ -13,7 +12,7 @@ import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 browserSuite(import.meta.path, () => {
   function connect(client: Parameters<typeof setSessionClient>[0]) {
     setSessionClient(client)
-    if (client) updatePendingInbox(() => [item()])
+    if (client) currentRuntime()!.updatePending(() => [item()])
   }
 
   function makeQueue(input: Partial<Parameters<typeof createSessionQueue>[0]> = {}) {
@@ -84,7 +83,7 @@ browserSuite(import.meta.path, () => {
   test.each(["steer", "remove"] as const)("%s uses the server inbox API", async (action) => {
     const requests: unknown[] = []
     const original = item()
-    updatePendingInbox(() => [original])
+    currentRuntime()!.updatePending(() => [original])
     connect(
       OpenCode.make({
         baseUrl: "http://localhost",
@@ -99,7 +98,7 @@ browserSuite(import.meta.path, () => {
         }) as typeof fetch,
       }),
     )
-    updatePendingInbox(() => [original])
+    currentRuntime()!.updatePending(() => [original])
     const queue = makeQueue({ working: () => true, disabled: () => false })
     await queue[action]("queued")
     expect(requests).toEqual([
@@ -165,7 +164,7 @@ browserSuite(import.meta.path, () => {
     expect(calls).toBe(1)
     setState("session", { id: "other", location: { directory: "/repo" } } as SessionInfo)
     connect(OpenCode.make({ baseUrl: "http://fixture.local" }))
-    updatePendingInbox(() => [{ ...item(), sessionID: "other" }])
+    currentRuntime()!.updatePending(() => [{ ...item(), sessionID: "other" }])
     response.resolve(new Response(null, { status: 204 }))
     await pending
     expect(queue.count()).toBe(1)
@@ -247,7 +246,7 @@ browserSuite(import.meta.path, () => {
       },
     }
     const snapshot = structuredClone(original)
-    updatePendingInbox(() => [original])
+    currentRuntime()!.updatePending(() => [original])
     let saved: unknown
     const draft = createPromptState({ prompt: "Draft", attachments: [] }, (value) => (saved = value))
     const queue = makeQueue({ draft })
@@ -320,7 +319,7 @@ browserSuite(import.meta.path, () => {
       }),
     )
     const original = filePrompt()
-    updatePendingInbox(() => [original])
+    currentRuntime()!.updatePending(() => [original])
     const saved: unknown[] = []
     const draft = createPromptState(undefined, (value) => saved.push(value))
     const focused: number[] = []
@@ -412,7 +411,7 @@ browserSuite(import.meta.path, () => {
       if (reason === "invalid mention")
         original.payload.agents = [{ name: "research", mention: { text: "@research", start: 0, end: 9 } }]
       if (reason === "skill") original.payload.skills = [{ id: "skill", name: "review" }]
-      updatePendingInbox(() => [original])
+      currentRuntime()!.updatePending(() => [original])
       const draft = createPromptState({ prompt: "keep me", attachments: [] })
       const focused: number[] = []
       const queue = makeQueue({
@@ -443,7 +442,7 @@ browserSuite(import.meta.path, () => {
     const pending = queue.undo("queued")
     setState("session", { id: sameSession ? "session" : "other" } as SessionInfo)
     connect(OpenCode.make({ baseUrl: "http://localhost" }))
-    updatePendingInbox(() => [{ ...item(), sessionID: sameSession ? "session" : "other" }])
+    currentRuntime()!.updatePending(() => [{ ...item(), sessionID: sameSession ? "session" : "other" }])
     draft.set("new activation draft")
     response.resolve(new Response(null, { status: 204 }))
     await pending

@@ -1,7 +1,6 @@
 // Single-session bootstrap variant of the main app's global/directory bootstrap boundary.
 import { reconcile } from "solid-js/store"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
-import { refreshMessages } from "@/runtime/server/global-sync/session-cache-messages"
 import { readSessionRecord, writeSessionRecord } from "@/runtime/persistence/storage-compact"
 import { refreshModels } from "@/providers/catalog/loader-compact"
 import { refreshPermissions } from "@/session/requests/permission-sync-compact"
@@ -21,10 +20,6 @@ import { resolveServer, type ServerInfo } from "@/runtime/server/resolver-compac
 import { sessionDirectory } from "@/session/directory"
 import { createDefaultSession, restoreSession } from "./session-load-current"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
-
-export function refreshCurrentMessages() {
-  return refreshMessages(FETCH_MESSAGE_LIMIT)
-}
 
 export function refreshSessionStatus(activeClient: OpencodeClient, session: NonNullable<typeof state.session>) {
   const runtime = currentRuntime()
@@ -63,7 +58,7 @@ export function activateSession(
     refreshSessionStatus(activeClient, session).then(() => {
       if (currentRuntime() === runtime) setState("status", "ready")
     }),
-    refreshCurrentMessages(),
+    runtime?.refreshMessages(FETCH_MESSAGE_LIMIT),
     refreshModels(activeClient, session),
     refreshPermissions(),
     refreshForms(),

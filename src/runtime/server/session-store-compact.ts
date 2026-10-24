@@ -83,12 +83,6 @@ export function setSessionClient(next: OpencodeClient | undefined, session = sta
   nextRuntime.publish()
 }
 
-export function updateSession(
-  update: (session: NonNullable<typeof state.session>) => NonNullable<typeof state.session>,
-) {
-  if (state.session) runtime()?.setSession(update(state.session))
-}
-
 export function setSessionStatus(status: SessionStatus) {
   runtime()?.setStatus(status)
 }

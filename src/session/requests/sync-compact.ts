@@ -1,6 +1,5 @@
 import type { OpenCodeClient } from "@opencode/client/promise"
 import { setState, state } from "@/runtime/server/session-store-compact"
-import { scheduleRefresh } from "@/runtime/server/sync-session-compact"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 
@@ -29,7 +28,7 @@ export function respondToRequest(
       if (kind === "permission")
         setState("permission", request.sessionID, (items = []) => items.filter((item) => item.id !== request.id))
       else setState("form", request.sessionID, (items = []) => items.filter((item) => item.id !== request.id))
-      scheduleRefresh(120)
+      active.runtime.schedule(120)
     })
     .catch((error) => {
       if (active.current()) setState("error", readableError(error))

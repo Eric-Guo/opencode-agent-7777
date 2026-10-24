@@ -310,21 +310,27 @@ comments, arbitrary history ranges, and docked extension panels remain outside t
 
 `runtime/server/runtime.ts` and `runtime/server/data.ts` follow the main app's separate orchestration and data-adapter
 boundaries. The runtime owns the activation's disposable Solid root, cancellation, publication, refresh scheduling
-and nine-dialog hydration. The data adapter creates one `createData` instance from `@opencode/client/solid` inside
-that root and owns snapshot guards, transient submission/mutation overlays and skill/selection compatibility.
-Shared data still owns session records, messages, pending inbox snapshots and location catalogs. The adapter batches
-local overlays with shared events so readers cannot observe half-applied transitions, retains live rows across stale
-history reads, and retires HTTP receipts only when a newer snapshot acknowledges them. It receives the runtime's
-cancellation signal and refresh callback; it creates no root, timer or SSE connection of its own. These responsibilities
-stay local because the main app's data adapter handles different mutations. The existing `runtime.test.ts` integration
-suite covers the combined public contract. `session-store-compact.ts` exposes reactive views plus local UI state;
-transport, directory-wide request discovery, and embedded behavior stay package-owned.
+and nine-dialog hydration. Hydration starts at 36 records and follows nonempty cursors until nine user/shell roots or
+the end, excluding queued prompts. Hydration and the visible timeline share `session/session-domain.ts`'s dialog-root
+predicate. The data adapter creates one `createData` instance from `@opencode/client/solid` inside that root, guards
+session snapshots and owns the private pending-inbox receipt ledger. Shared data still owns durable session records,
+messages, pending inbox snapshots and location catalogs.
 
-`session/session-ownership.ts` centralizes capture of the active request client, session ID and local agent together
-with the activation check used by submit/interrupt, undo/redo, queue actions, and permission/form reads and replies.
+`runtime/server/global-sync/session-cache-messages.ts` now owns the activation's message cache: cursor termination,
+live-row reconciliation, optimistic echoes, cancellation tombstones and skill/selection compatibility. It receives
+accessors from the data adapter and has no global runtime lookup. This compact-specific cache stays local because
+the main app's data adapter has different mutation policies. The adapter batches cache and receipt changes with the
+shared reducer so readers cannot observe half-applied transitions; HTTP receipts retire only when an acknowledging
+snapshot or event arrives. Neither helper creates a root, timer or SSE connection. `runtime.test.ts` covers the combined
+contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
+exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
+
+`session/session-ownership.ts` captures the active request client, runtime, session ID and local agent together with
+the activation check used by submit/interrupt, undo/redo, queue actions, and permission/form reads and replies.
 It follows the main app's ownership boundary using the compact runtime's identity instead of a routed key watcher.
-Returning to the same session with the same client still invalidates earlier results; changing the selected ID before
-activation also rejects stale writes. The helper adds no subscriptions or cancellation policy. Existing consumer
+Mutations and follow-up refreshes use that captured runtime directly, removing global cache and refresh forwarding.
+Returning to the same session with the same client still invalidates earlier results; disposal or changing the selected
+ID before activation also rejects stale writes. The helper adds no subscriptions or cancellation policy. Existing consumer
 tests retain coverage for draft restoration, request routing, pending flags, errors and successful prompt history.
 
 `session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.

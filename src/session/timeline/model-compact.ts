@@ -2,14 +2,10 @@ import type { SessionDocument } from "@opencode/session-ui/document"
 import type { SessionMessageInfo, SessionStatus } from "@opencode/client/promise"
 import { createMemo, type Accessor } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import { selectSessionUserMessages, selectVisibleSessionUserMessages } from "../session-domain"
-
-function isDialogRoot(message: SessionMessageInfo) {
-  return message.type === "user" || message.type === "shell"
-}
+import { isSessionDialogRoot, selectSessionUserMessages, selectVisibleSessionUserMessages } from "../session-domain"
 
 function recentDialogMessages(messages: SessionMessageInfo[]) {
-  const roots = messages.filter(isDialogRoot)
+  const roots = messages.filter(isSessionDialogRoot)
   if (roots.length <= HISTORY_DIALOG_LIMIT) return messages
   const firstVisible = roots[roots.length - HISTORY_DIALOG_LIMIT]
   const index = messages.findIndex((message) => message.id === firstVisible.id)
@@ -47,7 +43,7 @@ export function createCompactTimelineModel(input: {
     }),
   )
   const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
-  const userDialogCount = createMemo(() => visibleMessages().filter(isDialogRoot).length)
+  const userDialogCount = createMemo(() => visibleMessages().filter(isSessionDialogRoot).length)
 
   return {
     document,
@@ -60,8 +56,5 @@ export function createCompactTimelineModel(input: {
 }
 
 export function isTimelineReady(messages: SessionMessageInfo[] | undefined, loading: boolean) {
-  return (
-    messages !== undefined &&
-    (messages.some((message) => message.type === "user" || message.type === "shell") || !loading)
-  )
+  return messages !== undefined && (messages.some(isSessionDialogRoot) || !loading)
 }
