@@ -2,7 +2,7 @@ import { batch } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { ComposerPersistedState } from "@/composer/types"
 import type { PromptAttachment, PromptDraft } from "./schema"
-import { isAttachment, promptText } from "./prompt-parts"
+import { promptText, removePromptAttachment, replacePromptText } from "./prompt-parts"
 import { attachmentFromDraft, draftAttachments, draftFromPrompt, promptFromDraft } from "./prompt"
 
 export type { Prompt } from "@/composer/types"
@@ -48,10 +48,7 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
     persist: changed,
     set(value: string) {
       batch(() => {
-        setStore("prompt", (parts) => [
-          { type: "text", content: value, start: 0, end: value.length },
-          ...parts.filter(isAttachment),
-        ])
+        setStore("prompt", (parts) => replacePromptText(parts, value))
         setStore("cursor", value.length)
       })
       changed()
@@ -61,7 +58,7 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
       changed()
     },
     removeAttachment(id: string) {
-      setStore("prompt", (parts) => parts.filter((part) => !isAttachment(part) || part.id !== id))
+      setStore("prompt", (parts) => removePromptAttachment(parts, id))
       changed()
     },
     restore(draft?: PromptDraft) {

@@ -5,7 +5,7 @@ import { uuid } from "@/runtime/persistence/uuid"
 import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 import { isAttachment } from "../prompt-parts"
-import { getCursorPosition } from "../editor/dom"
+import { clipboardText, getCursorPosition, insertComposerText } from "../editor/dom"
 
 type PromptTarget = {
   current: () => ComposerPrompt
@@ -119,13 +119,12 @@ export function createComposerAttachments(
       await addAttachments(files, true, target)
       return
     }
-    const plainText = clipboardData.getData("text/plain") ?? ""
-    if (input.readClipboardImage && !plainText) {
+    const text = clipboardText(clipboardData)
+    if (input.readClipboardImage && !text) {
       const file = await input.readClipboardImage()
       if (file && (await add(file, true, target, true))) return
     }
-    if (!plainText) return
-    const text = plainText.includes("\r") ? plainText.replace(/\r\n?/g, "\n") : plainText
+    if (!text) return
     const put = () => {
       if (input.addPart({ type: "text", content: text, start: 0, end: 0 })) return true
       input.focusEditor()
@@ -135,7 +134,7 @@ export function createComposerAttachments(
       put()
       return
     }
-    if (typeof document.execCommand === "function" && document.execCommand("insertText", false, text)) return
+    if (insertComposerText(text)) return
     put()
   }
   const handleDrop = async (event: DragEvent) => {

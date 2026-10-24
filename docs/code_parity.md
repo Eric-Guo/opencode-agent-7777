@@ -14,13 +14,10 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
-Local persistence, composer, notifications, models and recent-session records retain compact contracts.
-Shared UI owns search fields, scrolling, Markdown and previews; `composer/model.ts` connects previews without
-changing drafts. `/export` uses the public complete-transcript API outside the visible history limit.
-Local Effect schemas derive desktop preload types; transport stays lazy. `session/session-ownership.ts` guards
-submission, revert, queue and request adapters across activations; endpoints and mutation policies stay local.
-`composer/prompt.ts` owns mention-range validation for drafts, historical messages and queue undo, preserving each
-source's recovery policy. The model picker keeps its active compact tooltip layout.
+Composer conversion and part edits are centralized in `composer/{prompt,prompt-parts}.ts`; clipboard insertion and
+caret handling belong to `composer/editor/dom.ts`. UI adapters retain routing, persistence and recovery policies.
+Shared UI owns fields, scrolling, Markdown and previews; `/export` reads the complete transcript through the client.
+Local schemas type the lazy desktop transport; `session/session-ownership.ts` guards activation-owned mutations.
 `QuestionPrompt` and `PermissionPrompt` live in this checkout's `src/session/requests/` and are not shared with
 the main app. Their dock adapters map form fields and supply compact copy; routing, response ownership and
 web-search setup also stay local. Only the prompt shell and styles come from `session-ui`.

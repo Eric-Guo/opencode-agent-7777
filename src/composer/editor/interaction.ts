@@ -3,7 +3,7 @@ import { createStore, reconcile } from "solid-js/store"
 import { useFilteredList } from "@opencode/ui/hooks"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "../attachments/attachments"
 import { createComposerEditorActions, type ComposerStateStoreInput } from "./actions"
-import { getCursorPosition, setCursorPosition } from "./dom"
+import { getCursorPosition, pasteComposerText, setCursorPosition } from "./dom"
 import type {
   ComposerAttachment,
   ComposerCapabilities,
@@ -441,30 +441,7 @@ export function createComposerEditor(input: {
         void attachments.handlePaste(event)
         return
       }
-      const text = clipboard?.getData("text/plain").replace(/\r\n?/g, "\n")
-      if (!text) return
-      event.preventDefault()
-      // insertText emits input events per line, repeatedly parsing and saving the draft.
-      // Escaped HTML inserts multiline text once and preserves native selection and undo.
-      const multiline = text.includes("\n")
-      const value = multiline ? text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;") : text
-      if (
-        typeof document.execCommand === "function" &&
-        document.execCommand(multiline ? "insertHTML" : "insertText", false, value)
-      )
-        return
-      const target = event.currentTarget
-      const selection = window.getSelection()
-      if (!(target instanceof HTMLElement) || !selection?.rangeCount || !target.contains(selection.anchorNode)) return
-      const range = selection.getRangeAt(0)
-      range.deleteContents()
-      const node = document.createTextNode(text)
-      range.insertNode(node)
-      range.setStartAfter(node)
-      range.collapse(true)
-      selection.removeAllRanges()
-      selection.addRange(range)
-      target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: text }))
+      pasteComposerText(event)
     },
     onDragEnter(event: DragEvent) {
       if (attachments) return attachments.handleDragOver(event)

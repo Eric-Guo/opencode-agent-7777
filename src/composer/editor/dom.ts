@@ -65,6 +65,52 @@ export function setCursorPosition(editor: HTMLElement | undefined, cursor: numbe
   selection?.addRange(range)
 }
 
+export function clipboardText(clipboard: DataTransfer | null) {
+  return clipboard?.getData("text/plain").replace(/\r\n?/g, "\n") ?? ""
+}
+
+export function insertComposerText(text: string) {
+  // insertText emits input events per line, repeatedly parsing and saving the draft.
+  // Escaped HTML inserts multiline text once and preserves native selection and undo.
+  const multiline = text.includes("\n")
+  const value = multiline ? text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;") : text
+  return (
+    typeof document.execCommand === "function" &&
+    document.execCommand(multiline ? "insertHTML" : "insertText", false, value)
+  )
+}
+
+export function pasteComposerText(event: ClipboardEvent) {
+  const text = clipboardText(event.clipboardData)
+  if (!text) return
+  event.preventDefault()
+  if (insertComposerText(text)) return
+  const target = event.currentTarget
+  const selection = window.getSelection()
+  if (!(target instanceof HTMLElement) || !selection?.rangeCount || !target.contains(selection.anchorNode)) return
+  const range = selection.getRangeAt(0)
+  range.deleteContents()
+  const node = document.createTextNode(text)
+  range.insertNode(node)
+  range.setStartAfter(node)
+  range.collapse(true)
+  selection.removeAllRanges()
+  selection.addRange(range)
+  target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: text }))
+}
+
+// Programmatic multiline insertion does not reliably reveal the caret in a scroll viewport.
+export function revealComposerCursor(editor: HTMLElement | undefined, viewport: HTMLElement | undefined) {
+  const selection = window.getSelection()
+  if (!editor || !viewport || !selection?.isCollapsed || !selection.rangeCount) return
+  if (!editor.contains(selection.anchorNode)) return
+  const caret = selection.getRangeAt(0).getBoundingClientRect()
+  if (!caret.height) return
+  const bounds = viewport.getBoundingClientRect()
+  if (caret.bottom > bounds.bottom - 8) viewport.scrollTop += caret.bottom - bounds.bottom + 8
+  if (caret.top < bounds.top + 8) viewport.scrollTop += caret.top - bounds.top - 8
+}
+
 const mentionParts = new WeakMap<HTMLElement, Exclude<ComposerPrompt[number], ComposerAttachment | { type: "text" }>>()
 
 export function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPrompt) {

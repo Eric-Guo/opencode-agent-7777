@@ -21,6 +21,15 @@ export function promptLength(prompt: Prompt) {
   return prompt.reduce((length, part) => length + ("content" in part ? part.content.length : 0), 0)
 }
 
+// Text replacement discards inline mentions but keeps the attachments beside the editor.
+export function replacePromptText(prompt: Prompt, content: string): Prompt {
+  return [{ type: "text", content, start: 0, end: content.length }, ...prompt.filter(isAttachment)]
+}
+
+export function removePromptAttachment(prompt: Prompt, id: string): Prompt {
+  return prompt.filter((part) => !isAttachment(part) || part.id !== id)
+}
+
 export function appendPrompt(prompt: Prompt, following: Prompt): Prompt {
   const start = promptLength(prompt)
   const offset = start + 2

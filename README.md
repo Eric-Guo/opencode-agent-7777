@@ -476,8 +476,12 @@ Draft schemas, trimming, mention offsets, file names/URIs, optional-field omissi
 and unchanged; no app source or additional dependency is needed.
 
 `composer/editor/editor.tsx` owns editor presentation, attachments, menus, suggestions, and submit controls.
-`composer/editor/dom.ts` owns DOM rendering, mention parsing, and cursor helpers, keeping conversion out of the renderer.
-Caret reads, attachment capture, restoration, and focused re-rendering share that local DOM boundary, following the
+`composer/editor/dom.ts` owns DOM rendering, mention parsing, clipboard text insertion and cursor helpers.
+Editor and attachment paste share line-ending normalization and native insertion. The editor keeps a single native
+undo step for multiline text, escapes HTML, and falls back to replacing the selection with one text node and input
+event. Attachment routing retains its file-first policy, native clipboard images and draft-based large-text fallback.
+Caret reveal after paste also lives in this DOM boundary; the renderer only schedules it after insertion.
+Caret reads, attachment capture, restoration, and focused re-rendering follow the
 main app's handling of `<br>` line breaks and atomic mention pills. Restoration handles nested inline text and empty
 drafts without placing the caret inside a mention. Literal zero-width characters remain part of the compact draft's
 text and offsets.
@@ -486,9 +490,10 @@ backward selections. An absent or external selection retains the attachment cont
 DOM regression tests use a test-only `happy-dom` dependency; runtime code has no dependency on the main app.
 Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
 fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
-`composer/prompt-parts.ts` owns prompt text extraction, attachment classification and cloning for draft state,
-editor actions, suggestions, history
-and submission. History reuses the same clone operation while retaining its normalization, deduplication, byte budget
+`composer/prompt-parts.ts` owns prompt text extraction, replacement, attachment removal and cloning for draft state,
+editor actions, suggestions, history and submission. Draft state and editor actions use the same pure part edits;
+their cursor updates, retry handling and persistence notifications remain with each caller. This compact reuse stays
+in the main app's prompt-part boundary, with no app imports. History retains its normalization, deduplication, byte budget
 and stored format; inline blob references and file selections remain isolated from mutable Solid drafts.
 
 Suggestion sizing now follows the main app's `composer/editor/editor.tsx` boundary. The session screen passes its

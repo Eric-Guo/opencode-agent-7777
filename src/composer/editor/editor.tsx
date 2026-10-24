@@ -22,7 +22,7 @@ import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import type { ComposerAttachment, ComposerComment, ComposerOption, ComposerSuggestion } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
 import { isAttachment, promptText } from "../prompt-parts"
-import { getCursorPosition, parseComposerEditor, renderComposerEditor } from "./dom"
+import { getCursorPosition, parseComposerEditor, renderComposerEditor, revealComposerCursor } from "./dom"
 
 export type {
   ComposerAttachment,
@@ -288,17 +288,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
             onPointerUp={updateCursor}
             onPaste={(event) => {
               props.controller.onPaste(event)
-              // Programmatic multiline insertion does not reliably reveal the caret.
-              requestAnimationFrame(() => {
-                const selection = window.getSelection()
-                if (!editor || !viewport || !selection?.isCollapsed || !selection.rangeCount) return
-                if (!editor.contains(selection.anchorNode)) return
-                const caret = selection.getRangeAt(0).getBoundingClientRect()
-                if (!caret.height) return
-                const bounds = viewport.getBoundingClientRect()
-                if (caret.bottom > bounds.bottom - 8) viewport.scrollTop += caret.bottom - bounds.bottom + 8
-                if (caret.top < bounds.top + 8) viewport.scrollTop += caret.top - bounds.top - 8
-              })
+              requestAnimationFrame(() => revealComposerCursor(editor, viewport))
             }}
             onFocus={() => props.controller.dispatch({ type: "focus.editor" })}
           />

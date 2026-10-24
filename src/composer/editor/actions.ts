@@ -7,7 +7,7 @@ import type {
   ComposerPersistedState,
   ComposerPrompt,
 } from "../types"
-import { isAttachment, promptLength, promptText } from "../prompt-parts"
+import { isAttachment, promptLength, promptText, removePromptAttachment, replacePromptText } from "../prompt-parts"
 
 export type ComposerStateStore = [
   Store<ComposerPersistedState> | Accessor<Store<ComposerPersistedState>>,
@@ -49,10 +49,7 @@ export function createComposerEditorActions(input: ComposerStateStoreInput, onCh
     setText(content: string) {
       batch(() =>
         setStore()((state) => ({
-          prompt: [
-            { type: "text", content, start: 0, end: content.length },
-            ...state.prompt.filter(isAttachment),
-          ],
+          prompt: replacePromptText(state.prompt, content),
           cursor: content.length,
           retry: undefined,
         })),
@@ -88,7 +85,7 @@ export function createComposerEditorActions(input: ComposerStateStoreInput, onCh
       onChange?.()
     },
     removeAttachment(id: string) {
-      setStore()("prompt", (parts) => parts.filter((part) => !isAttachment(part) || part.id !== id))
+      setStore()("prompt", (parts) => removePromptAttachment(parts, id))
       clearRetry()
       onChange?.()
     },
