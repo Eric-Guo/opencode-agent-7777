@@ -3,7 +3,7 @@ import { Skill } from "@opencode/schema/skill"
 import { createLegacyBlobReference } from "@/runtime/persistence/drafts"
 import type { ComposerAttachment, ComposerPrompt } from "./types"
 import type { PromptAttachment, PromptDraft, PromptReference } from "./schema"
-import { isAttachment, promptText } from "./prompt-parts"
+import { createPromptBuilder, isAttachment, promptText } from "./prompt-parts"
 import { readPromptPresentation } from "./comment-note"
 
 type PromptContent = Pick<SessionMessageUser, "text" | "files" | "agents" | "skills">
@@ -141,26 +141,17 @@ function restoreReferences(text: string, references: PromptReference[], source: 
 // Keep conversions at the prompt boundary, separate from reactive state and storage.
 export function promptFromDraft(draft?: PromptDraft): ComposerPrompt {
   const text = draft?.prompt ?? ""
-  const prompt: ComposerPrompt = []
+  const builder = createPromptBuilder()
   // References overlay the prompt text; the editor stores mentions as inline parts instead.
   const references = restoreReferences(text, draft?.references ?? [], "draft") ?? []
   let position = 0
   for (const reference of references) {
-    if (reference.start > position) {
-      prompt.push({
-        type: "text",
-        content: text.slice(position, reference.start),
-        start: position,
-        end: reference.start,
-      })
-    }
-    prompt.push(reference)
+    if (reference.start > position) builder.text(text.slice(position, reference.start))
+    builder.mention(reference)
     position = reference.end
   }
-  if (position < text.length || prompt.length === 0) {
-    prompt.push({ type: "text", content: text.slice(position), start: position, end: text.length })
-  }
-  return [...prompt, ...(draft?.attachments.map(attachmentFromDraft) ?? [])]
+  builder.text(text.slice(position))
+  return [...builder.build(), ...(draft?.attachments.map(attachmentFromDraft) ?? [])]
 }
 
 export function attachmentFromDraft(attachment: PromptAttachment): ComposerAttachment {

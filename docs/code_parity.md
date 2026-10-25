@@ -14,22 +14,17 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | `@opencode/gui-extensions` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
-Composer conversion and part edits are centralized in `composer/{prompt,prompt-parts}.ts`; clipboard insertion and
-caret handling belong to `composer/editor/dom.ts`. UI adapters retain routing, persistence and recovery policies.
-Shared UI owns fields, scrolling, Markdown and previews; `/export` reads the complete transcript through the client.
-Local schemas type the lazy desktop transport. `session/session-ownership.ts` binds mutations and refreshes to the
-captured runtime; its data adapter composes the message cache and pending receipts without global cache forwarding.
-`QuestionPrompt` and `PermissionPrompt` live in this checkout's `src/session/requests/` and are not shared with
-the main app. Their dock adapters map form fields and supply compact copy; routing, response ownership and
-web-search setup also stay local. Only the prompt shell and styles come from `session-ui`.
-Package-local component tests exercise these widgets with `bun run test:components`.
+Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
+and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
+The README documents the local runtime/cache, desktop schemas, request widgets and routing contracts.
+`QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
 
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
 - The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
-- Draft/history formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
-  Queue undo rejects hidden/malformed context and cancels before merging the latest draft.
+- Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
+  Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
@@ -40,7 +35,8 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 ## Validation
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
-Keep evidence in ignored `node_modules/.cache/`. For session/timeline changes, compare production benchmarks:
+Request widgets also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+For session/timeline changes, compare production benchmarks:
 
 ```sh
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build

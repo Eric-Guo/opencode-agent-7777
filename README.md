@@ -496,11 +496,14 @@ backward selections. An absent or external selection retains the attachment cont
 DOM regression tests use a test-only `happy-dom` dependency; runtime code has no dependency on the main app.
 Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
 fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
-`composer/prompt-parts.ts` owns prompt text extraction, replacement, attachment removal and cloning for draft state,
-editor actions, suggestions, history and submission. Draft state and editor actions use the same pure part edits;
-their cursor updates, retry handling and persistence notifications remain with each caller. This compact reuse stays
-in the main app's prompt-part boundary, with no app imports. History retains its normalization, deduplication, byte budget
-and stored format; inline blob references and file selections remain isolated from mutable Solid drafts.
+`composer/prompt-parts.ts` owns prompt text extraction, insertion, mention replacement, attachment removal and cloning.
+Draft restoration, DOM parsing and accepted-prompt history share its text/mention builder and offset calculation;
+editor actions use the same offset calculation while retaining separate text parts. The builder preserves UTF-16
+positions, significant whitespace, empty drafts and mention metadata. DOM traversal and caret behavior remain in
+`composer/editor/dom.ts`; retry handling and persistence notifications remain with state and editor actions.
+History retains its normalization, deduplication, byte budget and stored format. This compact implementation stays in
+the existing prompt-part boundary without app imports or new shared-package exports. Regression coverage includes
+recalling and editing Unicode text beside file/agent mentions without changing the saved history or file metadata.
 
 Suggestion sizing now follows the main app's `composer/editor/editor.tsx` boundary. The session screen passes its
 timeline viewport through `session/composer/region.tsx` and `composer/composer.tsx`; the editor observes its height

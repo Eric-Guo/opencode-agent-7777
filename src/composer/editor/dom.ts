@@ -1,12 +1,6 @@
 import { Skill } from "@opencode/schema/skill"
-import type {
-  ComposerAgentPart,
-  ComposerAttachment,
-  ComposerFilePart,
-  ComposerPrompt,
-  ComposerSkillPart,
-} from "../types"
-import { isAttachment } from "../prompt-parts"
+import type { ComposerAttachment, ComposerFilePart, ComposerPrompt } from "../types"
+import { createPromptBuilder, isAttachment } from "../prompt-parts"
 
 function getTextLength(node: Node): number {
   if (node.nodeType === Node.TEXT_NODE) return node.textContent?.length ?? 0
@@ -153,73 +147,51 @@ export function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPro
 }
 
 export function parseComposerEditor(editor: HTMLDivElement) {
-  const parts: Exclude<ComposerPrompt[number], ComposerAttachment>[] = []
-  let buffer = ""
-  let position = 0
-
-  const flush = () => {
-    if (!buffer) return
-    parts.push({ type: "text", content: buffer, start: position, end: position + buffer.length })
-    position += buffer.length
-    buffer = ""
-  }
+  const builder = createPromptBuilder()
 
   const mention = (element: HTMLElement) => {
-    flush()
     const content = element.textContent ?? ""
     const original = mentionParts.get(element)
 
     if (element.dataset.mention === "agent") {
-      const agent: ComposerAgentPart = {
+      builder.mention({
+        ...(original?.type === "agent" ? original : {}),
         type: "agent",
         name: element.dataset.name ?? content.slice(1),
         content,
-        start: position,
-        end: position + content.length,
-      }
-
-      parts.push(original?.type === "agent" ? { ...original, ...agent } : agent)
-      position += content.length
+      })
 
       return
     }
 
     if (element.dataset.mention === "skill") {
-      const skill: ComposerSkillPart = {
+      builder.mention({
+        ...(original?.type === "skill" ? original : {}),
         type: "skill",
         id: Skill.ID.make(element.dataset.id ?? content.slice(1)),
         name: Skill.Name.make(element.dataset.name ?? content.slice(1)),
         content,
-        start: position,
-        end: position + content.length,
-      }
-
-      parts.push(original?.type === "skill" ? { ...original, ...skill } : skill)
-      position += content.length
+      })
 
       return
     }
 
-    const parsed: ComposerFilePart = {
+    const file: Omit<ComposerFilePart, "start" | "end"> = {
+      ...(original?.type === "file" ? original : {}),
       type: "file",
       path: element.dataset.path ?? content.slice(1),
       content,
-      start: position,
-      end: position + content.length,
     }
-
-    const file: ComposerFilePart = original?.type === "file" ? { ...original, ...parsed } : parsed
 
     if (element.dataset.mime) file.mime = element.dataset.mime
 
     if (element.dataset.filename) file.filename = element.dataset.filename
-    parts.push(file)
-    position += content.length
+    builder.mention(file)
   }
 
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
-      buffer += node.textContent ?? ""
+      builder.text(node.textContent ?? "")
 
       return
     }
@@ -233,7 +205,7 @@ export function parseComposerEditor(editor: HTMLDivElement) {
     }
 
     if (node.tagName === "BR") {
-      buffer += "\n"
+      builder.text("\n")
 
       return
     }
@@ -244,9 +216,10 @@ export function parseComposerEditor(editor: HTMLDivElement) {
   Array.from(editor.childNodes).forEach((node, index, nodes) => {
     visit(node)
 
-    if (node instanceof HTMLElement && ["DIV", "P"].includes(node.tagName) && index < nodes.length - 1) buffer += "\n"
+    if (node instanceof HTMLElement && ["DIV", "P"].includes(node.tagName) && index < nodes.length - 1)
+      builder.text("\n")
   })
-  flush()
+  const parts = builder.build()
 
   if (
     parts.every((part) => part.type === "text") &&
@@ -255,7 +228,5 @@ export function parseComposerEditor(editor: HTMLDivElement) {
     return [{ type: "text" as const, content: "", start: 0, end: 0 }]
   }
 
-  if (parts.length > 0) return parts
-
-  return [{ type: "text" as const, content: "", start: 0, end: 0 }]
+  return parts
 }

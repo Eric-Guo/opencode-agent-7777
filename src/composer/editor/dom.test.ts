@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test"
 import { installDOM } from "@/test/dom"
-import { getCursorPosition, parseComposerEditor, pasteComposerText, setCursorPosition } from "./dom"
+import {
+  getCursorPosition,
+  parseComposerEditor,
+  pasteComposerText,
+  renderComposerEditor,
+  setCursorPosition,
+} from "./dom"
 import { promptText } from "../prompt-parts"
+import { prependHistoryEntry } from "../history/entry"
+import type { ComposerPrompt } from "../types"
 
 let cleanup: () => void
 
@@ -12,6 +20,50 @@ beforeEach(() => {
 afterEach(() => {
   mock.restore()
   cleanup()
+})
+
+test("editing a recalled prompt preserves mention metadata and leaves its history snapshot intact", () => {
+  const prompt: ComposerPrompt = [
+    { type: "text", content: "😀", start: 99, end: 99 },
+    { type: "text", content: "\n", start: 99, end: 99 },
+    {
+      type: "file",
+      path: "a.ts",
+      content: "@a.ts",
+      start: 99,
+      end: 99,
+      url: "file:///workspace/a.ts#L2-L4",
+      selection: { startLine: 2, startChar: 0, endLine: 4, endChar: 3 },
+      source: { type: "file", path: "a.ts", text: { value: "original", start: 20, end: 28 } },
+    },
+    { type: "agent", name: "review", content: "@review", start: 99, end: 99 },
+    { type: "text", content: "\u200B ", start: 99, end: 99 },
+  ]
+  const saved = prependHistoryEntry([], prompt)[0]
+  const snapshot = structuredClone(saved)
+  const editor = document.createElement("div")
+  document.body.append(editor)
+  renderComposerEditor(editor, saved.prompt)
+  editor.firstChild!.textContent = "x😀\n"
+
+  expect(parseComposerEditor(editor)).toEqual([
+    { type: "text", content: "x😀\n", start: 0, end: 4 },
+    {
+      type: "file",
+      path: "a.ts",
+      content: "@a.ts",
+      start: 4,
+      end: 9,
+      url: "file:///workspace/a.ts#L2-L4",
+      selection: { startLine: 2, startChar: 0, endLine: 4, endChar: 3 },
+      source: { type: "file", path: "a.ts", text: { value: "original", start: 20, end: 28 } },
+    },
+    { type: "agent", name: "review", content: "@review", start: 9, end: 16 },
+    { type: "text", content: "\u200B ", start: 16, end: 18 },
+  ])
+  expect(saved).toEqual(snapshot)
+  expect(prompt.map((part) => "start" in part && part.start)).toEqual([99, 99, 99, 99, 99])
+  expect(saved.prompt.map((part) => "start" in part && part.start)).toEqual([0, 3, 8, 15])
 })
 
 // The expected offsets are literal prompt offsets, independent of the caret implementation.
