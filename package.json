@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@opencode/client": "workspace:*",
-    "@opencode/gui-extensions": "workspace:*",
+    "@opencode/gui-plugins": "workspace:*",
     "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
     "@opencode/ui": "workspace:*",

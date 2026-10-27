@@ -1,4 +1,4 @@
-import { ContextUsage } from "@opencode/gui-extensions/usage/context-usage"
+import { ContextUsage } from "@opencode/gui-plugins/usage/context-usage"
 import { createMemo, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { state } from "@/runtime/server/session-store-compact"
