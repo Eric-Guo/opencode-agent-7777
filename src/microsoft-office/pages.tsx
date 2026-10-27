@@ -1,6 +1,6 @@
 import { createMemo, createSignal, Index, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
-import { createKeyed } from "@opencode/gui-extensions/sdk"
+import { createKeyed } from "@opencode/plugin/gui"
 import { paper } from "./paper"
 
 /** Paints one page into `canvas` at `scale`; `signal` aborts once a newer paint replaces this one or the page leaves. */
