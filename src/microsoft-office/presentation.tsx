@@ -1,7 +1,7 @@
 import { onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Loader } from "@opencode/ui/loader"
-import { createKeyed } from "@opencode/gui-extensions/sdk"
+import { createKeyed } from "@opencode/plugin/gui"
 import { OfficePages, type PaintPage } from "./pages"
 import { paper } from "./paper"
 import {
