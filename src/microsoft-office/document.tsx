@@ -1,7 +1,7 @@
 import { createSignal, For, onCleanup, Show, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Loader } from "@opencode/ui/loader"
-import { createKeyed, createLatest } from "@opencode/gui-extensions/sdk"
+import { createKeyed, createLatest } from "@opencode/plugin/gui"
 import { OfficePages, type PaintPage, type ScrollToPage } from "./pages"
 import {
   layerFont,
