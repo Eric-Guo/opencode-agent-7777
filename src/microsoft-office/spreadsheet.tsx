@@ -20,7 +20,7 @@ import {
   type Selection,
   type SelectionLimits,
 } from "@betteroffice/xlsx/headless"
-import { createKeyed, createLatest } from "@opencode/gui-extensions/sdk"
+import { createKeyed, createLatest } from "@opencode/plugin/gui"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { OfficeViewerProps } from "./renderer"
 import { externalUrl } from "./links"
