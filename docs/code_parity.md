@@ -10,7 +10,7 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | Public package | Reused responsibility |
 | --- | --- |
 | `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
-| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview` |
+| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
 | `@opencode/gui-plugins` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
@@ -28,7 +28,7 @@ The README documents the local runtime/cache, desktop schemas, request widgets, 
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
-Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, raw context/summary panels,
+Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,
 browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
 reordering, staged-only/end-revision diffs and GUI host contexts.
 

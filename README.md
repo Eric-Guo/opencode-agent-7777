@@ -309,8 +309,17 @@ session totals and cost. Totals are not reconstructed from the bounded message w
 or server command is needed. The dialog updates from the current runtime and closes when its activation changes.
 Choosing the command from the Add menu preserves an existing draft and mentions; inline execution preserves
 attachments. Like `/export`, it rejects arguments without sending or clearing the draft. The header's existing
-ring and tooltip remain available. Raw-message/system-prompt inspection and docked plugin panels remain outside
-this compact view.
+ring and tooltip remain available.
+
+The same dialog now inspects the latest loaded system message and individual raw messages in collapsible sections.
+`context/tab.tsx` separates the existing usage statistics from transcript inspection, following the context plugin's
+tab boundary. The public `Markdown`, `File`, and `Accordion` components own rendering and disclosure behavior;
+JSON serialization and file viewers mount only for expanded records and update from the existing runtime.
+Inspection makes no additional API requests and leaves the timeline's nine-dialog window unchanged. It shows only
+loaded records, including any loaded instruction updates, rather than reconstructing a complete system prompt.
+Use `/export` for the complete saved transcript. Closing or changing activation discards the inspector's view state.
+New labels use the existing English fallback until translated; existing Chinese copy remains unchanged.
+Summary and docked plugin panels remain outside this compact view.
 
 The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
 It defaults to snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.

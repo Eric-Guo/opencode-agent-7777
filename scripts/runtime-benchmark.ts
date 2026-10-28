@@ -58,7 +58,7 @@ const emit = (type: string, data: object) => {
     created: 1000 + sequence,
     data,
     location,
-    durable: { aggregateID: sessions[1].id, seq: sequence, version: 1 },
+    durable: { aggregateID: sessions[1].id, seq: sequence, version: type === "session.instructions.updated" ? 2 : 1 },
   }
   for (const stream of streams) {
     try {
@@ -299,6 +299,8 @@ try {
       await page.screenshot({ path: output.replace(/\.json$/, ".png") })
       if (process.env.BENCH_VERIFY_CONTEXT === "true") {
         // Keep the real command, runtime and dialog together: pure usage tests cannot catch focus or live updates.
+        const transcriptPath = `/api/session/${sessions[1].id}/message`
+        const transcriptReads = requests[transcriptPath]
         const editor = page.getByRole("textbox", { name: "Message", exact: true })
         await editor.fill("Keep this draft while checking usage")
         await page.getByRole("button", { name: "Add images and files", exact: true }).click()
@@ -308,6 +310,34 @@ try {
           .click()
         const details = page.getByRole("dialog", { name: "Context usage", exact: true })
         await expect(details.getByRole("status")).toContainText("No assistant usage is available")
+        // Closed disclosures must not serialize and mount a file viewer for every loaded message.
+        const files = details.locator('[data-component="file"]')
+        await expect(files).toHaveCount(0)
+        const system = details.getByRole("button", { name: "Latest loaded system message", exact: true })
+        await system.press("Enter")
+        await expect(details.getByText("No system message is present in the loaded history.")).toBeVisible()
+        emit("session.instructions.updated", {
+          sessionID: sessions[1].id,
+          delta: { "AGENTS.md": "fixture-instructions" },
+          text: "**Fixture instructions** for the active session.",
+        })
+        await expect(details.getByText("Fixture instructions", { exact: true })).toBeVisible()
+        emit("session.instructions.updated", {
+          sessionID: sessions[1].id,
+          delta: { "AGENTS.md": "updated-instructions" },
+          text: "**Updated instructions** for the active session.",
+        })
+        await expect(details.getByText("Updated instructions", { exact: true })).toBeVisible()
+        await expect(details.getByText("Fixture instructions", { exact: true })).toBeHidden()
+        await system.press("Enter")
+        const raw = details.getByRole("button", { name: "Raw messages", exact: true })
+        await raw.press("Enter")
+        await expect(files).toHaveCount(0)
+        const assistant = details.getByRole("button", { name: "assistant • msg_live", exact: true })
+        await assistant.press("Enter")
+        await expect(files).toHaveCount(1)
+        await expect(files.locator("[data-code]")).toContainText("stream complete")
+        expect(requests[transcriptPath]).toBe(transcriptReads)
         emit("session.step.ended", {
           ...data,
           finish: "stop",
@@ -322,6 +352,19 @@ try {
         await expect(details.getByRole("row", { name: "Input 100 1,000", exact: true })).toBeVisible()
         await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeVisible()
         await expect(details.getByText("$1.50", { exact: true })).toBeVisible()
+        await expect(files.locator("[data-code]")).toContainText('"finish": "stop"')
+        await files.scrollIntoViewIfNeeded()
+        await page.screenshot({ path: output.replace(/\.json$/, "-context-raw.png") })
+        await page.setViewportSize({ width: 390, height: 800 })
+        expect(await details.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        expect(await files.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        await files.scrollIntoViewIfNeeded()
+        await page.screenshot({ path: output.replace(/\.json$/, "-context-raw-narrow.png") })
+        await assistant.press("Enter")
+        await expect(files).toHaveCount(0)
+        await raw.press("Enter")
+        await page.setViewportSize({ width: 1100, height: 800 })
+        await details.getByRole("row", { name: "Total 150 1,500", exact: true }).scrollIntoViewIfNeeded()
         await page.screenshot({ path: output.replace(/\.json$/, "-context.png") })
         await page.setViewportSize({ width: 390, height: 800 })
         expect(await details.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
@@ -331,6 +374,15 @@ try {
         await expect(details).toBeHidden()
         await expect(editor).toHaveText("Keep this draft while checking usage")
         await expect(editor).toBeFocused()
+        await page.getByRole("button", { name: "Add images and files", exact: true }).click()
+        await page.getByRole("menuitem", { name: "Commands /", exact: true }).click()
+        await page
+          .getByRole("button", { name: "/context View token usage, context capacity, and session cost", exact: true })
+          .click()
+        await expect(raw).toHaveAttribute("aria-expanded", "false")
+        await expect(files).toHaveCount(0)
+        await details.getByRole("button", { name: "Close", exact: true }).click()
+        await expect(editor).toHaveText("Keep this draft while checking usage")
         await editor.fill("")
         await page.setViewportSize({ width: 1100, height: 800 })
       }

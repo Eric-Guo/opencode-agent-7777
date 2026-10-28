@@ -1,4 +1,9 @@
-import type { SessionInfo } from "@opencode/client/promise"
+import type { SessionInfo, SessionMessageInfo } from "@opencode/client/promise"
+import { File } from "@opencode/session-ui/file"
+import { Markdown } from "@opencode/session-ui/markdown"
+import { Accordion } from "@opencode/ui/accordion"
+import { Icon } from "@opencode/ui/icon"
+import { checksum } from "@opencode/util/encode"
 import { createMemo, For, Show } from "solid-js"
 import { useLanguage, type TranslationKey } from "@/runtime/i18n/language"
 import type { SessionRuntime } from "@/runtime/server/runtime"
@@ -7,6 +12,15 @@ import { sessionContextUsage } from "./model"
 
 // The public GUI plugin exposes the indicator; its full tab requires a plugin host.
 export default function SessionContextTab(props: { runtime: SessionRuntime }) {
+  return (
+    <div class="min-h-0 flex-1 overflow-y-auto p-4 text-13-regular" data-scrollable>
+      <SessionContextStats runtime={props.runtime} />
+      <SessionContextMessages messages={props.runtime.view().sessionMessages} />
+    </div>
+  )
+}
+
+function SessionContextStats(props: { runtime: SessionRuntime }) {
   const language = useLanguage()
   const session = () => props.runtime.view().session
   const usage = createMemo(() =>
@@ -29,7 +43,7 @@ export default function SessionContextTab(props: { runtime: SessionRuntime }) {
   ] satisfies { label: TranslationKey; read: (tokens: SessionInfo["tokens"]) => number }[]
 
   return (
-    <div class="min-h-0 flex-1 overflow-y-auto p-4 text-13-regular" data-scrollable>
+    <>
       <p class="mb-4 text-text-weak">{language.t("context.description")}</p>
       <dl class="mb-5 grid grid-cols-2 gap-x-4 gap-y-3">
         <div>
@@ -96,6 +110,83 @@ export default function SessionContextTab(props: { runtime: SessionRuntime }) {
         <dt class="text-text-weak">{language.t("context.cost")}</dt>
         <dd class="tabular-nums">{cost()}</dd>
       </dl>
-    </div>
+    </>
   )
+}
+
+function SessionContextMessages(props: { messages: readonly SessionMessageInfo[] }) {
+  const language = useLanguage()
+  const systemPrompt = createMemo(() => props.messages.findLast((message) => message.type === "system")?.text.trim())
+
+  return (
+    <section class="mt-5 border-t border-border-weak-base pt-4" aria-label={language.t("context.inspect")}>
+      <p class="mb-3 text-12-regular text-text-weak">{language.t("context.loadedHistory")}</p>
+      <Accordion multiple>
+        <Accordion.Item value="system">
+          <Accordion.Header>
+            <Accordion.Trigger class="flex w-full items-center justify-between gap-2 py-2 text-left">
+              <span>{language.t("context.systemPrompt")}</span>
+              <Icon name="chevron-grabber-vertical" size="small" class="shrink-0 text-text-weak" />
+            </Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content>
+            <Show
+              when={systemPrompt()}
+              fallback={<p class="py-2 text-text-weak">{language.t("context.noSystemPrompt")}</p>}
+            >
+              {(prompt) => (
+                <div class="min-w-0 rounded-md border border-border-weak-base p-3">
+                  <Markdown text={prompt()} />
+                </div>
+              )}
+            </Show>
+          </Accordion.Content>
+        </Accordion.Item>
+        <Accordion.Item value="messages">
+          <Accordion.Header>
+            <Accordion.Trigger class="flex w-full items-center justify-between gap-2 py-2 text-left">
+              <span>{language.t("context.rawMessages")}</span>
+              <Icon name="chevron-grabber-vertical" size="small" class="shrink-0 text-text-weak" />
+            </Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content>
+            <Show
+              when={props.messages.length}
+              fallback={<p class="py-2 text-text-weak">{language.t("context.noMessages")}</p>}
+            >
+              <Accordion multiple>
+                <For each={props.messages}>{(message) => <RawMessage message={message} />}</For>
+              </Accordion>
+            </Show>
+          </Accordion.Content>
+        </Accordion.Item>
+      </Accordion>
+    </section>
+  )
+}
+
+function RawMessage(props: { message: SessionMessageInfo }) {
+  return (
+    <Accordion.Item value={props.message.id}>
+      <Accordion.Header>
+        <Accordion.Trigger class="flex w-full items-center justify-between gap-2 py-2 text-left">
+          <span class="min-w-0 break-all font-mono text-12-regular">
+            {props.message.type} • {props.message.id}
+          </span>
+          <Icon name="chevron-grabber-vertical" size="small" class="shrink-0 text-text-weak" />
+        </Accordion.Trigger>
+      </Accordion.Header>
+      <Accordion.Content>
+        <RawMessageContent message={props.message} />
+      </Accordion.Content>
+    </Accordion.Item>
+  )
+}
+
+function RawMessageContent(props: { message: SessionMessageInfo }) {
+  const file = createMemo(() => {
+    const contents = JSON.stringify(props.message, null, 2)
+    return { name: `${props.message.type}-${props.message.id}.json`, contents, cacheKey: checksum(contents) }
+  })
+  return <File mode="text" file={file()} overflow="wrap" class="min-w-0 select-text" />
 }
