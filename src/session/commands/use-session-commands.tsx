@@ -1,25 +1,15 @@
 import { showToast, toaster } from "@opencode/ui/toast"
-import { lazy } from "solid-js"
 import type { ClientSlashCommand } from "@/composer/client-slash-command"
+import { useContextDialog } from "@/context/dialog-compact"
 import { useLanguage } from "@/runtime/i18n/language"
 import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
-import { useSessionDialog } from "@/shell/commands/session-dialog-compact"
 import { downloadSessionExport, fetchSessionExport, sessionExportFilename } from "./export"
-
-const SessionContextTab = lazy(() => import("@/context/tab"))
 
 // The embedded session supplies local actions directly to its composer instead of a host command provider.
 export function useSessionCommands() {
   const language = useLanguage()
-  const openContext = useSessionDialog({
-    id: "compact-session-context",
-    title: () => language.t("context.title"),
-    loading: () => language.t("context.loading"),
-    failed: () => language.t("context.failed"),
-    containerClass: "!h-[min(80vh,640px)] !w-[min(calc(100vw_-_16px),600px)]",
-    render: (runtime) => <SessionContextTab runtime={runtime} />,
-  })
+  const openContext = useContextDialog()
   let exporting = false
 
   const exportSession = async () => {

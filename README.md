@@ -297,13 +297,18 @@ rich text; HTML data views, navigation links, image resources, prototype keys, a
 Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
 messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
 
-Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header reuses the public
-`@opencode/gui-plugins/context/context-usage` ring and tooltip. Local `context/model.ts` adapts the compact catalog
+Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header composes the public UI
+`ProgressCircle` and `Tooltip` with a native button, preserving its ring and cost/context/token tooltip. This local
+adapter supplies mouse and keyboard activation because the plugin's indicator variant is display-only.
+Local `context/model.ts` adapts the compact catalog
 for both views, delegating usage-step selection to `lastAssistantWithUsage` from `@opencode/client/solid` so usage
 follows undo boundaries and completed compaction. Missing usage or model capacity stays unknown in the details;
 reported zero tokens remain zero. No app or plugin-host internals are imported.
 
-Use **/context**, or **Add → Commands → /context**, to open the read-only usage dialog for the current session.
+Click the header's context ring, use **/context**, or choose **Add → Commands → /context** to open the read-only usage
+dialog for the current session. `context/dialog-compact.tsx` owns the shared lazy dialog entry point for the ring and
+command; this compact-only boundary replaces plugin-host mounting. The dialog is 900 px wide where space allows,
+with 8 px side margins on narrow screens, and dismissal restores focus to the opening control.
 It shows the latest assistant step's model, provider, context capacity and token breakdown alongside server-reported
 session totals and cost. Totals are not reconstructed from the bounded message window, and no extra transcript read
 or server command is needed. The dialog updates from the current runtime and closes when its activation changes.

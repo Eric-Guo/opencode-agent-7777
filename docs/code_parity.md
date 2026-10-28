@@ -11,8 +11,7 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | --- | --- |
 | `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
 | `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
-| `@opencode/gui-plugins` | `ContextUsage` |
-| `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
+| `@opencode/ui`, `@opencode/util` | Controls, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
