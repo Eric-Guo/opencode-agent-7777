@@ -2,6 +2,7 @@ import { batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import type { State } from "@/runtime/server/global-sync/types"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { createSessionDraft } from "@/new-session/draft"
 import { translateSync } from "@/runtime/i18n/language"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import type { SessionStatus } from "@opencode/client/promise"
@@ -40,9 +41,13 @@ export const [state, setState] = createStore<State>({
 
 let client: OpencodeClient | undefined
 const [runtime, setRuntime] = createSignal<SessionRuntime>()
+const [draft, setDraft] = createSignal<ReturnType<typeof createSessionDraft>>()
 let activation = 0
 
 export const currentRuntime = runtime
+export const currentDraft = draft
+export const currentDirectory = () => state.session?.location.directory ?? draft()?.directory
+export const currentData = () => runtime()?.data ?? draft()?.data
 
 export type ActiveSession = {
   client: OpencodeClient
@@ -52,6 +57,8 @@ export type ActiveSession = {
 
 export function setSessionClient(next: OpencodeClient | undefined, session = state.session) {
   const version = ++activation
+  draft()?.dispose()
+  setDraft(undefined)
   runtime()?.dispose()
   setRuntime(undefined)
   client = next
@@ -81,6 +88,29 @@ export function setSessionClient(next: OpencodeClient | undefined, session = sta
   })
   setRuntime(nextRuntime)
   nextRuntime.publish()
+}
+
+export function setSessionDraft(api: OpencodeClient, directory: string) {
+  batch(() => {
+    setSessionClient(undefined)
+    setState({
+      session: undefined,
+      sessionMessages: [],
+      sessionPending: [],
+      messagesLoading: false,
+      recentSessionSwitchingID: undefined,
+      recentSessionsLoading: false,
+      submitting: false,
+      eventsConnected: false,
+      permissionResponding: undefined,
+      questionResponding: undefined,
+      error: "",
+    })
+    setState("sessionStatus", reconcile({ ...idleStatus }))
+    setState("permission", reconcile({}))
+    setState("form", reconcile({}))
+    setDraft(createSessionDraft(api, directory))
+  })
 }
 
 export function setSessionStatus(status: SessionStatus) {

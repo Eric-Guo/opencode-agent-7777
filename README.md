@@ -200,6 +200,13 @@ The production/private 7777 agent prompt is not included verbatim. A sanitized r
 
 ## Code Layout Parity Review
 
+New conversations follow the main app's draft-before-submit behavior. `new-session/controller-compact.ts`
+opens a local draft, and the compact-only `new-session/draft.ts` supplies location catalogs without a session ID.
+`composer/submit.ts` creates and activates the server session on the first nonempty submission, then sends the captured
+message, attachments and model selection. Startup without a saved session and deleted-session recovery also open drafts.
+The embedded app keeps this orchestration in its existing compact controller and bootstrap modules instead of the main
+app's routed `new-session/composer-adapter.ts`; recent sessions remain available while drafting.
+
 `scripts/build-shared.ts` owns the compact agents' shared distribution build. It is maintained on `main`
 and inherited by `plm-meeting`; either sibling checkout can run `bun run build:shared` to write its own
 `dist-shared/`. It preserves branch-local imports and standalone outputs while sharing dependencies.

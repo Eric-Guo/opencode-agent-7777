@@ -17,7 +17,7 @@ export function createActiveComposerAdapter(input: {
     identity: () => state.session?.id,
     controls: input.controls,
     disabled: input.disabled,
-    working: createMemo(() => state.submitting || state.sessionStatus.type !== "idle"),
+    working: createMemo(() => !!state.session && (state.submitting || state.sessionStatus.type !== "idle")),
     submitting: () => state.submitting,
     placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
     commands,

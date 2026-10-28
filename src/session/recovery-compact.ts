@@ -1,13 +1,15 @@
 import { translateSync } from "@/runtime/i18n/language"
-import { createDefaultSession } from "@/runtime/server/global-sync/session-load-current"
+import { loadDefaultSessionDirectory } from "@/runtime/server/global-sync/session-load-current"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 
-export async function recoverDeletedSession(baseClient: OpencodeClient, session: Session, localAgent: string) {
+export async function recoverDeletedSession(baseClient: OpencodeClient, session: Session) {
   const parent = await loadParentSession(baseClient, session)
-  if (parent) return { session: parent, message: translateSync("session.recovered.parent") }
+  if (parent)
+    return { session: parent, directory: parent.location.directory, message: translateSync("session.recovered.parent") }
   return {
-    session: await createDefaultSession(baseClient, localAgent),
+    session: undefined,
+    directory: await loadDefaultSessionDirectory(baseClient),
     message: translateSync("session.recovered.new"),
   }
 }

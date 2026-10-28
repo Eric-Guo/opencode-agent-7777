@@ -123,26 +123,31 @@ browserSuite(import.meta.path, () => {
         },
       } as unknown as OpencodeClient
 
-      const result = await recoverDeletedSession(client, child, "7777")
+      const result = await recoverDeletedSession(client, child)
 
       expect(result.session).toEqual(parent)
       expect(requests).toEqual([{ sessionID: parent.id }])
     })
 
-    test("creates a default session when there is no parent to recover", async () => {
-      const next = session("new", { location: { directory: "/home/user" } })
+    test("returns a draft directory without creating a session when there is no parent to recover", async () => {
+      let created = false
       const client = {
         session: {
-          create: () => Promise.resolve(next),
+          create: () => {
+            created = true
+            return Promise.resolve(session("unexpected"))
+          },
         },
         location: {
           get: () => Promise.resolve({ directory: "/home/user", project: { id: "global", directory: "/" } }),
         },
       } as unknown as OpencodeClient
 
-      const result = await recoverDeletedSession(client, session("child"), "7777")
+      const result = await recoverDeletedSession(client, session("child"))
 
-      expect(result.session).toEqual(next)
+      expect(result.session).toBeUndefined()
+      expect(result.directory).toBe("/home/user/agent7777")
+      expect(created).toBe(false)
     })
   })
 })

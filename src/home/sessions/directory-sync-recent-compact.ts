@@ -1,15 +1,14 @@
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
-import { sessionDirectory } from "@/session/directory"
+import { currentDirectory, currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
 import { loadHomeSessionPage } from "./index"
 
 // Recent-session loading only; 7777 does not expose the main app's directory sync context.
 
 export function refreshRecentSessions() {
-  const runtime = currentRuntime()
+  const runtime = currentRuntime() ?? currentDraft()
   const server = state.server
-  const directory = state.session ? sessionDirectory(state.session) : undefined
+  const directory = currentDirectory()
   if (!server || !directory) {
     setState("recentSessions", [])
     return Promise.resolve()
@@ -19,18 +18,18 @@ export function refreshRecentSessions() {
   setState("recentSessionsLoading", true)
   return loadHomeSessionPage({
     directory,
-    sessionID: state.session!.id,
+    sessionID: state.session?.id ?? "",
     list: client.session.list,
     get: client.session.get,
   })
     .then((result) => {
-      if (currentRuntime() !== runtime || !state.session || sessionDirectory(state.session) !== directory) return
+      if ((currentRuntime() ?? currentDraft()) !== runtime || currentDirectory() !== directory) return
       setState("recentSessions", result.items)
     })
     .catch((error) => {
-      if (currentRuntime() === runtime) setState("error", readableError(error))
+      if ((currentRuntime() ?? currentDraft()) === runtime) setState("error", readableError(error))
     })
     .finally(() => {
-      if (currentRuntime() === runtime) setState("recentSessionsLoading", false)
+      if ((currentRuntime() ?? currentDraft()) === runtime) setState("recentSessionsLoading", false)
     })
 }

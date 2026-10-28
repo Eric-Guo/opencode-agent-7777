@@ -1,7 +1,8 @@
 import { recoverDeletedSession } from "@/session/recovery-compact"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 import { createServerSdk } from "@/runtime/server/client-compact"
-import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { activateDraft } from "@/runtime/server/global-sync/bootstrap-session"
 import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"
 import { readableError } from "@/shell/errors/readable"
 import { isSessionNotFoundError } from "@/runtime/server/errors"
@@ -14,8 +15,8 @@ export function openRecentSession(session: Session) {
   const baseClient = createServerSdk(server).client
   setState("error", "")
   setState("recentSessionSwitchingID", session.id)
-  let activation = currentRuntime()
-  const current = () => currentRuntime() === activation
+  let activation = currentRuntime() ?? currentDraft()
+  const current = () => (currentRuntime() ?? currentDraft()) === activation
   const activate = (session: Session) => {
     const loading = activateSession(server, session)
     activation = currentRuntime()
@@ -30,10 +31,12 @@ export function openRecentSession(session: Session) {
         setState("error", readableError(error))
         return
       }
-      return recoverDeletedSession(baseClient, session, server.localAgent)
+      return recoverDeletedSession(baseClient, session)
         .then((result) => {
           if (!current()) return
-          return activate(result.session).then(() => {
+          const loading = result.session ? activate(result.session) : activateDraft(server, result.directory)
+          activation = currentRuntime() ?? currentDraft()
+          return loading.then(() => {
             if (current()) setState("error", result.message)
           })
         })

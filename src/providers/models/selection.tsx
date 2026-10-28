@@ -10,8 +10,7 @@ import {
   writeSessionModelSelections,
   type SessionModelSelection,
 } from "@/runtime/server/persistence"
-import { currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
-import { sessionDirectory } from "@/session/directory"
+import { currentDirectory, currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
@@ -38,9 +37,9 @@ const [choices, setChoices] = persisted({ read: readSessionModelSelections, writ
 const pending = new Map<string, SessionModelSelection>()
 
 function scope() {
-  const session = state.session
-  if (!session) return
-  return JSON.stringify([state.server?.url ?? "", sessionDirectory(session), session.id, currentLocalAgent()])
+  const directory = currentDirectory()
+  if (!directory) return
+  return JSON.stringify([state.server?.url ?? "", directory, state.session?.id ?? "", currentLocalAgent()])
 }
 
 function writeChoice(key: string, value: SessionModelSelection | undefined) {

@@ -6,8 +6,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { currentRuntime, state } from "@/runtime/server/session-store-compact"
-import { sessionDirectory } from "@/session/directory"
+import { currentData, currentDirectory, state } from "@/runtime/server/session-store-compact"
 import { createFileSearch } from "@/workspaces/files/model"
 import { fileUrl } from "@/workspaces/files/path"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
@@ -33,7 +32,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   const location = createMemo(
     () => {
       const server = state.server
-      const directory = state.session ? sessionDirectory(state.session) : undefined
+      const directory = currentDirectory()
       return server && directory ? { server, directory } : undefined
     },
     undefined,
@@ -47,12 +46,12 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   })
   createEffect(() => {
     const active = location()
-    const runtime = currentRuntime()
-    if (!active || !runtime) {
+    const data = currentData()
+    if (!active || !data) {
       catalog.clear()
       return
     }
-    void catalog.load(runtime.data, active.directory)
+    void catalog.load(data, active.directory)
   })
   onCleanup(catalog.clear)
   onCleanup(files.clear)

@@ -3,7 +3,10 @@ import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-com
 import { prompt } from "@/composer/persistence-singleton"
 import { buildPromptRequest } from "@/composer/request"
 import { createComposerSubmission } from "@/composer/submission-state"
-import { idleStatus, setState, state } from "@/runtime/server/session-store-compact"
+import { currentDraft, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
+import { createSession } from "@/runtime/server/global-sync/session-load-current"
+import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"
+import { localModelSelection } from "@/providers/models/selection"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
@@ -14,12 +17,15 @@ import { createPromptModelSelection } from "./selection"
 // Compact single-session submit orchestration for the shared composer boundary.
 
 export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: string }) {
-  const active = captureSessionOwnership()
+  let active = state.session ? captureSessionOwnership() : undefined
+  const draft = currentDraft()
+  const server = state.server
   const submission = createComposerSubmission({ target: prompt })
   const attachments = submission.prompt.attachments
   const command = options?.command
   const request = buildPromptRequest({ ...submission.prompt, command })
-  if (!active || state.submitting || (!command && !request.text && attachments.length === 0)) return
+  if ((!active && (!draft || !server)) || state.submitting || (!command && !request.text && attachments.length === 0))
+    return
   const historyPrompt = clonePrompt(prompt.store[0].prompt)
   const previousRevert = state.session?.revert
   const delivery = options?.delivery ?? "steer"
@@ -29,95 +35,114 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   const variant = selection.variant.current()
   const model = selectedModel ? { ...selectedModel, ...(variant ? { variant } : {}) } : undefined
   const optimisticBusy = state.sessionStatus.type === "idle"
-  const revision = active.runtime.pendingRevision()
 
   const messageID = SessionMessage.ID.create()
 
   submission.clear()
   setState("error", "")
   setState("submitting", true)
-  if (optimisticBusy) active.runtime.setStatus({ type: "busy" })
-  if (state.session?.revert) {
-    active.runtime.setSession({ ...active.runtime.view().session, revert: undefined })
-  }
-  if (delivery === "steer" && !command)
-    active.runtime.echo({
-      id: messageID,
-      type: "user",
-      text: request.text,
-      files: attachments.map((attachment) => ({
-        data: "",
-        mime: attachment.mime,
-        name: attachment.sourcePath ?? attachment.filename,
-        source: { type: "uri" as const, uri: attachment.url },
-      })),
-      time: { created: Date.now() },
-    })
-
-  const cancelCommit =
-    delivery === "steer" && model ? selection.trackSessionCommit({ model, variant: variant ?? null }) : undefined
-  const configure = [
-    ...(delivery === "steer"
-      ? [active.client.session.switchAgent({ sessionID: active.sessionID, agent: active.localAgent })]
-      : []),
-    ...(delivery === "steer" && model
-      ? [
-          active.client.session.switchModel({
-            sessionID: active.sessionID,
-            model: { id: model.modelID, providerID: model.providerID, ...(variant ? { variant } : {}) },
-          }),
-        ]
-      : []),
-    ...(previousRevert ? [active.client.session.revert.clear({ sessionID: active.sessionID })] : []),
-  ]
-
-  return Promise.all(configure)
-    .then(() => {
-      if (command)
-        return active.client.session
-          .command({
-            sessionID: active.sessionID,
-            name: command,
-            ...request,
-            delivery,
-          })
-          .then(() => undefined)
-      return active.client.session.prompt({
-        sessionID: active.sessionID,
+  const current = () => (active ? active.current() : currentDraft() === draft)
+  let cancelCommit: (() => void) | undefined
+  const send = (target: NonNullable<typeof active>) => {
+    const revision = target.runtime.pendingRevision()
+    if (optimisticBusy) target.runtime.setStatus({ type: "busy" })
+    if (state.session?.revert) {
+      target.runtime.setSession({ ...target.runtime.view().session, revert: undefined })
+    }
+    if (delivery === "steer" && !command)
+      target.runtime.echo({
         id: messageID,
-        ...request,
-        delivery,
-        metadata: {
-          agent: active.localAgent,
-          ...(model ? { model } : {}),
-        },
+        type: "user",
+        text: request.text,
+        files: attachments.map((attachment) => ({
+          data: "",
+          mime: attachment.mime,
+          name: attachment.sourcePath ?? attachment.filename,
+          source: { type: "uri" as const, uri: attachment.url },
+        })),
+        time: { created: Date.now() },
       })
-    })
-    .then((admitted) => {
-      composerHistory.add(historyPrompt, "normal")
-      if (!active.current()) return
-      // SSE may already have delivered or cancelled this admission before HTTP returns.
-      if (admitted && active.runtime.pendingRevision() === revision) {
-        active.runtime.updatePending((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
-      }
-      active.runtime.schedule(250)
-      return refreshRecentSessions()
-    })
+
+    cancelCommit =
+      delivery === "steer" && model ? selection.trackSessionCommit({ model, variant: variant ?? null }) : undefined
+    const configure = [
+      ...(delivery === "steer"
+        ? [target.client.session.switchAgent({ sessionID: target.sessionID, agent: target.localAgent })]
+        : []),
+      ...(delivery === "steer" && model
+        ? [
+            target.client.session.switchModel({
+              sessionID: target.sessionID,
+              model: { id: model.modelID, providerID: model.providerID, ...(variant ? { variant } : {}) },
+            }),
+          ]
+        : []),
+      ...(previousRevert ? [target.client.session.revert.clear({ sessionID: target.sessionID })] : []),
+    ]
+
+    return Promise.all(configure)
+      .then(() => {
+        if (command)
+          return target.client.session
+            .command({
+              sessionID: target.sessionID,
+              name: command,
+              ...request,
+              delivery,
+            })
+            .then(() => undefined)
+        return target.client.session.prompt({
+          sessionID: target.sessionID,
+          id: messageID,
+          ...request,
+          delivery,
+          metadata: {
+            agent: target.localAgent,
+            ...(model ? { model } : {}),
+          },
+        })
+      })
+      .then((admitted) => {
+        composerHistory.add(historyPrompt, "normal")
+        if (!target.current()) return
+        // SSE may already have delivered or cancelled this admission before HTTP returns.
+        if (admitted && target.runtime.pendingRevision() === revision) {
+          target.runtime.updatePending((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
+        }
+        target.runtime.schedule(250)
+        return refreshRecentSessions()
+      })
+  }
+
+  const sending = active
+    ? send(active)
+    : createSession(draft!.api, draft!.directory, server!.localAgent).then((session) => {
+        if (!current()) return
+        // Promote the draft without clearing text typed while creation was pending or hydrating an empty session.
+        const choice = localModelSelection.draft.current()
+        void activateSession(server!, session, { created: true })
+        localModelSelection.draft.set(choice)
+        active = captureSessionOwnership()
+        restartSessionEventStream()
+        return active ? send(active) : undefined
+      })
+
+  return sending
     .catch((error) => {
       cancelCommit?.()
-      if (!active.current()) return
-      active.runtime.dropEcho(messageID)
+      if (!current()) return
+      active?.runtime.dropEcho(messageID)
       const restored = submission.restore()
       if (restored) restored.target.restore(restored.prompt)
       if (previousRevert && !state.session?.revert) {
-        active.runtime.setSession({ ...active.runtime.view().session, revert: previousRevert })
+        active?.runtime.setSession({ ...active.runtime.view().session, revert: previousRevert })
       }
       setState("error", readableError(error))
-      if (optimisticBusy) active.runtime.setStatus(idleStatus)
-      active.runtime.schedule(0)
+      if (optimisticBusy) active?.runtime.setStatus(idleStatus)
+      active?.runtime.schedule(0)
     })
     .finally(() => {
-      if (active.current()) setState("submitting", false)
+      if (current()) setState("submitting", false)
     })
 }
 

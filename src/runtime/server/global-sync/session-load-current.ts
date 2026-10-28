@@ -1,6 +1,6 @@
 import { translateSync } from "@/runtime/i18n/language"
 import type { SessionRecord } from "@/runtime/persistence/storage-compact"
-// Creates or restores the current 7777 session rather than paging a directory session list.
+// Resolves the draft location or restores the current session. Only submission creates a session.
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import { defaultSessionDirectory } from "@/session/directory"
 import type { SessionInfo as Session } from "@opencode/client/promise"
@@ -21,9 +21,9 @@ export function createSession(baseClient: OpencodeClient, directory: string, loc
     })
 }
 
-export function createDefaultSession(baseClient: OpencodeClient, localAgent: string) {
+export function loadDefaultSessionDirectory(baseClient: OpencodeClient) {
   return baseClient.location.get().then((location) => {
     if (typeof location.directory !== "string") throw new Error(translateSync("error.loadServerPathFailed"))
-    return createSession(baseClient, defaultSessionDirectory(location.directory), localAgent)
+    return defaultSessionDirectory(location.directory)
   })
 }

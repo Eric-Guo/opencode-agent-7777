@@ -15,7 +15,7 @@ import { sortProviderGroups } from "@/providers/catalog/order"
 import { consoleProviderLabels } from "@/providers/catalog/console"
 import { createIntegrationCatalog, usesChatGPTPlan } from "@/providers/catalog/integrations"
 import { ExternalLink } from "@/runtime/platform/external-link"
-import { currentRuntime, state } from "@/runtime/server/session-store-compact"
+import { currentData, currentDirectory } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
@@ -42,9 +42,9 @@ export function ModelSelectorPopover(props: {
   const [view, setView] = createStore({ open: false })
   const source = createMemo(() => {
     if (!view.open || props.model.current()?.provider.id !== "openai") return
-    const runtime = currentRuntime()
-    const directory = state.session?.location.directory
-    return runtime && directory ? { data: runtime.data, directory } : undefined
+    const data = currentData()
+    const directory = currentDirectory()
+    return data && directory ? { data, directory } : undefined
   })
   const integrations = createIntegrationCatalog({ source, events: sessionEvents })
   const controller = createModelSelectorController({

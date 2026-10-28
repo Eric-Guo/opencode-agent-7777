@@ -3,9 +3,8 @@ import { Popover } from "@opencode/ui/popover"
 import { createEffect, createMemo, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { currentDirectory, currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
-import { sessionDirectory } from "@/session/directory"
 import { createHomeSessionsController } from "./controller"
 import { createHomeSessionIndex } from "./index"
 import { createHomeSessionSearchController } from "./search"
@@ -18,11 +17,10 @@ export function HomeSessionsRegion() {
   const [local, setLocal] = createStore({ open: false })
   const source = createMemo(() => {
     const server = state.server
-    const session = state.session
-    if (!server || !session) return
-    const directory = sessionDirectory(session)
+    const directory = currentDirectory()
+    if (!server || !directory) return
     const client = createDirectorySdk(server, directory).client
-    return { directory, sessionID: session.id, list: client.session.list, get: client.session.get }
+    return { directory, sessionID: state.session?.id ?? "", list: client.session.list, get: client.session.get }
   })
   const data = createHomeSessionIndex({ source })
   const sessions = createHomeSessionsController({
