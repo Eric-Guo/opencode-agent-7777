@@ -297,10 +297,20 @@ rich text; HTML data views, navigation links, image resources, prototype keys, a
 Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
 messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
 
-The header reuses the GUI extension's `ContextUsage` display through its public
-`@opencode/gui-extensions/usage/context-usage` export. `session/header/session-context-usage-compact.tsx`
-adapts the active session, latest reported assistant tokens, and model catalog without an extension host.
-It follows the shared ring and tooltip behavior; the full app's context panel remains extension-owned.
+Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header reuses the public
+`@opencode/gui-plugins/context/context-usage` ring and tooltip. Local `context/model.ts` adapts the compact catalog
+for both views, delegating usage-step selection to `lastAssistantWithUsage` from `@opencode/client/solid` so usage
+follows undo boundaries and completed compaction. Missing usage or model capacity stays unknown in the details;
+reported zero tokens remain zero. No app or plugin-host internals are imported.
+
+Use **/context**, or **Add → Commands → /context**, to open the read-only usage dialog for the current session.
+It shows the latest assistant step's model, provider, context capacity and token breakdown alongside server-reported
+session totals and cost. Totals are not reconstructed from the bounded message window, and no extra transcript read
+or server command is needed. The dialog updates from the current runtime and closes when its activation changes.
+Choosing the command from the Add menu preserves an existing draft and mentions; inline execution preserves
+attachments. Like `/export`, it rejects arguments without sending or clearing the draft. The header's existing
+ring and tooltip remain available. Raw-message/system-prompt inspection and docked plugin panels remain outside
+this compact view.
 
 The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
 It defaults to snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
@@ -309,8 +319,10 @@ the active session's directory. Branch and committed comparisons share the base-
 or Enter. Both start at the common ancestor with that base; branch review includes uncommitted changes, while committed
 review ends at `HEAD` and excludes them. `review/parts.tsx` owns the title, description, and empty states, keeping mode
 presentation out of the rendering/lifecycle panel. `review/model.ts`, `review/panel.tsx`, and `review/parts.tsx` follow
-the review extension's boundaries in `packages/gui-extensions`; the compact-only `review/trigger-compact.tsx` supplies dialog mounting in place of the
-main app's extension host. Reads use the current activation and existing event stream, refresh after completion,
+the review plugin's boundaries in `packages/gui-plugins`; the compact-only `review/trigger-compact.tsx` supplies its
+header action. `shell/commands/session-dialog-compact.tsx` shares the review and context dialogs' fixed-size lazy
+loading, error boundary, dismissal and activation lifetime in place of the main app's plugin host.
+Reads use the current activation and existing event stream, refresh after completion,
 revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
 Errors can be retried and drafts are preserved. Staged-only review (unsupported by the current public API),
 comments, arbitrary history ranges, and docked extension panels remain outside this compact view.

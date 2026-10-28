@@ -1,26 +1,22 @@
-import { ContextUsage } from "@opencode/gui-plugins/usage/context-usage"
+import { ContextUsage } from "@opencode/gui-plugins/context/context-usage"
 import { createMemo, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { state } from "@/runtime/server/session-store-compact"
+import { sessionContextUsage } from "./model"
 
 // The compact header consumes the shared display without mounting an extension host.
 export function SessionContextUsage() {
   const language = useLanguage()
-  const message = createMemo(() => {
-    const last = state.sessionMessages.findLast((item) => item.type === "assistant" && !!item.tokens)
-    return last?.type === "assistant" ? last : undefined
-  })
-  const model = createMemo(() => {
-    const last = message()
-    return last && state.models.find((item) => item.providerID === last.model.providerID && item.id === last.model.id)
-  })
+  const usage = createMemo(() =>
+    sessionContextUsage({ session: state.session, messages: state.sessionMessages, models: state.models }),
+  )
 
   return (
     <Show when={state.session}>
       <ContextUsage
         class="flex h-[30px] w-[30px] items-center justify-center"
-        tokens={message()?.tokens}
-        contextLimit={model()?.limit.context}
+        tokens={usage().message?.tokens}
+        contextLimit={usage().model?.limit.context}
         cost={state.session?.cost}
         labels={{
           cost: language.t("usage.cost"),

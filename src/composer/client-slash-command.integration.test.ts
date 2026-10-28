@@ -5,13 +5,13 @@ import { createPromptState } from "./state"
 import { createClientSlashCommands } from "./client-slash-command"
 import { createComposerEditor } from "./editor/interaction"
 
-function fixture(run: (fixture: ReturnType<typeof setup>) => void) {
+function fixture(run: (fixture: ReturnType<typeof setup>) => void, trigger = "export") {
   const cleanup = installDOM()
   const previous = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame")
   Object.defineProperty(globalThis, "requestAnimationFrame", { configurable: true, value: () => 1 })
   try {
     renderToString(() => {
-      run(setup())
+      run(setup(trigger))
       return ""
     })
   } finally {
@@ -21,15 +21,15 @@ function fixture(run: (fixture: ReturnType<typeof setup>) => void) {
   }
 }
 
-function setup() {
+function setup(trigger: string) {
   const draft = createPromptState({
-    prompt: "/export",
+    prompt: `/${trigger}`,
     attachments: [{ id: "image", filename: "test.png", mime: "image/png", url: "data:image/png;base64,aGVsbG8=" }],
   })
   const action = mock(() => {})
   const submit = mock((_options: { delivery: string }) => {})
   const error = mock(() => {})
-  const command = { id: "session.export", trigger: "export", title: "Export session", onSelect: action }
+  const command = { id: `session.${trigger}`, trigger, title: trigger, onSelect: action }
   const commands = createClientSlashCommands({
     commands: () => [command],
     draft,
@@ -58,62 +58,74 @@ function setup() {
     submit,
     error,
     controller,
-    option: { ...command, kind: "command" as const, label: "/export" },
+    option: { ...command, kind: "command" as const, label: `/${trigger}` },
   }
 }
 
-test("submits /export locally without a server command catalog, preserving attachments", () => {
-  fixture(({ draft, action, submit, controller }) => {
-    const attachments = draft.capture().attachments
-    controller.submit()
-    expect(action).toHaveBeenCalledTimes(1)
-    expect(submit).not.toHaveBeenCalled()
-    expect(draft.current()).toBe("")
-    expect(draft.attachments()).toEqual(attachments)
-  })
-})
+test.each(["export", "context"])(
+  "submits /%s locally without a server command catalog, preserving attachments",
+  (trigger) => {
+    fixture(({ draft, action, submit, controller }) => {
+      const attachments = draft.capture().attachments
+      controller.submit()
+      expect(action).toHaveBeenCalledTimes(1)
+      expect(submit).not.toHaveBeenCalled()
+      expect(draft.current()).toBe("")
+      expect(draft.attachments()).toEqual(attachments)
+    }, trigger)
+  },
+)
 
-test("rejects unexpected export arguments without sending or clearing the draft", () => {
-  fixture(({ draft, action, submit, error, controller }) => {
-    draft.set("/export keep this text")
-    controller.submit()
-    expect(action).not.toHaveBeenCalled()
-    expect(submit).not.toHaveBeenCalled()
-    expect(error).toHaveBeenCalledWith("/export")
-    expect(draft.current()).toBe("/export keep this text")
-  })
-})
+test.each(["export", "context"])(
+  "rejects unexpected /%s arguments without sending or clearing the draft",
+  (trigger) => {
+    fixture(({ draft, action, submit, error, controller }) => {
+      draft.set(`/${trigger} keep this text`)
+      controller.submit()
+      expect(action).not.toHaveBeenCalled()
+      expect(submit).not.toHaveBeenCalled()
+      expect(error).toHaveBeenCalledWith(`/${trigger}`)
+      expect(draft.current()).toBe(`/${trigger} keep this text`)
+    }, trigger)
+  },
+)
 
-test("selecting the inline export suggestion executes locally and preserves attachments", () => {
-  fixture(({ draft, action, submit, controller, option }) => {
-    controller.onInput("/exp")
-    const attachments = draft.capture().attachments
-    controller.dispatch({ type: "popover.select", item: option })
-    expect(action).toHaveBeenCalledTimes(1)
-    expect(submit).not.toHaveBeenCalled()
-    expect(draft.current()).toBe("")
-    expect(draft.attachments()).toEqual(attachments)
-  })
-})
+test.each(["export", "context"])(
+  "selecting the inline /%s suggestion executes locally and preserves attachments",
+  (trigger) => {
+    fixture(({ draft, action, submit, controller, option }) => {
+      controller.onInput(`/${trigger.slice(0, 3)}`)
+      const attachments = draft.capture().attachments
+      controller.dispatch({ type: "popover.select", item: option })
+      expect(action).toHaveBeenCalledTimes(1)
+      expect(submit).not.toHaveBeenCalled()
+      expect(draft.current()).toBe("")
+      expect(draft.attachments()).toEqual(attachments)
+    }, trigger)
+  },
+)
 
-test("selecting export from the command menu preserves an existing draft and its mentions", () => {
-  fixture(({ draft, action, submit, controller, option }) => {
-    draft.restore({
-      prompt: "@notes.md review this",
-      attachments: [],
-      references: [{ type: "file", path: "notes.md", content: "@notes.md", start: 0, end: 9 }],
-    })
-    controller.openCommands()
-    controller.dispatch({ type: "popover.select", item: option })
-    expect(action).toHaveBeenCalledTimes(1)
-    expect(submit).not.toHaveBeenCalled()
-    expect(draft.capture()).toEqual({
-      prompt: "@notes.md review this",
-      attachments: [],
-      references: [{ type: "file", path: "notes.md", content: "@notes.md", start: 0, end: 9 }],
-    })
-  })
-})
+test.each(["export", "context"])(
+  "selecting /%s from the command menu preserves an existing draft and its mentions",
+  (trigger) => {
+    fixture(({ draft, action, submit, controller, option }) => {
+      draft.restore({
+        prompt: "@notes.md review this",
+        attachments: [],
+        references: [{ type: "file", path: "notes.md", content: "@notes.md", start: 0, end: 9 }],
+      })
+      controller.openCommands()
+      controller.dispatch({ type: "popover.select", item: option })
+      expect(action).toHaveBeenCalledTimes(1)
+      expect(submit).not.toHaveBeenCalled()
+      expect(draft.capture()).toEqual({
+        prompt: "@notes.md review this",
+        attachments: [],
+        references: [{ type: "file", path: "notes.md", content: "@notes.md", start: 0, end: 9 }],
+      })
+    }, trigger)
+  },
+)
 
 test("ordinary prompts still use the server submission path", () => {
   fixture(({ draft, action, submit, controller }) => {

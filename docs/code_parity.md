@@ -9,14 +9,14 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 
 | Public package | Reused responsibility |
 | --- | --- |
-| `@opencode/client` | Data, catalogs, APIs and transport types |
+| `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
 | `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview` |
-| `@opencode/gui-extensions` | `ContextUsage` |
+| `@opencode/gui-plugins` | `ContextUsage` |
 | `@opencode/ui`, `@opencode/util` | Controls, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
-The README documents the local runtime/cache, desktop schemas, request widgets and routing contracts.
+The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
 
 ## Remaining compact responsibilities
@@ -28,7 +28,7 @@ The README documents the local runtime/cache, desktop schemas, request widgets a
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
-Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, full usage/summary panels,
+Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, raw context/summary panels,
 browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
 reordering, staged-only/end-revision diffs and GUI host contexts.
 
@@ -43,6 +43,7 @@ VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
 BENCH_RUNS=3 bun run bench:runtime
 ```
 
-Optional checks: `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`; overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
+Optional checks: `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
+overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
 The historical 38 px initial-follow failure also reproduced on unchanged baselines; retain its assertion and
 resolve it before claiming a scrolling fix.

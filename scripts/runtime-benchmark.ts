@@ -297,6 +297,43 @@ try {
     streaming.push(performance.now() - streamed)
     if (iteration === 0) {
       await page.screenshot({ path: output.replace(/\.json$/, ".png") })
+      if (process.env.BENCH_VERIFY_CONTEXT === "true") {
+        // Keep the real command, runtime and dialog together: pure usage tests cannot catch focus or live updates.
+        const editor = page.getByRole("textbox", { name: "Message", exact: true })
+        await editor.fill("Keep this draft while checking usage")
+        await page.getByRole("button", { name: "Add images and files", exact: true }).click()
+        await page.getByRole("menuitem", { name: "Commands /", exact: true }).click()
+        await page
+          .getByRole("button", { name: "/context View token usage, context capacity, and session cost", exact: true })
+          .click()
+        const details = page.getByRole("dialog", { name: "Context usage", exact: true })
+        await expect(details.getByRole("status")).toContainText("No assistant usage is available")
+        emit("session.step.ended", {
+          ...data,
+          finish: "stop",
+          cost: 0.1,
+          tokens: { input: 100, output: 20, reasoning: 5, cache: { read: 10, write: 15 } },
+        })
+        emit("session.usage.updated", {
+          sessionID: sessions[1].id,
+          cost: 1.5,
+          tokens: { input: 1000, output: 200, reasoning: 50, cache: { read: 100, write: 150 } },
+        })
+        await expect(details.getByRole("row", { name: "Input 100 1,000", exact: true })).toBeVisible()
+        await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeVisible()
+        await expect(details.getByText("$1.50", { exact: true })).toBeVisible()
+        await page.screenshot({ path: output.replace(/\.json$/, "-context.png") })
+        await page.setViewportSize({ width: 390, height: 800 })
+        expect(await details.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
+        await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeInViewport()
+        await page.screenshot({ path: output.replace(/\.json$/, "-context-narrow.png") })
+        await details.getByRole("button", { name: "Close", exact: true }).press("Escape")
+        await expect(details).toBeHidden()
+        await expect(editor).toHaveText("Keep this draft while checking usage")
+        await expect(editor).toBeFocused()
+        await editor.fill("")
+        await page.setViewportSize({ width: 1100, height: 800 })
+      }
       if (process.env.BENCH_VERIFY_UI === "true") {
         const scroll = page.locator('[data-slot="session-message-scroller"]')
         const scroller = scroll.getByRole("region", { name: "scrollable content", exact: true })
