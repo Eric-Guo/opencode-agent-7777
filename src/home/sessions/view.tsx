@@ -1,5 +1,4 @@
 import { Icon } from "@opencode/ui/icon"
-import { ScrollView } from "@opencode/ui/scroll-view"
 import { TextInput } from "@opencode/ui/text-input"
 import { createMemo, createUniqueId, For, onCleanup, onMount, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -85,13 +84,15 @@ export function HomeSessionsView(props: {
           }
         }}
       />
-      <ScrollView
+      <div
         ref={list}
         id={listID}
+        data-scrollable
         role="listbox"
+        tabIndex={0}
         aria-label={language.t("session.recent")}
         aria-busy={props.sessions.data.loading() || props.sessions.session.switching()}
-        class="mt-2 max-h-[min(360px,50vh)]"
+        class="mt-2 min-h-0 max-h-[min(360px,50vh)] overflow-y-auto outline-none"
       >
         <For each={groups()}>
           {(group) => (
@@ -131,7 +132,7 @@ export function HomeSessionsView(props: {
             </div>
           )}
         </For>
-      </ScrollView>
+      </div>
       <Show when={props.sessions.data.failed()}>
         <div role="alert" class="px-2 py-2 text-[13px] leading-5 text-v2-text-text-muted">
           {language.t("home.sessions.loadFailed")}

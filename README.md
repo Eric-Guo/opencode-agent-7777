@@ -450,8 +450,8 @@ uses the shared `TextInput` clear action, including its focus behavior, without 
 `providers/models/tooltip.tsx` keeps the compact layout used by the picker; the unused legacy layout and its provider
 name heuristics are removed. Model tags, input ordering, optional reasoning information and locale-aware limits remain.
 
-The model picker and compact recent-session search also use the public `TextInput`, and recent results use
-`ScrollView`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
+The model picker and compact recent-session search use the public `TextInput` and native scroll containers styled
+by `@opencode/ui`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
 filtering, selection and focus restoration while the shared controls own field styling, clearing and scrollbars.
 Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
 its header popover intentionally differs from the main app's routed Home view.
@@ -463,11 +463,18 @@ state. Activity ordering (including ID ties), local dates, invalid-date fallback
 search are preserved. The existing grouping and ordering tests now live in `home/sessions/records.test.ts`;
 `controller.test.ts` retains coverage for selecting the latest record and rejecting stale selections.
 
-Composer suggestion popups also reuse `TextInput` and `ScrollView` in `composer/editor/editor.tsx`.
-The shared field owns command-search styling and clearing, and the shared viewport owns scrolling and its thumb.
+Composer suggestion popups reuse `TextInput` and a native scroll container in `composer/editor/editor.tsx`.
+The shared field owns command-search styling and clearing; the browser owns scrolling with the shared UI scrollbar.
 Local code retains filtering, keyboard selection, focus restoration, draft preservation and boundary-based sizing,
 including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
 same viewport without adding a separate search field.
+
+These compact surfaces now follow the main app's native scrolling boundary: the composer, suggestions, model list
+and recent-session list each size and scroll one element marked `data-scrollable`. The composer reserves the shared
+scrollbar width and compensates its end padding, preserving text wrapping when a long draft starts overflowing.
+Caret reveal, scroll limits, popup sizing, active-result visibility, keyboard selection and focus restoration remain
+local and unchanged. The attachment strip and toolbar also declare nested scroll ownership. Only the timeline keeps
+`ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single

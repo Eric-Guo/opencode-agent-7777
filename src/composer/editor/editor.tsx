@@ -9,7 +9,6 @@ import { Button } from "@opencode/ui/button"
 import { Keybind } from "@opencode/ui/keybind"
 import { Menu } from "@opencode/ui/menu"
 import { Tooltip } from "@opencode/ui/tooltip"
-import { ScrollView } from "@opencode/ui/scroll-view"
 import { TextInput } from "@opencode/ui/text-input"
 import { AttachmentCard } from "@opencode/session-ui/attachment-card"
 import { CommentCard } from "@opencode/session-ui/comment-card"
@@ -234,12 +233,15 @@ export function ComposerEditor(props: ComposerEditorProps) {
           />
         </Show>
 
-        <ScrollView
+        <div
           data-component="composer-scroll"
-          class="min-h-[60px] max-h-[180px]"
-          viewportRef={(element) => {
+          data-scrollable
+          role="region"
+          aria-label={i18n.t("ui.scrollView.ariaLabel")}
+          tabIndex={-1}
+          class="relative min-h-[60px] max-h-[180px] overflow-y-auto outline-none"
+          ref={(element) => {
             viewport = element
-            element.tabIndex = -1
           }}
         >
           <div
@@ -258,7 +260,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
             spellcheck={state.mode === "normal"}
             // @ts-expect-error
             autocomplete="off"
-            class="relative z-10 block min-h-[60px] w-full whitespace-pre-wrap bg-transparent px-4 pt-4 pb-2 text-[13px] font-[440] leading-5 text-v2-text-text-base focus:outline-none [&_[data-mention=file]]:text-syntax-property [&_[data-mention=agent]]:text-syntax-type [&_[data-mention=reference]]:text-syntax-keyword"
+            class="relative z-10 block min-h-[60px] w-full whitespace-pre-wrap bg-transparent ps-4 pe-[var(--composer-scroll-end)] pt-4 pb-2 text-[13px] font-[440] leading-5 text-v2-text-text-base focus:outline-none [&_[data-mention=file]]:text-syntax-property [&_[data-mention=agent]]:text-syntax-type [&_[data-mention=reference]]:text-syntax-keyword"
             classList={{ "font-mono!": state.mode === "shell", "opacity-50": props.disabled }}
             style={{
               "unicode-bidi": state.mode === "normal" ? "plaintext" : undefined,
@@ -295,7 +297,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
           <Show when={!props.controller.value()}>
             <div
               dir={state.mode === "normal" ? "auto" : "ltr"}
-              class="pointer-events-none absolute inset-x-0 top-0 px-4 pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
+              class="pointer-events-none absolute inset-x-0 top-0 ps-4 pe-[var(--composer-scroll-end)] pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
               classList={{ "font-mono!": state.mode === "shell" }}
               style={{ "unicode-bidi": state.mode === "normal" ? "plaintext" : undefined, "text-align": "start" }}
             >
@@ -303,7 +305,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
                 (state.mode === "shell" ? labels().shellPlaceholder : labels().normalPlaceholder)}
             </div>
           </Show>
-        </ScrollView>
+        </div>
 
         <div class="flex h-11 items-center px-2">
           <div
@@ -330,6 +332,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
           <div
             ref={controlsViewport}
             data-slot="composer-controls"
+            data-scrollable
             data-overflow-start={overflow.start}
             data-overflow-end={overflow.end}
             class="ms-1 me-3 h-full min-w-0 flex-1 overflow-x-auto overscroll-x-contain no-scrollbar"
@@ -431,6 +434,7 @@ export function ComposerAttachments(props: {
       <div data-component="composer-attachments" data-slot="composer-attachments" class="relative">
         <div
           data-slot="composer-attachments-scroll"
+          data-scrollable
           class="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar px-2 pt-2 pb-1"
         >
           <For each={props.comments ?? []}>
@@ -711,6 +715,7 @@ export function ComposerEditorPopover(props: {
   onActiveChange: (item: ComposerSuggestion) => void
   onSelect: (item: ComposerSuggestion) => void
 }) {
+  const i18n = useI18n()
   const [store, setStore] = createStore({ maxHeight: COMPOSER_SUGGESTION_MAX_HEIGHT })
   const search = createMemo(() => props.search !== undefined)
   let searchInput: HTMLInputElement | undefined
@@ -739,7 +744,13 @@ export function ComposerEditorPopover(props: {
       style={{ "max-height": `${store.maxHeight}px` }}
       onMouseDown={(event) => event.preventDefault()}
     >
-      <ScrollView class="[&>.scroll-view__viewport]:scroll-pb-[18px]">
+      <div
+        data-scrollable
+        role="region"
+        aria-label={i18n.t("ui.scrollView.ariaLabel")}
+        tabIndex={0}
+        class="min-h-0 flex-1 overflow-y-auto scroll-pb-[18px] outline-none"
+      >
         <div class="flex flex-col p-2">
           <Show when={props.search}>
             {(search) => (
@@ -797,7 +808,7 @@ export function ComposerEditorPopover(props: {
             </For>
           </Show>
         </div>
-      </ScrollView>
+      </div>
     </div>
   )
 }

@@ -2,6 +2,12 @@
   content: "\200B";
 }
 
+/* Keep the same text width when a long prompt starts scrolling, including on platforms with overlay scrollbars. */
+[data-component="composer-scroll"] {
+  --composer-scroll-end: calc(16px - var(--scrollbar-size, 0px));
+  scrollbar-gutter: stable;
+}
+
 /* Masks only cover hidden content; they do not reserve space in the toolbar. */
 [data-slot="composer-controls"][data-overflow-start="true"] {
   --mask-start: 16px;

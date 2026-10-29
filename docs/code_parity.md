@@ -17,6 +17,8 @@ Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.t
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
+Composer, suggestion, model and recent-session scrolling use native containers with public UI scrollbar styles,
+following the main app's boundaries. The timeline retains `ScrollView` for its custom thumb and keyboard navigation.
 
 ## Remaining compact responsibilities
 

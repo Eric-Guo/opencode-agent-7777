@@ -1,10 +1,10 @@
-import { ScrollView } from "@opencode/ui/scroll-view"
 import { Badge } from "@opencode/ui/badge"
 import { Icon } from "@opencode/ui/icon"
 import { Menu } from "@opencode/ui/menu"
 import { TextInput } from "@opencode/ui/text-input"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useDialog } from "@opencode/ui/context/dialog"
+import { useI18n } from "@opencode/ui/context/i18n"
 import { type ComponentProps, createEffect, createMemo, For, type JSX, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createEventListener } from "@solid-primitives/event-listener"
@@ -128,6 +128,7 @@ export function ModelSelectorPopoverView(props: {
   onManage?: () => void
   onClose: () => void
 }) {
+  const i18n = useI18n()
   const language = useLanguage()
   const [store, setStore] = createStore({ open: false, search: "", active: "" })
   let searchRef: HTMLInputElement | undefined
@@ -266,7 +267,14 @@ export function ModelSelectorPopoverView(props: {
             />
           </div>
           <div class="h-px bg-v2-border-border-muted" />
-          <ScrollView data-slot="model-selector-scroll" class="max-h-[220px] min-h-0">
+          <div
+            data-slot="model-selector-scroll"
+            data-scrollable
+            role="region"
+            aria-label={i18n.t("ui.scrollView.ariaLabel")}
+            tabIndex={0}
+            class="max-h-[220px] min-h-0 overflow-y-auto outline-none"
+          >
             <div class="flex flex-col p-0.5 pt-0">
               <Show
                 when={models().length > 0}
@@ -328,7 +336,7 @@ export function ModelSelectorPopoverView(props: {
                 </For>
               </Show>
             </div>
-          </ScrollView>
+          </div>
           <Show when={props.onManage}>
             <div class="h-px bg-v2-border-border-muted" />
             <div class="flex flex-col p-0.5">
