@@ -247,7 +247,9 @@ window remain. The compact screen owns the viewport and resume control; the main
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
 to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
 individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
-from the broader timeline-detail settings.
+from the broader timeline-detail settings. Before shared Markdown parsing, the compact timeline also turns bare
+HTTP(S) URLs inside full-width Chinese parentheses into standard angle-bracket autolinks so trailing prose and inline
+code cannot become part of the link target.
 
 `session/timeline/markdown-echarts.tsx` is a 7777-only adapter over the public shared timeline. It observes assistant
 response Markdown and adds interactive ECharts SVG charts without replacing the shared parser or code nodes.

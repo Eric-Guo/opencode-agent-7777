@@ -41,6 +41,19 @@ test("opens Markdown file links with the desktop default application and reports
   await expect(page).toHaveURL(/\/component-tests\/markdown-links.html$/)
 })
 
+test("excludes Chinese punctuation from autolinked report URLs", async ({ page }) => {
+  await page.goto("/component-tests/markdown-links.html")
+
+  await expect(page.getByRole("link", { name: /report\/contract_signing/ })).toHaveAttribute(
+    "href",
+    "https://cybros.thape.com.cn/report/contract_signing",
+  )
+  await expect(page.getByRole("link", { name: /report\/subsidiary_receive/ })).toHaveAttribute(
+    "href",
+    "https://cybros.thape.com.cn/report/subsidiary_receive",
+  )
+})
+
 test("keeps local links inert without a desktop bridge", async ({ page }) => {
   await page.goto("/component-tests/markdown-links.html")
   const link = page.getByRole("link", { name: "上海天华撤销生产部门明细.xlsx", exact: true })

@@ -15,6 +15,18 @@ type CompactMessageTimelineProps = {
 export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
   let root!: HTMLDivElement
   useMarkdownEcharts(() => root)
+  const document = createMemo(() => ({
+    ...props.document,
+    messages: props.document.messages.map((message) => {
+      if (message.type !== "assistant") return message
+      return {
+        ...message,
+        content: message.content.map((part) =>
+          part.type === "text" ? { ...part, text: linkChineseParenthesizedUrls(part.text) } : part,
+        ),
+      }
+    }),
+  }))
   const presentation = createMemo(() =>
     Object.fromEntries(
       props.document.messages.flatMap((message): [string, SessionUserPresentation][] => {
@@ -50,7 +62,7 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
       onKeyUp={(event) => props.onPointerGesture?.(event.target)}
     >
       <SessionTimeline
-        document={props.document}
+        document={document()}
         presentation={presentation()}
         actions={props.actions}
         reasoningMode={props.showReasoningSummaries ? "full" : "hidden"}
@@ -58,4 +70,8 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
       />
     </div>
   )
+}
+
+function linkChineseParenthesizedUrls(text: string) {
+  return text.replace(/（(https?:\/\/[^\s（）]+)）/g, "（<$1>）")
 }
