@@ -17,6 +17,9 @@ Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.t
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
+Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
+keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
+repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
 Composer catalog projection stays in `composer/suggestions/catalog-compact.ts`: local/server commands share
 one row builder, and context/file mentions are independent of runtime wiring. Attachment IDs reuse public
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
@@ -29,6 +32,7 @@ following the main app's boundaries. The timeline retains `ScrollView` for its c
 - The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
+  Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
 - Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 

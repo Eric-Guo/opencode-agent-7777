@@ -381,6 +381,16 @@ under `src/session/requests/`. These widgets own answer selection, custom text, 
 pending controls and permission decisions. Only the existing `@opencode/session-ui/dock-prompt` shell and styles
 are shared. The main app keeps its own prompt implementations, including its question draft cache, collapse controls,
 global shortcuts and viewport sizing. Compact widgets are not exported by `session-ui` or consumed by the main app.
+`question-state.ts` and `question-keys.ts` now follow the main app's state and keyboard module boundaries with local
+implementations. Each mounted request owns one state controller, grouping a question's selected values, custom text
+and custom-selection flag in one record instead of parallel arrays. One navigation path restores answer focus for
+Next, Back and progress jumps; one custom-answer path handles opening, toggling, trimming and deduplication.
+The keyboard module maps input, option and footer keys to actions without reading the DOM. Compact horizontal-arrow
+navigation, native Enter/Space activation, custom-input Escape, Shift+Enter and modifier-Enter behavior remain intact.
+Unlike the main app's cache-only state module, the compact state module owns these transitions and retains no global
+request cache. `question-prompt.tsx` keeps rendering, localized labels, textarea sizing and cancellable DOM focus work.
+The existing request-prompt browser suite owns the interaction contract, including custom text retained across toggles,
+blank custom-answer omission, multiline input and fresh state on a new request.
 The `session-question-dock.tsx` and `session-permission-dock.tsx` boundaries retain form-field filtering, label
 fallbacks, compact translations and the existing callbacks. Each request mounts a fresh question widget.
 Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming and deduplication, Escape and
