@@ -1,6 +1,6 @@
 import type { Accessor } from "solid-js"
 import type { PromptState } from "./state"
-import type { ComposerSuggestion } from "./types"
+import { commandSuggestion } from "./suggestions/catalog-compact"
 
 export type ClientSlashCommand = {
   id: string
@@ -40,15 +40,7 @@ export function createClientSlashCommands(input: {
     }
   }
   return {
-    suggestions: (): ComposerSuggestion[] =>
-      input.commands().map((command) => ({
-        id: command.id,
-        kind: "command",
-        label: `/${command.trigger}`,
-        trigger: command.trigger,
-        title: command.title,
-        description: command.description,
-      })),
+    suggestions: () => input.commands().map(commandSuggestion),
     select,
     submit(text: string) {
       const command = parseClientSlashCommand(input.commands(), text.trim())

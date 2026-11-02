@@ -509,6 +509,16 @@ mentions persist in drafts and accepted-prompt history and retain their offsets 
 Agent suggestions exclude hidden and primary-only agents. Local session actions enter through the composer adapter;
 the broader app command provider remains unavailable.
 
+`composer/suggestions/catalog-compact.ts` owns the compact catalog-to-suggestion conversion. It gives local and
+server slash commands one row builder, retains local-trigger precedence, and constructs skill, agent and file
+mentions without importing the runtime store. The main app keeps these projections in `composer/model.ts`;
+7777 deliberately separates them so its model only wires location resources, editor actions and submission.
+Catalog order, labels, agent filtering and original-directory file URLs remain unchanged. The local projection
+tests cover command collisions and mention payloads through draft restoration and request construction.
+Attachment IDs now use the public `@opencode/util/uuid` helper, including its insecure-origin fallback.
+The duplicate local helper and unit tests are removed; `packages/util/src/uuid.test.ts` owns UUID behavior,
+and `composer/attachments/attachments.test.ts` retains coverage of attachment insertion without `randomUUID`.
+
 Session JSON export follows `session/commands/{export,use-session-commands}` and
 `composer/client-slash-command.ts`. The public client's `session.export` transfer API supplies the complete saved
 transcript, independently of the compact timeline's nine-dialog window. The browser download uses the native

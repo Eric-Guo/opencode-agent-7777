@@ -1,7 +1,7 @@
 import { onCleanup, onMount } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
+import { uuid } from "@opencode/util/uuid"
 import { createBlobReference } from "@/runtime/persistence/drafts"
-import { uuid } from "@/runtime/persistence/uuid"
 import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 import { isAttachment } from "../prompt-parts"

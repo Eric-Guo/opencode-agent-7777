@@ -1,6 +1,5 @@
 import { useDialog } from "@opencode/ui/context/dialog"
 import { ImagePreview } from "@opencode/ui/image-preview"
-import { Skill } from "@opencode/schema/skill"
 import { createComponent, createEffect, createMemo, onCleanup } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
@@ -8,14 +7,13 @@ import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { currentData, currentDirectory, state } from "@/runtime/server/session-store-compact"
 import { createFileSearch } from "@/workspaces/files/model"
-import { fileUrl } from "@/workspaces/files/path"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
 import { createComposerCatalog } from "./catalog-compact"
 import { createClientSlashCommands, parseSlashCommand } from "./client-slash-command"
 import { useComposerCommands } from "./commands"
 import { createComposerEditor, type ComposerEditorModel } from "./editor/interaction"
 import { composerHistory } from "./history/store"
-import type { ComposerSuggestion } from "./types"
+import { commandSuggestions, contextSuggestions, fileSuggestions } from "./suggestions/catalog-compact"
 
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
@@ -65,44 +63,8 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     },
     onArguments: (command) => adapter.onAttachmentError(language.t("prompt.command.noArguments", { command })),
   })
-  const slashCommands = createMemo<ComposerSuggestion[]>(() => [
-    ...localCommands.suggestions(),
-    ...catalog.state.commands
-      .filter((command) => !clientCommands().some((item) => item.trigger === command.name))
-      .map((command) => ({
-        id: `custom.${command.name}`,
-        kind: "command" as const,
-        label: `/${command.name}`,
-        trigger: command.name,
-        title: command.name,
-        description: command.description,
-      })),
-  ])
-  const context = createMemo<ComposerSuggestion[]>(() => [
-    ...catalog.state.skills.map((skill) => ({
-      id: `skill:${skill.id}`,
-      kind: "skill" as const,
-      label: `@${skill.id}`,
-      description: skill.description,
-      mention: {
-        type: "skill" as const,
-        id: Skill.ID.make(skill.id),
-        name: Skill.Name.make(skill.name),
-        content: `@${skill.id}`,
-        start: 0,
-        end: 0,
-      },
-    })),
-    ...catalog.state.agents
-      .filter((agent) => !agent.hidden && agent.mode !== "primary")
-      .map((agent) => ({
-        id: `agent:${agent.name}`,
-        kind: "agent" as const,
-        label: `@${agent.name}`,
-        description: agent.description,
-        mention: { type: "agent" as const, name: agent.name, content: `@${agent.name}`, start: 0, end: 0 },
-      })),
-  ])
+  const slashCommands = createMemo(() => commandSuggestions(catalog.state.commands, localCommands.suggestions()))
+  const context = createMemo(() => contextSuggestions(catalog.state.skills, catalog.state.agents))
   const commands = useComposerCommands({
     model: () => adapter.controls().model.selection,
     disabled: () => adapter.disabled() || adapter.controls().model.status !== "ready" || !!dialog.active,
@@ -127,14 +89,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     searchContextFiles: async (query) => {
       const active = location()
       if (!active) return []
-      return (await files.searchFilesAndDirectories(query)).map((path) => ({
-        id: `file:${path}`,
-        kind: "file",
-        label: path,
-        path,
-        // Pin the original directory so the single draft and cross-session history keep the selected file.
-        mention: { type: "file", path, url: fileUrl(active.directory, path), content: `@${path}`, start: 0, end: 0 },
-      }))
+      return fileSuggestions(await files.searchFilesAndDirectories(query), active.directory)
     },
     openAttachment: (attachment) => {
       // Compact attachments include PDFs/text under the same part type; only images have a preview.
