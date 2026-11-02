@@ -28,7 +28,7 @@ export function HomeSessionsRegion() {
     switching: () => !!state.recentSessionSwitchingID,
     open: (session) => void openRecentSession(session),
   })
-  const search = createHomeSessionSearchController(sessions)
+  const search = createHomeSessionSearchController(sessions, () => setOpen(false))
   const setOpen = (open: boolean) => {
     search.query.reset()
     setLocal("open", open)
@@ -57,12 +57,7 @@ export function HomeSessionsRegion() {
       trigger={<Icon name="bullet-list" />}
     >
       <Show when={local.open}>
-        <HomeSessionsView
-          sessions={sessions}
-          search={search}
-          fallbackTitle={currentLocalAgent()}
-          onClose={() => setOpen(false)}
-        />
+        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={currentLocalAgent()} />
       </Show>
     </Popover>
   )

@@ -1,6 +1,6 @@
 import { Icon } from "@opencode/ui/icon"
 import { TextInput } from "@opencode/ui/text-input"
-import { createMemo, createUniqueId, For, onCleanup, onMount, Show } from "solid-js"
+import { createMemo, For, onCleanup, onMount, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { HomeSessionsController } from "./controller"
 import { groupSessions, recentSessionDescription, recentSessionTitle } from "./records"
@@ -10,13 +10,11 @@ export function HomeSessionsView(props: {
   sessions: HomeSessionsController
   search: HomeSessionSearchController
   fallbackTitle: string
-  onClose: () => void
 }) {
   const language = useLanguage()
-  const listID = createUniqueId()
-  const optionID = (id: string) => `${listID}-${id}`
+  const navigation = props.search.result
   const groups = createMemo(() => groupSessions(props.search.result.list()))
-  const active = createMemo(props.search.result.active)
+  const active = () => navigation.activeItem()?.id
   const searching = () => props.search.query.value().trim().length > 0
   const labels = {
     today: "home.sessions.group.today",
@@ -36,10 +34,6 @@ export function HomeSessionsView(props: {
       if (frame !== undefined) cancelAnimationFrame(frame)
     })
   })
-  const move = (delta: number) => {
-    props.search.result.move(delta)
-    list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" })
-  }
   const loadMore = async () => {
     await props.sessions.data.more()
     // Disabling the focused loading button can return focus to the body.
@@ -53,10 +47,10 @@ export function HomeSessionsView(props: {
         type="text"
         role="combobox"
         aria-label={language.t("home.sessions.search.placeholder")}
-        aria-controls={listID}
+        aria-controls={navigation.listID}
         aria-expanded="true"
         aria-autocomplete="list"
-        aria-activedescendant={active() ? optionID(active()!) : undefined}
+        aria-activedescendant={navigation.activeID()}
         value={props.search.query.value()}
         placeholder={language.t("home.sessions.search.placeholder")}
         autocomplete="off"
@@ -74,19 +68,19 @@ export function HomeSessionsView(props: {
         onInput={(event) => props.search.query.input(event.currentTarget.value)}
         onKeyDown={(event) => {
           if (event.isComposing || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          if (event.key === "Enter" && event.repeat) {
             event.preventDefault()
-            move(event.key === "ArrowDown" ? 1 : -1)
+            return
           }
-          if (event.key === "Enter") {
-            event.preventDefault()
-            if (!event.repeat && props.search.result.selectActive()) props.onClose()
+          navigation.onKeyDown(event)
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            list.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: "nearest" })
           }
         }}
       />
       <div
         ref={list}
-        id={listID}
+        id={navigation.listID}
         data-scrollable
         role="listbox"
         tabIndex={0}
@@ -103,7 +97,7 @@ export function HomeSessionsView(props: {
                   const id = session.id
                   return (
                     <button
-                      id={optionID(id)}
+                      id={navigation.optionID(session)}
                       type="button"
                       role="option"
                       aria-selected={active() === id}
@@ -113,11 +107,9 @@ export function HomeSessionsView(props: {
                       classList={{
                         "bg-v2-overlay-simple-overlay-hover": active() === id,
                       }}
-                      onMouseEnter={() => props.search.result.highlight(id)}
+                      onMouseEnter={() => navigation.setActive(id)}
                       onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        if (props.sessions.session.open(session)) props.onClose()
-                      }}
+                      onClick={() => navigation.select(session)}
                     >
                       <span dir="auto" class="block truncate">
                         {recentSessionTitle(session, props.fallbackTitle)}

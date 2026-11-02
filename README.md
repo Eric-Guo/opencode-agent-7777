@@ -465,6 +465,14 @@ name heuristics are removed. Model tags, input ordering, optional reasoning info
 The model picker and compact recent-session search use the public `TextInput` and native scroll containers styled
 by `@opencode/ui`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
 filtering, selection and focus restoration while the shared controls own field styling, clearing and scrollbars.
+Both now delegate active-row reconciliation, arrow wrapping and keyboard selection to `createTypeahead` from
+`@opencode/ui/typeahead`, the controller behind the main app's shared search list. Recent-session combobox IDs also
+come from that controller; mouse and keyboard opening share the same switching guard. The model picker retains its
+current-model opening highlight, provider display order, separate Manage action, Ctrl/Shift-arrow behavior and menu
+focus teardown. Recent sessions retain plain-arrow navigation, IME/repeated-Enter guards and server paging.
+`component-tests/pickers.spec.ts` now owns the former `home/sessions/search.test.ts` navigation and refreshed-list
+contracts through the rendered controls, alongside model search, empty results, catalog updates and focus restoration.
+The compact adapters stay in their existing modules and do not import app source or add shared-package exports.
 Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
 its header popover intentionally differs from the main app's routed Home view.
 

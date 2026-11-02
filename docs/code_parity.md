@@ -11,7 +11,7 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | --- | --- |
 | `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
 | `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
-| `@opencode/ui`, `@opencode/util` | Controls, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
+| `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
@@ -25,6 +25,9 @@ one row builder, and context/file mentions are independent of runtime wiring. At
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
 Composer, suggestion, model and recent-session scrolling use native containers with public UI scrollbar styles,
 following the main app's boundaries. The timeline retains `ScrollView` for its custom thumb and keyboard navigation.
+Model and recent-session pickers reuse public `createTypeahead` for active-row reconciliation, wrapping and selection;
+recent sessions also use its combobox IDs. Local adapters retain model/provider order, Manage access, query resets,
+paging, shortcut differences and focus restoration. Rendered picker coverage lives in `component-tests/pickers.spec.ts`.
 
 ## Remaining compact responsibilities
 
@@ -43,7 +46,7 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 ## Validation
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
-Request widgets also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+Request widgets and pickers also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
 For session/timeline changes, compare production benchmarks:
 
 ```sh

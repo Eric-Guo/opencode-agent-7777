@@ -2,6 +2,7 @@ import { Badge } from "@opencode/ui/badge"
 import { Icon } from "@opencode/ui/icon"
 import { Menu } from "@opencode/ui/menu"
 import { TextInput } from "@opencode/ui/text-input"
+import { createTypeahead } from "@opencode/ui/typeahead"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { useI18n } from "@opencode/ui/context/i18n"
@@ -130,7 +131,7 @@ export function ModelSelectorPopoverView(props: {
 }) {
   const i18n = useI18n()
   const language = useLanguage()
-  const [store, setStore] = createStore({ open: false, search: "", active: "" })
+  const [store, setStore] = createStore({ open: false, search: "" })
   let searchRef: HTMLInputElement | undefined
   let contentRef: HTMLDivElement | undefined
   const dismiss = createMenuDismissController(() => contentRef)
@@ -142,19 +143,31 @@ export function ModelSelectorPopoverView(props: {
     const options = groups().flatMap((group) => group.items.map(modelKey))
     return props.onManage ? [...options, manageKey] : options
   }
+  const navigation = createTypeahead({
+    items: keys,
+    key: (key) => key,
+    onSelect: (key) => {
+      const item = models().find((item) => modelKey(item) === key)
+      if (item) selectModel(item)
+      else if (key === manageKey) manage()
+    },
+  })
   const initialActive = () => {
     const selected = props.current
     const options = keys()
     if (selected && options.includes(selected)) return selected
     return options[0] ?? ""
   }
-  const activeItem = () =>
-    store.active ? contentRef?.querySelector<HTMLElement>(`[data-option-key="${CSS.escape(store.active)}"]`) : undefined
+  const activeItem = () => {
+    const key = navigation.activeItem()
+    return key ? contentRef?.querySelector<HTMLElement>(`[data-option-key="${CSS.escape(key)}"]`) : undefined
+  }
   const setOpen = (open: boolean) => {
     props.onOpenChange?.(open)
     if (open) {
       dismiss.allowTriggerRestore()
-      setStore({ open: true, active: initialActive() })
+      navigation.setActive(initialActive())
+      setStore("open", true)
       setTimeout(() =>
         requestAnimationFrame(() => {
           searchRef?.focus()
@@ -163,7 +176,8 @@ export function ModelSelectorPopoverView(props: {
       )
       return
     }
-    setStore({ open: false, search: "", active: "" })
+    setStore({ open: false, search: "" })
+    navigation.setActive(undefined)
   }
   const selectModel = (item: ModelItem) => {
     dismiss.preventTriggerRestore()
@@ -175,25 +189,10 @@ export function ModelSelectorPopoverView(props: {
     setOpen(false)
     dismiss.afterClose(() => props.onManage?.())
   }
-  const selectActive = () => {
-    const item = models().find((item) => modelKey(item) === store.active)
-    if (item) {
-      selectModel(item)
-      return
-    }
-    if (store.active === manageKey) manage()
-  }
-  const moveActive = (delta: number) => {
-    const options = keys()
-    if (options.length === 0) return
-    const index = options.indexOf(store.active)
-    const start = index === -1 ? 0 : index
-    setStore("active", options[(start + delta + options.length) % options.length])
-    queueMicrotask(() => activeItem()?.scrollIntoView({ block: "nearest" }))
-  }
   const setSearch = (value: string) => {
     const first = props.models(value)[0]
-    setStore({ search: value, active: first ? modelKey(first) : props.onManage ? manageKey : "" })
+    setStore("search", value)
+    navigation.setActive(first ? modelKey(first) : props.onManage ? manageKey : undefined)
   }
 
   createEffect(() => {
@@ -249,20 +248,14 @@ export function ModelSelectorPopoverView(props: {
                   return
                 }
                 if (event.altKey || event.metaKey) return
-                if (event.key === "ArrowDown") {
+                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
                   event.preventDefault()
-                  moveActive(1)
+                  // Keep the compact picker's Ctrl/Shift-arrow navigation while the shared controller owns wrapping.
+                  navigation.onKeyDown(new KeyboardEvent("keydown", { key: event.key }))
+                  queueMicrotask(() => activeItem()?.scrollIntoView({ block: "nearest" }))
                   return
                 }
-                if (event.key === "ArrowUp") {
-                  event.preventDefault()
-                  moveActive(-1)
-                  return
-                }
-                if (event.key === "Enter" && !event.isComposing) {
-                  event.preventDefault()
-                  selectActive()
-                }
+                navigation.onKeyDown(event)
               }}
             />
           </div>
@@ -312,9 +305,11 @@ export function ModelSelectorPopoverView(props: {
                                 data-option-key={modelKey(item)}
                                 data-selected-model={props.current === modelKey(item) ? true : undefined}
                                 class="scroll-my-6 w-full"
-                                classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === modelKey(item) }}
+                                classList={{
+                                  "!bg-v2-overlay-simple-overlay-hover": navigation.activeItem() === modelKey(item),
+                                }}
                                 onMouseEnter={() => {
-                                  setStore("active", modelKey(item))
+                                  navigation.setActive(modelKey(item))
                                   setTimeout(() => searchRef?.focus())
                                 }}
                                 onSelect={() => selectModel(item)}
@@ -342,9 +337,9 @@ export function ModelSelectorPopoverView(props: {
             <div class="flex flex-col p-0.5">
               <Menu.Item
                 data-option-key={manageKey}
-                classList={{ "!bg-v2-overlay-simple-overlay-hover": store.active === manageKey }}
+                classList={{ "!bg-v2-overlay-simple-overlay-hover": navigation.activeItem() === manageKey }}
                 onMouseEnter={() => {
-                  setStore("active", manageKey)
+                  navigation.setActive(manageKey)
                   setTimeout(() => searchRef?.focus())
                 }}
                 onSelect={manage}
