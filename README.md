@@ -444,15 +444,12 @@ The composer uses package-owned provider icons and restores editor focus after m
 `manageModels` enabled, the selector stays available even when every model is hidden. Portal styles remain scoped
 to the model dialog for embedded hosts. Provider connection flows remain unavailable.
 
-The model selector now includes the main app's ChatGPT-plan footer. `providers/catalog/integrations.ts` owns optional
-connection reads through the public client's shared location resource; `providers/models/select-dialog.tsx` renders
-the result, and `runtime/platform/external-link.tsx` owns external-link behavior. With an OpenAI model selected, opening
-the menu reads its active connection and shows **Using ChatGPT plan** and **Manage usage** for an OAuth credential.
-API keys, environment connections, inactive OAuth credentials, and Console providers do not show the footer.
-The compact adapter listens to the existing SSE stream while open and refreshes on connection changes or reconnect.
-Failed or outdated reads hide the footer while model selection stays usable; reopening retries. The runtime aborts
-integration reads with the activation. Model defaults, visibility, storage formats, and the `manageModels` gate stay
-unchanged, and the footer is available when model management is disabled. No app imports or new dependencies are used.
+The model selector's open state in `providers/models/select-dialog.tsx` also controls its ChatGPT-plan footer.
+Opening the picker with an OpenAI model selected reads the public client's integration catalog for the current
+directory. The first connection must be an OAuth credential to show **Using ChatGPT plan** and **Manage usage**.
+`providers/catalog/integrations.ts` uses a Solid resource to track the latest read and the existing event stream to
+refresh on connection changes or reconnect. While a read is pending or failed, model selection stays usable.
+Reopening retries. The footer also works when `manageModels` is disabled.
 
 Model picker headings now reuse `ProviderModelIcon` and the Console catalog helpers for short provider names and
 workspace badges when the same provider is also connected directly. Label resolution uses the full catalog, so

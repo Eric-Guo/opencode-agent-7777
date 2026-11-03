@@ -25,9 +25,8 @@ one row builder, and context/file mentions are independent of runtime wiring. At
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
 Composer, suggestion, model and recent-session scrolling use native containers with public UI scrollbar styles,
 following the main app's boundaries. The timeline retains `ScrollView` for its custom thumb and keyboard navigation.
-Model and recent-session pickers reuse public `createTypeahead` for active-row reconciliation, wrapping and selection;
-recent sessions also use its combobox IDs. Local adapters retain model/provider order, Manage access, query resets,
-paging, shortcut differences and focus restoration. Rendered picker coverage lives in `component-tests/pickers.spec.ts`.
+The model and recent-session pickers use shared `createTypeahead`. The model picker reads the integration catalog
+only when open with an OpenAI model selected. A Solid resource tracks refreshes and discards superseded results.
 
 ## Remaining compact responsibilities
 
@@ -36,7 +35,7 @@ paging, shortcut differences and focus restoration. Rendered picker coverage liv
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
-- Scroll pause/resume; source model defaults, visibility and scoped choices; lazy, retryable OAuth reads; review lifecycle,
+- Scroll pause/resume; source model defaults, visibility and scoped choices; review lifecycle,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,

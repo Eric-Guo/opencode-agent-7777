@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import { OpenCode, type ConnectionInfo, type IntegrationInfo, type OpenCodeEvent } from "@opencode/client/promise"
 import { createRoot, createSignal } from "solid-js"
 import { browserSuite, fixtureData } from "@/runtime/server/runtime.test-fixture"
-import { createIntegrationCatalog, usesChatGPTPlan } from "./integrations"
+import { createIntegrationCatalog, openAIUsesOAuth } from "./integrations"
 
 browserSuite(import.meta.path, () => {
   const disposers: VoidFunction[] = []
@@ -17,19 +17,16 @@ browserSuite(import.meta.path, () => {
   })
 
   test.each([
-    [undefined, [oauth], false],
-    ["anthropic", [oauth], false],
-    ["console-openai", [oauth], false],
-    ["openai", [], false],
-    ["openai", [key, oauth], false],
-    ["openai", [{ type: "env", name: "OPENAI_API_KEY" }, oauth], false],
-    ["openai", [oauth, key], true],
-  ] as [string | undefined, ConnectionInfo[], boolean][])(
-    "plan detection uses the selected provider and first active connection (%s, %j)",
-    (provider, connections, expected) => {
-      expect(usesChatGPTPlan(provider, [integration(connections)])).toBe(expected)
-      expect(usesChatGPTPlan(provider, [])).toBe(false)
-      expect(usesChatGPTPlan(provider, [{ ...integration(connections), id: "another" }])).toBe(false)
+    [[], false],
+    [[key, oauth], false],
+    [[{ type: "env", name: "OPENAI_API_KEY" }, oauth], false],
+    [[oauth, key], true],
+  ] as [ConnectionInfo[], boolean][])(
+    "OpenAI OAuth detection uses the first active connection (%j)",
+    (connections, expected) => {
+      expect(openAIUsesOAuth([integration(connections)])).toBe(expected)
+      expect(openAIUsesOAuth([])).toBe(false)
+      expect(openAIUsesOAuth([{ ...integration(connections), id: "another" }])).toBe(false)
     },
   )
 
@@ -87,7 +84,7 @@ browserSuite(import.meta.path, () => {
     f.open()
     await Bun.sleep(0)
     expect(f.requests).toEqual(["/repo"])
-    expect(usesChatGPTPlan("openai", f.catalog.list())).toBe(true)
+    expect(openAIUsesOAuth(f.catalog.list())).toBe(true)
     f.close()
     expect(f.catalog.list()).toEqual([])
     expect(f.listeners.size).toBe(0)
@@ -95,7 +92,7 @@ browserSuite(import.meta.path, () => {
     f.open()
     await Bun.sleep(0)
     expect(f.requests).toEqual(["/repo", "/repo"])
-    expect(usesChatGPTPlan("openai", f.catalog.list())).toBe(false)
+    expect(openAIUsesOAuth(f.catalog.list())).toBe(false)
     f.dispose()
     expect(f.listeners.size).toBe(0)
   })
@@ -104,7 +101,7 @@ browserSuite(import.meta.path, () => {
     const f = fixture()
     f.open()
     await Bun.sleep(0)
-    expect(usesChatGPTPlan("openai", f.catalog.list())).toBe(true)
+    expect(openAIUsesOAuth(f.catalog.list())).toBe(true)
     f.respond(() => new Response("Unavailable", { status: 503 }))
     f.emit("credential.updated")
     expect(f.catalog.list()).toEqual([])
@@ -113,7 +110,7 @@ browserSuite(import.meta.path, () => {
     f.respond((directory) => Response.json({ location: { directory }, data: [integration([oauth])] }))
     f.emit("server.connected")
     await Bun.sleep(0)
-    expect(usesChatGPTPlan("openai", f.catalog.list())).toBe(true)
+    expect(openAIUsesOAuth(f.catalog.list())).toBe(true)
     expect(f.requests).toEqual(["/repo", "/repo", "/repo"])
   })
 

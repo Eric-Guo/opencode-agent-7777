@@ -1,8 +1,9 @@
-import type { SessionInfo } from "@opencode/client/promise"
+import { OpenCode, type SessionInfo } from "@opencode/client/promise"
 import { onCleanup, onMount, type ComponentProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import { render } from "solid-js/web"
 import { AppBaseProviders } from "../src/app"
+import { createSessionDraft } from "../src/new-session/draft"
 import { createHomeSessionIndex } from "../src/home/sessions/index"
 import { createHomeSessionsController } from "../src/home/sessions/controller"
 import { createHomeSessionSearchController } from "../src/home/sessions/search"
@@ -89,8 +90,8 @@ function Models() {
     name,
     modelName: name,
     providerID,
-    providerName: providerID === "opencode" ? "OpenCode" : "OpenAI",
-    provider: { id: providerID, name: providerID === "opencode" ? "OpenCode" : "OpenAI", models: {} },
+    providerName: providerID === "console-openai" ? "Workspace / OpenAI" : "OpenAI",
+    provider: { id: providerID, name: providerID === "console-openai" ? "Workspace / OpenAI" : "OpenAI", models: {} },
     api: { id },
     status: "active",
     limit: { context: 1000, output: 100 },
@@ -101,10 +102,15 @@ function Models() {
   const catalog = [
     model("alpha", "Alpha", "openai"),
     model("beta", "Beta", "openai"),
-    model("zulu", "Zulu", "opencode"),
+    model("zulu", "Zulu", "console-openai"),
   ]
   const all = () => catalog.filter((item) => item.id !== state.removed)
-  const manage = new URLSearchParams(location.search).get("manage") !== "false"
+  const params = new URLSearchParams(location.search)
+  const manage = params.get("manage") !== "false"
+  const source = params.has("plan")
+    ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
+    : undefined
+  onCleanup(() => source?.dispose())
 
   // Simulate a catalog update while the menu owns focus, without reaching into production state.
   onMount(() => {
@@ -122,12 +128,13 @@ function Models() {
         all={all}
         models={(query) => all().filter((item) => matchesModelSearch(query, [item.name, item.id, item.provider.name]))}
         groups={(items) =>
-          ["opencode", "openai"].flatMap((category) => {
+          ["console-openai", "openai"].flatMap((category) => {
             const matches = items.filter((item) => item.provider.id === category)
             return matches.length ? [{ category, items: matches }] : []
           })
         }
-        current={state.selected}
+        current={catalog.find((item) => `${item.providerID}:${item.id}` === state.selected)}
+        integrationSource={source}
         trigger={(props) => <button {...props}>Models</button>}
         select={(item) => {
           setState("selected", `${item.provider.id}:${item.id}`)

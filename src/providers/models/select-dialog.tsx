@@ -14,7 +14,7 @@ import type { ModelSelectorState } from "@/providers/models/selection"
 import { useLanguage } from "@/runtime/i18n/language"
 import { sortProviderGroups } from "@/providers/catalog/order"
 import { consoleProviderLabels } from "@/providers/catalog/console"
-import { createIntegrationCatalog, usesChatGPTPlan } from "@/providers/catalog/integrations"
+import { createIntegrationCatalog, openAIUsesOAuth, type IntegrationSource } from "@/providers/catalog/integrations"
 import { ExternalLink } from "@/runtime/platform/external-link"
 import { currentData, currentDirectory } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
@@ -40,14 +40,11 @@ export function ModelSelectorPopover(props: {
   onClose?: () => void
 }) {
   const dialog = useDialog()
-  const [view, setView] = createStore({ open: false })
-  const source = createMemo(() => {
-    if (!view.open || props.model.current()?.provider.id !== "openai") return
+  const integrationSource = () => {
     const data = currentData()
     const directory = currentDirectory()
     return data && directory ? { data, directory } : undefined
-  })
-  const integrations = createIntegrationCatalog({ source, events: sessionEvents })
+  }
   const controller = createModelSelectorController({
     model: props.model,
     provider: () => props.provider,
@@ -60,9 +57,8 @@ export function ModelSelectorPopover(props: {
       all={controller.all}
       models={controller.models}
       groups={controller.groups}
-      current={controller.current()}
-      chatgptPlan={usesChatGPTPlan(props.model.current()?.provider.id, integrations.list())}
-      onOpenChange={(open) => setView("open", open)}
+      current={props.model.current()}
+      integrationSource={integrationSource()}
       select={controller.select}
       onManage={
         DEFAULT_MODEL_CONFIG.manageModels
@@ -106,10 +102,6 @@ function createModelSelectorController(input: {
       }
       return Array.from(byProvider, ([category, items]) => ({ category, items })).sort(sortProviderGroups)
     },
-    current: () => {
-      const value = input.model.current()
-      return value ? modelKey(value) : undefined
-    },
     select: (item: ModelItem) => {
       input.model.set({ modelID: item.id, providerID: item.provider.id }, { recent: true })
       input.onSelect()
@@ -122,9 +114,8 @@ export function ModelSelectorPopoverView(props: {
   all: () => ModelItem[]
   models: (search: string) => ModelItem[]
   groups: (models: ModelItem[]) => { category: string; items: ModelItem[] }[]
-  current: string | undefined
-  chatgptPlan?: boolean
-  onOpenChange?: (open: boolean) => void
+  current: ModelItem | undefined
+  integrationSource?: IntegrationSource
   select: (item: ModelItem) => void
   onManage?: () => void
   onClose: () => void
@@ -132,6 +123,14 @@ export function ModelSelectorPopoverView(props: {
   const i18n = useI18n()
   const language = useLanguage()
   const [store, setStore] = createStore({ open: false, search: "" })
+  const selectedKey = () => props.current && modelKey(props.current)
+  const integrations = createIntegrationCatalog({
+    source: createMemo(() =>
+      store.open && props.current?.provider.id === "openai" ? props.integrationSource : undefined,
+    ),
+    events: sessionEvents,
+  })
+  const chatgptPlan = createMemo(() => openAIUsesOAuth(integrations.list()))
   let searchRef: HTMLInputElement | undefined
   let contentRef: HTMLDivElement | undefined
   const dismiss = createMenuDismissController(() => contentRef)
@@ -153,7 +152,7 @@ export function ModelSelectorPopoverView(props: {
     },
   })
   const initialActive = () => {
-    const selected = props.current
+    const selected = selectedKey()
     const options = keys()
     if (selected && options.includes(selected)) return selected
     return options[0] ?? ""
@@ -163,7 +162,6 @@ export function ModelSelectorPopoverView(props: {
     return key ? contentRef?.querySelector<HTMLElement>(`[data-option-key="${CSS.escape(key)}"]`) : undefined
   }
   const setOpen = (open: boolean) => {
-    props.onOpenChange?.(open)
     if (open) {
       dismiss.allowTriggerRestore()
       navigation.setActive(initialActive())
@@ -212,7 +210,7 @@ export function ModelSelectorPopoverView(props: {
         <Menu.Content
           ref={(element: HTMLDivElement) => (contentRef = element)}
           class="w-[284px] max-w-[calc(100vw-16px)] overflow-hidden rounded-md border-0 bg-v2-background-bg-layer-01 !p-0 shadow-[var(--v2-elevation-floating)] focus:outline-none"
-          classList={{ "!w-[320px]": props.chatgptPlan }}
+          classList={{ "!w-[320px]": chatgptPlan() }}
           onPointerDownOutside={dismiss.preventTriggerRestore}
           onFocusOutside={dismiss.preventTriggerRestore}
           onCloseAutoFocus={dismiss.onCloseAutoFocus}
@@ -290,7 +288,7 @@ export function ModelSelectorPopoverView(props: {
                           {(workspace) => <Badge class="shrink-0">{workspace()}</Badge>}
                         </Show>
                       </Menu.GroupLabel>
-                      <Menu.RadioGroup value={props.current}>
+                      <Menu.RadioGroup value={selectedKey()}>
                         <For each={group.items}>
                           {(item) => (
                             <Tooltip
@@ -303,7 +301,7 @@ export function ModelSelectorPopoverView(props: {
                               <Menu.RadioItem
                                 value={modelKey(item)}
                                 data-option-key={modelKey(item)}
-                                data-selected-model={props.current === modelKey(item) ? true : undefined}
+                                data-selected-model={selectedKey() === modelKey(item) ? true : undefined}
                                 class="scroll-my-6 w-full"
                                 classList={{
                                   "!bg-v2-overlay-simple-overlay-hover": navigation.activeItem() === modelKey(item),
@@ -349,7 +347,7 @@ export function ModelSelectorPopoverView(props: {
               </Menu.Item>
             </div>
           </Show>
-          <Show when={props.chatgptPlan}>
+          <Show when={chatgptPlan()}>
             <div class="h-px bg-v2-border-border-muted" />
             <div class="flex min-h-10 items-center gap-2 px-3 py-2 text-[13px] leading-5 text-v2-text-text-base">
               <ProviderModelIcon provider={{ id: "openai", name: "OpenAI" }} class="shrink-0" />

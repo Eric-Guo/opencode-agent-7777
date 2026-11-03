@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Route } from "@playwright/test"
 
 test("recent sessions keep keyboard selection, paging, query resets and switching guards", async ({ page }) => {
   await page.goto("/component-tests/pickers.html")
@@ -77,7 +77,7 @@ test("models retain current selection, display-order navigation, focus and Manag
   await input.press("Alt+ArrowDown")
   await expect(active).toHaveText("Zulu")
   await input.press("Enter")
-  await expect(selected).toHaveText("opencode:zulu")
+  await expect(selected).toHaveText("console-openai:zulu")
   await expect(page.getByLabel("Draft")).toBeFocused()
   await expect(page.getByLabel("Draft")).toHaveValue("Keep this draft")
   await trigger.click()
@@ -85,7 +85,7 @@ test("models retain current selection, display-order navigation, focus and Manag
   await expect(active).toHaveText("Alpha")
   await input.dispatchEvent("keydown", { key: "Enter", isComposing: true })
   await expect(input).toBeVisible()
-  await expect(selected).toHaveText("opencode:zulu")
+  await expect(selected).toHaveText("console-openai:zulu")
   await page.getByRole("menuitemradio", { name: "Beta", exact: true }).click()
   await expect(selected).toHaveText("openai:beta")
   await trigger.click()
@@ -123,4 +123,46 @@ test("models without management leave empty searches inert and recover on clear"
   await input.press("Enter")
   await expect(page.getByLabel("Selected model")).toHaveText("openai:alpha")
   await expect(page.getByLabel("Draft")).toBeFocused()
+})
+
+test("model search stays usable while plan usage loads and skips Console OpenAI", async ({ page }) => {
+  const reads: Route[] = []
+  await page.route("**/component-tests/api/integration?*", (route) => {
+    reads.push(route)
+  })
+  await page.goto("/component-tests/pickers.html?picker=models&manage=false&plan")
+  const trigger = page.getByRole("button", { name: "Models", exact: true })
+  const search = page.getByRole("textbox", { name: "Search models" })
+  const usage = page.getByRole("link", { name: "Manage usage" })
+  await expect(trigger).toBeVisible()
+  expect(reads).toHaveLength(0)
+
+  await trigger.click()
+  await expect.poll(() => reads.length).toBe(1)
+  await expect(search).toBeFocused()
+  await search.fill("alpha")
+  await expect(page.getByRole("menuitemradio", { name: "Alpha" })).toBeVisible()
+  await expect(usage).toHaveCount(0)
+  await reads[0].fulfill({
+    json: {
+      location: { directory: "/fixture" },
+      data: [
+        {
+          id: "openai",
+          name: "OpenAI",
+          methods: [],
+          connections: [{ type: "credential", id: "plan", label: "Plan", method: "oauth" }],
+        },
+      ],
+    },
+  })
+  await expect(usage).toHaveAttribute("href", "https://chatgpt.com/settings/usage")
+  await expect(search).toHaveValue("alpha")
+  await page.getByRole("button", { name: "Clear", exact: true }).click()
+  await page.getByRole("menuitemradio", { name: "Zulu" }).click()
+  await expect(page.getByLabel("Selected model")).toHaveText("console-openai:zulu")
+  await trigger.click()
+  await expect(search).toBeFocused()
+  await expect(usage).toHaveCount(0)
+  expect(reads).toHaveLength(1)
 })
