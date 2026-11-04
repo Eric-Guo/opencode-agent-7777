@@ -4,7 +4,6 @@
 @import "@opencode/ui/styles/tokens";
 
 @source "./";
-@source "../../gui-plugins/src/context/context-usage.tsx";
 
 @font-face {
   font-family: "Inter";

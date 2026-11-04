@@ -1,6 +1,6 @@
 import { expect, mock, spyOn, test } from "bun:test"
 import { createRoot, createSignal } from "solid-js"
-import { browserSuite } from "@/runtime/server/runtime.test-fixture"
+import { browserSuite } from "@/test/browser"
 import { createMenuDismissController } from "./menu-dismiss"
 import { createMenuDismissState, transitionMenuDismiss } from "./menu-dismiss-machine"
 

@@ -88,6 +88,7 @@ export type ComposerEditorProps = {
   class?: string
   agentControl?: JSX.Element
   modelControl?: JSX.Element
+  addMenuVisible?: boolean
   modelControlsVisible?: boolean
   attachKeybind?: string[]
   attachShortcut?: string
@@ -345,21 +346,23 @@ export function ComposerEditor(props: ComposerEditorProps) {
             inert={mode() === "shell" ? true : undefined}
             style={buttons()}
           >
-            <ComposerEditorAddMenu
-              owner={props.controller.owner}
-              disabled={view.draftOnly || props.disabled || mode() === "shell"}
-              title={labels().add}
-              keybind={props.attachKeybind ?? ["Mod", "U"]}
-              attachLabel={labels().attach}
-              attachShortcut={props.attachShortcut ?? "Mod+U"}
-              commandsLabel={labels().commands}
-              contextLabel={labels().context}
-              shellLabel={labels().shell}
-              onAttach={props.controller.attach}
-              onCommands={props.controller.capabilities.commands ? () => props.controller.openCommands() : undefined}
-              onContext={props.controller.capabilities.context ? () => props.controller.openContext() : undefined}
-              onShell={props.controller.capabilities.shell ? () => props.controller.openShell() : undefined}
-            />
+            <Show when={props.addMenuVisible !== false}>
+              <ComposerEditorAddMenu
+                owner={props.controller.owner}
+                disabled={view.draftOnly || props.disabled || mode() === "shell"}
+                title={labels().add}
+                keybind={props.attachKeybind ?? ["Mod", "U"]}
+                attachLabel={labels().attach}
+                attachShortcut={props.attachShortcut ?? "Mod+U"}
+                commandsLabel={labels().commands}
+                contextLabel={labels().context}
+                shellLabel={labels().shell}
+                onAttach={props.controller.attach}
+                onCommands={props.controller.capabilities.commands ? () => props.controller.openCommands() : undefined}
+                onContext={props.controller.capabilities.context ? () => props.controller.openContext() : undefined}
+                onShell={props.controller.capabilities.shell ? () => props.controller.openShell() : undefined}
+              />
+            </Show>
           </div>
           <div
             ref={controlsViewport}

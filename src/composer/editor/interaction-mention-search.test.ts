@@ -2,7 +2,7 @@ import { afterEach, expect, jest, test } from "bun:test"
 import { createRoot, createSignal } from "solid-js"
 import { createPromptState } from "../state"
 import type { ComposerSuggestion } from "../types"
-import { browserSuite } from "@/runtime/server/runtime.test-fixture"
+import { browserSuite } from "@/test/browser"
 import { createComposerEditor } from "./interaction"
 
 browserSuite(import.meta.path, () => {

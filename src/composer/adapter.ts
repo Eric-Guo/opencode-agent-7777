@@ -1,33 +1,6 @@
-import type { SessionInboxDelivery } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
-import type { ModelLoadStatus, ModelSelectorState } from "@/providers/models/selection"
-import type { PromptState } from "./state"
-import type { ClientSlashCommand } from "./client-slash-command"
 
-export type ComposerControls = {
-  agent: string
-  model: {
-    selection: ModelSelectorState
-    status: ModelLoadStatus
-  }
-}
-
-// One embedded session supplies the editor state and actions.
-export type ComposerAdapter = {
-  state: PromptState
-  identity: Accessor<string | undefined>
-  controls: Accessor<ComposerControls>
-  disabled: Accessor<boolean>
-  working: Accessor<boolean>
-  submitting: Accessor<boolean>
-  placeholder: Accessor<string>
-  commands?: Accessor<ClientSlashCommand[]>
-  onAttachmentError: (message: string) => void
-  submit: (options?: { delivery?: ComposerDelivery; command?: string }) => void
-  interrupt: () => void
-}
-
-export type ComposerDelivery = SessionInboxDelivery
+export type ComposerDelivery = "queue" | "steer"
 
 // Delivery follows the main app; queued editing is optional in the compact view.
 export type ComposerQueue = {

@@ -242,48 +242,6 @@ test("keyboard completion excludes previous file results while the next search i
   await expect(page.getByLabel("Submissions")).toHaveText("0")
 })
 
-test("catalog loading and failures leave the composer usable and suggestions recover on retry", async ({ page }) => {
-  const command = Promise.withResolvers<void>()
-  let attempts = 0
-  await page.route("**/component-tests/api/*", async (route) => {
-    const url = new URL(route.request().url())
-    if (url.pathname.endsWith("/command") && ++attempts === 1) {
-      await command.promise
-      await route.fulfill({ status: 503, body: "Unavailable" })
-      return
-    }
-    await route.fulfill({
-      json: {
-        location: { directory: "/fixture" },
-        data: url.pathname.endsWith("/command")
-          ? [{ name: "review", description: "Review code" }]
-          : url.pathname.endsWith("/skill")
-            ? [{ id: "review", name: "Review", path: "/skills/review", content: "Review code" }]
-            : [],
-      },
-    })
-  })
-  await page.goto("/component-tests/composer.html?catalog")
-  const editor = page.getByRole("textbox", { name: "Message" })
-  await expect(page.getByLabel("Command status")).toHaveText("loading")
-  await expect(page.getByLabel("Skill status")).toHaveText("ready")
-  await editor.pressSequentially("Keep this draft")
-  command.resolve()
-  await expect(page.getByLabel("Command status")).toHaveText("failed")
-  await expect(editor).toHaveText("Keep this draft")
-  await expect(page.getByText("Loading composer fixture")).toHaveCount(0)
-
-  await editor.fill("@review")
-  await page.getByRole("button", { name: "@review", exact: true }).click()
-  await expect(editor.locator('[data-mention="skill"]')).toHaveText("@review")
-  await page.getByRole("button", { name: "Reload catalogs" }).click()
-  await expect(page.getByLabel("Command status")).toHaveText("ready")
-  await expect(editor.locator('[data-mention="skill"]')).toHaveText("@review")
-  await editor.fill("/rev")
-  await page.getByRole("button", { name: "/review Review code", exact: true }).click()
-  await expect(page.getByLabel("Draft text")).toHaveText("/review")
-})
-
 test("attachment preparation guards every send route while preserving typing, Stop and native undo", async ({
   page,
 }) => {
@@ -515,6 +473,7 @@ test("attachment menu opens the picker in the gesture and a later completion can
   await trigger.click()
   await choose("late.txt", () => item.click())
   await expect(page.getByRole("button", { name: "Cancel pending files" })).toBeVisible()
+  await expect(trigger).not.toHaveAttribute("data-closing", "")
   await trigger.press("ArrowDown")
   await expect(item).toBeFocused()
   pending.resolve()

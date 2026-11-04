@@ -1,222 +1,21 @@
-import { afterEach, expect, jest, test } from "bun:test"
-import type { SessionInfo, SessionListInput, SessionsResponse } from "@opencode/client/promise"
-import { loadHomeSessionPage, type HomeSessionSource } from "./index"
+import { expect, jest, test } from "bun:test"
+import type { RecentChat, RecentPage } from "@/nexus/chat"
+import type { HomeSessionSource } from "./index"
 import { createHomeSessionIndex } from "./queries"
 
-afterEach(() => jest.useRealTimers())
-
-function session(id: string, directory = "/repo"): SessionInfo {
-  return {
-    id,
-    title: id,
-    projectID: "project",
-    location: { directory },
-    cost: 0,
-    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-    time: { created: 1, updated: 1 },
-  }
+function session(id: string): RecentChat {
+  return { id, title: id, time: { created: 1, updated: 1 } }
 }
-const page = (data: SessionInfo[], next?: string): SessionsResponse => ({ data, cursor: { next } })
-function source(list: HomeSessionSource["list"], get?: HomeSessionSource["get"]): HomeSessionSource {
-  return {
-    directory: "/repo",
-    sessionID: "active",
-    list,
-    get:
-      get ??
-      (async ({ sessionID }) => {
-        throw { _tag: "SessionNotFoundError", sessionID }
-      }),
-  }
-}
+const page = (items: RecentChat[], next: string | null = null): RecentPage => ({ items, next })
+const source = (list: HomeSessionSource["list"]): HomeSessionSource => ({ sessionID: "active", list })
 const rows = (start: number, count: number) => Array.from({ length: count }, (_, i) => session(`session-${start + i}`))
-
-test("browses beyond 12 in separate batches without prefetching the whole history", async () => {
-  const calls: SessionListInput[] = []
-  const api = source(async (input) => {
-    calls.push(input)
-    return input.cursor ? page(rows(12, 12), "second") : page(rows(0, 12), "first")
-  })
-  const index = createHomeSessionIndex({ source: () => api })
-  await index.refresh()
-  expect(index.list()).toHaveLength(12)
-  expect(calls).toEqual([{ directory: "/repo", limit: 12, order: "desc" }])
-  await index.more()
-  expect(index.list()).toHaveLength(24)
-  expect(calls[1]).toEqual({ directory: "/repo", limit: 12, order: "desc", cursor: "first" })
-  expect(index.hasMore()).toBe(true)
-})
-
-test("fills a batch after excluding the current session without losing the next row", async () => {
-  const calls: SessionListInput[] = []
-  const api = source(async (input) => {
-    calls.push(input)
-    if (!input.cursor) return page([session("active"), ...rows(0, 11)], "eleven")
-    if (input.cursor === "eleven") return page(rows(11, 1), "twelve")
-    return page(rows(12, 2))
-  })
-  const index = createHomeSessionIndex({ source: () => api })
-  await index.refresh()
-  expect(index.list().map((item) => item.id)).toEqual(rows(0, 12).map((item) => item.id))
-  expect(calls[1]).toEqual({ directory: "/repo", limit: 1, order: "desc", cursor: "eleven" })
-  await index.more()
-  expect(index.list()).toHaveLength(14)
-  expect(index.list().at(-1)?.id).toBe("session-13")
-  expect(index.hasMore()).toBe(false)
-  await index.more()
-  expect(calls).toHaveLength(3)
-})
-
-test("search goes to the server, finds unloaded history, and retains the query on later pages", async () => {
-  const calls: SessionListInput[] = []
-  const api = source(async (input) => {
-    calls.push(input)
-    if (!input.search) return page(rows(0, 12), "browse")
-    return input.cursor ? page([session("old-last-match")]) : page(rows(100, 12), "matches")
-  })
-  const index = createHomeSessionIndex({ source: () => api })
-  await index.refresh()
-  await index.refresh("  old  ")
-  expect(calls[1]).toEqual({ directory: "/repo", limit: 12, order: "desc", search: "old" })
-  expect(index.list()[0].id).toBe("session-100")
-  await index.more()
-  expect(calls[2]).toEqual({ directory: "/repo", limit: 12, order: "desc", search: "old", cursor: "matches" })
-  expect(index.list().at(-1)?.id).toBe("old-last-match")
-  await index.refresh()
-  expect(index.list()).toHaveLength(12)
-  expect(calls[3].cursor).toBeUndefined()
-  expect(calls[3].search).toBeUndefined()
-})
-
-test("deduplicates overlapping pages and continues until 12 new rows are loaded", async () => {
-  const api = source(async (input) =>
-    input.cursor === "overlap" ? page([session("seen"), ...rows(0, 11)], "last") : page(rows(11, 1)),
-  )
-  const result = await loadHomeSessionPage(api, { cursor: "overlap", knownIDs: ["seen"] })
-  expect(result.items).toHaveLength(12)
-  expect(result.items.map((item) => item.id)).toEqual(rows(0, 12).map((item) => item.id))
-})
-
-test("exact ID lookup finds old sessions, deduplicates title results, and respects directory scope", async () => {
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  let directory = "/repo"
-  const lookups: string[] = []
-  const api = source(
-    async () => page([session(id)]),
-    async (input) => {
-      lookups.push(input.sessionID)
-      return session(id, directory)
-    },
-  )
-  expect((await loadHomeSessionPage(api, { search: id })).items.map((item) => item.id)).toEqual([id])
-  expect(lookups).toEqual([id])
-  directory = "/other"
-  api.list = async () => page([])
-  expect((await loadHomeSessionPage(api, { search: id })).items).toEqual([])
-  const missing = source(async () => page([]))
-  expect((await loadHomeSessionPage(missing, { search: id })).items).toEqual([])
-})
-
-test("a separate exact match and a full title page keep every row covered by the cursor", async () => {
-  const id = "ses_abcdefghijklmnopq"
-  const lookups: string[] = []
-  const api = source(
-    async (input) => (input.cursor ? page([session(id), session("last")]) : page(rows(0, 12), "next")),
-    async ({ sessionID }) => {
-      lookups.push(sessionID)
-      return session(sessionID)
-    },
-  )
-  const index = createHomeSessionIndex({ source: () => api })
-  await index.refresh("  " + id + "  ")
-  expect(index.list()).toEqual([session(id), ...rows(0, 12)])
-  await index.more()
-  expect(index.list()).toEqual([session(id), ...rows(0, 12), session("last")])
-  expect(lookups).toEqual([id])
-  // One character below the full-ID threshold uses only title search.
-  await index.refresh(id.slice(0, -1))
-  expect(index.list()).toEqual(rows(0, 12))
-  expect(lookups).toEqual([id])
-})
-
-test("exact match data wins over a title duplicate while excluded rows trigger backfill", async () => {
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  const reads: SessionListInput[] = []
-  const exact = { ...session(id), title: "Exact result" }
-  const api = source(
-    async (input) => {
-      reads.push(input)
-      if (input.cursor) return page([session("last")])
-      return page([session("active"), session("known"), session("other", "/other"), session(id)], "backfill")
-    },
-    async () => exact,
-  )
-  expect(await loadHomeSessionPage(api, { search: id, knownIDs: ["known"] })).toEqual({
-    items: [exact, session("last")],
-    cursor: undefined,
-  })
-  expect(reads).toEqual([
-    { directory: "/repo", limit: 12, order: "desc", search: id },
-    { directory: "/repo", limit: 11, order: "desc", search: id, cursor: "backfill" },
-  ])
-})
-
-test.each(["/repo/agent7777/agent7777", "/", "C:\\"])(
-  "preserves the stored directory when browsing and searching %s",
-  async (directory) => {
-    const id = "ses_abcdefghijklmnopqrstuvwxyz"
-    const calls: SessionListInput[] = []
-    const api: HomeSessionSource = {
-      directory,
-      sessionID: "active",
-      list: async (input) => {
-        calls.push(input)
-        return page([session("same-directory", directory)])
-      },
-      get: async () => session(id, "/repo/agent7777"),
-    }
-
-    const result = await loadHomeSessionPage(api, { search: id })
-
-    expect(calls).toEqual([{ directory, limit: 12, order: "desc", search: id }])
-    expect(result.items.map((item) => item.id)).toEqual(["same-directory"])
-  },
-)
-
-test.each([
-  ["C:\\Work\\Agent", "c:/work/agent/"],
-  ["\\\\Server\\Share\\Agent", "//server/share/agent/"],
-  ["/work/Agent/", "/work/Agent"],
-])("browses and looks up sessions in equivalent spellings of %s", async (directory, reported) => {
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  const api: HomeSessionSource = {
-    directory,
-    sessionID: "active",
-    list: async (input) => {
-      expect(input.directory).toBe(directory)
-      return input.search ? page([]) : page([session("listed", reported)])
-    },
-    get: async () => session(id, reported),
-  }
-  expect((await loadHomeSessionPage(api)).items).toEqual([session("listed", reported)])
-  expect((await loadHomeSessionPage(api, { search: id })).items).toEqual([session(id, reported)])
-})
-
-test("excludes different POSIX directories from recent sessions and exact lookup", async () => {
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  const api = source(
-    async () => page([session("child", "/repo/sub"), session("sibling", "/repo-2"), session("current-dir", "/repo")]),
-    async () => session(id, "/Repo"),
-  )
-  expect((await loadHomeSessionPage(api, { search: id })).items.map((item) => item.id)).toEqual(["current-dir"])
-})
 
 test("failed next-page requests preserve loaded rows and retry the same cursor", async () => {
   let fail = true
   const cursors: (string | undefined)[] = []
-  const api = source(async (input) => {
-    cursors.push(input.cursor)
-    if (!input.cursor) return page(rows(0, 12), "next")
+  const api = source(async (cursor) => {
+    cursors.push(cursor)
+    if (!cursor) return page(rows(0, 12), "next")
     if (fail) throw new Error("offline")
     return page(rows(12, 1))
   })
@@ -232,92 +31,53 @@ test("failed next-page requests preserve loaded rows and retry the same cursor",
   expect(cursors).toEqual([undefined, "next", "next"])
 })
 
-test("a stalled exact-ID lookup times out and a retry ignores the late match", async () => {
+test("one deadline spans Nexus cursor reads and retry uses the last published cursor", async () => {
   jest.useFakeTimers()
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  const held = Promise.withResolvers<SessionInfo>()
-  const signals: AbortSignal[] = []
-  const api = source(
-    async () => page([]),
-    async (input, options) => {
-      expect(input.sessionID).toBe(id)
-      signals.push(options!.signal!)
-      return signals.length === 1 ? held.promise : session(id)
-    },
-  )
-  const index = createHomeSessionIndex({ source: () => api })
-  const first = index.refresh(id)
-  jest.advanceTimersByTime(30_000)
-  expect(signals[0].aborted).toBe(true)
-  await first
-  expect(index.failed()).toBe(true)
-  expect(index.loading()).toBe(false)
-  await index.more()
-  held.resolve(session("late-match"))
-  await held.promise
-  expect(index.list().map((item) => item.id)).toEqual([id])
-})
-
-test.each(["list", "lookup"])("a failed %s cancels the other read in an exact-ID search", async (failed) => {
-  const id = "ses_abcdefghijklmnopqrstuvwxyz"
-  const error = new Error("offline")
-  const signals: AbortSignal[] = []
-  function read<T>(kind: string, signal: AbortSignal) {
-    signals.push(signal)
-    return kind === failed ? Promise.reject<T>(error) : new Promise<T>(() => {})
+  try {
+    const partial = Promise.withResolvers<RecentPage>()
+    const backfill = Promise.withResolvers<AbortSignal>()
+    const stalled = Promise.withResolvers<RecentPage>()
+    const initial = rows(0, 12)
+    const cursors: (string | undefined)[] = []
+    const api = source(async (cursor, signal) => {
+      cursors.push(cursor)
+      if (!cursor) return page(initial, "next")
+      if (cursor === "overlap") {
+        backfill.resolve(signal!)
+        return stalled.promise
+      }
+      return cursors.length === 2 ? partial.promise : page([session("session-retried")])
+    })
+    const index = createHomeSessionIndex({ source: () => api })
+    await index.refresh("session")
+    const loading = index.more()
+    jest.advanceTimersByTime(25_000)
+    partial.resolve(page([session("other")], "overlap"))
+    const signal = await backfill.promise
+    jest.advanceTimersByTime(5_000)
+    expect(signal.aborted).toBe(true)
+    await loading
+    expect(index.loading()).toBe(false)
+    expect(index.failed()).toBe(true)
+    expect(index.list()).toEqual(initial)
+    await index.more()
+    stalled.resolve(page([session("session-stale")]))
+    await stalled.promise
+    expect(cursors).toEqual([undefined, "next", "overlap", "next"])
+    expect(index.list()).toEqual([...initial, session("session-retried")])
+    expect(index.failed()).toBe(false)
+  } finally {
+    jest.useRealTimers()
   }
-  const api = source(
-    (_, options) => read<SessionsResponse>("list", options!.signal!),
-    (_, options) => read<SessionInfo>("lookup", options!.signal!),
-  )
-  await expect(loadHomeSessionPage(api, { search: id })).rejects.toThrow("offline")
-  expect(signals).toHaveLength(2)
-  expect(signals.every((signal) => signal.aborted)).toBe(true)
-})
-
-test("one deadline spans cursor backfill and retry starts at the last published cursor", async () => {
-  jest.useFakeTimers()
-  const partial = Promise.withResolvers<SessionsResponse>()
-  const backfill = Promise.withResolvers<AbortSignal>()
-  const stalled = Promise.withResolvers<SessionsResponse>()
-  const cursors: (string | undefined)[] = []
-  const api = source(async (input, options) => {
-    expect(input.search).toBe("old")
-    cursors.push(input.cursor)
-    if (!input.cursor) return page(rows(0, 12), "next")
-    if (input.cursor === "overlap") {
-      backfill.resolve(options!.signal!)
-      return stalled.promise
-    }
-    return cursors.length === 2 ? partial.promise : page([session("retried")])
-  })
-  const index = createHomeSessionIndex({ source: () => api })
-  await index.refresh("old")
-  const loading = index.more()
-  jest.advanceTimersByTime(25_000)
-  partial.resolve(page([session("partial")], "overlap"))
-  const signal = await backfill.promise
-  jest.advanceTimersByTime(5_000)
-  expect(signal.aborted).toBe(true)
-  await loading
-  expect(index.failed()).toBe(true)
-  expect(index.list().map((item) => item.id)).toEqual(rows(0, 12).map((item) => item.id))
-  await index.more()
-  stalled.resolve(page([session("stale")]))
-  await stalled.promise
-  expect(cursors).toEqual([undefined, "next", "overlap", "next"])
-  expect(index.list().at(-1)?.id).toBe("retried")
-  expect(index.list()).toHaveLength(13)
-  expect(index.failed()).toBe(false)
 })
 
 test("ignores stale responses, aborts replaced searches, and prevents duplicate page loads", async () => {
-  const old = Promise.withResolvers<SessionsResponse>()
+  const old = Promise.withResolvers<RecentPage>()
   const signals: AbortSignal[] = []
   let calls = 0
-  const api = source(async (_input, options) => {
+  const api = source(async (_cursor, signal) => {
     calls++
-    signals.push(options!.signal!)
+    signals.push(signal!)
     return calls === 1 ? old.promise : page([session("new-search")])
   })
   const index = createHomeSessionIndex({ source: () => api })
@@ -334,7 +94,7 @@ test("ignores stale responses, aborts replaced searches, and prevents duplicate 
 })
 
 test("closing or changing the source prevents an in-flight result from populating the next view", async () => {
-  const response = Promise.withResolvers<SessionsResponse>()
+  const response = Promise.withResolvers<RecentPage>()
   let api = source(async () => response.promise)
   const index = createHomeSessionIndex({ source: () => api })
   const pending = index.refresh()
@@ -348,11 +108,11 @@ test("closing or changing the source prevents an in-flight result from populatin
 })
 
 test.each(["success", "failure"])("a late %s cannot settle a reopened search for the same query", async (outcome) => {
-  const old = Promise.withResolvers<SessionsResponse>()
-  const latest = Promise.withResolvers<SessionsResponse>()
+  const old = Promise.withResolvers<RecentPage>()
+  const latest = Promise.withResolvers<RecentPage>()
   const signals: AbortSignal[] = []
-  const api = source(async (_input, options) => {
-    signals.push(options!.signal!)
+  const api = source(async (_cursor, signal) => {
+    signals.push(signal!)
     return signals.length === 1 ? old.promise : latest.promise
   })
   const index = createHomeSessionIndex({ source: () => api })
@@ -369,7 +129,7 @@ test.each(["success", "failure"])("a late %s cannot settle a reopened search for
   expect(index.hasMore()).toBe(false)
   await index.more()
   expect(signals).toHaveLength(2)
-  latest.resolve(page([session("current")]))
+  latest.resolve(page([{ ...session("current"), title: "same" }]))
   await second
   expect(index.list().map((item) => item.id)).toEqual(["current"])
   expect(index.loading()).toBe(false)
@@ -377,26 +137,34 @@ test.each(["success", "failure"])("a late %s cannot settle a reopened search for
 })
 
 test("debounces search and cancels scheduled work when clearing the query or closing", async () => {
-  const queries: (string | undefined)[] = []
-  const api = source(async (input) => {
-    queries.push(input.search)
-    return page([])
-  })
-  const index = createHomeSessionIndex({ source: () => api, searchDelay: 5 })
-  index.search("one")
-  index.search("two")
-  expect(index.loading()).toBe(true)
-  await Bun.sleep(20)
-  expect(queries).toEqual(["two"])
-  index.search("three")
-  index.search("")
-  await Bun.sleep(20)
-  expect(queries).toEqual(["two", undefined])
-  index.search("four")
-  index.clear()
-  await Bun.sleep(20)
-  expect(queries).toEqual(["two", undefined])
-  expect(index.loading()).toBe(false)
+  jest.useFakeTimers()
+  try {
+    const calls: (string | undefined)[] = []
+    const api = source(async (cursor) => {
+      calls.push(cursor)
+      return page([])
+    })
+    const index = createHomeSessionIndex({ source: () => api })
+    index.search("one")
+    index.search("two")
+    expect(index.loading()).toBe(true)
+    expect(calls).toEqual([])
+    jest.advanceTimersToNextTimer()
+    await Promise.resolve()
+    expect(calls).toEqual([undefined])
+    index.search("three")
+    index.search("")
+    jest.advanceTimersByTime(200)
+    await Promise.resolve()
+    expect(calls).toEqual([undefined, undefined])
+    index.search("four")
+    index.clear()
+    jest.advanceTimersByTime(200)
+    expect(calls).toEqual([undefined, undefined])
+    expect(index.loading()).toBe(false)
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 test("a repeated server cursor fails visibly instead of looping or silently truncating history", async () => {

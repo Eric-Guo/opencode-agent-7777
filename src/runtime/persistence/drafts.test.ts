@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { clearPromptDraft, readPromptDraft, writePromptDraft } from "./drafts"
-import { prompt } from "@/composer/persistence-singleton"
-import { setState } from "@/runtime/server/session-store-compact"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
 
 const draftKey = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft
@@ -9,8 +7,6 @@ const descriptor = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
 const saved = new Map<string, string>()
 
 beforeEach(() => {
-  setState("server", undefined)
-  prompt.reset()
   saved.clear()
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -23,8 +19,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  setState("server", undefined)
-  prompt.reset()
   if (descriptor) Object.defineProperty(globalThis, "localStorage", descriptor)
   else delete (globalThis as { localStorage?: typeof globalThis.localStorage }).localStorage
 })
@@ -74,27 +68,6 @@ describe("single-draft persistence", () => {
     expect(readPromptDraft("other.draft")).toBeUndefined()
     expect(saved.has("other.draft")).toBe(false)
     expect(saved.has(draftKey)).toBe(true)
-  })
-
-  test("the composer waits for initialization and persists through the active tab's configured key", () => {
-    writePromptDraft({ prompt: "existing 7777 draft", attachments: [] })
-    prompt.set("typing before initialization")
-    expect(readPromptDraft()).toEqual({ prompt: "existing 7777 draft", attachments: [] })
-    setState("server", {
-      url: "http://fixture.test",
-      localAgent: "other",
-      welcomeText: "",
-      suggestedQuestions: [],
-      storageKeys: { sessionID: "other.session", sessionDirectory: "other.directory", promptDraft: "other.draft" },
-    })
-    prompt.set("configured composer draft")
-    expect(readPromptDraft("other.draft")).toEqual({ prompt: "configured composer draft", attachments: [] })
-    prompt.reset()
-    expect(saved.has("other.draft")).toBe(false)
-    expect(readPromptDraft()).toEqual({ prompt: "existing 7777 draft", attachments: [] })
-    setState("server", "storageKeys", undefined)
-    prompt.set("legacy host draft")
-    expect(readPromptDraft()).toEqual({ prompt: "legacy host draft", attachments: [] })
   })
 
   test("continues when storage is unavailable or denies access", () => {

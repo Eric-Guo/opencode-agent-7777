@@ -6,8 +6,6 @@ import { Show } from "solid-js"
 import { Button } from "@opencode/ui/button"
 import { QuestionPrompt } from "../src/session/requests/question-prompt"
 import { PermissionPrompt } from "../src/session/requests/permission-prompt"
-import { WebSearchFixture } from "./websearch.fixture"
-
 export const Question = {
   render: () => {
     const [state, setState] = createStore({ request: 1, responding: false, result: "", dismissed: 0 })
@@ -99,18 +97,11 @@ export const Permission = {
 
 const root = document.getElementById("oc-agent")
 
-const prompt = new URLSearchParams(location.search).get("prompt")
 if (root) {
   render(
     () => (
       <ThemeProvider>
-        {prompt === "websearch" ? (
-          <WebSearchFixture />
-        ) : prompt === "permission" ? (
-          Permission.render()
-        ) : (
-          Question.render()
-        )}
+        {new URLSearchParams(location.search).get("prompt") === "permission" ? Permission.render() : Question.render()}
       </ThemeProvider>
     ),
     root,

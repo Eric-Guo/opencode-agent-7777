@@ -1,6 +1,6 @@
 import { expect, spyOn, test } from "bun:test"
 import { createRoot, createSignal } from "solid-js"
-import { browserSuite } from "./server/runtime.test-fixture"
+import { browserSuite } from "@/test/browser"
 import { installDOM } from "@/test/dom"
 import { createAnimatedPresence } from "./animated-presence"
 
