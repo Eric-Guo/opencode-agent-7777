@@ -123,3 +123,64 @@ test("failed workspace access leaves the composer disconnected", async () => {
   await c.send()
   expect(c.s.id).toBe("")
 })
+
+test("switching and reloading restores independent drafts, choices and the original uncertain steer", async () => {
+  const storage = new Map<string, string>()
+  const submits: any[] = [],
+    promotes: any[] = []
+  const snap = {
+    ...empty(),
+    busy: true,
+    detail: { active: "turn" },
+    turns: [{ id: "turn", run: "run" }],
+    pending: [{ id: "wait", text: "first", state: "steering", delivery: "steer", version: 2, position: 1 }],
+  }
+  const handle = async (path: string, body?: any) => {
+    if (path.endsWith("/prepare")) return { ticket: "sealed" }
+    if (path.endsWith("/inputs")) {
+      submits.push(body)
+      if (submits.length === 1) throw new Error("receipt lost")
+      return { id: "accepted" }
+    }
+    if (path.endsWith("/promote")) {
+      promotes.push(body)
+      return {}
+    }
+    return snap
+  }
+  const c = fixture(handle, storage).controller
+  await c.connect()
+  c.edit("new chat draft")
+  c.select("a")
+  await c.refresh()
+  c.edit("urgent")
+  c.configure({ model: "other", approval: "rules" })
+  await c.send(true)
+  expect(submits[0]).toMatchObject({
+    text: "urgent",
+    model: "other",
+    approval: "rules",
+    delivery: "steer_now",
+    target: "run",
+  })
+  c.select("b")
+  c.edit("second")
+  c.select("")
+  expect(c.s.draft).toBe("new chat draft")
+  c.select("a")
+  c.close()
+  const reload = fixture(handle, storage).controller
+  await reload.connect()
+  await reload.refresh()
+  expect(reload.s.draft).toBe("urgent")
+  reload.configure({ model: "changed", approval: "bypass" })
+  expect(reload.s.model).toBe("other")
+  await reload.send()
+  expect(submits[1]).toEqual(submits[0])
+  await reload.send(true)
+  expect(promotes).toEqual([{ id: "wait", version: 2 }])
+  expect(submits).toHaveLength(2)
+  reload.select("b")
+  expect(reload.s.draft).toBe("second")
+  reload.close()
+})

@@ -1,5 +1,7 @@
 import { dict as en } from "./en"
 
+type Keys = keyof typeof en
+
 export const dict = {
   "error.operationTimeout": "操作超时，请重试。",
   "session.fork.replace": "替换草稿并创建分支会话",
@@ -275,4 +277,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Record<keyof typeof en, string>
+} satisfies Record<Exclude<Keys, `chat.${string}`>, string> & Partial<Record<Keys, string>>
