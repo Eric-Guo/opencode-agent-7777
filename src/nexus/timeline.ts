@@ -18,14 +18,18 @@ export function timeline(
     if (turn.prompt !== null) user(turn.id + "-prompt", turn.prompt, turn.created, turn.model)
     const running = ["running", "pending"].includes(turn.status)
     const text = (running && turn.variant ? live[liveKey(turn.id, turn.variant)] : undefined) ?? turn.text
-    if (text || running)
+    const thought = running && turn.variant ? live[liveKey(turn.id, turn.variant) + "/reasoning"] : undefined
+    if (text || running || turn.variant)
       messages.push({
         id: turn.id,
         type: "assistant",
         agent,
         model: turn.model ?? model,
         time: { created: turn.created, completed: running ? undefined : turn.completed },
-        content: text ? [{ type: "text", text }] : [],
+        content: [
+          ...(thought ? [{ type: "reasoning" as const, text: thought }] : []),
+          ...(text ? [{ type: "text" as const, text }] : []),
+        ],
       })
   }
   for (const input of snapshot.pending) {

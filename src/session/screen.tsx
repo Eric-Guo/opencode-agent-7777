@@ -16,11 +16,15 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
 import { SessionUIProvider } from "@/shell/routes/session-ui-provider"
 import { AgentWelcome } from "./agent-welcome-compact"
-import { CompactMessageTimeline } from "./timeline/message-timeline-compact"
+import "@/nexus/chat.css"
+import { ChatTranscript } from "@/nexus/transcript"
+import { SendControls } from "@/nexus/send-controls"
+import { useSettings } from "@/settings/model"
 import { createSessionTimelineInteraction } from "./timeline/interaction"
 
 export default function SessionPage() {
   const chat = createChatController()
+  const settings = useSettings()
   const s = chat.s
   const language = useLanguage()
   const doc = createMemo(() => timeline(s.id, s.snapshot, s.live, s.connection))
@@ -38,9 +42,9 @@ export default function SessionPage() {
     view: {
       placeholder: () => language.t("prompt.message.aria"),
       submit: {
-        enabled: () => !!s.connection && !s.sending && !s.snapshot.busy,
-        stopping: () => s.snapshot.busy,
-        onSubmit: () => void chat.send(),
+        enabled: () => chat.writable() && !s.sending,
+        stopping: () => s.snapshot.busy && !s.sending && (!s.draft.trim() || !chat.writable()),
+        onSubmit: (options) => void chat.send(options?.alternate, settings.general.followUpBehavior()),
         onStop: () => void chat.stop(),
       },
     },
@@ -89,11 +93,7 @@ export default function SessionPage() {
                 directory=""
                 data={{ session: [], session_status: { [s.id]: doc().status }, session_diff: {} }}
               >
-                <CompactMessageTimeline
-                  document={doc()}
-                  showReasoningSummaries={false}
-                  onPointerGesture={interaction.view.markUserScroll}
-                />
+                <ChatTranscript chat={chat} document={doc()} onPointerGesture={interaction.view.markUserScroll} />
               </SessionUIProvider>
             </Show>
           </div>
@@ -117,13 +117,22 @@ export default function SessionPage() {
         </Show>
       </div>
       <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
+        <Show when={s.snapshot.detail?.owned || s.snapshot.detail?.archived}>
+          <p class="chat-hint">{language.t(s.snapshot.detail?.archived ? "chat.archivedHint" : "chat.channel")}</p>
+        </Show>
+        <Show when={s.prepared && !s.sending && chat.writable()}>
+          <p class="chat-hint">{language.t("chat.prepared")}</p>
+        </Show>
+        <Show when={s.snapshot.decisions.length > 1}>
+          <small>{language.t("chat.position", { current: 1, total: s.snapshot.decisions.length })}</small>
+        </Show>
         <Show when={decisionID()} keyed>
           {(_id) => {
             const { run, key } = s.snapshot.decisions[0]
             return (
               <DecisionDock
                 decision={s.snapshot.decisions[0]}
-                sending={s.sending}
+                sending={s.sending || !chat.writable()}
                 reply={(response) => void chat.decide(run, key, response)}
               />
             )
@@ -131,14 +140,20 @@ export default function SessionPage() {
         </Show>
         <ComposerEditor
           controller={editor}
-          disabled={!s.connection || s.sending}
-          readOnly={!s.connection || s.sending}
+          disabled={!chat.writable() || s.sending}
+          readOnly={!chat.writable() || s.sending}
           addMenuVisible={false}
           modelControlsVisible={false}
-          agentControl={<span class="px-2 text-xs">{agent()}</span>}
+          agentControl={<SendControls chat={chat} />}
           labels={{
             prompt: language.t("prompt.message.aria"),
-            send: language.t("prompt.send"),
+            send: language.t(
+              s.snapshot.detail?.active
+                ? settings.general.followUpBehavior() === "queue"
+                  ? "chat.queue"
+                  : "chat.steer"
+                : "prompt.send",
+            ),
             stop: language.t("prompt.stop"),
           }}
         />

@@ -32,25 +32,30 @@ VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 
 Run `bun run dev` in the package and open [the local chat](http://localhost:4777/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes provide the local API. A standalone static-file host would also need to provide that API. The packaged Electron integration is deferred.
 
-The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It uses the announced control bearer only for loopback rho status, conversation environment, and runner discovery. It authenticates to the announced Nexus origin with the Human token, validates the member profile and workspace, and discovers rho's answering agent, runner and model. The browser receives display data, scoped conversation identifiers, and chat updates through the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
+The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It keeps the control bearer on the server for scoped rho operations such as runner discovery, channel ownership, recorded file changes, and site grants. The Human member token authenticates conversation and input writes to Nexus. Browser requests use only the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
 
 ## Conversation behavior
 
-- **New session** opens a draft. The first send creates the conversation in rho's workspace and submits a reply input. A retry uses the original mutation keys. Reloading restores the current conversation and draft under the matching Nexus origin, user, workspace and agent.
-- **Recent sessions** lists accessible conversations answered by the same agent, ordered by last activity. Search, keyboard navigation and pagination use the compact picker.
-- The timeline shows the latest nine user dialogs and the header shows the current count out of nine. Live text follows its turn and variant. The settled Nexus turn supplies the final answer. Reconnecting reloads history and pending work.
-- **Stop** cancels the conversation's active execution. Tool approvals and agent questions appear in the composer dock. 7777 requests per-turn approval under rho’s rules. The dock shows the Bash command and any explicit working directory. Allow once or Deny applies to that run and task.
-- The browser release offers text chat. Attachments, queue editing, model selection, file review, undo, and export are deferred. The source-controlled `manageModels` policy remains in the model defaults. The embedding host retains document-title control through `SET_DOCUMENT_TITLE`.
+- **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
+- The new-chat draft and each conversation’s draft, send choices and uncertain submission receipt are stored separately under the Nexus origin, Human, workspace and answering agent. Switching chats or reloading never resubmits a message. A deliberate retry uses the original input and mutation keys.
+- **Run settings** selects a runner for a new chat, the current rho preset’s model or an explicit model, and a permission policy. During a reply, Enter steers by default; choose **Queue after reply** for separate work. Ctrl/Cmd+Enter sends an immediate steer, or promotes the latest waiting steer when the editor is empty. The pending label follows the delivery mode Nexus accepted.
+- The timeline retains the latest **nine** user dialogs. Streamed text and reasoning follow their answer variant. A background receipt or context summary is a disclosure, not another user dialog. Reconnecting reads the durable history and pending work again.
+- **Activity** shows in-progress runs, steps waiting for attention, child conversations and communication links. Pause or resume a run, retry or abandon a failed step, or stop a branch. **Stop all work** uses the conversation cancellation command, including background work after the visible reply ends. Expand **Tools and activity** under an answer for recorded rounds, task output, captures and sealed model requests.
+- The decision dock accepts typed answers or one-time approvals. For a held native `web_fetch` call, a Human with verified write access can also ask rho to allow that site until restart. Only rho derives the site rule from the held call.
+- **Usage** separates the cumulative request, token and cost totals from the latest reported context window and actual model. When some requests have no price, the amount is a **known subtotal**.
+- Files belong to a particular answer variant or task. Download published files, preview Markdown and images, or open a recorded Git patch and add a line comment to the current draft. Explicit file paths in an answer are resolved on its conversation runner within the bound output directory; a bare filename in prose does not create a file card.
+- **Code mode and Subagent** remain unavailable. rho can persist these switches, but its reply-authoring path also computes the actual tool selection. Its existing control API does not return that prepared selection for a separate Human-authored Nexus input. A mode switch alone would promise a change the next reply might not honor.
+- Browser file uploads, queue reordering, undo and export remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
 
 ## Code Layout Parity Review
 
-7777 owns the Nexus integration. The parent UI packages continue to supply shared presentation components.
+7777 owns the Nexus integration. Its compact header menus, result disclosures and decision dock replace rho-webui’s sidebar and panel framework.
 
 | Boundary | Responsibility |
 | --- | --- |
-| `server/` | Local Vite middleware, credential and workspace checks, rho runner context and tool discovery guidance, retryable Human-authored Nexus inputs, realtime subscriptions and SSE. |
-| `src/nexus/` | Browser transport, scoped drafts and retry state, conversion of Nexus turns to the shared session document, and typed decision forms. |
-| `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact session layout, message timeline, welcome screen, recent-session picker and composer. These reuse public controls from `@opencode/ui` and `@opencode/session-ui`. |
+| `server/` | Loopback middleware; Human/workspace and channel ownership checks; scoped chat writes, prepared input receipts, realtime subscriptions, execution inspection, and variant-bound artifacts and reviews. |
+| `src/nexus/` | Browser transport, per-conversation drafts, turn projection, delivery controls, typed decisions, usage, activity and output views. These adapters consume Nexus/rho data rather than the main app’s OpenCode runtime. |
+| `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact header, bounded timeline, paged recent picker and composer. Shared timeline, Markdown, file review, line comments, dialogs and controls come from public `@opencode/session-ui` and `@opencode/ui` exports. |
 
 `runtime/i18n/language.tsx` owns `UiI18nBridge` and reuses the public UI template formatter and parameter type. The retained composer suggestions and recent-session picker use `MenuScroll` from `@opencode/ui`; their compact controllers retain sizing, keyboard selection and focus restoration.
 
