@@ -8,6 +8,7 @@ export const dict = {
   "session.revert.timeout": "服务器未能及时完成历史记录操作。请检查当前历史记录后重试。",
   "toast.session.export.timeout": "服务器未能及时准备好导出内容，请重试。",
   "nexus.reconnect": "重新连接",
+  "nexus.workdir": "工作目录：{{directory}}",
   "nexus.question": "rho 的提问",
   "nexus.sendAnswer": "提交回答",
   "nexus.include": "填写{{field}}",

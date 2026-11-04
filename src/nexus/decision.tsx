@@ -29,6 +29,15 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
   const d = () => props.decision
   const fields = createMemo(() => (d().fields ?? []) as unknown as Field[])
   const options = () => d().options ?? []
+  const resources = createMemo(() => {
+    const input = d().tool_input ?? {}
+    if (d().tool !== "bash" || typeof input.command !== "string") return [JSON.stringify(input, null, 2)]
+    const { command, workdir, ...rest } = input
+    const lines = [command]
+    if (typeof workdir === "string") lines.push(language.t("nexus.workdir", { directory: workdir }))
+    if (Object.keys(rest).length) lines.push(JSON.stringify(rest, null, 2))
+    return lines
+  })
   const [error, setError] = createSignal("")
   let form!: HTMLFormElement
   function submit() {
@@ -48,7 +57,7 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
       fallback={
         <PermissionPrompt
           title={d().tool || language.t("notification.permission.title")}
-          resources={[JSON.stringify(d().tool_input ?? {})]}
+          resources={resources()}
           allowAlways={false}
           responding={props.sending}
           onDecide={(choice) => props.reply({ action: choice === "reject" ? "deny" : "approve" })}

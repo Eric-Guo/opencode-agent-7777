@@ -42,6 +42,7 @@ function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved =
 test("retry after a lost creation receipt and a lost input receipt reuses the original keys across reload", async () => {
   const creates: string[] = [],
     inputs: string[] = []
+  let prepares = 0
   const storage = new Map<string, string>()
   const handler = async (path: string, body?: any) => {
     if (path === "/chats") {
@@ -49,7 +50,9 @@ test("retry after a lost creation receipt and a lost input receipt reuses the or
       if (creates.length === 1) throw new Error("lost create receipt")
       return { id: "chat" }
     }
+    if (path.endsWith("/prepare")) return { ticket: "prepared-" + ++prepares }
     if (path.endsWith("/inputs")) {
+      expect(body.ticket).toBe("prepared-1")
       inputs.push(body.key)
       if (inputs.length === 1) throw new Error("lost input receipt")
       return { id: "input" }
@@ -71,6 +74,7 @@ test("retry after a lost creation receipt and a lost input receipt reuses the or
   expect(next.s.draft).toBe("")
   expect(creates).toHaveLength(2)
   expect(inputs).toHaveLength(2)
+  expect(prepares).toBe(1)
   expect(creates[0]).toBe(creates[1])
   expect(inputs[0]).toBe(inputs[1])
   expect(inputs[0]).not.toBe(creates[0])

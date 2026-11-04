@@ -32,14 +32,14 @@ VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 
 Run `bun run dev` in the package and open [the local chat](http://localhost:4777/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes provide the local API. A standalone static-file host would also need to provide that API. The packaged Electron integration is deferred.
 
-The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It uses the announced control bearer only on rho's loopback status endpoint. It authenticates to the announced Nexus origin with the Human token, validates the member profile and workspace, and discovers rho's answering agent, runner and model. The browser receives display data, scoped conversation identifiers, and chat updates through the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
+The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It uses the announced control bearer only for loopback rho status, conversation environment, and runner discovery. It authenticates to the announced Nexus origin with the Human token, validates the member profile and workspace, and discovers rho's answering agent, runner and model. The browser receives display data, scoped conversation identifiers, and chat updates through the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
 
 ## Conversation behavior
 
 - **New session** opens a draft. The first send creates the conversation in rho's workspace and submits a reply input. A retry uses the original mutation keys. Reloading restores the current conversation and draft under the matching Nexus origin, user, workspace and agent.
 - **Recent sessions** lists accessible conversations answered by the same agent, ordered by last activity. Search, keyboard navigation and pagination use the compact picker.
 - The timeline shows the latest nine user dialogs and the header shows the current count out of nine. Live text follows its turn and variant. The settled Nexus turn supplies the final answer. Reconnecting reloads history and pending work.
-- **Stop** cancels the conversation's active execution. Tool approvals and agent questions appear in the composer dock. The Human's reply targets the original run and task.
+- **Stop** cancels the conversation's active execution. Tool approvals and agent questions appear in the composer dock. 7777 requests per-turn approval under rho’s rules. The dock shows the Bash command and any explicit working directory. Allow once or Deny applies to that run and task.
 - The browser release offers text chat. Attachments, queue editing, model selection, file review, undo, and export are deferred. The source-controlled `manageModels` policy remains in the model defaults. The embedding host retains document-title control through `SET_DOCUMENT_TITLE`.
 
 ## Code Layout Parity Review
@@ -48,7 +48,7 @@ The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It use
 
 | Boundary | Responsibility |
 | --- | --- |
-| `server/` | Local Vite middleware, credential and workspace checks, SDK HTTP operations, realtime subscriptions and SSE. |
+| `server/` | Local Vite middleware, credential and workspace checks, rho runner context and tool discovery guidance, retryable Human-authored Nexus inputs, realtime subscriptions and SSE. |
 | `src/nexus/` | Browser transport, scoped drafts and retry state, conversion of Nexus turns to the shared session document, and typed decision forms. |
 | `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact session layout, message timeline, welcome screen, recent-session picker and composer. These reuse public controls from `@opencode/ui` and `@opencode/session-ui`. |
 
