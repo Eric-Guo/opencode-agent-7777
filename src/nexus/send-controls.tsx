@@ -1,11 +1,41 @@
-import { For, Show } from "solid-js"
+import { createEffect, For, Show } from "solid-js"
 import { Popover } from "@opencode/ui/popover"
 import { Icon } from "@opencode/ui/icon"
+import { Switch } from "@opencode/ui/switch"
 import { Button } from "@opencode/ui/button"
 import { useSettings } from "../settings/model"
 import { useLanguage } from "../runtime/i18n/language"
 import type { ChatController } from "./controller"
 import type { Approval } from "./chat"
+
+function ModeControls(p: { chat: ChatController }) {
+  const c = p.chat,
+    lang = useLanguage()
+  // Opening Run settings reads the durable choices again, including edits from another client.
+  createEffect(() => {
+    void c.loadModes()
+  })
+  return (
+    <Show when={c.modes()}>
+      <div class="chat-modes">
+        <For each={["code_mode", "subagent"] as const}>
+          {(key) => (
+            <Switch
+              checked={!!c.modes()?.[key] && (key !== "code_mode" || !!c.modes()?.code_mode_available)}
+              disabled={
+                !c.writable() || c.s.sending || c.s.prepared || (key === "code_mode" && !c.modes()?.code_mode_available)
+              }
+              onChange={(value) => void c.changeMode(key, value)}
+            >
+              {lang.t(key === "code_mode" ? "chat.codeMode" : "chat.subagent")}
+            </Switch>
+          )}
+        </For>
+        <small>{lang.t("chat.modeHint")}</small>
+      </div>
+    </Show>
+  )
+}
 
 export function SendControls(p: { chat: ChatController }) {
   const c = p.chat,
@@ -59,6 +89,10 @@ export function SendControls(p: { chat: ChatController }) {
               </For>
             </select>
           </label>
+          <ModeControls chat={c} />
+          <Show when={choices()?.modes === null}>
+            <small>{lang.t("chat.modesUnavailable")}</small>
+          </Show>
           <label>
             {lang.t("chat.delivery")}
             <select

@@ -27,7 +27,6 @@ export type Backend = {
   workspaceActive: boolean
   localRunner: string | null
   fallbackModels: string[]
-  agentExecutor: string | null
   realtime: () => RealtimeClient
 }
 export async function discover(home: string, token?: string): Promise<Backend> {
@@ -83,7 +82,6 @@ export async function discover(home: string, token?: string): Promise<Backend> {
     rhoGet,
     localRunner: rho.identity.runner_executor_public_id ?? null,
     fallbackModels: Array.isArray(rho.profile?.fallback_models) ? rho.profile.fallback_models : [],
-    agentExecutor: rho.identity.executor_public_id ?? null,
     realtime: () => new RealtimeClient(options),
   }
 }
@@ -168,7 +166,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
         run: runID,
         kind: task.status === "needs_approval" ? "approval" : "ask",
         tool: task.tool_name,
-        siteGrant: canGrant(backend, info) ? grantSite(detail) : undefined,
+        siteGrant: canWrite(backend, info) ? grantSite(detail) : undefined,
         prompt: detail.prompt,
         options: detail.options,
         multi: detail.multi,
@@ -224,9 +222,8 @@ export function grantSite(detail: {
   if (!match || /[\s\\]/.test(url) || /[@*|]/.test(match[1]) || !URL.canParse(url)) return
   return match[1]
 }
-// The daemon performs both approval and grant. Only offer it with independently verified
-// Human standing; ordinary decisions always use the Human SDK.
-export function canGrant(b: Backend, info: Conversation) {
+// Check the Human’s standing before using the daemon credential for conversation policy or a site grant.
+export function canWrite(b: Backend, info: Conversation) {
   const level = info.access?.entries?.find((e) => e.user_public_id === b.humanID)?.level ?? info.access?.default
   return b.workspaceActive && !info.archived_at && level === "full"
 }
