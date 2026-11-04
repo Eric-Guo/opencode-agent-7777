@@ -54,6 +54,13 @@ test("sends text, renders partial and settled replies, restores a decision, and 
         model: "model",
         runner: "runner",
       })
+    if (url.pathname.endsWith("/choices"))
+      return json({
+        models: [],
+        runners: [],
+        approvals: ["ask"],
+        modes: { code_mode: true, subagent: true, available: true, code_mode_available: true },
+      })
     if (url.pathname.endsWith("/chats")) return json({ id: "chat" })
     if (url.pathname.endsWith("/prepare")) return json({ ticket: "prepared" })
     if (url.pathname.endsWith("/inputs")) {
@@ -459,4 +466,83 @@ test("renames, archives, reopens from a later archived page and restores the con
   expect(pageRequests).toEqual(["first", "second"])
   await page.getByRole("button", { name: "New session" }).click()
   await expect(editor).toHaveText("Different draft")
+})
+
+test("keyboard mode choices survive a new draft reload, and a lost receipt reuses the prepared reply", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockEvents(page)
+  const defaults = { available: true, code_mode_available: true, code_mode: true, subagent: false }
+  let saved = { ...defaults },
+    prepares = 0
+  const patches: unknown[] = [],
+    inputs: unknown[] = []
+  await page.route("**/api/7777/**", async (route) => {
+    const req = route.request(),
+      path = new URL(req.url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (path.endsWith("/connection"))
+      return json({ scope: "modes", user: "Human", agent: "rho", workspace: "Workspace", model: "m", runner: "local" })
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"], modes: defaults })
+    if (path.endsWith("/chats")) return json({ id: "new" })
+    if (path.endsWith("/modes")) {
+      if (req.method() === "POST") {
+        const change = req.postDataJSON()
+        patches.push(change)
+        saved = { ...saved, ...change }
+      }
+      return json(saved)
+    }
+    if (path.endsWith("/prepare")) {
+      prepares++
+      expect(saved).toMatchObject({ code_mode: false, subagent: true })
+      return json({ ticket: "original-policy" })
+    }
+    if (path.endsWith("/inputs")) {
+      inputs.push(req.postDataJSON())
+      if (inputs.length === 1) {
+        saved = { ...defaults }
+        return route.fulfill({ status: 503, json: { error: "Lost input receipt" } })
+      }
+      return json({ id: "accepted" })
+    }
+    return json({ turns: [], pending: [], decisions: [], busy: false, problem: null })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const settings = page.getByRole("button", { name: "Run settings" })
+  const code = page.getByRole("switch", { name: "Code mode" }),
+    subagent = page.getByRole("switch", { name: "Subagent" })
+  const editor = page.getByRole("textbox", { name: "Message" })
+  await settings.click()
+  await expect(code).toBeChecked()
+  await code.press("Space")
+  await subagent.press("Space")
+  await expect(code).not.toBeChecked()
+  await expect(subagent).toBeChecked()
+  expect(patches).toHaveLength(0)
+  await page.reload()
+  await settings.click()
+  await expect(code).not.toBeChecked()
+  await expect(subagent).toBeChecked()
+  await page.keyboard.press("Escape")
+  await editor.fill("Check policy")
+  await editor.press("Enter")
+  await expect(page.getByText("Lost input receipt")).toBeVisible()
+  await expect(settings).toBeDisabled()
+  await page.reload()
+  await expect(editor).toHaveText("Check policy")
+  expect(inputs).toHaveLength(1)
+  await editor.press("Enter")
+  await expect(editor).toHaveText("")
+  expect(inputs).toHaveLength(2)
+  expect(inputs[1]).toEqual(inputs[0])
+  expect(prepares).toBe(1)
+  expect(patches).toEqual([{ code_mode: false, subagent: true }])
+  await settings.click()
+  await expect(code).toBeChecked()
+  await expect(subagent).not.toBeChecked()
+  await code.press("Space")
+  await expect(code).not.toBeChecked()
+  expect(patches[1]).toEqual({ code_mode: false })
 })
