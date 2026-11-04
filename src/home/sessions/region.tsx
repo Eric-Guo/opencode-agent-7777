@@ -13,15 +13,16 @@ import { HomeSessionsView } from "./view"
 // The compact Home region is hosted in the session header instead of a route.
 export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatController> }) {
   const language = useLanguage()
-  const [local, setLocal] = createStore({ open: false })
+  const [local, setLocal] = createStore({ open: false, archived: false })
   const source = createMemo(() => {
     const connection = props.chat.s.connection
     if (!connection) return
+    const filter = local.archived ? "archived=1" : ""
     return {
       sessionID: props.chat.s.id,
       list: (cursor?: string, signal?: AbortSignal) =>
         request<RecentPage>(
-          "/chats" + (cursor ? "?after=" + encodeURIComponent(cursor) : ""),
+          "/chats?" + [filter, cursor && "after=" + encodeURIComponent(cursor)].filter(Boolean).join("&"),
           connection.scope,
           undefined,
           signal,
@@ -41,7 +42,22 @@ export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatCo
     if (open) void data.refresh()
     else data.clear()
   }
-  createEffect(on(source, () => setOpen(false), { defer: true }))
+  createEffect(
+    on(
+      () => [props.chat.s.connection?.scope, props.chat.s.id],
+      () => setOpen(false),
+      { defer: true },
+    ),
+  )
+  createEffect(
+    on(
+      () => local.archived,
+      () => {
+        if (local.open) void data.refresh(search.query.value())
+      },
+      { defer: true },
+    ),
+  )
   onCleanup(data.clear)
 
   return (
@@ -63,6 +79,24 @@ export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatCo
       trigger={<Icon name="bullet-list" />}
     >
       <Show when={local.open}>
+        <div class="chat-row px-2 pb-2" role="group" aria-label={language.t("chat.archivedView")}>
+          <button
+            type="button"
+            class="chat-tab"
+            aria-pressed={!local.archived}
+            onClick={() => setLocal("archived", false)}
+          >
+            {language.t("chat.active")}
+          </button>
+          <button
+            type="button"
+            class="chat-tab"
+            aria-pressed={local.archived}
+            onClick={() => setLocal("archived", true)}
+          >
+            {language.t("chat.archived")}
+          </button>
+        </div>
         <HomeSessionsView sessions={sessions} search={search} fallbackTitle={props.chat.s.connection?.agent ?? "rho"} />
       </Show>
     </Popover>

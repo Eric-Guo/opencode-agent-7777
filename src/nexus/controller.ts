@@ -1,6 +1,17 @@
 import { createStore, reconcile } from "solid-js/store"
 import { storageGet, storageSet } from "../runtime/persistence/storage"
-import { updateLive, type Connection, type Frame, type Resolution, type Snapshot } from "./chat"
+import { uuid } from "@opencode/util/uuid"
+import { readFollowUpBehavior } from "../runtime/persistence/settings-storage-compact"
+import {
+  updateLive,
+  type Choices,
+  type Approval,
+  type Delivery,
+  type Connection,
+  type Frame,
+  type Resolution,
+  type Snapshot,
+} from "./chat"
 
 const root = "/api/7777"
 export async function request<T>(path: string, scope?: string, body?: unknown, signal?: AbortSignal): Promise<T> {
@@ -19,13 +30,24 @@ export async function request<T>(path: string, scope?: string, body?: unknown, s
 }
 type Attempt = {
   text: string
-  model: string
+  model: string | null
+  delivery?: Delivery
+  approval?: Approval
+  target?: string
   runner: string | null
   createKey: string
   inputKey: string
   ticket?: string
 }
-type Saved = { id: string; text: string; attempt?: Attempt }
+type Saved = {
+  id: string
+  text: string
+  attempt?: Attempt
+  model?: string
+  runner?: string | null
+  approval?: Approval
+}
+export type ChatController = ReturnType<typeof createChatController>
 const empty = (): Snapshot => ({ turns: [], pending: [], busy: false, problem: null, decisions: [] })
 export function createChatController(
   api = request,
@@ -34,6 +56,12 @@ export function createChatController(
 ) {
   const [s, set] = createStore({
     connection: undefined as Connection | undefined,
+    choices: undefined as Choices | undefined,
+    model: "",
+    runner: null as string | null,
+    approval: "ask" as Approval,
+    revision: 0,
+    hydrated: false,
     id: "",
     draft: "",
     snapshot: empty(),
@@ -41,6 +69,7 @@ export function createChatController(
     connected: false,
     connecting: true,
     sending: false,
+    prepared: false,
     error: "",
     streamError: "",
   })
@@ -54,7 +83,35 @@ export function createChatController(
   const fail = (err: unknown) => set("error", err instanceof Error ? err.message : String(err))
   const storageKey = () => "7777.nexus." + s.connection?.scope
   const persist = () => {
-    if (s.connection) storage.setItem(storageKey(), JSON.stringify({ id: s.id, text: s.draft, attempt }))
+    if (!s.connection) return
+    const entry = { text: s.draft, attempt, model: s.model, runner: s.runner, approval: s.approval }
+    storage.setItem(storageKey() + ".draft." + s.id, JSON.stringify(entry))
+    storage.setItem(storageKey(), JSON.stringify({ id: s.id }))
+  }
+  function restore(id: string, legacy: Partial<Saved> = {}) {
+    let entry: Partial<Saved> = legacy
+    try {
+      entry = JSON.parse(storage.getItem(storageKey() + ".draft." + id) || "null") ?? legacy
+    } catch {
+      /* corrupt draft */
+    }
+    attempt = entry.attempt
+    const approval = entry.approval ?? "ask"
+    set({
+      prepared: !!attempt,
+      draft: entry.text ?? "",
+      model: entry.model ?? "",
+      runner: entry.runner ?? s.connection?.runner ?? null,
+      approval:
+        !attempt && s.choices && !s.choices.approvals.includes(approval)
+          ? (s.choices.approvals[0] ?? "rules")
+          : approval,
+    })
+  }
+  function configure(value: { model?: string; runner?: string | null; approval?: Approval }) {
+    if (s.sending || attempt) return
+    set(value)
+    persist()
   }
   const path = () => "/chats/" + encodeURIComponent(s.id)
   function clearStream() {
@@ -79,6 +136,8 @@ export function createChatController(
           const data = await api<Snapshot>(path(), s.connection!.scope)
           if (owner !== version) return
           set("snapshot", reconcile(data, { key: "id" }))
+          set("hydrated", true)
+          set("revision", (n) => n + 1)
         } while (dirty)
       } catch (err) {
         if (owner === version) fail(err)
@@ -91,7 +150,7 @@ export function createChatController(
   function follow(id: string) {
     clearStream()
     const owner = version
-    set({ id, snapshot: empty(), connected: false, streamError: "", live: {} })
+    set({ id, hydrated: !id, snapshot: empty(), connected: false, streamError: "", live: {} })
     if (!id) return
     const events = openEvents(root + path() + "/stream?scope=" + encodeURIComponent(s.connection!.scope))
     source = events
@@ -155,8 +214,17 @@ export function createChatController(
       } catch {
         /* Empty draft after invalid local storage. */
       }
-      attempt = saved.attempt
-      set("draft", saved.text ?? "")
+      set("choices", undefined)
+      restore(saved.id ?? "", saved)
+      void api<Choices>("/choices", c.scope)
+        .then((choices) => {
+          if (s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
+          set("choices", choices)
+          if (!attempt && !choices.approvals.includes(s.approval)) set("approval", choices.approvals[0] ?? "rules")
+        })
+        .catch((err) => {
+          if (s.connection?.scope === c.scope) fail(err)
+        })
       follow(saved.id ?? "")
       set("connecting", false)
     } catch (err) {
@@ -167,29 +235,51 @@ export function createChatController(
   }
   function select(id: string) {
     if (s.sending) return
-    set({ draft: "", error: "" })
-    attempt = undefined
+    persist()
+    set("error", "")
+    restore(id)
     follow(id)
     persist()
   }
   function edit(text: string) {
     if (s.sending || s.draft === text) return
     attempt = undefined
-    set("draft", text)
+    set({ draft: text, prepared: false })
     persist()
   }
-  async function send() {
+  const writable = () =>
+    !!s.connection && (!s.id || s.hydrated) && !s.snapshot.detail?.archived && !s.snapshot.detail?.owned
+  const latestSteer = () =>
+    s.snapshot.pending
+      .filter((i) => i.state === "steering" && i.delivery === "steer")
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+      .at(-1)
+  async function send(now = false, preference = readFollowUpBehavior()) {
     const c = s.connection
-    if (!c || s.sending || s.snapshot.busy || !s.draft.trim()) return
+    if (!c || s.sending || (!writable() && !(attempt && !s.hydrated && s.id))) return
+    if (!s.draft.trim()) {
+      const pending = latestSteer()
+      if (now && pending) await command("promote", { id: pending.id, version: pending.version })
+      return
+    }
+    const running = !!s.snapshot.detail?.active || (!s.snapshot.detail && s.snapshot.busy)
+    const delivery = running || (now && latestSteer()) ? (now ? "steer_now" : preference) : "queue"
     set({ sending: true, error: "" })
     attempt ??= {
       text: s.draft,
-      model: c.model,
-      runner: c.runner,
-      createKey: crypto.randomUUID(),
-      inputKey: crypto.randomUUID(),
+      model: s.model || null,
+      runner: s.runner,
+      approval: s.approval,
+      delivery,
+      target:
+        delivery !== "queue"
+          ? (s.snapshot.turns.find((t) => t.id === s.snapshot.detail?.active)?.run ?? undefined)
+          : undefined,
+      createKey: uuid(),
+      inputKey: uuid(),
     }
     const submission = attempt
+    set("prepared", true)
     persist()
     try {
       if (!s.id) {
@@ -201,6 +291,7 @@ export function createChatController(
         if (c.scope !== s.connection?.scope) return
         follow(created.id)
         persist()
+        storage.setItem(storageKey() + ".draft.", "{}")
       }
       if (!s.connected) {
         let timer: ReturnType<typeof setTimeout> | undefined
@@ -216,7 +307,14 @@ export function createChatController(
         }
         if (!s.connected) throw new Error("Live connection unavailable. Retry your message.")
       }
-      const body = { key: submission.inputKey, text: submission.text, model: submission.model }
+      const body = {
+        key: submission.inputKey,
+        text: submission.text,
+        model: submission.model,
+        delivery: submission.delivery,
+        approval: submission.approval,
+        target: submission.target,
+      }
       if (!submission.ticket) {
         const prepared = await api<{ ticket: string }>(path() + "/prepare", c.scope, body)
         submission.ticket = prepared.ticket
@@ -224,7 +322,7 @@ export function createChatController(
       }
       await api(path() + "/inputs", c.scope, { ...body, ticket: submission.ticket })
       attempt = undefined
-      set("draft", "")
+      set({ draft: "", prepared: false })
       persist()
       await refresh()
     } catch (err) {
@@ -237,10 +335,14 @@ export function createChatController(
     if (!s.connection || !s.id || s.sending) return
     set({ sending: true, error: "" })
     try {
-      await api(path() + "/" + action, s.connection.scope, body)
+      const result = await api<{ notice?: string }>(path() + "/" + action, s.connection.scope, body)
       await refresh()
+      if (result?.notice) set("error", result.notice)
+      return true
     } catch (err) {
       fail(err)
+      await refresh()
+      return false
     } finally {
       set("sending", false)
     }
@@ -251,6 +353,11 @@ export function createChatController(
     select,
     edit,
     send,
+    configure,
+    writable,
+    latestSteer,
+    command,
+    refresh,
     close: clearStream,
     stop: () => command("stop", {}),
     decide: (run: string, key: string, response: Resolution) => command("decisions", { run, key, response }),

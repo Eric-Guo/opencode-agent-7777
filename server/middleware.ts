@@ -1,10 +1,24 @@
 import type { IncomingMessage, ServerResponse } from "node:http"
+import { Readable } from "node:stream"
+import { pipeline } from "node:stream/promises"
+import { activityRead, execution, field, ownedRun } from "./activity"
+import { fileBytes, outputs, outputTurn, review, rhoData } from "./outputs"
 import { isIP } from "node:net"
 import type { Connect, Plugin } from "vite"
 import { APIError } from "@cybros/agent"
-import { BridgeError, discover, readChat, resolveDecision, snapshot, type Backend } from "./nexus"
-import { openReply, replyContext, sealReply, storedBinding, submitReply } from "./reply"
-import { projectFrame, type Resolution } from "../src/nexus/chat"
+import {
+  BridgeError,
+  discover,
+  canGrant,
+  grantSite,
+  ownership,
+  readChat,
+  resolveDecision,
+  snapshot,
+  type Backend,
+} from "./nexus"
+import { modelFields, openReply, replyContext, sealReply, storedBinding, submitReply } from "./reply"
+import { projectFrame, type Approval, type Choices, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
 function loopback(address = "") {
@@ -76,14 +90,32 @@ async function stream(backend: Backend, id: string, res: ServerResponse) {
   }
 }
 
-export function middleware(env: () => { token?: string; home?: string }): Connect.NextHandleFunction {
+async function mainPreset(b: Backend) {
+  const data = await rhoData<{
+    main_preset_public_id: string
+    presets: {
+      public_id: string
+      configuration: {
+        model: string | null
+        approval_mode: Approval | null
+        fallback_models: string[] | null
+      }
+    }[]
+  }>(await b.rhoGet("/presets"))
+  return data.presets.find((row) => row.public_id === data.main_preset_public_id)?.configuration
+}
+
+export function middleware(
+  env: () => { token?: string; home?: string },
+  connect = discover,
+): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url ?? "/", "http://localhost")
     if (!url.pathname.startsWith(root + "/")) return next()
     try {
       if (!localRequest(req)) throw new BridgeError(403, "Local same-origin requests only.")
       const config = env()
-      const b = await discover(config.home ?? "", config.token)
+      const b = await connect(config.home ?? "", config.token)
       const route = url.pathname.slice(root.length)
       if (req.method === "GET" && route === "/connection") return json(res, 200, b.connection)
       const scope = req.headers["x-7777-scope"]
@@ -92,21 +124,53 @@ export function middleware(env: () => { token?: string; home?: string }): Connec
       if (scope !== b.connection.scope)
         throw new BridgeError(409, "The active Nexus identity or workspace changed. Reconnect.")
       const body = req.method === "POST" ? await payload(req) : undefined
+      if (route === "/choices" && req.method === "GET") {
+        const [models, inventory, preset] = await Promise.all([
+          b.client.models.list({ workload: "text_generation" }),
+          rhoData<{ runners: { public_id: string; display_name?: string }[] }>(await b.rhoGet("/runners")),
+          mainPreset(b),
+        ])
+        const policy = preset ? (preset.approval_mode ?? "bypass") : "ask"
+        const approvals: Approval[] =
+          policy === "rules" ? ["rules"] : policy === "bypass" ? ["ask", "rules", "bypass"] : ["ask", "rules"]
+        return json(res, 200, {
+          models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
+          runners: inventory.runners.map((r) => ({ id: r.public_id, name: r.display_name || r.public_id })),
+          approvals,
+        } satisfies Choices)
+      }
       if (route === "/chats" && req.method === "GET") {
-        const page = await b.workspace.conversations.list({
+        const archived = url.searchParams.get("archived") === "1"
+        const list = b.workspace.conversations
+        const query = {
           answering_user_public_id: b.agentID,
           side: false,
-          order: "desc",
-          order_by: "last_activity_at",
+          order: "desc" as const,
+          order_by: "last_activity_at" as const,
           limit: 12,
           after: url.searchParams.get("after") ?? undefined,
-        })
+        }
+        const page = archived ? await list.archived(query) : await list.list(query)
+        const attention = new Set<string>()
+        let after: string | undefined
+        do {
+          const rows = await b.client.work.attention({ workspace_public_id: b.workspaceID, view: "actionable", after })
+          for (const row of rows.items) if (row.conversation_public_id) attention.add(row.conversation_public_id)
+          after = rows.next_after ?? undefined
+        } while (after)
         return json(res, 200, {
-          items: page.items.map((row) => ({
-            id: row.public_id,
-            title: row.title ?? "",
-            time: { created: Date.parse(row.created_at), updated: Date.parse(row.last_activity_at ?? row.updated_at) },
-          })),
+          items: page.items
+            .filter((row) => !row.side && !row.parent && row.answering_user_public_id === b.agentID)
+            .map((row) => ({
+              id: row.public_id,
+              working: !!row.active_turn_public_id,
+              attention: attention.has(row.public_id),
+              title: row.title ?? "",
+              time: {
+                created: Date.parse(row.created_at),
+                updated: Date.parse(row.last_activity_at ?? row.updated_at),
+              },
+            })),
           next: page.next_after,
         })
       }
@@ -125,20 +189,69 @@ export function middleware(env: () => { token?: string; home?: string }): Connec
         )
         return json(res, 201, { id: receipt.conversation.public_id })
       }
-      const match = /^\/chats\/([\w-]+)(?:\/(stream|prepare|inputs|stop|decisions))?$/.exec(route)
+      const match = /^\/chats\/([\w-]+)(?:\/([a-z-]+))?$/.exec(route)
       if (!match) throw new BridgeError(404, "Unknown chat route.")
       const [, id, action] = match
       if (!action && req.method === "GET") return json(res, 200, await snapshot(b, id!))
       const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
+      if (req.method === "GET") {
+        if (action === "files" || action === "review") {
+          const turn = await outputTurn(b, info, url.searchParams)
+          return json(res, 200, await (action === "files" ? outputs(b, info, turn) : review(b, info, turn)))
+        }
+        if (action === "bytes") {
+          const file = await fileBytes(b, info, url.searchParams)
+          res.writeHead(200, {
+            "Content-Type": "application/octet-stream",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "attachment; filename*=UTF-8''" + encodeURIComponent(file.name),
+            "Cache-Control": "no-store",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+          })
+          if (file.body) await pipeline(Readable.from(file.body as AsyncIterable<Uint8Array>), res)
+          else res.end()
+          return
+        }
+        return json(res, 200, await activityRead(b, info, action!, url.searchParams))
+      }
       if (req.method !== "POST") throw new BridgeError(405, "Expected POST.")
+      if (action !== "stop") {
+        if (await ownership(b, info)) throw new BridgeError(403, "Continue this conversation in its channel.")
+        if (info.archived_at && !["restore", "rename"].includes(action!))
+          throw new BridgeError(409, "Restore this conversation first.")
+      }
       if (action === "inputs" || action === "prepare") {
         if (typeof body.text !== "string" || !body.text.trim()) throw new BridgeError(400, "Enter a message.")
-        if (!body.key || typeof body.key !== "string" || !body.model || typeof body.model !== "string")
+        if (!body.key || typeof body.key !== "string" || (body.model !== null && typeof body.model !== "string"))
           throw new BridgeError(400, "Missing input key or model.")
-        const submission = { key: body.key, model: body.model, text: body.text }
+        if (
+          (body.delivery !== undefined && !["steer", "steer_now", "queue"].includes(body.delivery)) ||
+          (body.approval !== undefined && !["ask", "bypass", "rules"].includes(body.approval)) ||
+          (body.target !== undefined && typeof body.target !== "string")
+        )
+          throw new BridgeError(400, "Invalid send options.")
+        const submission = {
+          key: body.key,
+          model: body.model,
+          text: body.text,
+          delivery: body.delivery,
+          approval: body.approval,
+          target: body.target,
+        }
         if (action === "prepare") {
-          const context = await replyContext(info, b.rhoGet, (runner) => storedBinding(b.workspace, info, runner))
+          const [env, preset] = await Promise.all([
+            replyContext(info, b.rhoGet, (runner) => storedBinding(b.workspace, info, runner)),
+            mainPreset(b),
+          ])
+          const context = {
+            ...env,
+            ...modelFields(
+              submission.model,
+              preset?.model ?? b.connection.model,
+              preset?.fallback_models ?? b.fallbackModels,
+            ),
+          }
           // rho's agent and runner share the same binding when both live on this machine.
           if (context.executor_contexts && b.localRunner === info.default_runner?.executor_public_id && b.agentExecutor)
             context.executor_contexts[b.agentExecutor] = context.executor_contexts[b.localRunner]
@@ -152,19 +265,63 @@ export function middleware(env: () => { token?: string; home?: string }): Connec
         return json(res, 202, { id: result.input.public_id })
       }
       if (action === "stop") await chat.cancel()
-      else if (action === "decisions") {
+      else if (action === "rename") {
+        if (!Number.isSafeInteger(body.version)) throw new BridgeError(400, "Missing conversation version.")
+        await chat.update({ title: field(body.title, "title").trim(), lock_version: body.version })
+      } else if (action === "archive") await chat.archive()
+      else if (action === "restore") await chat.unarchive()
+      else if (action === "execution") await execution(b, info, body)
+      else if (action === "promote") {
+        const candidates = (await chat.inputs.list()).items
+          .filter((i) => i.state === "steering" && i.delivery_mode === "steer")
+          .sort((a, b) => a.queue_position - b.queue_position)
+        const input = candidates.at(-1)
+        if (!input || input.public_id !== body.id || input.lock_version !== body.version)
+          throw new BridgeError(409, "Waiting inputs changed. Refresh and try again.")
+        await chat.inputs.update(input.public_id, {
+          delivery_mode: "steer_now",
+          expected_lock_version: input.lock_version,
+        })
+      } else if (action === "decisions") {
         if (typeof body.run !== "string" || typeof body.key !== "string" || !body.response)
           throw new BridgeError(400, "Invalid task decision.")
-        const run = b.workspace.run(body.run)
-        if ((await run.fetch()).turn?.conversation_public_id !== id)
-          throw new BridgeError(404, "Unknown conversation task.")
+        const { run } = await ownedRun(b, id!, body.run)
+        if (body.response.action === "site") {
+          const detail = await run.task(body.key).fetch()
+          if (!canGrant(b, info) || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
+          const result = await rhoData<{ grant?: { refused?: string } }>(
+            await b.rhoGet("/runs/approve", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-rho-viewing-conversation": id!,
+                "x-rho-viewing-workspace": b.workspaceID,
+              },
+              body: JSON.stringify({
+                workspace_public_id: b.workspaceID,
+                public_id: body.run,
+                task_key: body.key,
+                always: true,
+              }),
+            }),
+          )
+          return json(res, 200, {
+            notice: result.grant?.refused ? "Approved this call; rho could not retain the site grant." : undefined,
+          })
+        }
         await resolveDecision(run.task(body.key), body.response as Resolution)
       } else throw new BridgeError(404, "Unknown chat action.")
       json(res, 200, {})
     } catch (error) {
       if (res.headersSent || res.destroyed) return res.end()
       if (error instanceof BridgeError) return json(res, error.status, { error: error.message })
-      if (error instanceof APIError) return json(res, error.status, { error: "Nexus: " + (error.code || error.status) })
+      if (error instanceof APIError)
+        return json(res, error.status, {
+          error:
+            error.code === "not_a_branch"
+              ? "This step belongs to the main reply. Use Stop all work."
+              : "Nexus: " + (error.code || error.status),
+        })
       json(res, 503, { error: "Could not reach rho or Nexus. Check rho status and reconnect." })
     }
   }

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test"
 import { APIError } from "@cybros/agent"
-import { openReply, replyContext as prepare, sealReply, submitReply } from "./reply"
+import { modelFields, openReply, replyContext as prepare, sealReply, submitReply } from "./reply"
 
 const chat = {
   public_id: "chat",
@@ -120,4 +120,32 @@ test("a saved binding remains authoritative after the daemon stops following the
   expect(context.executor_contexts?.remote).toEqual({
     "rho.environment": { root: "/project", directories: ["/shared"], anchor: null },
   })
+})
+
+test("a prepared Human reply cannot change delivery, target, model intent or approval on retry", () => {
+  const input = {
+    ...submission,
+    model: null,
+    delivery: "steer_now" as const,
+    target: "active-run",
+    approval: "rules" as const,
+  }
+  const ticket = sealReply("member", "scope", chat, input, modelFields(null, "default-at-prepare", ["fallback"]))
+  const envelope = openReply("member", "scope", chat, input, ticket)
+  expect(envelope.model).toEqual({ model: "default-at-prepare" })
+  expect(envelope.model_selection).toMatchObject({ source: "default", model: "default-at-prepare", constraint: "any" })
+  expect(envelope.fallback_models).toEqual(["fallback"])
+  expect(envelope).toMatchObject({
+    delivery_mode: "steer_now",
+    expected_steering_run_public_id: "active-run",
+    approval_mode: "rules",
+  })
+  for (const change of [
+    { delivery: "queue" as const },
+    { target: "new-run" },
+    { model: "pinned" },
+    { approval: "bypass" as const },
+  ]) {
+    expect(() => openReply("member", "scope", chat, { ...input, ...change }, ticket)).toThrow()
+  }
 })
