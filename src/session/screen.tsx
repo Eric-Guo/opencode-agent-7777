@@ -118,16 +118,16 @@ export default function SessionPage() {
       </div>
       <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
         <Show when={decisionID()} keyed>
-          {(_id) => (
-            <DecisionDock
-              decision={s.snapshot.decisions[0]}
-              sending={s.sending}
-              reply={(response) => {
-                const d = s.snapshot.decisions[0]
-                void chat.decide(d.run, d.key, response)
-              }}
-            />
-          )}
+          {(_id) => {
+            const { run, key } = s.snapshot.decisions[0]
+            return (
+              <DecisionDock
+                decision={s.snapshot.decisions[0]}
+                sending={s.sending}
+                reply={(response) => void chat.decide(run, key, response)}
+              />
+            )
+          }}
         </Show>
         <ComposerEditor
           controller={editor}

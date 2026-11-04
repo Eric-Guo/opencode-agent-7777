@@ -3,6 +3,7 @@ import { isIP } from "node:net"
 import type { Connect, Plugin } from "vite"
 import { APIError } from "@cybros/agent"
 import { BridgeError, discover, readChat, resolveDecision, snapshot, type Backend } from "./nexus"
+import { openReply, replyContext, sealReply, storedBinding, submitReply } from "./reply"
 import { projectFrame, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
@@ -124,20 +125,29 @@ export function middleware(env: () => { token?: string; home?: string }): Connec
         )
         return json(res, 201, { id: receipt.conversation.public_id })
       }
-      const match = /^\/chats\/([\w-]+)(?:\/(stream|inputs|stop|decisions))?$/.exec(route)
+      const match = /^\/chats\/([\w-]+)(?:\/(stream|prepare|inputs|stop|decisions))?$/.exec(route)
       if (!match) throw new BridgeError(404, "Unknown chat route.")
       const [, id, action] = match
       if (!action && req.method === "GET") return json(res, 200, await snapshot(b, id!))
-      const { chat } = await readChat(b, id!)
+      const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
       if (req.method !== "POST") throw new BridgeError(405, "Expected POST.")
-      if (action === "inputs") {
+      if (action === "inputs" || action === "prepare") {
         if (typeof body.text !== "string" || !body.text.trim()) throw new BridgeError(400, "Enter a message.")
         if (!body.key || typeof body.key !== "string" || !body.model || typeof body.model !== "string")
           throw new BridgeError(400, "Missing input key or model.")
-        const result = await chat.inputs.create(
-          { kind: "direct_reply", text: body.text, model: { model: body.model } },
-          { idempotencyKey: body.key },
+        const submission = { key: body.key, model: body.model, text: body.text }
+        if (action === "prepare") {
+          const context = await replyContext(info, b.rhoGet, (runner) => storedBinding(b.workspace, info, runner))
+          // rho's agent and runner share the same binding when both live on this machine.
+          if (context.executor_contexts && b.localRunner === info.default_runner?.executor_public_id && b.agentExecutor)
+            context.executor_contexts[b.agentExecutor] = context.executor_contexts[b.localRunner]
+          return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission, context) })
+        }
+        if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
+        const input = openReply(config.token!, b.connection.scope, info, submission, body.ticket)
+        const result = await submitReply(input, (fields) =>
+          chat.inputs.create(fields, { idempotencyKey: submission.key }),
         )
         return json(res, 202, { id: result.input.public_id })
       }

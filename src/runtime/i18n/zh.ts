@@ -4,6 +4,7 @@ type Keys = keyof typeof en
 
 export const dict = {
   "nexus.reconnect": "重新连接",
+  "nexus.workdir": "工作目录：{{directory}}",
   "nexus.question": "rho 的提问",
   "nexus.sendAnswer": "提交回答",
   "nexus.include": "填写{{field}}",

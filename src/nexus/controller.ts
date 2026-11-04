@@ -17,7 +17,14 @@ export async function request<T>(path: string, scope?: string, body?: unknown, s
   if (!res.ok) throw new Error(data.error || res.statusText)
   return data
 }
-type Attempt = { text: string; model: string; runner: string | null; createKey: string; inputKey: string }
+type Attempt = {
+  text: string
+  model: string
+  runner: string | null
+  createKey: string
+  inputKey: string
+  ticket?: string
+}
 type Saved = { id: string; text: string; attempt?: Attempt }
 const empty = (): Snapshot => ({ turns: [], pending: [], busy: false, problem: null, decisions: [] })
 export function createChatController(
@@ -209,11 +216,13 @@ export function createChatController(
         }
         if (!s.connected) throw new Error("Live connection unavailable. Retry your message.")
       }
-      await api(path() + "/inputs", c.scope, {
-        key: submission.inputKey,
-        text: submission.text,
-        model: submission.model,
-      })
+      const body = { key: submission.inputKey, text: submission.text, model: submission.model }
+      if (!submission.ticket) {
+        const prepared = await api<{ ticket: string }>(path() + "/prepare", c.scope, body)
+        submission.ticket = prepared.ticket
+        persist()
+      }
+      await api(path() + "/inputs", c.scope, { ...body, ticket: submission.ticket })
       attempt = undefined
       set("draft", "")
       persist()

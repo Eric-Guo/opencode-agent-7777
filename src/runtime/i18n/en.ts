@@ -1,5 +1,6 @@
 export const dict = {
   "nexus.reconnect": "Reconnect",
+  "nexus.workdir": "Working directory: {{directory}}",
   "nexus.question": "Question from rho",
   "nexus.sendAnswer": "Send answer",
   "nexus.include": "Include {{field}}",
