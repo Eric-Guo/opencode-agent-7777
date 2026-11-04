@@ -5,6 +5,8 @@ import { readFollowUpBehavior } from "../runtime/persistence/settings-storage-co
 import {
   updateLive,
   type Choices,
+  type ModeValues,
+  type ConversationModes,
   type Approval,
   type Delivery,
   type Connection,
@@ -37,12 +39,15 @@ type Attempt = {
   runner: string | null
   createKey: string
   inputKey: string
+  initialModes?: ModeValues
+  initializingModes?: boolean
   ticket?: string
 }
 type Saved = {
   id: string
   text: string
   attempt?: Attempt
+  draftModes?: Partial<ModeValues>
   model?: string
   runner?: string | null
   approval?: Approval
@@ -57,6 +62,8 @@ export function createChatController(
   const [s, set] = createStore({
     connection: undefined as Connection | undefined,
     choices: undefined as Choices | undefined,
+    draftModes: {} as Partial<ModeValues>,
+    savedModes: undefined as ConversationModes | null | undefined,
     model: "",
     runner: null as string | null,
     approval: "ask" as Approval,
@@ -73,6 +80,8 @@ export function createChatController(
     error: "",
     streamError: "",
   })
+  let choicesReady: Promise<void> | undefined
+  let modeRead = 0
   let version = 0
   let source: EventSource | undefined
   let attempt: Attempt | undefined
@@ -84,7 +93,14 @@ export function createChatController(
   const storageKey = () => "7777.nexus." + s.connection?.scope
   const persist = () => {
     if (!s.connection) return
-    const entry = { text: s.draft, attempt, model: s.model, runner: s.runner, approval: s.approval }
+    const entry = {
+      text: s.draft,
+      attempt,
+      model: s.model,
+      runner: s.runner,
+      approval: s.approval,
+      draftModes: !s.id ? s.draftModes : undefined,
+    }
     storage.setItem(storageKey() + ".draft." + s.id, JSON.stringify(entry))
     storage.setItem(storageKey(), JSON.stringify({ id: s.id }))
   }
@@ -96,6 +112,7 @@ export function createChatController(
       /* corrupt draft */
     }
     attempt = entry.attempt
+    set("draftModes", reconcile(!id ? (entry.draftModes ?? {}) : {}))
     const approval = entry.approval ?? "ask"
     set({
       prepared: !!attempt,
@@ -150,7 +167,7 @@ export function createChatController(
   function follow(id: string) {
     clearStream()
     const owner = version
-    set({ id, hydrated: !id, snapshot: empty(), connected: false, streamError: "", live: {} })
+    set({ savedModes: undefined, id, hydrated: !id, snapshot: empty(), connected: false, streamError: "", live: {} })
     if (!id) return
     const events = openEvents(root + path() + "/stream?scope=" + encodeURIComponent(s.connection!.scope))
     source = events
@@ -216,7 +233,7 @@ export function createChatController(
       }
       set("choices", undefined)
       restore(saved.id ?? "", saved)
-      void api<Choices>("/choices", c.scope)
+      choicesReady = api<Choices>("/choices", c.scope)
         .then((choices) => {
           if (s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
           set("choices", choices)
@@ -249,6 +266,45 @@ export function createChatController(
   }
   const writable = () =>
     !!s.connection && (!s.id || s.hydrated) && !s.snapshot.detail?.archived && !s.snapshot.detail?.owned
+  const modes = () => {
+    const defaults = s.choices?.modes
+    if (!defaults?.available) return null
+    if (s.id) return s.savedModes?.available ? s.savedModes : null
+    return { ...defaults, ...s.draftModes }
+  }
+  async function loadModes() {
+    if (!s.id || !s.connection || !s.choices?.modes?.available) return
+    const owner = version,
+      read = ++modeRead
+    set("savedModes", undefined)
+    try {
+      const modes = await api<ConversationModes | null>(path() + "/modes", s.connection.scope)
+      if (owner === version && read === modeRead) set("savedModes", modes)
+    } catch (err) {
+      if (owner === version && read === modeRead) fail(err)
+    }
+  }
+  async function changeMode(key: keyof ModeValues, value: boolean) {
+    const current = modes()
+    if (!current || !writable() || s.sending || attempt || (key === "code_mode" && !current.code_mode_available)) return
+    if (!s.id) {
+      set("draftModes", key, value)
+      persist()
+      return
+    }
+    ++modeRead
+    set({ sending: true, error: "" })
+    try {
+      const result = await api<ConversationModes>(path() + "/modes", s.connection!.scope, { [key]: value })
+      ++modeRead
+      set("savedModes", result)
+    } catch (err) {
+      fail(err)
+      await loadModes()
+    } finally {
+      set("sending", false)
+    }
+  }
   const latestSteer = () =>
     s.snapshot.pending
       .filter((i) => i.state === "steering" && i.delivery === "steer")
@@ -265,23 +321,34 @@ export function createChatController(
     const running = !!s.snapshot.detail?.active || (!s.snapshot.detail && s.snapshot.busy)
     const delivery = running || (now && latestSteer()) ? (now ? "steer_now" : preference) : "queue"
     set({ sending: true, error: "" })
-    attempt ??= {
-      text: s.draft,
-      model: s.model || null,
-      runner: s.runner,
-      approval: s.approval,
-      delivery,
-      target:
-        delivery !== "queue"
-          ? (s.snapshot.turns.find((t) => t.id === s.snapshot.detail?.active)?.run ?? undefined)
-          : undefined,
-      createKey: uuid(),
-      inputKey: uuid(),
-    }
-    const submission = attempt
-    set("prepared", true)
-    persist()
     try {
+      if (!s.id && !attempt) {
+        await choicesReady
+        if (!s.choices?.modes?.available) throw new Error("Cannot prepare a reply until rho provides its input policy.")
+      }
+      const initial = !s.id ? modes() : null
+      attempt ??= {
+        text: s.draft,
+        model: s.model || null,
+        runner: s.runner,
+        approval: s.approval,
+        delivery,
+        target:
+          delivery !== "queue"
+            ? (s.snapshot.turns.find((t) => t.id === s.snapshot.detail?.active)?.run ?? undefined)
+            : undefined,
+        initialModes: initial
+          ? {
+              code_mode: initial.code_mode_available && initial.code_mode,
+              subagent: initial.subagent,
+            }
+          : undefined,
+        createKey: uuid(),
+        inputKey: uuid(),
+      }
+      const submission = attempt
+      set("prepared", true)
+      persist()
       if (!s.id) {
         const created = await api<{ id: string }>("/chats", c.scope, {
           title: submission.text.trim().slice(0, 80),
@@ -314,6 +381,27 @@ export function createChatController(
         delivery: submission.delivery,
         approval: submission.approval,
         target: submission.target,
+      }
+      if (submission.initialModes && !submission.ticket) {
+        // A lost PATCH response may already have saved the choices. Never repeat it over a later edit.
+        if (submission.initializingModes) {
+          const current = await api<ConversationModes | null>(path() + "/modes", c.scope)
+          if (
+            !current?.available ||
+            current.code_mode !== submission.initialModes.code_mode ||
+            current.subagent !== submission.initialModes.subagent
+          )
+            throw new Error(
+              "Initial modes could not be confirmed. Edit the draft and check Run settings before sending.",
+            )
+        } else {
+          submission.initializingModes = true
+          persist()
+          await api(path() + "/modes", c.scope, submission.initialModes)
+        }
+        delete submission.initialModes
+        delete submission.initializingModes
+        persist()
       }
       if (!submission.ticket) {
         const prepared = await api<{ ticket: string }>(path() + "/prepare", c.scope, body)
@@ -354,6 +442,9 @@ export function createChatController(
     edit,
     send,
     configure,
+    modes,
+    changeMode,
+    loadModes,
     writable,
     latestSteer,
     command,

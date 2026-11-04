@@ -1,4 +1,8 @@
 export const dict = {
+  "chat.codeMode": "Code mode",
+  "chat.subagent": "Subagent",
+  "chat.modesUnavailable": "Update rho to prepare tool policies before sending a reply.",
+  "chat.modeHint": "Changes apply to future replies in this conversation.",
   "chat.previewTooLarge": "This file is too large to preview. Use Download instead.",
   "chat.prepared": "Retry to use the original send settings. Edit the draft to start a different request.",
   "chat.active": "Active",

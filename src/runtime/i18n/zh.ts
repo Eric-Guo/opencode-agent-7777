@@ -3,6 +3,10 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "chat.codeMode": "代码模式",
+  "chat.subagent": "子代理",
+  "chat.modesUnavailable": "请先更新 rho，以便在发送前准备工具策略。",
+  "chat.modeHint": "更改将应用于此会话之后的回复。",
   "nexus.reconnect": "重新连接",
   "nexus.workdir": "工作目录：{{directory}}",
   "nexus.question": "rho 的提问",

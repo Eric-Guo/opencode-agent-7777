@@ -44,7 +44,8 @@ The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It kee
 - The decision dock accepts typed answers or one-time approvals. For a held native `web_fetch` call, a Human with verified write access can also ask rho to allow that site until restart. Only rho derives the site rule from the held call.
 - **Usage** separates the cumulative request, token and cost totals from the latest reported context window and actual model. When some requests have no price, the amount is a **known subtotal**.
 - Files belong to a particular answer variant or task. Download published files, preview Markdown and images, or open a recorded Git patch and add a line comment to the current draft. Explicit file paths in an answer are resolved on its conversation runner within the bound output directory; a bare filename in prose does not create a file card.
-- **Code mode and Subagent** remain unavailable. rho can persist these switches, but its reply-authoring path also computes the actual tool selection. Its existing control API does not return that prepared selection for a separate Human-authored Nexus input. A mode switch alone would promise a change the next reply might not honor.
+- **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft starts with rho’s defaults; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. Code mode requires the rho Code mode plugin.
+- Sending requires a rho daemon with `POST /conversations/prepare-input-policy`. After verifying Human write access, the bridge seals rho’s exact tool list and optional executor contexts into the send ticket. An empty list means no tools; omitted contexts stay inherited. If rho refuses or cannot prepare a policy, no new input is sent.
 - Browser file uploads, queue reordering, undo and export remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
 
 ## Code Layout Parity Review
@@ -53,8 +54,8 @@ The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It kee
 
 | Boundary | Responsibility |
 | --- | --- |
-| `server/` | Loopback middleware; Human/workspace and channel ownership checks; scoped chat writes, prepared input receipts, realtime subscriptions, execution inspection, and variant-bound artifacts and reviews. |
-| `src/nexus/` | Browser transport, per-conversation drafts, turn projection, delivery controls, typed decisions, usage, activity and output views. These adapters consume Nexus/rho data rather than the main app’s OpenCode runtime. |
+| `server/` | Loopback middleware; Human/workspace and channel ownership checks; scoped chat writes, rho mode reads and updates, policy-bound send tickets, realtime subscriptions, execution inspection, and variant-bound artifacts and reviews. |
+| `src/nexus/` | Browser transport, per-conversation drafts, turn projection, delivery and mode controls, typed decisions, usage, activity and output views. These adapters consume Nexus/rho data rather than the main app’s OpenCode runtime. |
 | `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact header, bounded timeline, paged recent picker and composer. Shared timeline, Markdown, file review, line comments, dialogs and controls come from public `@opencode/session-ui` and `@opencode/ui` exports. |
 
 `runtime/i18n/language.tsx` owns `UiI18nBridge` and reuses the public UI template formatter and parameter type. The retained composer suggestions and recent-session picker use `MenuScroll` from `@opencode/ui`; their compact controllers retain sizing, keyboard selection and focus restoration.

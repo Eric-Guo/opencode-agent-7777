@@ -11,7 +11,14 @@ export type Connection = {
 }
 export type Delivery = "queue" | "steer" | "steer_now"
 export type Approval = "ask" | "rules" | "bypass"
-export type Choices = { models: string[]; runners: { id: string; name: string }[]; approvals: Approval[] }
+export type ModeValues = { code_mode: boolean; subagent: boolean }
+export type ConversationModes = ModeValues & { available: boolean; code_mode_available: boolean }
+export type Choices = {
+  modes: ConversationModes | null
+  models: string[]
+  runners: { id: string; name: string }[]
+  approvals: Approval[]
+}
 export type RecentChat = {
   working?: boolean
   attention?: boolean

@@ -21,7 +21,16 @@ class Events extends EventTarget {
 function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved = new Map<string, string>()) {
   const sources: Events[] = []
   const api = (async (path, _scope, body) =>
-    path === "/connection" ? connection : handle(path, body)) as typeof request
+    path === "/connection"
+      ? connection
+      : path === "/choices"
+        ? {
+            models: [],
+            runners: [],
+            approvals: ["ask"],
+            modes: { code_mode: true, subagent: false, available: true, code_mode_available: true },
+          }
+        : handle(path, body)) as typeof request
   const controller = createChatController(
     api,
     () => {
@@ -184,3 +193,44 @@ test("switching and reloading restores independent drafts, choices and the origi
   expect(reload.s.draft).toBe("second")
   reload.close()
 })
+
+for (const changed of [false, true]) {
+  test(
+    "a lost first mode write is checked on reload" +
+      (changed ? " and preserves another client’s edit" : " before the first input"),
+    async () => {
+      const storage = new Map<string, string>()
+      let writes = 0,
+        reads = 0,
+        inputs = 0
+      const handle = async (p: string, body?: any) => {
+        if (p === "/chats") return { id: "created" }
+        if (p.endsWith("/modes")) {
+          if (body) {
+            expect(body).toEqual({ code_mode: false, subagent: false })
+            writes++
+            throw new Error("lost response")
+          }
+          reads++
+          return { available: true, code_mode_available: true, code_mode: changed, subagent: false }
+        }
+        if (p.endsWith("/prepare")) return { ticket: "sealed" }
+        if (p.endsWith("/inputs")) inputs++
+        return empty()
+      }
+      const first = fixture(handle, storage).controller
+      await first.connect()
+      await first.changeMode("code_mode", false)
+      first.edit("first message")
+      await first.send()
+      expect(first.s.error).toBe("lost response")
+      first.close()
+      const second = fixture(handle, storage).controller
+      await second.connect()
+      await second.send()
+      expect([writes, reads, inputs]).toEqual([1, 1, changed ? 0 : 1])
+      if (changed) expect(second.s.error).toContain("check Run settings")
+      second.close()
+    },
+  )
+}
