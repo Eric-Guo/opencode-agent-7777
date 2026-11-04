@@ -10,12 +10,10 @@
     "build": "vite build",
     "build:shared": "bun scripts/build-shared.ts",
     "serve": "vite preview",
-    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts",
-    "bench:runtime": "bun scripts/runtime-benchmark.ts"
+    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
-    "@opencode/client": "workspace:*",
-    "@opencode/gui-plugins": "workspace:*",
+    "@cybros/agent": "file:./.local/nexus-sdk",
     "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
     "@opencode/ui": "workspace:*",
@@ -24,7 +22,8 @@
     "echarts": "6.1.0",
     "effect": "catalog:",
     "solid-js": "catalog:",
-    "solid-presence": "0.2.0"
+    "solid-presence": "0.2.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

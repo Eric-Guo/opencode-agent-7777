@@ -1,17 +1,16 @@
-import { OpenCode } from "@opencode/client/promise"
-import { onCleanup, onMount, Show, Suspense } from "solid-js"
+import { Skill } from "@opencode/schema/skill"
+import { Show, Suspense } from "solid-js"
 import { render } from "solid-js/web"
 import { createStore } from "solid-js/store"
 import { AppBaseProviders } from "../src/app"
-import { createSessionDraft } from "../src/new-session/draft"
-import { createComposerCatalog } from "../src/composer/catalog-compact"
-import { commandSuggestions, contextSuggestions, fileSuggestions } from "../src/composer/suggestions/catalog-compact"
 import { createBlobReference } from "../src/runtime/persistence/drafts"
 import { createPromptState } from "../src/composer/state"
+import type { ComposerSuggestion } from "../src/composer/types"
 import { ComposerEditor } from "../src/composer/editor/editor"
 import { ComposerDropzone } from "../src/composer/dropzone"
 import { createComposerEditor } from "../src/composer/editor/interaction"
 import { useLanguage } from "../src/runtime/i18n/language"
+import { fileUrl } from "../src/workspaces/files/path"
 
 function ComposerFixture() {
   const language = useLanguage()
@@ -26,13 +25,6 @@ function ComposerFixture() {
     error: "",
     identity: "first",
   })
-  const source = new URLSearchParams(location.search).has("catalog")
-    ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
-    : undefined
-  const catalog = source ? createComposerCatalog() : undefined
-  const load = () => source && catalog?.load(source.data, source.directory)
-  onMount(() => void load())
-  onCleanup(() => source?.dispose())
   const controller = createComposerEditor({
     store: draft.store,
     identity: () => state.identity,
@@ -63,18 +55,40 @@ function ComposerFixture() {
           },
         }
       : undefined,
-    commands: () => commandSuggestions(catalog?.state.commands ?? state.commands, []),
+    commands: () =>
+      state.commands.map<ComposerSuggestion>(({ name }) => ({
+        id: `custom.${name}`,
+        kind: "command",
+        label: `/${name}`,
+        trigger: name,
+        title: name,
+      })),
     context: () =>
-      contextSuggestions(
-        catalog?.state.skills ?? state.commands.map(({ name }) => ({ id: name, name, path: `/skills/${name}` })),
-        catalog?.state.agents ?? [],
-      ),
+      state.commands.map<ComposerSuggestion>(({ name }) => ({
+        id: `skill:${name}`,
+        kind: "skill",
+        label: `@${name}`,
+        mention: {
+          type: "skill",
+          id: Skill.ID.make(name),
+          name: Skill.Name.make(name),
+          content: `@${name}`,
+          start: 0,
+          end: 0,
+        },
+      })),
     searchContextFiles: async (query, signal) => {
       if (!suggestions) return []
       const paths: string[] = await fetch(`/component-tests/files?query=${encodeURIComponent(query)}`, { signal }).then(
         (response) => response.json(),
       )
-      return fileSuggestions(paths, "/fixture")
+      return paths.map<ComposerSuggestion>((path) => ({
+        id: `file:${path}`,
+        kind: "file",
+        label: path,
+        path,
+        mention: { type: "file", path, url: fileUrl("/fixture", path), content: `@${path}`, start: 0, end: 0 },
+      }))
     },
     capabilities: { shell: historyFixture },
     view: {
@@ -164,15 +178,6 @@ function ComposerFixture() {
         <button onClick={() => controller.submit()}>Submit directly</button>
         <button onClick={() => controller.submit({ alternate: true })}>Submit alternate</button>
         <output aria-label="Attachment error">{state.error}</output>
-      </Show>
-      <Show when={catalog}>
-        {(catalog) => (
-          <>
-            <output aria-label="Command status">{catalog().state.commandStatus}</output>
-            <output aria-label="Skill status">{catalog().state.skillStatus}</output>
-            <button onClick={() => void load()}>Reload catalogs</button>
-          </>
-        )}
       </Show>
     </main>
   )

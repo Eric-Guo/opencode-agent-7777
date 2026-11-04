@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, jest, mock, test } from "bun:test"
 import { createComputed, createRoot, createSignal } from "solid-js"
+import { isServer } from "solid-js/web"
 import { createPromptState } from "@/composer/state"
-import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 import { installDOM } from "@/test/dom"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "./attachments"
 
@@ -225,3 +225,12 @@ browserSuite(import.meta.path, () => {
     expect(input.attachments.preparing()).toBe(false)
   })
 })
+
+// Effects must run under Solid's browser build, independently of the removed OpenCode runtime fixtures.
+function browserSuite(path: string, define: () => void) {
+  if (!isServer) return define()
+  test("reactive attachment contracts", () => {
+    const result = Bun.spawnSync([process.execPath, "--conditions=browser", "test", path])
+    expect(result.exitCode, result.stderr.toString()).toBe(0)
+  })
+}

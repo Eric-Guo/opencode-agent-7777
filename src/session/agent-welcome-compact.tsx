@@ -1,18 +1,15 @@
 import { Markdown } from "@opencode/session-ui/markdown"
 import { For, Show } from "solid-js"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
-import { setPrompt } from "@/composer/persistence-singleton"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
-
-export function AgentWelcome() {
-  const welcomeText = () => state.server?.welcomeText ?? AGENT_DEFAULT_CONFIG.welcomeText
-  const suggestedQuestions = () => state.server?.suggestedQuestions ?? AGENT_DEFAULT_CONFIG.suggestedQuestions
+export function AgentWelcome(props: { agent: string; onPrompt: (value: string) => void }) {
+  const welcomeText = () => AGENT_DEFAULT_CONFIG.welcomeText
+  const suggestedQuestions = () => AGENT_DEFAULT_CONFIG.suggestedQuestions
 
   return (
     <div class="mx-auto flex w-full max-w-[680px] flex-col items-center gap-6 text-center">
       <Markdown
-        text={welcomeText().replaceAll(AGENT_DEFAULT_CONFIG.localAgent, currentLocalAgent())}
-        cacheKey={`${currentLocalAgent()}-agent-welcome`}
+        text={welcomeText().replaceAll(AGENT_DEFAULT_CONFIG.localAgent, props.agent)}
+        cacheKey={`${props.agent}-agent-welcome`}
         class="w-full text-v2-text-text-base"
       />
       <Show when={suggestedQuestions().length > 0}>
@@ -22,7 +19,7 @@ export function AgentWelcome() {
               <button
                 type="button"
                 class="rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 px-4 py-2.5 text-left text-[13px] text-v2-text-text-base transition-colors hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
-                onClick={() => setPrompt(question)}
+                onClick={() => props.onPrompt(question)}
               >
                 {question}
               </button>

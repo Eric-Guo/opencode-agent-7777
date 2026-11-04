@@ -3,35 +3,36 @@ import { Popover } from "@opencode/ui/popover"
 import { createEffect, createMemo, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentDirectory, currentLocalAgent, state } from "@/runtime/server/session-store-compact"
-import { sessionEvents } from "@/runtime/server/sync-session-compact"
-import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
+import { request, type createChatController } from "@/nexus/controller"
+import type { RecentPage } from "@/nexus/chat"
 import { createHomeSessionsController } from "./controller"
 import { createHomeSessionIndex } from "./queries"
 import { createHomeSessionSearchController } from "./search"
-import { openRecentSession } from "./switcher-compact"
-import { SessionOptions } from "@/session/header/session-options"
-import { useSessionCommands } from "@/session/commands/use-session-commands"
 import { HomeSessionsView } from "./view"
 
 // The compact Home region is hosted in the session header instead of a route.
-export function HomeSessionsRegion() {
-  let trigger!: HTMLButtonElement
+export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatController> }) {
   const language = useLanguage()
-  const { actions } = useSessionCommands()
   const [local, setLocal] = createStore({ open: false })
   const source = createMemo(() => {
-    const server = state.server
-    const directory = currentDirectory()
-    if (!server || !directory) return
-    const client = createDirectorySdk(server, directory).client
-    return { directory, sessionID: state.session?.id ?? "", list: client.session.list, get: client.session.get }
+    const connection = props.chat.s.connection
+    if (!connection) return
+    return {
+      sessionID: props.chat.s.id,
+      list: (cursor?: string, signal?: AbortSignal) =>
+        request<RecentPage>(
+          "/chats" + (cursor ? "?after=" + encodeURIComponent(cursor) : ""),
+          connection.scope,
+          undefined,
+          signal,
+        ),
+    }
   })
   const data = createHomeSessionIndex({ source })
   const sessions = createHomeSessionsController({
     data,
-    switching: () => !!state.recentSessionSwitchingID,
-    open: (session) => void openRecentSession(session),
+    switching: () => props.chat.s.sending,
+    open: (session) => props.chat.select(session.id),
   })
   const search = createHomeSessionSearchController(sessions, () => setOpen(false))
   const setOpen = (open: boolean) => {
@@ -41,25 +42,6 @@ export function HomeSessionsRegion() {
     else data.clear()
   }
   createEffect(on(source, () => setOpen(false), { defer: true }))
-  createEffect(
-    on(
-      actions.saved,
-      (saved) => {
-        if (saved && local.open) void data.refresh(search.query.value())
-      },
-      { defer: true },
-    ),
-  )
-  createEffect(() => {
-    if (!local.open) return
-    onCleanup(
-      sessionEvents.listen((event) => {
-        if (event.type !== "session.renamed" && event.type !== "session.deleted") return
-        if (!event.location?.directory || event.location.directory === currentDirectory())
-          void data.refresh(search.query.value())
-      }),
-    )
-  })
   onCleanup(data.clear)
 
   return (
@@ -71,34 +53,17 @@ export function HomeSessionsRegion() {
       class="w-[320px] !max-w-[calc(100vw-28px)] [&_[data-slot=popover-body]]:!p-2"
       triggerAs="button"
       triggerProps={{
-        ref: (element) => (trigger = element),
         type: "button",
         "aria-label": language.t("session.recent"),
         title: language.t("session.recent"),
-        disabled: !source(),
+        disabled: !source() || props.chat.s.sending,
         class:
           "inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base disabled:opacity-55 data-[expanded]:border-v2-border-border-strong data-[expanded]:bg-v2-overlay-simple-overlay-hover [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5",
       }}
       trigger={<Icon name="bullet-list" />}
     >
       <Show when={local.open}>
-        <HomeSessionsView
-          sessions={sessions}
-          search={search}
-          fallbackTitle={currentLocalAgent()}
-          row={(session, option) => (
-            <SessionOptions
-              session={session}
-              disabled={sessions.session.switching()}
-              onSelect={() => {
-                setOpen(false)
-                trigger.focus({ preventScroll: true })
-              }}
-            >
-              {option}
-            </SessionOptions>
-          )}
-        />
+        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={props.chat.s.connection?.agent ?? "rho"} />
       </Show>
     </Popover>
   )

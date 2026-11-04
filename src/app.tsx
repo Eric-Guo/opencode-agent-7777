@@ -9,7 +9,6 @@ import { Toast } from "@opencode/ui/toast"
 import { type ParentProps } from "solid-js"
 import { syncPlatformBackgroundColor } from "@/runtime/platform/platform-bridge"
 import { LanguageProvider, type Locale, UiI18nBridge } from "@/runtime/i18n/language"
-import { SessionCommandsProvider } from "@/session/commands/use-session-commands"
 import Session from "@/session/screen"
 import { SettingsProvider } from "@/settings/model"
 
@@ -39,11 +38,15 @@ export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
   )
 }
 
+function ConnectionGate(props: ParentProps) {
+  return <>{props.children}</>
+}
+
 export function AppInterface() {
   return (
-    <SessionCommandsProvider>
+    <ConnectionGate>
       <Session />
-    </SessionCommandsProvider>
+    </ConnectionGate>
   )
 }
 

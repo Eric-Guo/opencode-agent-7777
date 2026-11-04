@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test"
 import type { SessionMessageAssistant } from "@opencode/client/promise"
 import { createRoot } from "solid-js"
 import { createStore, produce, reconcile } from "solid-js/store"
-import { browserSuite } from "@/runtime/server/runtime.test-fixture"
+import { browserSuite } from "@/test/browser"
 import { createTimelineMessages } from "./projection"
 
 function assistant(id: string, text: string): SessionMessageAssistant {

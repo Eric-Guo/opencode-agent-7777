@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import type { SessionInfo } from "@opencode/client/promise"
+import type { RecentChat as SessionInfo } from "@/nexus/chat"
 import { createHomeSessionsController } from "./controller"
 import { createHomeSessionIndex } from "./queries"
 
@@ -7,10 +7,6 @@ function session(id: string, created: number, updated?: number): SessionInfo {
   return {
     id,
     title: id,
-    projectID: "project",
-    location: { directory: "/repo" },
-    cost: 0,
-    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
     time: { created, updated: updated ?? created },
   }
 }

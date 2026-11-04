@@ -1,74 +1,73 @@
-import { Loader } from "@opencode/ui/loader"
-import { readRetry } from "@/runtime/server/read-errors"
-import { IconButton } from "@opencode/ui/icon-button"
+import { createEffect, createMemo, onCleanup, onMount, on, Show } from "solid-js"
+import { createStore } from "solid-js/store"
+import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
+import { SessionHeader } from "./header/session-header"
 import { ScrollView } from "@opencode/ui/scroll-view"
-import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
-import { SessionHeader } from "@/session/header/session-header"
-import { useSettings } from "@/settings/model"
-import { ComposerDropzone } from "@/composer/dropzone"
-import { disposeSessionSync, initializeSessionSync } from "@/runtime/server/sync-session-compact"
-import { currentLocalAgent, currentRuntime, state } from "@/runtime/server/session-store-compact"
+import { ComposerEditor } from "@/composer/editor/editor"
+import { createComposerEditor } from "@/composer/editor/interaction"
+import { promptText, replacePromptText } from "@/composer/prompt-parts"
+import type { ComposerPersistedState } from "@/composer/types"
+import { SET_DOCUMENT_TITLE } from "@/constants/session"
+import { createChatController } from "@/nexus/controller"
+import { timeline } from "@/nexus/timeline"
+import { DecisionDock } from "@/nexus/decision"
+import { useLanguage } from "@/runtime/i18n/language"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
 import { SessionUIProvider } from "@/shell/routes/session-ui-provider"
-import { AgentWelcome } from "@/session/agent-welcome-compact"
-import { createActiveSessionRegion, ActiveSessionComposerRegion } from "@/session/composer/region"
-import {
-  SESSION_EMPTY_STATE_CLASS,
-  SESSION_LOADING_STATE_CLASS,
-  SESSION_MESSAGE_SCROLLER_CLASS,
-  SESSION_ROUTE_FRAME_CLASS,
-  useSessionLayout,
-} from "@/session/screen-layout-compact"
-import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
-import { createCompactTimelineModel } from "@/session/timeline/model-compact"
-import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
-import { sessionDirectory } from "@/session/directory"
+import { AgentWelcome } from "./agent-welcome-compact"
+import { CompactMessageTimeline } from "./timeline/message-timeline-compact"
+import { createSessionTimelineInteraction } from "./timeline/interaction"
 
-type SessionUiData = ComponentProps<typeof SessionUIProvider>["data"]
-
-export function SessionPage() {
-  const settings = useSettings()
-  const timeline = createCompactTimelineModel({
-    sessionID: () => state.session?.id ?? "",
-    messages: () => state.sessionMessages,
-    loading: () => state.messagesLoading,
-    revertMessageID: () => state.session?.revert?.messageID,
-    status: () => state.sessionStatus,
+export default function SessionPage() {
+  const chat = createChatController()
+  const s = chat.s
+  const language = useLanguage()
+  const doc = createMemo(() => timeline(s.id, s.snapshot, s.live, s.connection))
+  const interaction = createSessionTimelineInteraction({ identity: () => s.id })
+  const draft = createStore<ComposerPersistedState>({ prompt: [], context: { items: [] } })
+  const agent = () => s.connection?.agent || "rho"
+  const editor = createComposerEditor({
+    store: draft,
+    identity: () => s.id,
+    commands: () => [],
+    context: () => [],
+    searchContextFiles: () => [],
+    capabilities: { commands: false, shell: false, context: false },
+    onChange: () => chat.edit(promptText(draft[0].prompt)),
+    view: {
+      placeholder: () => language.t("prompt.message.aria"),
+      submit: {
+        enabled: () => !!s.connection && !s.sending && !s.snapshot.busy,
+        stopping: () => s.snapshot.busy,
+        onSubmit: () => void chat.send(),
+        onStop: () => void chat.stop(),
+      },
+    },
   })
-  const region = createActiveSessionRegion()
-  const layout = useSessionLayout({
-    userDialogCount: timeline.userDialogCount,
-  })
-  const sessionUiData = createMemo(
-    (): SessionUiData => ({
-      session: state.session ? [state.session] : [],
-      session_status: state.session ? { [state.session.id]: state.sessionStatus } : {},
-      session_diff: {},
-    }),
+  createEffect(
+    on(
+      () => s.draft,
+      (text) => {
+        if (promptText(draft[0].prompt) !== text) draft[1]({ prompt: replacePromptText([], text), cursor: text.length })
+      },
+    ),
   )
-
-  const interaction = createSessionTimelineInteraction({ identity: currentRuntime })
-
-  const toggleReasoningSummaries = () => {
-    settings.general.setShowReasoningSummaries(!settings.general.showReasoningSummaries())
-  }
-
-  onMount(() => {
-    void initializeSessionSync()
-    onCleanup(disposeSessionSync)
+  createEffect(() => {
+    if (SET_DOCUMENT_TITLE) document.title = agent()
   })
-
+  onMount(() => {
+    void chat.connect()
+  })
+  onCleanup(chat.close)
+  const problem = () => s.error || s.streamError || s.snapshot.problem
+  const decisionID = () => {
+    const d = s.snapshot.decisions[0]
+    return d ? d.run + "/" + d.key : undefined
+  }
   return (
-    <div class={SESSION_ROUTE_FRAME_CLASS}>
-      <ComposerDropzone active={region.active.drop.active()} identity={() => state.session?.id} />
-      <SessionHeader
-        {...layout.header()}
-        revert={region.actions.revert}
-        showReasoningSummaries={settings.general.showReasoningSummaries()}
-        onToggleReasoningSummaries={toggleReasoningSummaries}
-      />
-
+    <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
+      <SessionHeader chat={chat} dialogCount={doc().messages.filter((message) => message.type === "user").length} />
       <main
         class="relative min-h-0"
         on:pointerdown={{ capture: true, handleEvent: interaction.view.markInput }}
@@ -79,62 +78,78 @@ export function SessionPage() {
       >
         <ScrollView
           data-slot="session-message-scroller"
-          class={`${SESSION_MESSAGE_SCROLLER_CLASS} h-full`}
+          class="h-full [&>.scroll-view__viewport]:px-6 [&>.scroll-view__viewport]:py-5"
           viewportRef={interaction.view.setScrollRef}
           onScroll={interaction.view.onScroll}
           onKeyDown={interaction.view.onKeyDown}
         >
           <div ref={interaction.view.setContentRef} class="grid min-h-full">
             <Show
-              when={state.status !== "loading" && timeline.ready()}
+              when={doc().messages.length}
               fallback={
-                <div class={SESSION_LOADING_STATE_CLASS}>
-                  <Loader class="h-6 w-6" />
-                  <span>{layout.language.t("session.loading", { agent: currentLocalAgent() })}</span>
+                <div class="grid place-items-center">
+                  <AgentWelcome agent={agent()} onPrompt={chat.edit} />
                 </div>
               }
             >
-              <Show
-                when={timeline.visibleMessages().length > 0}
-                fallback={
-                  <div class={SESSION_EMPTY_STATE_CLASS}>
-                    <AgentWelcome />
-                  </div>
-                }
+              <SessionUIProvider
+                directory=""
+                data={{ session: [], session_status: { [s.id]: doc().status }, session_diff: {} }}
               >
-                <SessionUIProvider
-                  data={sessionUiData()}
-                  directory={state.session ? sessionDirectory(state.session) : ""}
-                >
-                  <CompactMessageTimeline
-                    document={timeline.document()}
-                    actions={region.actions.timeline}
-                    showReasoningSummaries={settings.general.showReasoningSummaries()}
-                    onPointerGesture={interaction.view.markUserScroll}
-                  />
-                </SessionUIProvider>
-              </Show>
+                <CompactMessageTimeline
+                  document={doc()}
+                  showReasoningSummaries={false}
+                  onPointerGesture={interaction.view.markUserScroll}
+                />
+              </SessionUIProvider>
             </Show>
           </div>
         </ScrollView>
         <Show when={interaction.scroll.jump}>
-          <IconButton
-            icon={<Icon name="arrow-down-to-line" />}
-            size="large"
-            variant="neutral"
-            class="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 shadow-md"
-            aria-label={layout.language.t("session.messages.jumpToLatest")}
-            title={layout.language.t("session.messages.jumpToLatest")}
-            onClick={interaction.actions.resume}
-          />
+          <Button class="absolute bottom-2 left-1/2" onClick={interaction.actions.resume}>
+            <Icon name="arrow-down-to-line" />
+          </Button>
         </Show>
       </main>
-
-      <Show when={state.error}>{(error) => <ErrorBanner error={error()} retry={readRetry()} />}</Show>
-
-      <ActiveSessionComposerRegion model={region.active} suggestionBoundary={interaction.scroller} />
+      <div>
+        <Show when={problem()}>
+          {(message) => (
+            <>
+              <ErrorBanner error={message()} />
+              <Button disabled={s.sending || s.connecting} onClick={() => void chat.connect()}>
+                {language.t("nexus.reconnect")}
+              </Button>
+            </>
+          )}
+        </Show>
+      </div>
+      <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
+        <Show when={decisionID()} keyed>
+          {(_id) => (
+            <DecisionDock
+              decision={s.snapshot.decisions[0]}
+              sending={s.sending}
+              reply={(response) => {
+                const d = s.snapshot.decisions[0]
+                void chat.decide(d.run, d.key, response)
+              }}
+            />
+          )}
+        </Show>
+        <ComposerEditor
+          controller={editor}
+          disabled={!s.connection || s.sending}
+          readOnly={!s.connection || s.sending}
+          addMenuVisible={false}
+          modelControlsVisible={false}
+          agentControl={<span class="px-2 text-xs">{agent()}</span>}
+          labels={{
+            prompt: language.t("prompt.message.aria"),
+            send: language.t("prompt.send"),
+            stop: language.t("prompt.stop"),
+          }}
+        />
+      </div>
     </div>
   )
 }
-
-export default SessionPage
