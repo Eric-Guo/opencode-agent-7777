@@ -1,0 +1,110 @@
+.chat-turn {
+  padding-block: 0.75rem;
+  min-width: 0;
+}
+.chat-turn + .chat-turn {
+  margin-top: 1rem;
+}
+.chat-output,
+.chat-inspect {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.chat-output {
+  margin-top: 0.45rem;
+  font-size: 13px;
+}
+.chat-output:empty {
+  display: none;
+}
+.chat-inspect {
+  padding: 0.75rem;
+  max-height: min(68vh, 680px);
+  overflow: auto;
+  font-size: 13px;
+}
+.chat-inspect h3 {
+  font-weight: 600;
+}
+.chat-inspect dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.3rem 1rem;
+}
+.chat-inspect dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.chat-inspect pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 22rem;
+  overflow: auto;
+}
+.chat-inspect label {
+  display: grid;
+  gap: 0.35rem;
+}
+.chat-controls {
+  width: min(300px, 75vw);
+}
+.chat-field,
+.chat-controls select {
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 5px;
+  padding: 0.4rem 0.6rem;
+  background: var(--v2-background-bg-base);
+  color: inherit;
+}
+.chat-row,
+.chat-settings-trigger {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.chat-settings-trigger,
+.chat-tab {
+  padding: 0.25rem 0.55rem;
+  border-radius: 5px;
+  font-size: 13px;
+}
+.chat-settings-trigger span {
+  max-width: 13em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-settings-trigger:hover,
+.chat-tab[aria-pressed="true"] {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+.chat-disclosure {
+  min-width: 0;
+}
+.chat-disclosure summary {
+  cursor: pointer;
+  color: var(--v2-text-text-muted);
+  padding: 0.25rem 0;
+}
+.chat-disclosure[open] > summary {
+  color: var(--v2-text-text-base);
+}
+.chat-disclosure > :not(summary) {
+  margin-inline-start: 0.65rem;
+}
+.chat-file {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--v2-border-border-base);
+  border-radius: 7px;
+  overflow-wrap: anywhere;
+}
+.chat-hint {
+  padding-block: 0.4rem;
+  color: var(--v2-text-text-muted);
+}
+.chat-round {
+  border-inline-start: 1px solid var(--v2-border-border-base);
+  padding-inline-start: 0.5rem;
+}

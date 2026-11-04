@@ -77,15 +77,39 @@ test("a reset clears only its own candidate and settled content replaces partial
   updateLive(live, frame("text_delta", "old", "stale"))
   updateLive(live, frame("text_delta", "v1", "hello"))
   updateLive(live, frame("text_delta", "v1", " world"))
+  updateLive(live, frame("reasoning_delta", "old", "superseded"))
+  updateLive(live, frame("reasoning_delta", "v1", "current thought"))
   updateLive(live, frame("stream_reset", "old"))
+  updateLive(live, frame("reasoning_delta", "old", "late thought"))
   const row = projectTurn(reply(1))
   const snapshot = { turns: [{ ...row, status: "running" }], decisions: [], busy: true, pending: [], problem: null }
   expect(timeline("chat", snapshot, live).messages.at(-1)).toMatchObject({
-    content: [{ type: "text", text: "hello world" }],
+    content: [
+      { type: "reasoning", text: "current thought" },
+      { type: "text", text: "hello world" },
+    ],
   })
   updateLive(live, frame("turn", "v1"))
-  expect(live).toEqual({})
+  expect(live).toEqual({ "1/old/reasoning": "late thought" })
   expect(timeline("chat", { ...snapshot, turns: latestDialogs([row]) }, live).messages.at(-1)).toMatchObject({
     content: [{ type: "text", text: "reply 1" }],
+  })
+})
+
+test("a regenerating answer streams and steers its candidate without inheriting the previous answer's files", () => {
+  const turn = reply(8)
+  turn.running_variant = {
+    ...turn.active_variant!,
+    public_id: "candidate",
+    run_public_id: "new-run",
+    status: "running",
+    content: null,
+  }
+  expect(projectTurn(turn)).toMatchObject({
+    variant: "candidate",
+    run: "new-run",
+    status: "running",
+    files: false,
+    review: false,
   })
 })

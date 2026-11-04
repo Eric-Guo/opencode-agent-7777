@@ -52,108 +52,135 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
     }
   }
   return (
-    <Show
-      when={d().kind === "ask"}
-      fallback={
-        <PermissionPrompt
-          title={d().tool || language.t("notification.permission.title")}
-          resources={resources()}
-          allowAlways={false}
-          responding={props.sending}
-          onDecide={(choice) => props.reply({ action: choice === "reject" ? "deny" : "approve" })}
-        />
-      }
+    <div
+      tabindex={0}
+      role="group"
+      aria-label={d().prompt || language.t("chat.requestsHeld")}
+      onKeyDown={(event) => {
+        if (props.sending || event.isComposing || event.repeat || event.defaultPrevented) return
+        if (
+          d().kind === "approval" &&
+          (event.key === "Escape" || (event.key === "Enter" && event.target === event.currentTarget))
+        ) {
+          event.preventDefault()
+          props.reply({ action: event.key === "Escape" ? "deny" : "approve" })
+        } else if (
+          d().kind === "ask" &&
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          event.target instanceof HTMLTextAreaElement
+        ) {
+          event.preventDefault()
+          submit()
+        }
+      }}
     >
-      <DockPrompt
-        kind="question"
-        header={<strong>{d().prompt || language.t("nexus.question")}</strong>}
-        footer={
-          <Button disabled={props.sending} onClick={submit}>
-            {language.t("nexus.sendAnswer")}
-          </Button>
+      <Show
+        when={d().kind === "ask"}
+        fallback={
+          <PermissionPrompt
+            title={d().tool || language.t("notification.permission.title")}
+            resources={resources()}
+            allowAlways={!!d().siteGrant}
+            alwaysLabel={language.t("chat.site", { site: d().siteGrant ?? "" })}
+            responding={props.sending}
+            onDecide={(choice) =>
+              props.reply({ action: choice === "reject" ? "deny" : choice === "always" ? "site" : "approve" })
+            }
+          />
         }
       >
-        <form
-          ref={form}
-          onSubmit={(e) => {
-            e.preventDefault()
-            submit()
-          }}
-          class="grid gap-3 overflow-auto max-h-72"
+        <DockPrompt
+          kind="question"
+          header={<strong>{d().prompt || language.t("nexus.question")}</strong>}
+          footer={
+            <Button disabled={props.sending} onClick={submit}>
+              {language.t("nexus.sendAnswer")}
+            </Button>
+          }
         >
-          <For each={fields()}>
-            {(field) => {
-              const name = "value:" + field.name
-              let group!: HTMLFieldSetElement
-              return (
-                <div>
-                  <Show when={!field.required}>
-                    <label>
-                      <input
-                        name={"include:" + field.name}
-                        type="checkbox"
-                        onChange={(e) => {
-                          group.disabled = !e.currentTarget.checked
-                        }}
-                      />{" "}
-                      {language.t("nexus.include", { field: field.label })}
-                    </label>
-                  </Show>
-                  <fieldset ref={group} disabled={!field.required}>
-                    <label>
-                      {field.label}
-                      <Show
-                        when={["boolean", "choice", "multichoice"].includes(field.type)}
-                        fallback={
-                          <input
-                            class="border rounded px-2"
-                            name={name}
-                            type={field.type === "string" ? "text" : "number"}
-                            required={field.type !== "string"}
-                            step={field.type === "integer" ? "1" : "any"}
-                          />
-                        }
-                      >
-                        <select
-                          name={name}
-                          multiple={field.type === "multichoice"}
-                          required={field.type !== "multichoice"}
-                        >
-                          <Show when={field.type !== "multichoice"}>
-                            <option value="">{language.t("nexus.choose")}</option>
-                          </Show>
-                          <For each={field.type === "boolean" ? ["true", "false"] : field.options}>
-                            {(value) => (
-                              <option value={value}>
-                                {field.type === "boolean"
-                                  ? language.t(value === "true" ? "nexus.yes" : "nexus.no")
-                                  : value}
-                              </option>
-                            )}
-                          </For>
-                        </select>
-                      </Show>
-                    </label>
-                  </fieldset>
-                </div>
-              )
+          <form
+            ref={form}
+            onSubmit={(e) => {
+              e.preventDefault()
+              submit()
             }}
-          </For>
-          <Show when={!fields().length}>
-            <Show
-              when={options().length}
-              fallback={<textarea name="reply" required aria-label={language.t("nexus.answer")} />}
-            >
-              <select name="reply" required multiple={!!d().multi} aria-label={language.t("nexus.answer")}>
-                <For each={options()}>{(value) => <option>{value}</option>}</For>
-              </select>
+            class="grid gap-3 overflow-auto max-h-72"
+          >
+            <For each={fields()}>
+              {(field) => {
+                const name = "value:" + field.name
+                let group!: HTMLFieldSetElement
+                return (
+                  <div>
+                    <Show when={!field.required}>
+                      <label>
+                        <input
+                          name={"include:" + field.name}
+                          type="checkbox"
+                          onChange={(e) => {
+                            group.disabled = !e.currentTarget.checked
+                          }}
+                        />{" "}
+                        {language.t("nexus.include", { field: field.label })}
+                      </label>
+                    </Show>
+                    <fieldset ref={group} disabled={!field.required}>
+                      <label>
+                        {field.label}
+                        <Show
+                          when={["boolean", "choice", "multichoice"].includes(field.type)}
+                          fallback={
+                            <input
+                              class="border rounded px-2"
+                              name={name}
+                              type={field.type === "string" ? "text" : "number"}
+                              required={field.type !== "string"}
+                              step={field.type === "integer" ? "1" : "any"}
+                            />
+                          }
+                        >
+                          <select
+                            name={name}
+                            multiple={field.type === "multichoice"}
+                            required={field.type !== "multichoice"}
+                          >
+                            <Show when={field.type !== "multichoice"}>
+                              <option value="">{language.t("nexus.choose")}</option>
+                            </Show>
+                            <For each={field.type === "boolean" ? ["true", "false"] : field.options}>
+                              {(value) => (
+                                <option value={value}>
+                                  {field.type === "boolean"
+                                    ? language.t(value === "true" ? "nexus.yes" : "nexus.no")
+                                    : value}
+                                </option>
+                              )}
+                            </For>
+                          </select>
+                        </Show>
+                      </label>
+                    </fieldset>
+                  </div>
+                )
+              }}
+            </For>
+            <Show when={!fields().length}>
+              <Show
+                when={options().length}
+                fallback={<textarea name="reply" required aria-label={language.t("nexus.answer")} />}
+              >
+                <select name="reply" required multiple={!!d().multi} aria-label={language.t("nexus.answer")}>
+                  <For each={options()}>{(value) => <option>{value}</option>}</For>
+                </select>
+              </Show>
             </Show>
-          </Show>
-          <Show when={error()}>
-            <span role="alert">{error()}</span>
-          </Show>
-        </form>
-      </DockPrompt>
-    </Show>
+            <Show when={error()}>
+              <span role="alert">{error()}</span>
+            </Show>
+          </form>
+        </DockPrompt>
+      </Show>
+    </div>
   )
 }

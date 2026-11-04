@@ -172,3 +172,291 @@ for (const [choice, action] of [
     expect(decisions).toEqual([{ run: task.run, key: task.key, response: { action } }])
   })
 }
+
+test("steers a running reply, queues the next, promotes without resending, and reports partial usage", async ({
+  page,
+}) => {
+  await mockEvents(page)
+  await page.addInitScript(() => localStorage.setItem("7777.nexus.flow", JSON.stringify({ id: "chat" })))
+  const inputs: any[] = [],
+    promoted: any[] = []
+  const turn = {
+    id: "turn",
+    variant: "v",
+    input: "first",
+    run: "run",
+    created: 1,
+    position: 1,
+    prompt: "First request",
+    text: "",
+    status: "running",
+  }
+  await page.route("**/api/7777/**", async (route) => {
+    const p = new URL(route.request().url()).pathname
+    const json = (data: unknown) => route.fulfill({ json: data })
+    if (p.endsWith("/connection"))
+      return json({ scope: "flow", user: "Human", workspace: "Workspace", agent: "rho", model: "m", runner: "local" })
+    if (p.endsWith("/choices"))
+      return json({ models: ["m", "other"], runners: [{ id: "local", name: "Local" }], approvals: ["ask", "rules"] })
+    if (p.endsWith("/prepare")) return json({ ticket: "ticket" })
+    if (p.endsWith("/inputs")) {
+      inputs.push(route.request().postDataJSON())
+      return json({ id: "in" })
+    }
+    if (p.endsWith("/promote")) {
+      promoted.push(route.request().postDataJSON())
+      return json({})
+    }
+    return json({
+      turns: [turn],
+      decisions: [],
+      pending: promoted.length
+        ? []
+        : [
+            {
+              id: "waiting",
+              state: "steering",
+              delivery: "steer",
+              position: 1,
+              version: 4,
+              text: "Earlier steer",
+              created: 2,
+            },
+          ],
+      busy: true,
+      problem: null,
+      detail: {
+        active: "turn",
+        title: "Running example",
+        owned: false,
+        archived: false,
+        runner: "Local",
+        version: 1,
+        usage: { request_count: 3, total_tokens: 90, cost_complete: false, cost_amount: "0.17", cost_unit: "USD" },
+        context: { used_tokens: 20, window_tokens: 100, used_percent: 20, as_of_model: { model_ref: "actual-model" } },
+      },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  await expect(page.getByRole("heading", { name: "Running example" })).toBeVisible()
+  await editor.fill("Steer at boundary")
+  await editor.press("Enter")
+  await expect.poll(() => inputs.length).toBe(1)
+  expect(inputs[0]).toMatchObject({ delivery: "steer", target: "run" })
+  await page.getByRole("button", { name: "Run settings" }).click()
+  await page.getByRole("combobox", { name: "Send behavior", exact: true }).selectOption("queue")
+  await page.getByRole("combobox", { name: "Model", exact: true }).selectOption("other")
+  await page.keyboard.press("Escape")
+  await editor.fill("Queue it")
+  await editor.press("Enter")
+  await expect.poll(() => inputs.length).toBe(2)
+  expect(inputs[1]).toMatchObject({ delivery: "queue", model: "other" })
+  await editor.fill("Right now")
+  await editor.press("Control+Enter")
+  await expect.poll(() => inputs.length).toBe(3)
+  expect(inputs[2]).toMatchObject({ delivery: "steer_now", target: "run" })
+  await expect(editor).toHaveText("")
+  await editor.press("Control+Enter")
+  await expect.poll(() => promoted).toEqual([{ id: "waiting", version: 4 }])
+  expect(inputs.length).toBe(3)
+  await page.getByRole("button", { name: "Usage", exact: true }).click()
+  await expect(page.getByText("Known subtotal", { exact: true })).toBeVisible()
+  await expect(page.getByText("0.17 USD")).toBeVisible()
+  await expect(page.getByText("actual-model")).toBeVisible()
+})
+
+test("keeps slow answer files with their variant and loads recorded changes and rounds on demand", async ({ page }) => {
+  await mockEvents(page)
+  await page.addInitScript(() => localStorage.setItem("7777.nexus.output", JSON.stringify({ id: "chat" })))
+  let variant = "old",
+    release!: () => void,
+    oldStarted = false,
+    reviewReads = 0,
+    roundReads = 0
+  const delayed = new Promise<void>((r) => (release = r))
+  await page.route("**/api/7777/**", async (route) => {
+    const url = new URL(route.request().url()),
+      p = url.pathname
+    const json = (data: unknown) => route.fulfill({ json: data })
+    if (p.endsWith("/connection"))
+      return json({ scope: "output", user: "Human", workspace: "Workspace", agent: "rho", model: "m", runner: "local" })
+    if (p.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (p.endsWith("/files")) {
+      if (url.searchParams.get("variant") === "old") {
+        oldStarted = true
+        await delayed
+        return json([{ id: "old", name: "old.zip" }])
+      }
+      return json([{ id: "new", name: "report.md" }])
+    }
+    if (p.endsWith("/bytes"))
+      return route.fulfill({ body: "# Previewed output", contentType: "application/octet-stream" })
+    if (p.endsWith("/review")) {
+      reviewReads++
+      return json([
+        {
+          runner: "Local",
+          root: "project",
+          base: "base",
+          run: "run",
+          files: [
+            {
+              path: "readme.txt",
+              state: "text",
+              additions: 1,
+              deletions: 1,
+              patch: "@@ -1 +1 @@\n-old\n+new",
+              status: "modified",
+            },
+          ],
+        },
+      ])
+    }
+    if (p.endsWith("/rounds")) {
+      roundReads++
+      return json({ rounds: [{ task_key: "r1", status: "completed", calls: { items: [] } }], has_older: false })
+    }
+    if (p.endsWith("/task"))
+      return json({
+        key: "r1",
+        name: "Round one",
+        output: "Recorded output",
+        status: "completed",
+        kind: "model_task",
+        captures: [],
+        sealed: true,
+      })
+    if (p.endsWith("/request")) return json({ entries: ["A captured request"] })
+    return json({
+      busy: false,
+      pending: [],
+      decisions: [],
+      problem: null,
+      turns: [
+        {
+          id: "turn",
+          variant,
+          input: "in",
+          run: "run",
+          created: 1,
+          position: 1,
+          prompt: "Report",
+          text: "The report is ready.",
+          status: "completed",
+          files: true,
+          review: true,
+        },
+      ],
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  await expect.poll(() => oldStarted).toBe(true)
+  variant = "new"
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(page.getByText("report.md", { exact: true })).toBeVisible()
+  release()
+  expect(roundReads).toBe(0)
+  expect(reviewReads).toBe(0)
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await expect(page.getByText("Previewed output")).toBeVisible()
+  await expect(page.getByText("old.zip")).toHaveCount(0)
+  await page.getByText("Review changes", { exact: true }).click()
+  await page.getByText("readme.txt", { exact: true }).click()
+  const review = page.locator('[data-component="session-review"]')
+  await review.locator('[data-line-type="change-addition"][data-line]').click()
+  const comment = review.getByRole("textbox")
+  await comment.fill("Keep this line")
+  await comment.press("Enter")
+  const draft = page.getByRole("textbox", { name: "Message" })
+  await expect(draft).toContainText("Keep this line")
+  await expect(draft).toContainText('"variant": "new"')
+  await expect(draft).toContainText('"turn": "turn"')
+  await page.getByText("Tools and activity", { exact: true }).click()
+  await page.getByText("Round r1 · completed").click()
+  await expect(page.getByText("Recorded output")).toBeVisible()
+  await page.getByText("Read sealed model request").click()
+  await expect(page.getByText("A captured request", { exact: false })).toBeVisible()
+})
+
+test("renames, archives, reopens from a later archived page and restores the conversation draft", async ({ page }) => {
+  await mockEvents(page)
+  let archived = false,
+    title = "Design notes",
+    version = 1
+  const pageRequests: string[] = []
+  const row = (id: string, name: string) => ({ id, title: name, time: { created: 2 } })
+  await page.addInitScript(() =>
+    localStorage.setItem("7777.nexus.archive", JSON.stringify({ id: "notes", text: "Unsent note" })),
+  )
+  await page.route("**/api/7777/**", async (route) => {
+    const u = new URL(route.request().url()),
+      path = u.pathname
+    const json = (v: unknown) => route.fulfill({ json: v })
+    if (path.endsWith("/connection"))
+      return json({
+        scope: "archive",
+        user: "Human",
+        workspace: "Workspace",
+        agent: "rho",
+        model: "m",
+        runner: "local",
+      })
+    if (path.endsWith("/choices")) return json({ models: [], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/chats")) {
+      if (u.searchParams.get("archived") !== "1")
+        return json({ items: archived ? [] : [row("notes", title)], next: null })
+      const cursor = u.searchParams.get("after") || "first"
+      pageRequests.push(cursor)
+      return json(
+        cursor === "first"
+          ? { items: [row("old", "Earlier chat")], next: "second" }
+          : { items: archived ? [row("notes", title)] : [], next: null },
+      )
+    }
+    if (path.endsWith("/rename")) {
+      const b = route.request().postDataJSON()
+      expect(b.version).toBe(version)
+      title = b.title
+      version++
+      return json({})
+    }
+    if (path.endsWith("/archive") || path.endsWith("/restore")) {
+      archived = path.endsWith("/archive")
+      version++
+      return json({})
+    }
+    return json({
+      turns: [],
+      decisions: [],
+      pending: [],
+      busy: false,
+      problem: null,
+      detail: { title, archived, owned: false, version, runner: "Local", active: null },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const actions = page.getByRole("button", { name: "Conversation actions" }),
+    editor = page.getByRole("textbox", { name: "Message" })
+  await expect(editor).toHaveText("Unsent note")
+  await actions.click()
+  await page.getByRole("textbox", { name: "Conversation title" }).fill("Revised notes")
+  await page.getByRole("button", { name: "Rename", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Revised notes" })).toBeVisible()
+  await actions.click()
+  await page.getByRole("button", { name: "Archive", exact: true }).click()
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await page.getByRole("button", { name: "New session" }).click()
+  await editor.fill("Different draft")
+  await page.getByRole("button", { name: "Recent sessions" }).click()
+  await page.getByRole("button", { name: "Archived", exact: true }).click()
+  await page.getByRole("button", { name: "Load more" }).click()
+  await page.getByRole("option", { name: /Revised notes/ }).click()
+  await expect(editor).toHaveText("Unsent note")
+  await actions.click()
+  await page.getByRole("button", { name: "Restore", exact: true }).click()
+  await expect(editor).toHaveAttribute("contenteditable", "true")
+  expect(pageRequests).toEqual(["first", "second"])
+  await page.getByRole("button", { name: "New session" }).click()
+  await expect(editor).toHaveText("Different draft")
+})

@@ -4,8 +4,28 @@ import { BridgeError, type Backend } from "./nexus"
 
 type RunnerChat = Pick<Conversation, "public_id" | "default_runner">
 type RhoGet = (path: string) => Promise<Response>
-type ReplyContext = Pick<CreateInput, "executor_contexts" | "inline">
-type Submission = { key: string; text: string; model: string }
+type ReplyContext = Pick<CreateInput, "executor_contexts" | "inline" | "model" | "model_selection" | "fallback_models">
+export function modelFields(explicit: string | null, configured: string, fallbacks: string[]): ReplyContext {
+  const model = explicit || configured
+  return {
+    model: { model },
+    model_selection: {
+      source: explicit ? "explicit" : "default",
+      model,
+      constraint: explicit ? "route" : "any",
+      alternatives: [],
+    },
+    fallback_models: fallbacks,
+  }
+}
+export type Submission = {
+  key: string
+  text: string
+  model: string | null
+  delivery?: CreateInput["delivery_mode"]
+  approval?: CreateInput["approval_mode"]
+  target?: string
+}
 
 const RUNNER_TOOL_GUIDANCE =
   "Runner tools are discovered on demand. Use tool_search with one precise tool name " +
@@ -100,6 +120,7 @@ function address(scope: string, chat: RunnerChat, input: Submission) {
       input.key,
       input.model,
       input.text,
+      ...(input.delivery || input.approval || input.target ? [input.delivery, input.approval, input.target] : []),
     ]),
   )
 }
@@ -133,9 +154,11 @@ export function openReply(
   return {
     kind: "direct_reply",
     text: input.text,
-    model: { model: input.model },
+    ...(input.model ? { model: { model: input.model } } : {}),
+    ...(input.delivery ? { delivery_mode: input.delivery } : {}),
+    ...(input.target ? { expected_steering_run_public_id: input.target } : {}),
     ...prepared.context,
-    approval_mode: "ask",
+    approval_mode: input.approval ?? "ask",
   }
 }
 
@@ -143,7 +166,7 @@ export async function submitReply<T>(input: CreateInput, create: (input: CreateI
   try {
     return await create(input)
   } catch (err) {
-    if (!(err instanceof APIError)) throw err
+    if (input.approval_mode !== "ask" || !(err instanceof APIError)) throw err
     // A stricter profile rejects ask before creating a receipt. On replay the already accepted rules
     // envelope instead reports a digest mismatch. Both attempts must use the same Nexus input key.
     if (

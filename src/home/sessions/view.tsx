@@ -116,6 +116,11 @@ export function HomeSessionsView(props: {
                         {recentSessionTitle(session, props.fallbackTitle)}
                       </span>
                       <span class="block truncate text-xs leading-5 text-v2-text-text-muted">
+                        {session.attention
+                          ? language.t("chat.attention") + " · "
+                          : session.working
+                            ? language.t("session.status.working") + " · "
+                            : ""}
                         {recentSessionDescription(session, language.intl())}
                       </span>
                     </button>

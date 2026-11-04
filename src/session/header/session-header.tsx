@@ -1,3 +1,5 @@
+import { Show } from "solid-js"
+import { ConversationActions } from "./conversation-actions"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
@@ -14,10 +16,19 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
       data-slot="session-header"
       class="flex flex-wrap items-center justify-between gap-4 px-11 pb-4 pt-5 max-[720px]:px-[18px]"
     >
-      <div>
-        <h1 class="text-xl font-[720]">{s.connection?.agent || "rho"}</h1>
+      <div class="min-w-0 max-w-full">
+        <h1 class="truncate text-xl font-[720]">{s.snapshot.detail?.title || s.connection?.agent || "rho"}</h1>
         <p class="text-xs text-v2-text-text-faint">
-          {s.connection?.workspace}{" "}
+          {s.connection?.workspace}
+          {" · "}
+          <Show when={s.snapshot.detail?.runner}>
+            {s.snapshot.detail?.runner}
+            {" · "}
+          </Show>
+          <Show when={s.snapshot.detail?.archived}>
+            {language.t("chat.archived")}
+            {" · "}
+          </Show>
           {language.t(
             s.connecting
               ? "session.status.starting"
@@ -25,13 +36,15 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
                 ? "session.status.offline"
                 : s.sending
                   ? "session.status.sending"
-                  : s.snapshot.busy
-                    ? "session.status.working"
-                    : "session.status.ready",
+                  : s.snapshot.decisions.length || s.snapshot.problem
+                    ? "chat.attention"
+                    : s.snapshot.busy
+                      ? "session.status.working"
+                      : "session.status.ready",
           )}
         </p>
       </div>
-      <div class="flex gap-2 items-center text-xs">
+      <div class="flex flex-wrap gap-2 items-center text-xs">
         <span>{s.connection?.user}</span>
         <Icon name="speech-bubble" />
         <span>
@@ -44,6 +57,7 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
         >
           <Icon name="plus" />
         </Button>
+        <ConversationActions chat={chat} />
         <HomeSessionsRegion chat={chat} />
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
           {language.locale().toUpperCase()}

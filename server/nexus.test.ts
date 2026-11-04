@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { IncomingMessage } from "node:http"
 import { localRequest } from "./middleware"
-import { resolveDecision } from "./nexus"
+import { grantSite, resolveDecision } from "./nexus"
 import { answerFields } from "../src/nexus/decision"
 
 test("only the active loopback origin may post commands", () => {
@@ -146,4 +146,15 @@ test("discovery checks workspace access and sends only the Human credential for 
     service.stop(true)
     await rm(home, { recursive: true, force: true })
   }
+})
+
+test("only native web_fetch approvals with a literal HTTP site can be retained", () => {
+  const held = (url: string, kind = "builtin", status = "needs_approval") =>
+    grantSite({ task: { tool_name: "web_fetch", target: { kind }, status }, tool_input: { url } })
+  expect(held("https://EXAMPLE.test:443/reports?a=1")).toBe("https://EXAMPLE.test:443")
+  expect(held("https://user:pass@example.test/data")).toBeUndefined()
+  expect(held("http://*.example.test/data")).toBeUndefined()
+  expect(held("file:///etc/hosts")).toBeUndefined()
+  expect(held("https://example.test/data", "mcp")).toBeUndefined()
+  expect(held("https://example.test/data", "builtin", "completed")).toBeUndefined()
 })
