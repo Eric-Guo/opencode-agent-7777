@@ -5,6 +5,7 @@ export const dict = {
     "The server took too long to finish the history action. Check the current history before trying again.",
   "toast.session.export.timeout": "The server took too long to prepare the export. Try again.",
   "nexus.reconnect": "Reconnect",
+  "nexus.workdir": "Working directory: {{directory}}",
   "nexus.question": "Question from rho",
   "nexus.sendAnswer": "Send answer",
   "nexus.include": "Include {{field}}",

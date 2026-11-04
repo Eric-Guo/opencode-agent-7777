@@ -63,7 +63,7 @@ export function PermissionPrompt(props: PermissionPromptProps) {
           <span data-slot="permission-spacer" aria-hidden="true" />
           <div data-slot="permission-patterns">
             <For each={props.resources}>
-              {(pattern) => <code class="text-12-regular text-text-base break-all">{pattern}</code>}
+              {(pattern) => <code class="text-12-regular text-text-base whitespace-pre-wrap break-all">{pattern}</code>}
             </For>
           </div>
         </div>

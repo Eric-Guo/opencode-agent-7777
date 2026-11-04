@@ -50,12 +50,13 @@ test("typed answers preserve zero, false, empty lists, and omitted fields; appro
   ])
 })
 
-test("discovery separates the two credentials and refuses a workspace the Human cannot read", async () => {
+test("discovery checks workspace access and sends only the Human credential for task decisions", async () => {
   const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises")
   const { tmpdir } = await import("node:os")
   const { join } = await import("node:path")
   const { discover } = await import("./nexus")
   const calls: [string, string | null][] = []
+  let readable = false
   const service = Bun.serve({
     hostname: "127.0.0.1",
     port: 0,
@@ -82,6 +83,36 @@ test("discovery separates the two credentials and refuses a workspace the Human 
           configuration: null,
           measured_at: "2026-11-01T00:00:00Z",
         })
+      if (readable && path === "/agent_api/v1/workspaces/workspace")
+        return Response.json({
+          workspace: {
+            public_id: "workspace",
+            name: "Workspace",
+            state: "active",
+            access_mode: "private",
+            dedicated: false,
+            lock_version: 1,
+            created_at: "now",
+            updated_at: "now",
+            metadata: {},
+            tool_provider_overrides: {},
+            owner: { public_id: "human" },
+            creator: { public_id: "human", kind: "human" },
+          },
+        })
+      if (readable && path.startsWith("/agent_api/v1/workspaces/workspace/runs/run/tasks/bash/"))
+        return Response.json({
+          task: {
+            key: "bash",
+            kind: "tool",
+            status: path.endsWith("/deny") ? "failed" : "dispatched",
+            lifetime: "turn",
+            wake: "immediate",
+            after: [],
+            waiting_on: [],
+            approval: { origin: "human" },
+          },
+        })
       return Response.json({ error: { code: "not_authorized", message: "Denied" } }, { status: 403 })
     },
   })
@@ -102,6 +133,14 @@ test("discovery separates the two credentials and refuses a workspace the Human 
       ["/status", "Bearer daemon-test"],
       ["/agent_api/v1/profile", "Bearer human-test"],
       ["/agent_api/v1/workspaces/workspace", "Bearer human-test"],
+    ])
+    readable = true
+    const backend = await discover(home, "human-test")
+    const task = backend.workspace.run("run").task("bash")
+    for (const action of ["approve", "deny"] as const) await resolveDecision(task, { action })
+    expect(calls.slice(-2)).toEqual([
+      ["/agent_api/v1/workspaces/workspace/runs/run/tasks/bash/approve", "Bearer human-test"],
+      ["/agent_api/v1/workspaces/workspace/runs/run/tasks/bash/deny", "Bearer human-test"],
     ])
   } finally {
     service.stop(true)
