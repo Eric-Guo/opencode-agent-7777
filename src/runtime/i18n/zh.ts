@@ -3,6 +3,15 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "nexus.reconnect": "重新连接",
+  "nexus.question": "rho 的提问",
+  "nexus.sendAnswer": "提交回答",
+  "nexus.include": "填写{{field}}",
+  "nexus.choose": "请选择…",
+  "nexus.answer": "回答",
+  "nexus.number": "请在{{field}}中输入有效数字。",
+  "nexus.yes": "是",
+  "nexus.no": "否",
   "review.title": "查看本轮变更",
   "review.description": "本会话最新一轮记录的文件变更。",
   "review.refresh": "刷新变更",

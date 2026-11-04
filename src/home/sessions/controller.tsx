@@ -1,4 +1,4 @@
-import type { SessionInfo } from "@opencode/client/promise"
+import type { RecentChat as SessionInfo } from "@/nexus/chat"
 import type { Accessor } from "solid-js"
 import type { HomeSessionIndex } from "./index"
 import { compareSessionTime } from "./records"

@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from "bun:test"
-import { mkdtemp, realpath, rm, symlink } from "node:fs/promises"
+import { mkdir, mkdtemp, realpath, rm, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { Manifest } from "vite"
@@ -14,11 +14,13 @@ async function fixture(conflict = false) {
   const directory = await realpath(await mkdtemp(join(tmpdir(), "shared-renderers-test-")))
   directories.push(directory)
 
+  await mkdir(join(directory, "plm-meeting"), { recursive: true })
   await Promise.all([
     Bun.write(
       join(directory, "plm-meeting/scripts/build-shared.ts"),
       Bun.file(new URL("./build-shared.ts", import.meta.url)),
     ),
+    symlink(new URL("../server", import.meta.url), join(directory, "plm-meeting/server")),
     Bun.write(join(directory, "plm-meeting/vite.config.ts"), Bun.file(new URL("../vite.config.ts", import.meta.url))),
     ...["7777", "plm-meeting"].map(async (name) => {
       await Bun.write(join(directory, name, "package.json"), '{"type":"module"}')

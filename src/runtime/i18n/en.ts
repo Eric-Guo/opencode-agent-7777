@@ -1,4 +1,13 @@
 export const dict = {
+  "nexus.reconnect": "Reconnect",
+  "nexus.question": "Question from rho",
+  "nexus.sendAnswer": "Send answer",
+  "nexus.include": "Include {{field}}",
+  "nexus.choose": "Choose…",
+  "nexus.answer": "Answer",
+  "nexus.number": "Enter a valid number for {{field}}.",
+  "nexus.yes": "Yes",
+  "nexus.no": "No",
   "review.title": "Review turn changes",
   "review.description": "File changes recorded for the latest turn in this session.",
   "review.refresh": "Refresh changes",

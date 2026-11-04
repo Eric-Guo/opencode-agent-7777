@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { Skill } from "@opencode/schema/skill"
-import type { Prompt } from "./state"
+import type { Prompt } from "./types"
 import { clonePrompt, promptLength, promptText } from "./prompt-parts"
 
 describe("composer prompt parts", () => {

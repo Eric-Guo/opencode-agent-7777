@@ -31,10 +31,6 @@ only when open with an OpenAI model selected. A Solid resource tracks refreshes 
 The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous
 translations. `runtime/i18n/language.tsx` also owns `UiI18nBridge`, following the main app's language boundary;
 `app.tsx` only composes providers. Compact locale detection, storage and eager English/Chinese dictionaries stay local.
-File-mention search follows the main app's separate file-lifecycle machine pattern with local
-`workspaces/files/search-machine.ts`. It owns request attempts and status transitions; `model.tsx` drives HTTP reads
-and cancellation through public `@opencode/util/abort`. Replaced or cleared requests cannot publish paths or change
-the current status. Query limits, deduplication, error recovery and the existing reactive status API are preserved.
 
 ## Remaining compact responsibilities
 

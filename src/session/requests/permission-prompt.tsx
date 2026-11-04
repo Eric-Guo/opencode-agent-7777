@@ -8,6 +8,7 @@ export type PermissionPromptProps = {
   title: string
   description?: string
   resources: readonly string[]
+  allowAlways?: boolean
   responding: boolean
   onDecide: (response: "once" | "always" | "reject") => void
 }
@@ -33,14 +34,16 @@ export function PermissionPrompt(props: PermissionPromptProps) {
             <Button variant="ghost" size="normal" onClick={() => props.onDecide("reject")} disabled={props.responding}>
               {i18n.t("ui.permission.deny")}
             </Button>
-            <Button
-              variant="neutral"
-              size="normal"
-              onClick={() => props.onDecide("always")}
-              disabled={props.responding}
-            >
-              {i18n.t("ui.permission.allowAlways")}
-            </Button>
+            <Show when={props.allowAlways !== false}>
+              <Button
+                variant="neutral"
+                size="normal"
+                onClick={() => props.onDecide("always")}
+                disabled={props.responding}
+              >
+                {i18n.t("ui.permission.allowAlways")}
+              </Button>
+            </Show>
             <Button variant="contrast" size="normal" onClick={() => props.onDecide("once")} disabled={props.responding}>
               {i18n.t("ui.permission.allowOnce")}
             </Button>

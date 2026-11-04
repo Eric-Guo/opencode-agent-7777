@@ -3,8 +3,6 @@ import type { DesktopAPI } from "@/runtime/platform/desktop-api"
 
 interface ImportMetaEnv {
   readonly VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY?: string
-  readonly VITE_OPENCODE_SERVER_HOST?: string
-  readonly VITE_OPENCODE_SERVER_PORT?: string
 }
 
 interface ImportMeta {

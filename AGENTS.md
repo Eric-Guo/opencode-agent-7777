@@ -44,7 +44,7 @@ Recent commits use short, imperative summaries such as `Add drag support.` and `
 
 ## Configuration Notes
 
-In development, the client resolves the opencode server from `VITE_OPENCODE_SERVER_HOST` and `VITE_OPENCODE_SERVER_PORT`, defaulting to `localhost:4096`. Avoid committing local credentials or session data.
+On `nexus_backend`, the browser uses the same-origin `/api/7777` bridge. Server-only code in `server/` discovers Nexus through rho’s announcement and reads `NEXUS_MEMBER_TOKEN` from the local environment. Keep the token and rho’s control bearer out of the renderer and Git.
 
 ## Agent-Specific Instructions
 

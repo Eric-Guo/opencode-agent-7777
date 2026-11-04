@@ -8,3 +8,5 @@ dist/
 dist-shared/
 .DS_Store
 component-tests/test-results/
+
+.local/

@@ -1,127 +1,53 @@
+import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
-import { createResource, createSignal, Show } from "solid-js"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import { useLanguage, type Locale } from "@/runtime/i18n/language"
-import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
-import type { CybrosCurrentUser } from "@/runtime/platform/desktop-api"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
-import { SessionHeaderActions } from "@/session/header/session-header-actions"
-import { SessionContextUsage } from "@/context/indicator"
-import type { SessionRevert } from "@/session/revert"
-import { SettingsGeneral } from "@/settings/general/general"
-import { ReviewTrigger } from "@/review/trigger-compact"
+import type { createChatController } from "@/nexus/controller"
+import { useLanguage } from "@/runtime/i18n/language"
 
-const CYBROS_CURRENT_USER_URL = "https://cybros.thape.com.cn/api/sigma_agents/me.json"
-
-function nextLocale(locale: Locale): Locale {
-  return locale === "en" ? "zh" : "en"
-}
-
-async function fetchCybrosCurrentUser(ssoJwtSecretKey?: string) {
-  const desktopUser = await getDesktopCybrosCurrentUser()
-  if (desktopUser) return desktopUser
-  if (!ssoJwtSecretKey) return
-
-  const response = await fetch(CYBROS_CURRENT_USER_URL, {
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${ssoJwtSecretKey}`,
-    },
-  })
-  if (!response.ok) throw new Error(`Failed to load Cybros user: ${response.status}`)
-
-  return response.json() as Promise<CybrosCurrentUser>
-}
-
-export function SessionHeader(props: {
-  revert: SessionRevert
-  status: string
-  userDialogCount: number
-  showReasoningSummaries: boolean
-  newSessionPending: boolean
-  newSessionDisabled: boolean
-  onToggleReasoningSummaries: () => void
-  onNewSession: () => void
-}) {
+export function SessionHeader(props: { chat: ReturnType<typeof createChatController>; dialogCount: number }) {
+  const chat = props.chat
+  const s = chat.s
   const language = useLanguage()
-  const targetLocale = () => nextLocale(language.locale())
-  const [cybrosCurrentUser] = createResource(
-    () => ({ ssoJwtSecretKey: state.server?.ssoJwtSecretKey }),
-    ({ ssoJwtSecretKey }) => fetchCybrosCurrentUser(ssoJwtSecretKey),
-  )
-
   return (
     <header
       data-slot="session-header"
-      data-windows-electron={windowsElectron ? "true" : undefined}
-      class="flex min-w-0 items-center justify-between gap-4 bg-v2-background-bg-deep px-11 pb-4 pt-5 [-webkit-app-region:drag] select-none max-[720px]:flex-wrap max-[720px]:gap-2 max-[720px]:px-[18px] max-[720px]:pb-3 max-[720px]:pt-[18px]"
+      class="flex flex-wrap items-center justify-between gap-4 px-11 pb-4 pt-5 max-[720px]:px-[18px]"
     >
-      <div class="min-w-0 max-[720px]:w-full">
-        <h1 class="m-0 text-xl font-[720] leading-[1.1] tracking-[0] text-v2-text-text-base">{currentLocalAgent()}</h1>
-        <p class="m-0 mt-1 text-xs leading-[1.2] text-v2-text-text-faint">{props.status}</p>
-      </div>
-      <div
-        data-slot="session-header-controls"
-        class="flex shrink-0 items-center gap-2 [-webkit-app-region:no-drag] mt-5 max-[720px]:mt-0 max-[720px]:max-w-full max-[720px]:flex-wrap"
-      >
-        <Show when={cybrosCurrentUser()}>
-          {(user) => (
-            <div class="inline-flex h-[30px] items-center justify-center px-2 text-xs font-[650] text-v2-text-text-muted select-none">
-              {user().chinese_name} ({user().clerk_code})
-            </div>
+      <div>
+        <h1 class="text-xl font-[720]">{s.connection?.agent || "rho"}</h1>
+        <p class="text-xs text-v2-text-text-faint">
+          {s.connection?.workspace}{" "}
+          {language.t(
+            s.connecting
+              ? "session.status.starting"
+              : !s.connection
+                ? "session.status.offline"
+                : s.sending
+                  ? "session.status.sending"
+                  : s.snapshot.busy
+                    ? "session.status.working"
+                    : "session.status.ready",
           )}
-        </Show>
-        <div class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 px-2 text-xs font-[650] text-v2-text-text-muted select-none [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5">
-          <Icon name="speech-bubble" />
-          <span>{props.userDialogCount}</span>
-          <span>/</span>
-          <span>{HISTORY_DIALOG_LIMIT}</span>
-        </div>
-        <SessionHeaderActions revert={props.revert} />
-        <ReviewTrigger />
-        <button
-          type="button"
-          class="inline-flex h-[30px] min-w-[30px] items-center justify-center rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base disabled:opacity-55 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
+        </p>
+      </div>
+      <div class="flex gap-2 items-center text-xs">
+        <span>{s.connection?.user}</span>
+        <Icon name="speech-bubble" />
+        <span>
+          {props.dialogCount}/{HISTORY_DIALOG_LIMIT}
+        </span>
+        <Button
+          disabled={!s.connection || s.sending}
           aria-label={language.t("session.new")}
-          title={language.t("session.new")}
-          disabled={props.newSessionPending || props.newSessionDisabled}
-          onClick={props.onNewSession}
+          onClick={() => chat.select("")}
         >
           <Icon name="plus" />
-        </button>
-        <button
-          type="button"
-          data-slot="session-header-mode-toggle"
-          class="inline-flex h-[30px] min-w-[92px] items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-[650] hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base max-[720px]:min-w-[30px] max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
-          classList={{
-            "border-v2-border-border-strong bg-v2-overlay-simple-overlay-hover text-v2-text-text-base":
-              props.showReasoningSummaries,
-            "border-v2-border-border-base bg-v2-background-bg-layer-01 text-v2-text-text-muted":
-              !props.showReasoningSummaries,
-          }}
-          aria-label={language.t("session.thinking.toggle")}
-          aria-pressed={props.showReasoningSummaries}
-          title={language.t("session.thinking.toggle")}
-          onClick={props.onToggleReasoningSummaries}
-        >
-          <Icon name="brain" />
-          <span data-slot="session-header-control-label" class="max-[720px]:hidden">
-            {language.t("session.thinking")}
-          </span>
-        </button>
-        <SessionContextUsage />
-        <HomeSessionsRegion />
-        <SettingsGeneral />
-        <button
-          type="button"
-          class="inline-flex h-[30px] min-w-[48px] items-center justify-center gap-1.5 rounded-full border border-v2-border-border-base bg-v2-background-bg-layer-01 px-2 text-xs font-[650] text-v2-text-text-muted hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover hover:text-v2-text-text-base max-[720px]:px-2 [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
-          aria-label={language.t("language.switch", { language: language.label(targetLocale()) })}
-          onClick={() => language.setLocale(targetLocale())}
-        >
+        </Button>
+        <HomeSessionsRegion chat={chat} />
+        <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
           {language.locale().toUpperCase()}
-        </button>
+        </Button>
       </div>
     </header>
   )
