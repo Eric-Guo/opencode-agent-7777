@@ -21,6 +21,9 @@ export type Backend = {
   workspaceID: string
   agentID: string
   connection: Connection
+  rhoGet: (path: string) => Promise<Response>
+  localRunner: string | null
+  agentExecutor: string | null
   realtime: () => RealtimeClient
 }
 export async function discover(home: string, token?: string): Promise<Backend> {
@@ -35,11 +38,13 @@ export async function discover(home: string, token?: string): Promise<Backend> {
     announcement.state !== "active"
   )
     throw new BridgeError(503, "The local rho daemon is unavailable.")
-  const status = await fetch(new URL("/status", endpoint), {
-    headers: { Authorization: "Bearer " + announcement.bearer },
-    redirect: "error",
-    signal: AbortSignal.timeout(5000),
-  })
+  const rhoGet = (path: string) =>
+    fetch(new URL(path, endpoint), {
+      headers: { Authorization: "Bearer " + announcement.bearer },
+      redirect: "error",
+      signal: AbortSignal.timeout(5000),
+    })
+  const status = await rhoGet("/status")
   if (!status.ok) throw new BridgeError(503, "Could not read local rho status.")
   const rho = await status.json()
   const workspaceID = rho.workspace?.public_id
@@ -68,6 +73,9 @@ export async function discover(home: string, token?: string): Promise<Backend> {
     workspaceID: workspaceID as string,
     agentID: agentID as string,
     connection,
+    rhoGet,
+    localRunner: rho.identity.runner_executor_public_id ?? null,
+    agentExecutor: rho.identity.executor_public_id ?? null,
     realtime: () => new RealtimeClient(options),
   }
 }
@@ -120,7 +128,12 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
     if (!problem && (data.failure_reason || data.turn.failure_reason_key)) {
       problem = data.failure_reason ?? data.turn.failure_reason_key
     }
-    if (!problem && data.status === "needs_attention") problem = data.attention?.reason ?? data.status
+    if (
+      !problem &&
+      data.status === "needs_attention" &&
+      !["approval_required", "awaiting_human"].includes(data.attention?.reason ?? "")
+    )
+      problem = data.attention?.reason ?? data.status
     for (const task of data.tasks.filter((t) => ["needs_approval", "awaiting_input"].includes(t.status))) {
       const detail = await run.task(task.key).fetch()
       decisions.push({
