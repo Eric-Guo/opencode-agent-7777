@@ -49,6 +49,16 @@
 .chat-controls {
   width: min(300px, 75vw);
 }
+.chat-modes {
+  display: grid;
+  gap: 0.45rem;
+}
+.chat-modes [data-component="switch"] {
+  justify-content: space-between;
+}
+.chat-modes small {
+  color: var(--v2-text-text-muted);
+}
 .chat-field,
 .chat-controls select {
   border: 1px solid var(--v2-border-border-base);

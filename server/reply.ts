@@ -4,7 +4,10 @@ import { BridgeError, type Backend } from "./nexus"
 
 type RunnerChat = Pick<Conversation, "public_id" | "default_runner">
 type RhoGet = (path: string) => Promise<Response>
-type ReplyContext = Pick<CreateInput, "executor_contexts" | "inline" | "model" | "model_selection" | "fallback_models">
+type ReplyContext = Pick<
+  CreateInput,
+  "tool_names" | "executor_contexts" | "inline" | "model" | "model_selection" | "fallback_models"
+>
 export function modelFields(explicit: string | null, configured: string, fallbacks: string[]): ReplyContext {
   const model = explicit || configured
   return {
@@ -31,6 +34,10 @@ const RUNNER_TOOL_GUIDANCE =
   "Runner tools are discovered on demand. Use tool_search with one precise tool name " +
   "(for example, bash for shell commands or ls for directory listings). Use tool_call with the returned " +
   "name and input schema. If a search returns no tools, try the exact name alone."
+
+export function runnerGuidance(): Pick<CreateInput, "inline"> {
+  return { inline: [{ role: "developer", position: "lead", text: RUNNER_TOOL_GUIDANCE }] }
+}
 
 function absolute(path: unknown): path is string {
   // Validate the Runner's path syntax, independently of the bridge's operating system.
@@ -102,7 +109,7 @@ export async function replyContext(
   }
   return {
     executor_contexts: { [runner]: { "rho.environment": binding } },
-    inline: [{ role: "developer", position: "lead", text: RUNNER_TOOL_GUIDANCE }],
+    ...runnerGuidance(),
   }
 }
 

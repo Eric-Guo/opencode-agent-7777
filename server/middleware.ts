@@ -9,7 +9,7 @@ import { APIError } from "@cybros/agent"
 import {
   BridgeError,
   discover,
-  canGrant,
+  canWrite,
   grantSite,
   ownership,
   readChat,
@@ -17,7 +17,8 @@ import {
   snapshot,
   type Backend,
 } from "./nexus"
-import { modelFields, openReply, replyContext, sealReply, storedBinding, submitReply } from "./reply"
+import { modelFields, openReply, runnerGuidance, sealReply, submitReply } from "./reply"
+import { defaultModes, inputPolicy, readModes, updateModes } from "./input-policy"
 import { projectFrame, type Approval, type Choices, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
@@ -125,10 +126,11 @@ export function middleware(
         throw new BridgeError(409, "The active Nexus identity or workspace changed. Reconnect.")
       const body = req.method === "POST" ? await payload(req) : undefined
       if (route === "/choices" && req.method === "GET") {
-        const [models, inventory, preset] = await Promise.all([
+        const [models, inventory, preset, modes] = await Promise.all([
           b.client.models.list({ workload: "text_generation" }),
           rhoData<{ runners: { public_id: string; display_name?: string }[] }>(await b.rhoGet("/runners")),
           mainPreset(b),
+          defaultModes(b),
         ])
         const policy = preset ? (preset.approval_mode ?? "bypass") : "ask"
         const approvals: Approval[] =
@@ -137,6 +139,7 @@ export function middleware(
           models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
           runners: inventory.runners.map((r) => ({ id: r.public_id, name: r.display_name || r.public_id })),
           approvals,
+          modes,
         } satisfies Choices)
       }
       if (route === "/chats" && req.method === "GET") {
@@ -196,6 +199,10 @@ export function middleware(
       const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
       if (req.method === "GET") {
+        if (action === "modes") {
+          if (!canWrite(b, info) || (await ownership(b, info))) return json(res, 200, null)
+          return json(res, 200, await readModes(b, id!))
+        }
         if (action === "files" || action === "review") {
           const turn = await outputTurn(b, info, url.searchParams)
           return json(res, 200, await (action === "files" ? outputs(b, info, turn) : review(b, info, turn)))
@@ -221,6 +228,10 @@ export function middleware(
         if (info.archived_at && !["restore", "rename"].includes(action!))
           throw new BridgeError(409, "Restore this conversation first.")
       }
+      if (action === "modes" || action === "prepare") {
+        if (!canWrite(b, info)) throw new BridgeError(403, "This Human needs write access to the conversation.")
+        if (action === "modes") return json(res, 200, await updateModes(b, id!, body))
+      }
       if (action === "inputs" || action === "prepare") {
         if (typeof body.text !== "string" || !body.text.trim()) throw new BridgeError(400, "Enter a message.")
         if (!body.key || typeof body.key !== "string" || (body.model !== null && typeof body.model !== "string"))
@@ -240,21 +251,16 @@ export function middleware(
           target: body.target,
         }
         if (action === "prepare") {
-          const [env, preset] = await Promise.all([
-            replyContext(info, b.rhoGet, (runner) => storedBinding(b.workspace, info, runner)),
-            mainPreset(b),
-          ])
+          const [policy, preset] = await Promise.all([inputPolicy(b, id!), mainPreset(b)])
           const context = {
-            ...env,
+            ...policy,
+            ...(info.default_runner && policy.tool_names.length ? runnerGuidance() : {}),
             ...modelFields(
               submission.model,
               preset?.model ?? b.connection.model,
               preset?.fallback_models ?? b.fallbackModels,
             ),
           }
-          // rho's agent and runner share the same binding when both live on this machine.
-          if (context.executor_contexts && b.localRunner === info.default_runner?.executor_public_id && b.agentExecutor)
-            context.executor_contexts[b.agentExecutor] = context.executor_contexts[b.localRunner]
           return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission, context) })
         }
         if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
@@ -288,7 +294,7 @@ export function middleware(
         const { run } = await ownedRun(b, id!, body.run)
         if (body.response.action === "site") {
           const detail = await run.task(body.key).fetch()
-          if (!canGrant(b, info) || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
+          if (!canWrite(b, info) || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
           const result = await rhoData<{ grant?: { refused?: string } }>(
             await b.rhoGet("/runs/approve", {
               method: "POST",

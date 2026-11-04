@@ -4,6 +4,29 @@ import type { AddressInfo } from "node:net"
 import { middleware } from "./middleware"
 import type { Backend } from "./nexus"
 
+async function bridge(b: Backend) {
+  const handle = middleware(
+    () => ({ token: "test" }),
+    async () => b,
+  )
+  const server = createServer((req, res) => void handle(req, res, () => res.end()))
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r))
+  const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port
+  const send = (path: string, body?: unknown) =>
+    fetch(base + "/api/7777" + path, {
+      method: body ? "POST" : "GET",
+      headers: { origin: base, "x-7777-scope": "scope", "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+  return {
+    send,
+    close: async () => {
+      server.closeAllConnections()
+      await new Promise<void>((r) => server.close(() => r()))
+    },
+  }
+}
+
 test("scoped bridge enforces channel ownership, archive state, run and file ownership", async () => {
   let bound = true,
     archived = false,
@@ -75,19 +98,7 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
       }),
     },
   } as unknown as Backend
-  const handle = middleware(
-    () => ({ token: "test" }),
-    async () => b,
-  )
-  const server = createServer((req, res) => void handle(req, res, () => res.end()))
-  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r))
-  const base = "http://127.0.0.1:" + (server.address() as AddressInfo).port
-  const send = (path: string, body?: unknown) =>
-    fetch(base + "/api/7777" + path, {
-      method: body ? "POST" : "GET",
-      headers: { origin: base, "x-7777-scope": "scope", "content-type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    })
+  const { send, close } = await bridge(b)
   try {
     expect((await send("/chats?archived=1&after=cursor")).status).toBe(200)
     expect((await send("/chats")).status).toBe(200)
@@ -115,7 +126,130 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     expect(download.headers.get("Content-Disposition")).toContain("picture.png")
     expect([...new Uint8Array(await download.arrayBuffer())]).toEqual([0, 255, 17])
   } finally {
-    server.closeAllConnections()
-    await new Promise<void>((r) => server.close(() => r()))
+    await close()
+  }
+})
+
+test("only rho’s prepared tools and contexts reach the Human SDK, including on receipt replay", async () => {
+  let access = "full",
+    owned = false,
+    supports = true,
+    plugin = true
+  let policy: unknown = {
+    tool_names: [],
+    executor_contexts: { runner: { marker: "original" } },
+    speaker_public_id: "spoof",
+  }
+  const preparations: unknown[] = [],
+    patches: unknown[] = [],
+    inputs: { fields: any; key: string }[] = []
+  const info = (id: string) => ({
+    public_id: id,
+    workspace_public_id: "w",
+    answering_user_public_id: "rho",
+    access: { default: "full", entries: [{ user_public_id: "human", level: access }] },
+    default_runner: { executor_public_id: "runner" },
+  })
+  const backend = {
+    connection: { scope: "scope", model: "configured" },
+    workspaceID: "w",
+    humanID: "human",
+    workspaceActive: true,
+    agentID: "rho",
+    fallbackModels: [],
+    workspace: {
+      conversation: (id: string) => ({
+        fetch: async () => info(id),
+        inputs: {
+          create: (fields: unknown, options: { idempotencyKey: string }) => {
+            inputs.push({ fields, key: options.idempotencyKey })
+            return { input: { public_id: "receipt" } }
+          },
+        },
+      }),
+    },
+    rhoGet: (path: string, init?: RequestInit) => {
+      const body = init?.body && JSON.parse(String(init.body))
+      if (path.startsWith("/conversations/detail?"))
+        return Response.json({
+          conversation: {
+            ...info(new URLSearchParams(path.split("?")[1]).get("public_id")!),
+            ingresses: owned ? ["channel"] : [],
+          },
+        })
+      if (path === "/presets") return Response.json({ presets: [] })
+      if (path === "/conversations/prepare-input-policy" && init?.method === "POST") {
+        if (!supports || (policy === null && Object.keys(body).length))
+          return Response.json({ error: { code: "not_found" } }, { status: 404 })
+        if (!Object.keys(body).length) return Response.json({ error: { code: "parameter_missing" } }, { status: 400 })
+        preparations.push(body)
+        return Response.json(policy)
+      }
+      if (path.startsWith("/conversations/modes")) {
+        if (init?.method === "PATCH") patches.push(body)
+        return Response.json({
+          modes: { code_mode: false, subagent: false, available: true, code_mode_available: plugin },
+        })
+      }
+      throw new Error("unexpected rho route: " + path)
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(backend)
+  try {
+    const body = { key: "one", text: "hello", model: null, speaker_public_id: "spoof", tool_names: ["forged"] }
+    const r = await send("/chats/a/prepare", body)
+    expect(r.status).toBe(200)
+    const { ticket } = await r.json()
+    expect((await send("/chats/a/modes", { subagent: true })).status).toBe(200)
+    expect(patches).toEqual([{ public_id: "a", workspace_public_id: "w", subagent: true }])
+    policy = { tool_names: ["code", "spawn"] }
+    for (let i = 0; i < 2; i++) expect((await send("/chats/a/inputs", { ...body, ticket })).status).toBe(202)
+    expect(inputs).toHaveLength(2)
+    expect(inputs[0]).toEqual(inputs[1])
+    expect(inputs[0]).toMatchObject({
+      key: "one",
+      fields: {
+        kind: "direct_reply",
+        text: "hello",
+        tool_names: [],
+        executor_contexts: { runner: { marker: "original" } },
+      },
+    })
+    expect(inputs[0].fields).not.toHaveProperty("speaker_public_id")
+    expect(preparations).toEqual([{ public_id: "a", workspace_public_id: "w" }])
+    expect((await send("/chats/b/inputs", { ...body, ticket })).status).toBe(409)
+    const next = { ...body, key: "two" }
+    const nextTicket = await (await send("/chats/a/prepare", next)).json()
+    expect((await send("/chats/a/inputs", { ...next, ...nextTicket })).status).toBe(202)
+    expect(inputs[2].fields.tool_names).toEqual(["code", "spawn"])
+    expect(inputs[2].fields).not.toHaveProperty("executor_contexts")
+    for (const invalid of [
+      {},
+      { tool_names: null },
+      { tool_names: [false] },
+      { tool_names: [], executor_contexts: { runner: null } },
+    ]) {
+      policy = invalid
+      expect((await send("/chats/a/prepare", body)).status).toBe(502)
+    }
+    policy = null
+    expect((await send("/chats/a/prepare", body)).status).toBe(404)
+    supports = false
+    expect((await send("/chats/a/prepare", body)).status).toBe(503)
+    expect((await send("/chats/a/modes", { subagent: true })).ok).toBe(false)
+    supports = true
+    plugin = false
+    expect((await send("/chats/a/modes", { code_mode: true })).status).toBe(409)
+    expect((await send("/chats/a/modes", { tool_names: [] })).status).toBe(400)
+    for (const level of ["read", "none", "full"]) {
+      access = level
+      owned = level === "full"
+      expect((await send("/chats/a/modes", { subagent: false })).status).toBe(403)
+      expect((await send("/chats/a/prepare", body)).status).toBe(403)
+    }
+    expect(patches).toHaveLength(1)
+    expect(inputs).toHaveLength(3)
+  } finally {
+    await close()
   }
 })
