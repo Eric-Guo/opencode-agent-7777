@@ -1,6 +1,6 @@
-import type { SessionInfo } from "@opencode/client/promise"
+import type { RecentChat } from "@/nexus/chat"
 
-type Page = { items: SessionInfo[]; cursor?: string }
+type Page = { items: RecentChat[]; cursor?: string }
 
 // Compact Home has one cursor-paged query, without the main app's shared server cache.
 export type HomeSessionsLoadState = Page & {

@@ -1,7 +1,6 @@
-import type { SessionInfo } from "@opencode/client/promise"
 import { displayLabel } from "@opencode/util/session-title-fallback"
 
-export function sessionLabel(session: Pick<SessionInfo, "title" | "parentID">) {
+export function sessionLabel(session: { title?: string; parentID?: string }) {
   return displayLabel(session)
 }
 

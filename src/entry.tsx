@@ -1,15 +1,8 @@
-import { createEffect } from "solid-js"
 import { render } from "solid-js/web"
 import { AppBaseProviders, AppInterface } from "@/app"
-import { SET_DOCUMENT_TITLE } from "@/constants/session"
 import { isAgent7777Enabled } from "@/runtime/platform/platform-bridge"
-import { currentLocalAgent } from "@/runtime/server/session-store-compact"
 
 function Root() {
-  createEffect(() => {
-    if (!SET_DOCUMENT_TITLE) return
-    document.title = currentLocalAgent()
-  })
   return (
     <AppBaseProviders>
       <AppInterface />

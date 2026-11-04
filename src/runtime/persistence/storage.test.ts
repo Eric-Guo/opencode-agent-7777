@@ -6,7 +6,6 @@ import { translateSync } from "@/runtime/i18n/language"
 import { readModelConfig, writeModelConfig } from "@/runtime/server/persistence"
 import { createSettings } from "@/settings/model"
 import { clearPromptDraft, readPromptDraft, writePromptDraft } from "./drafts"
-import { readSessionRecord } from "./storage-compact"
 import { persisted } from "./storage"
 
 const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage")
@@ -80,7 +79,6 @@ test.each(["missing", "getter", "operations"])("consumers remain usable with %s 
   })
 
   expect(readPromptDraft()).toBeUndefined()
-  expect(readSessionRecord()).toBeUndefined()
   expect(() => writePromptDraft({ prompt: "draft", attachments: [] })).not.toThrow()
   expect(() => clearPromptDraft()).not.toThrow()
   expect(() => writeModelConfig(readModelConfig())).not.toThrow()

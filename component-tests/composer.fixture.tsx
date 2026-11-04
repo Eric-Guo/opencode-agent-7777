@@ -1,14 +1,13 @@
-import { OpenCode } from "@opencode/client/promise"
-import { onCleanup, onMount, Show, Suspense } from "solid-js"
+import { Skill } from "@opencode/schema/skill"
+import { Show, Suspense } from "solid-js"
 import { render } from "solid-js/web"
 import { createStore } from "solid-js/store"
 import { AppBaseProviders } from "../src/app"
-import { createSessionDraft } from "../src/new-session/draft"
-import { createComposerCatalog } from "../src/composer/catalog-compact"
-import { commandSuggestions, contextSuggestions, fileSuggestions } from "../src/composer/suggestions/catalog-compact"
 import { createPromptState } from "../src/composer/state"
+import type { ComposerSuggestion } from "../src/composer/types"
 import { ComposerEditor } from "../src/composer/editor/editor"
 import { createComposerEditor } from "../src/composer/editor/interaction"
+import { fileUrl } from "../src/workspaces/files/path"
 
 function ComposerFixture() {
   const draft = createPromptState()
@@ -18,27 +17,42 @@ function ComposerFixture() {
     submissions: 0,
     stops: 0,
   })
-  const source = new URLSearchParams(location.search).has("catalog")
-    ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
-    : undefined
-  const catalog = source ? createComposerCatalog() : undefined
-  const load = () => source && catalog?.load(source.data, source.directory)
-  onMount(() => void load())
-  onCleanup(() => source?.dispose())
   const controller = createComposerEditor({
     store: draft.store,
-    commands: () => commandSuggestions(catalog?.state.commands ?? state.commands, []),
+    commands: () =>
+      state.commands.map<ComposerSuggestion>(({ name }) => ({
+        id: `custom.${name}`,
+        kind: "command",
+        label: `/${name}`,
+        trigger: name,
+        title: name,
+      })),
     context: () =>
-      contextSuggestions(
-        catalog?.state.skills ?? state.commands.map(({ name }) => ({ id: name, name, path: `/skills/${name}` })),
-        catalog?.state.agents ?? [],
-      ),
+      state.commands.map<ComposerSuggestion>(({ name }) => ({
+        id: `skill:${name}`,
+        kind: "skill",
+        label: `@${name}`,
+        mention: {
+          type: "skill",
+          id: Skill.ID.make(name),
+          name: Skill.Name.make(name),
+          content: `@${name}`,
+          start: 0,
+          end: 0,
+        },
+      })),
     searchContextFiles: async (query) => {
       if (!suggestions) return []
       const paths: string[] = await fetch(`/component-tests/files?query=${encodeURIComponent(query)}`).then(
         (response) => response.json(),
       )
-      return fileSuggestions(paths, "/fixture")
+      return paths.map<ComposerSuggestion>((path) => ({
+        id: `file:${path}`,
+        kind: "file",
+        label: path,
+        path,
+        mention: { type: "file", path, url: fileUrl("/fixture", path), content: `@${path}`, start: 0, end: 0 },
+      }))
     },
     capabilities: { shell: false },
     view: {
@@ -84,15 +98,6 @@ function ComposerFixture() {
       <Show when={suggestions}>
         <output aria-label="Submissions">{state.submissions}</output>
         <output aria-label="Stops">{state.stops}</output>
-      </Show>
-      <Show when={catalog}>
-        {(catalog) => (
-          <>
-            <output aria-label="Command status">{catalog().state.commandStatus}</output>
-            <output aria-label="Skill status">{catalog().state.skillStatus}</output>
-            <button onClick={() => void load()}>Reload catalogs</button>
-          </>
-        )}
       </Show>
     </main>
   )

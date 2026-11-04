@@ -1,240 +1,58 @@
-# @opencode/7777 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Eric-Guo/opencode-agent-7777)
+# 7777 with Nexus and rho
 
-This package is the SolidJS/Vite UI for the `7777` agent.
+The `nexus_backend` branch runs the 7777 SolidJS conversation UI in a local browser. Nexus stores conversations, authenticates the person sending each message, and dispatches replies to the answering agent registered by the local rho daemon.
 
-## Set up both agents on a new developer machine
+## Local development
 
-Install Git and the Bun version specified by the OpenCode root `package.json`. Start with the OpenCode distribution
-checked out at `<repo-root>`, including its `.gitmodules`. The agent repository's configured remote must contain both
-`main` and `plm-meeting`; publish the renderer changes on both branches before setting up another machine.
-The distribution must also include the updated desktop-tab extension, both entries in
-`packages/desktop/resources/thape-config/sigmaagents.jsonc`, and the `agents/plm-meeting.md` server profile.
-Uncommitted changes on an existing machine are not transferred by these commands.
+Use the OpenCode monorepo's Bun version and a checkout of the Nexus TypeScript SDK. The SDK's HTTP and realtime entry points run on the Vite server. The realtime entry point uses `ws`.
 
-Initialize the distribution's existing submodules. Their repository URLs come from `.gitmodules`:
+Build the SDK from its checkout with its pinned pnpm version, then link it into this package before installing workspace dependencies. The local link is ignored by Git.
 
-```bash
-cd "<repo-root>"
-git submodule update --init --recursive -- packages/7777 packages/desktop-tab packages/desktop/resources/thape-config
-```
+```sh
+cd "<nexus-checkout>/sdks/typescript"
+pnpm install --frozen-lockfile
+pnpm run build
 
-Use `packages/7777` as the primary worktree on `main`, then add a linked worktree for the published `plm-meeting`
-branch. Run this once on the new machine, with `packages/plm-meeting` absent:
-
-```bash
 cd "<repo-root>/packages/7777"
-git fetch origin
-git switch main
-git merge --ff-only origin/main
-git worktree add --track -b plm-meeting ../plm-meeting origin/plm-meeting
-git worktree list
-```
+mkdir -p .local
+ln -s "<absolute-path-to-nexus-checkout>/sdks/typescript" .local/nexus-sdk
 
-The resulting layout is:
-
-```text
-<repo-root>/packages/
-  7777/          # main; owns the 7777 renderer source and build
-  plm-meeting/   # plm-meeting; owns the meeting renderer, including recording controls
-  desktop-tab/  # desktop extension that loads both agents
-  desktop/      # original desktop host and its separate renderer
-```
-
-Both agent worktrees share Git objects and remotes, while their branches and working files remain independent.
-If the local `plm-meeting` branch already exists, use `git worktree add ../plm-meeting plm-meeting` instead of creating
-it with `-b`. If `origin/plm-meeting` is missing, publish that branch from the existing machine first; creating it
-from `main` alone will not include its meeting UI or its distinct `@opencode/plm-meeting` package name.
-Submodule updates can detach `7777` at the distribution's recorded commit; switch back to `main` when resuming
-renderer development.
-
-Install workspace dependencies after both worktrees exist, then build both renderers and the desktop shell:
-
-```bash
 cd "<repo-root>"
 bun install
-cd packages/desktop-tab
-bun run build
 ```
 
-That build compiles both branch entry points together into `plm-meeting/dist-shared/`, then builds the desktop shell.
-The extension packages its HTML entries under `sigma-agents/` and merges its `assets/` directory with the desktop's.
-The tabs load `sigma-agents/7777.html` and `sigma-agents/plm-meeting.html`, sharing dependency chunks while retaining
-each branch's UI. Identical fonts, images, and WASM assets share one packaged copy with the desktop renderer.
-Agent identity and session/draft keys still come from `sigmaagents.jsonc`. Run `bun run build:shared` in
-`packages/plm-meeting` to rebuild only this common distribution; deploy the entire directory so both HTML pages
-can load their shared chunks. The original desktop renderer remains a separate build.
+Rebuild the SDK after updating its checkout. The package exports compiled files from its `dist` directory.
 
-With `OPENCODE_DESKTOP_EXTENSION` exported to the desktop-tab checkout, `bun run build` from `packages/desktop`
-also rebuilds this shared distribution automatically. No separate renderer build is needed before packaging.
-Follow [Adding another Sigma agent](../desktop-tab/README.md#adding-another-sigma-agent) when extending the shared
-renderer list or reusing an existing UI for another configured agent.
+With Nexus running and rho connected, check `rho status` for an adopted workspace and a declared default model. In Nexus personal token settings, issue a **member-plane** token for the Human account with access to that workspace. Put the following in this package's ignored `.env.local`.
 
-Each checkout's `bun run build` still produces its standalone `dist/index.html`. These standalone outputs are
-not packaged by the desktop extension. Do not copy `dist`, `dist-shared`, or `node_modules` from another machine.
-The meeting standalone build safely removes the old `dist -> ../7777/dist` link before building its own output.
-
-To run the desktop shell with both configured agents, use the extension's development command:
-
-```bash
-cd "<repo-root>/packages/desktop-tab"
-bun dev
+```dotenv
+NEXUS_MEMBER_TOKEN=<personal-member-token>
+VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 ```
 
-For renderer hot reload, run `bun dev` from `packages/7777` (port 4777) and `packages/plm-meeting` (port 4778)
-in separate terminals, then start desktop-tab with:
+Run `bun run dev` in the package and open [the local chat](http://localhost:4777/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes provide the local API. A standalone static-file host would also need to provide that API. The packaged Electron integration is deferred.
 
-```bash
-ELECTRON_7777_RENDERER_URL=http://localhost:4777/ ELECTRON_PLM_MEETING_RENDERER_URL=http://localhost:4778/ bun dev
-```
+The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It uses the announced control bearer only on rho's loopback status endpoint. It authenticates to the announced Nexus origin with the Human token, validates the member profile and workspace, and discovers rho's answering agent, runner and model. The browser receives display data, scoped conversation identifiers, and chat updates through the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
 
-Each tab uses its own development server; an unset variable loads that tab's bundled HTML. For a desktop build,
-run `bun run build` from `packages/desktop-tab`; it builds and packages both renderers. Keep meeting UI changes,
-including the recorder, in `packages/plm-meeting`, and 7777 UI changes in `packages/7777`. Agent-specific identity,
-welcome content, storage keys, and prompts remain in the distribution configuration.
+## Conversation behavior
 
-## Develop
-
-```bash
-# read <opencode-state-folder>/service.json
-export OPENCODE_SERVER_PASSWORD=here
-# field url in service.json
-export VITE_OPENCODE_SERVER_PORT=4096
-export VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
-bun run dev
-```
-
-Run the checks from this repository:
-
-```bash
-bun test
-bun run typecheck
-bun run build
-```
-
-`bunfig.toml` loads `src/test/preload.ts` only for tests. It compiles imported JSX with Solid's hyperscript runtime
-for the headless logic suites, preserving Solid's default and `--conditions=browser` module resolution. No
-`BUN_OPTIONS` override is needed. Development and production rendering still use Vite's Solid compiler.
-
-### Browser verification
-
-Keep the existing app and dev server running during verification. With Codex browser automation, select the
-existing meeting tab through the documented API:
-
-```javascript
-await cua.getState()
-const tab = await cua.getTab({ url: "http://localhost:4778/" }, { browser: "iab" })
-await tab.getScreenshot()
-```
-
-Renderer smoke verification requires the selected tab's accessibility state and a screenshot showing the meeting
-UI. Browser inventory only confirms that the tab exists. Exercise recording, transcription, and other interactions
-separately when verifying those behaviors.
-
-## Direct Integration (Without an iframe)
-
-The app can mount directly inside another SolidJS web application. Add this package's source to the target
-application's workspace, use the same `solid-js` version for both applications, and make `solid-js/web` available to
-the target application's bundler. The target Vite configuration must also support this package's `@` alias,
-Tailwind plugin, and workspace dependencies; `vite.config.ts` is the reference configuration.
-
-Add the dedicated mount element where the agent should appear. Its parent must provide a usable height:
-
-```html
-<div id="oc-agent" style="height: 100%"></div>
-```
-
-Then import the package entry once from the target application's client entry:
-
-```ts
-import "<repo-root>/packages/7777/src/entry"
-```
-
-`src/entry.tsx` finds `#oc-agent`, loads the package styles through `src/app.tsx`, and mounts the SolidJS application.
-Load the entry after the mount element exists; it intentionally does nothing when `#oc-agent` is absent. The target
-application must also serve this package's `public/` assets at its public root.
-The package-owned rules in `src/index.css` are scoped below `#oc-agent`; the shared Tailwind and OpenCode UI styles
-remain global. Configure the target application's `/api` route or development proxy to reach the OpenCode server,
-matching the proxy setup in `vite.config.ts`.
-
-The `activateInElectronOnly` build option defaults to `true`, so the entry mounts agent7777 only in Electron. This
-prevents a copied `dist/` bundle from issuing OpenCode API requests when it is loaded by a normal browser. To build
-agent7777 for direct standalone browser use, disable the option at compile time:
-
-```bash
-VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
-```
-
-Electron-flavoured WeCom/WeChat user agents are treated as normal browsers, so they also require the standalone build
-option.
-
-When hosted in a desktop external tab, the app reads the tab's `localAgent` value from desktop initialization and uses
-it as the OpenCode agent ID for session creation, agent switching, and optimistic messages. If the desktop tab does
-not provide a value, the standalone app defaults to `7777`.
-
-Desktop tabs can share one copy of this renderer bundle and configure their current-session and draft persistence
-through `storageKeys` in their `sigmaagents.jsonc` entry:
-
-```json
-"storageKeys": {
-  "sessionID": "opencode.7777.session.id",
-  "sessionDirectory": "opencode.7777.session.directory",
-  "promptDraft": "opencode.7777.prompt.draft"
-}
-```
-
-These values preserve the existing 7777 session and draft. Give another agent three different keys to keep its saved
-session and draft independent while reusing the same `7777/index.html`. Desktop initialization supplies the keys
-before session restoration or composer persistence. Old hosts that omit `storageKeys` and standalone deployments
-use `src/new-session/agent-default-config.json`, whose defaults retain the existing keys. Changing a key selects a
-different entry without migrating or deleting existing data. Model/UI preferences and accepted-prompt history are
-unchanged by this configuration.
-
-## Open Source Notes
-
-This package should not depend on a contributor's local home directory or private company resources. Use
-`<repo-root>` in documentation when referring to the monorepo checkout, and keep private agent prompts, internal
-network paths, credentials, and localStorage dumps out of commits.
-
-The production/private 7777 agent prompt is not included verbatim. A sanitized reference template lives at
-`docs/reference/7777-agent.md`; copy and adapt it for a local OpenCode agent configuration if needed.
+- **New session** opens a draft. The first send creates the conversation in rho's workspace and submits a reply input. A retry uses the original mutation keys. Reloading restores the current conversation and draft under the matching Nexus origin, user, workspace and agent.
+- **Recent sessions** lists accessible conversations answered by the same agent, ordered by last activity. Search, keyboard navigation and pagination use the compact picker.
+- The timeline shows the latest nine user dialogs and the header shows the current count out of nine. Live text follows its turn and variant. The settled Nexus turn supplies the final answer. Reconnecting reloads history and pending work.
+- **Stop** cancels the conversation's active execution. Tool approvals and agent questions appear in the composer dock. The Human's reply targets the original run and task.
+- The browser release offers text chat. Attachments, queue editing, model selection, file review, undo, and export are deferred. The source-controlled `manageModels` policy remains in the model defaults. The embedding host retains document-title control through `SET_DOCUMENT_TITLE`.
 
 ## Code Layout Parity Review
 
-New conversations follow the main app's draft-before-submit behavior. `new-session/controller-compact.ts`
-opens a local draft, and the compact-only `new-session/draft.ts` supplies location catalogs without a session ID.
-`composer/submit.ts` creates and activates the server session on the first nonempty submission, then sends the captured
-message, attachments and model selection. Startup without a saved session and deleted-session recovery also open drafts.
-The embedded app keeps this orchestration in its existing compact controller and bootstrap modules instead of the main
-app's routed `new-session/composer-adapter.ts`; recent sessions remain available while drafting.
+7777 owns the Nexus integration. The parent UI packages continue to supply shared presentation components.
 
-`scripts/build-shared.ts` owns the compact agents' shared distribution build. It is maintained on `main`
-and inherited by `plm-meeting`; either sibling checkout can run `bun run build:shared` to write its own
-`dist-shared/`. It preserves branch-local imports and standalone outputs while sharing dependencies.
-The desktop extension packages its HTML under `sigma-agents/` and merges `assets/` with the desktop renderer's assets. Tabs load `sigma-agents/plm-meeting.html` and `sigma-agents/7777.html`.
+| Boundary | Responsibility |
+| --- | --- |
+| `server/` | Local Vite middleware, credential and workspace checks, SDK HTTP operations, realtime subscriptions and SSE. |
+| `src/nexus/` | Browser transport, scoped drafts and retry state, conversion of Nexus turns to the shared session document, and typed decision forms. |
+| `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact session layout, message timeline, welcome screen, recent-session picker and composer. These reuse public controls from `@opencode/ui` and `@opencode/session-ui`. |
 
-The review-source assessment uses parent `3064ac5302`, including the GUI extension split. Matching local filenames are
-not shared imports: see the parity table for actual public exports and the remaining compact responsibilities.
-7777 is an independent Git repository. Refactors use this checkout's behavior and public shared-package exports;
-they do not rely on `packages/app` source.
-File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
-The embedding host's payload schemas and `DesktopAPI` contract live in `runtime/platform/desktop-api.ts`.
-Ambient window declarations, header identity types and the lazy RPC adapter derive their payload types from those
-Effect schemas, including mutable arrays and optional host capabilities. This compact-only contract replaces
-duplicated preload declarations; it does not import the main app or desktop package. The adapter retains the
-structured-clone protocol, legacy initialization fields and native `ArrayBuffer` results, and omits absent picker
-options when encoding requests. Browser consumers use type-only imports, keeping the RPC transport lazy.
-`shell/routes/session-ui-provider.tsx` follows the main app's session UI provider boundary and supplies the shared
-Markdown renderer's local-file callback. In the desktop host, file links open through `FilesOpenPath` in the system's
-default application (for example, Excel for `.xlsx`); relative paths resolve against the current session directory.
-The compact provider reports native opening errors through a toast and leaves browser-only file links inert.
-Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
-agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
-prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
-Provider/model views in `runtime/server/types.ts` reuse public `@opencode/client/promise` fields, including capability
-arrays. `runtime/server/global-sync/utils.ts` only adapts picker data: provider grouping, separate catalog/API IDs,
-cost selection and variants. Unused legacy configuration fields and synthetic capability flags are removed. Capability
-arrays are copied at the adapter boundary so Solid stores cannot mutate shared client catalogs; the tooltip retains its
-existing modality order and omits unknown reasoning support. These files keep the main app's boundaries with local code.
+`runtime/i18n/language.tsx` owns `UiI18nBridge` and reuses the public UI template formatter and parameter type. The retained composer suggestions and recent-session picker use `MenuScroll` from `@opencode/ui`; their compact controllers retain sizing, keyboard selection and focus restoration.
 
 Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary. The screen now uses the same
 public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, keyboard navigation, nested-scroll
@@ -246,12 +64,17 @@ if layout briefly clamps the viewport before its scroll event arrives. Timeline 
 The shared hook pins on viewport and content resize. While reading, the compact adapter updates **Jump to latest**
 when content grows. The compact screen owns the viewport and resume control and retains the nine-dialog window.
 
-`session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
-to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
-individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
-from the broader timeline-detail settings. Before shared Markdown parsing, the compact timeline also turns bare
-HTTP(S) URLs inside full-width Chinese parentheses into standard angle-bracket autolinks so trailing prose and inline
-code cannot become part of the link target.
+Composer DOM synchronization stays in `composer/editor/{dom,machine}.ts`. Matching text and mentions retain their
+nodes during attachment-only updates, preserving the caret and native undo/redo; in-place store edits still render.
+`composer/editor/interaction.ts` delegates suggestion selection to public `@opencode/ui/typeahead` while retaining
+compact shortcuts, query resets and focus behavior. `component-tests/composer.spec.ts` covers these retained editor
+contracts with local suggestion fixtures. The OpenCode catalog loader and its loading/retry test are removed because
+Nexus supplies the production text-only composer without those catalogs.
+
+Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts`: the index retrieves Nexus
+conversation pages and filters titles, IDs and duplicates; the query driver owns cancellation and search debounce
+timers; the pure machine owns results, cursors, request attempts and loading/error transitions. Closing or replacing
+a query invalidates late responses, including reopening the same query. These modules stay local to 7777.
 
 `shell/routes/session-ui-provider.tsx` registers the local ECharts renderer through the public
 `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`. Shared Markdown detects completed fences
@@ -302,518 +125,17 @@ rich text; HTML data views, navigation links, image resources, prototype keys, a
 Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
 messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
 
-Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header composes the public UI
-`ProgressCircle` and `Tooltip` with a native button, preserving its ring and cost/context/token tooltip. This local
-adapter supplies mouse and keyboard activation because the plugin's indicator variant is display-only.
-Local `context/model.ts` adapts the compact catalog
-for both views, delegating usage-step selection to `lastAssistantWithUsage` from `@opencode/client/solid` so usage
-follows undo boundaries and completed compaction. Missing usage or model capacity stays unknown in the details;
-reported zero tokens remain zero. No app or plugin-host internals are imported.
+The OpenCode-backed renderer and desktop packaging instructions are available on the `main` and `plm-meeting` branches. The nested Git checkout owns changes to this package.
 
-Click the header's context ring, use **/context**, or choose **Add → Commands → /context** to open the read-only usage
-dialog for the current session. `context/dialog-compact.tsx` owns the shared lazy dialog entry point for the ring and
-command; this compact-only boundary replaces plugin-host mounting. The dialog is 900 px wide where space allows,
-with 8 px side margins on narrow screens, and dismissal restores focus to the opening control.
-It shows the latest assistant step's model, provider, context capacity and token breakdown alongside server-reported
-session totals and cost. Totals are not reconstructed from the bounded message window, and no extra transcript read
-or server command is needed. The dialog updates from the current runtime and closes when its activation changes.
-Choosing the command from the Add menu preserves an existing draft and mentions; inline execution preserves
-attachments. Like `/export`, it rejects arguments without sending or clearing the draft. The header's existing
-ring and tooltip remain available.
+## Verification
 
-The same dialog now inspects the latest loaded system message and individual raw messages in collapsible sections.
-`context/tab.tsx` separates the existing usage statistics from transcript inspection, following the context plugin's
-tab boundary. The public `Markdown`, `File`, and `Accordion` components own rendering and disclosure behavior;
-JSON serialization and file viewers mount only for expanded records and update from the existing runtime.
-Inspection makes no additional API requests and leaves the timeline's nine-dialog window unchanged. It shows only
-loaded records, including any loaded instruction updates, rather than reconstructing a complete system prompt.
-Use `/export` for the complete saved transcript. Closing or changing activation discards the inspector's view state.
-New labels use the existing English fallback until translated; existing Chinese copy remains unchanged.
-Summary and docked plugin panels remain outside this compact view.
+From the package directory, run the following.
 
-The header's **Review turn changes** control reuses `@opencode/session-ui/session-review` in a lazy dialog.
-It defaults to snapshot changes from the latest turn, with shared file accordions, counts, and split/unified diffs.
-A shared selector adds working-tree, branch, and committed comparisons through the public `vcs.diff` API, scoped to
-the active session's directory. Branch and committed comparisons share the base-reference form, applied on Compare
-or Enter. Both start at the common ancestor with that base; branch review includes uncommitted changes, while committed
-review ends at `HEAD` and excludes them. `review/parts.tsx` owns the title, description, and empty states, keeping mode
-presentation out of the rendering/lifecycle panel. `review/{machine,model,panel,parts}` follows
-the review plugin's boundaries in `packages/gui-plugins`; the compact-only `review/trigger-compact.tsx` supplies its
-header action. `shell/commands/session-dialog-compact.tsx` shares the review and context dialogs' fixed-size lazy
-loading, error boundary, dismissal and activation lifetime in place of the main app's plugin host.
-The context ring supplies its explicit focus-return target through this local adapter. Escape and Close return
-to that ring after pointer or keyboard activation, including after a command-opened dialog. Command opens keep
-the shared provider's editor/caret restoration; a replaced dialog or session cannot reclaim focus.
-Reads use the current activation and existing event stream, refresh after completion,
-revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
-Each read has a 30-second deadline. A timeout offers Retry for the same mode and base; a late reply cannot
-replace a newer comparison. Drafts are preserved. Staged-only review (unsupported by the current public API),
-comments, arbitrary history ranges, and docked extension panels remain outside this compact view.
+```sh
+bun test
+bun run typecheck
+bun run build
+bun run test:components
+```
 
-`runtime/server/runtime.ts` and `runtime/server/data.ts` follow the main app's separate orchestration and data-adapter
-boundaries. The runtime owns the activation's disposable Solid root, cancellation, publication, refresh scheduling
-and nine-dialog hydration. Hydration starts at 36 records and follows nonempty cursors until nine user/shell roots or
-the end, excluding queued prompts. Hydration and the visible timeline share `session/session-domain.ts`'s dialog-root
-predicate. The data adapter creates one `createData` instance from `@opencode/client/solid` inside that root, guards
-session snapshots and owns the private pending-inbox receipt ledger. Shared data still owns durable session records,
-messages, pending inbox snapshots and location catalogs.
-
-`runtime/server/global-sync/session-cache-messages.ts` now owns the activation's message cache: cursor termination,
-live-row reconciliation, optimistic echoes, cancellation tombstones and skill/selection compatibility. It receives
-accessors from the data adapter and has no global runtime lookup. This compact-specific cache stays local because
-the main app's data adapter has different mutation policies. The adapter batches cache and receipt changes with the
-shared reducer so readers cannot observe half-applied transitions; HTTP receipts retire only when an acknowledging
-snapshot or event arrives. Neither helper creates a root, timer or SSE connection. `runtime.test.ts` covers the combined
-contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
-exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
-
-Transport scheduling follows the main app's `runtime/server/{request-queue-machine,request-queue}.ts` boundary.
-One immutable machine owns active slots, FIFO waiting order, request IDs and stall-warning state; the driver owns
-fetch, promise callbacks, cancellation and timers. The compact queue retains four total slots, two slow slots and
-FIFO among eligible requests, without the main app's request priorities or transport disposal API. Server and directory
-clients still share the same fetch/origin budget. Free slots dispatch synchronously; event streams bypass scheduling.
-Slots release at response headers or fetch failure, including synchronous throws, while caller cancellation continues
-to reach streaming bodies. Header deadlines remain 60 seconds, or ten minutes for worktree creation; stall diagnostics
-retain their two-second threshold and ten-second cooldown. Pure transition tests cover immutable snapshots, stale
-events and watcher cleanup; transport tests cover dispatch ordering, cancellation races and streaming behavior.
-The implementation and tests stay local, with no app-source imports or new shared-package exports.
-
-`session/session-ownership.ts` captures the active request client, runtime, session ID and local agent together with
-the activation check used by submit/interrupt, undo/redo, queue actions, and permission/form reads and replies.
-It follows the main app's ownership boundary using the compact runtime's identity instead of a routed key watcher.
-Mutations and follow-up refreshes use that captured runtime directly, removing global cache and refresh forwarding.
-Returning to the same session with the same client still invalidates earlier results; disposal or changing the selected
-ID before activation also rejects stale writes. The helper adds no subscriptions or cancellation policy. Existing consumer
-tests retain coverage for draft restoration, request routing, pending flags, errors and successful prompt history.
-
-`session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
-The permission and form adapters retain their public client endpoints, event filtering and child-session routing.
-Replies keep the request visible until accepted, block duplicate submissions, preserve failures for retry,
-and ignore results from an earlier activation even after returning to the same session. An older response
-cannot clear a newer pending reply. Web-search forms have their own two-step reply protocol.
-This compact-only module replaces duplicated lifecycle code without depending on the main app or moving request
-policy into the shared `session-ui` rendering library.
-
-The question and permission docks adapt package-local `question-prompt.tsx` and `permission-prompt.tsx` widgets
-under `src/session/requests/`. These widgets own answer selection, custom text, progress navigation, keyboard focus,
-pending controls and permission decisions. Only the existing `@opencode/session-ui/dock-prompt` shell and styles
-are shared. The main app keeps its own prompt implementations, including its question draft cache, collapse controls,
-global shortcuts and viewport sizing. Compact widgets are not exported by `session-ui` or consumed by the main app.
-`question-state.ts` and `question-keys.ts` now follow the main app's state and keyboard module boundaries with local
-implementations. Each mounted request owns one state controller, grouping a question's selected values, custom text
-and custom-selection flag in one record instead of parallel arrays. One navigation path restores answer focus for
-Next, Back and progress jumps; one custom-answer path handles opening, toggling, trimming and deduplication.
-The keyboard module maps input, option and footer keys to actions without reading the DOM. Compact horizontal-arrow
-navigation, native Enter/Space activation, custom-input Escape, Shift+Enter and modifier-Enter behavior remain intact.
-Unlike the main app's cache-only state module, the compact state module owns these transitions and retains no global
-request cache. `question-prompt.tsx` keeps rendering, localized labels, textarea sizing and cancellable DOM focus work.
-The existing request-prompt browser suite owns the interaction contract, including custom text retained across toggles,
-blank custom-answer omission, multiline input and fresh state on a new request.
-The `session-question-dock.tsx` and `session-permission-dock.tsx` boundaries retain form-field filtering, label
-fallbacks, compact translations and the existing callbacks. Each request mounts a fresh question widget.
-Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming and deduplication, Escape and
-modifier-Enter behavior are preserved. Package-local browser fixtures render the production widgets; run
-`bun run test:components` from this checkout to exercise them without a backend.
-
-Web-search consent follows the main app’s `session/requests/{websearch,websearch-machine}.ts` boundary.
-The compact dock sends **Any** and **Don’t use search** in one reply. For a named provider it waits for the
-server to accept `choose` before answering the same session’s provider form. Both the event stream and the
-request store can supply that form. If it is still missing after acceptance, 7777 reads pending forms once
-through the public `session.form.list` API for the originating session, including child sessions.
-If the chosen provider disappears, the dock asks the user to confirm a replacement. The handoff releases the composer after 10 seconds if the
-form never arrives. Provider-list reads and replies have 15-second deadlines. The compact dock keeps its
-existing shell, translations and composer placement.
-
-Permission notification delivery follows the main app's `shell/notifications/notification.tsx` boundary with a
-package-local controller. It owns translated copy, request-ID deduplication, desktop delivery and the browser fallback;
-the request adapter selects the active tree's request and resets or retires notification IDs on refresh or reply.
-Existing permission prompts, denial handling and refresh notifications are preserved. The compact shell has no
-notification inbox, sound preferences or unread-session tracking. Integration coverage stays in
-`session/requests/permission-sync-compact.test.ts` to verify delivery through the real request lifecycle.
-
-See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
-`<repo-root>/packages/app` and the intentional compact-app differences.
-
-Persistence follows the main app's `runtime/persistence/storage.ts` and `runtime/server/persistence.ts`
-boundaries with package-local implementations. The compact storage adapter is synchronous; drafts, history,
-settings, language, and model/session preferences share it while retaining their existing keys and formats.
-Model preferences and accepted-prompt history use its local `persisted` store helper, following
-the main app's storage boundary. Solid setters save synchronously without subscribing callers to serialized fields;
-initial reads do not rewrite storage. Consumer-owned readers and writers retain recovery, limits, and error handling.
-This compact helper stays in `storage.ts` because it has no separate asynchronous hydration or save scheduler.
-Model preferences use the main app's `ModelState` schema boundary in `runtime/server/persistence.ts`; selection,
-visibility and config types derive from those local schemas. Global and per-session model choices now share that
-module's schema-based readers and writers, leaving session identity keys in `storage-compact.ts`. The compact-only
-per-session format stays here rather than in the main app's `providers/models/selection.tsx`, so storage recovery
-does not import the selection controller. Recovery preserves existing keys, extra legacy session/model fields,
-partial config defaults, explicit Default variants, and independent mutable values while dropping invalid entries.
-The local `Persistence.array` accepts a fresh fallback factory for compact provider defaults. Catalog and visibility
-operations remain in `providers/models/models.tsx`. `providers/models/selection.tsx` owns shared scoped choices,
-the persisted global fallback and server acknowledgement; it does not import the composer controller.
-
-`runtime/i18n/language.tsx` owns `UiI18nBridge`, matching the main app's language boundary while `app.tsx` composes
-the provider tree. Ordinary, plural and synchronous translations reuse the public `resolveTemplate` formatter and
-parameter type from `@opencode/ui/context/i18n`. Locale detection, the `opencode.7777.language` plain/legacy formats,
-English fallback and eager English/Chinese dictionaries remain local. The compact adapter keeps `zh-CN` formatting,
-its document language and cookie updates, and synchronous language switching without importing app source.
-
-`composer/selection.ts` owns active model precedence, variant resolution and recent-model cycling, following the main
-app's composer boundary. Both the editor and submit path use it. Unsent choices still precede the durable session
-model and global fallback; explicit Default variants, agent defaults, hidden-model filtering and recency order are
-preserved. Provider-owned choices and pending acknowledgements outlive individual composer instances. The moved
-contracts live in `composer/selection.test.ts`, including cancellation of older sends after a newer selection is pending;
-catalog fallback coverage remains in `providers/models/selection.test.ts`.
-
-The model manager follows `providers/models/manage.tsx`, `providers/models/provider-group.tsx`,
-`providers/catalog/console.ts`, and `settings/{list,row}.tsx`. Console integrations nest under an OpenCode Console
-section with the workspace name; direct providers keep their own sections. The catalog adapter preserves
-`integrationID` and `canonical` for grouping and icons. Workspace detection uses the full model catalog, so a search
-that hides the root model retains the Console group. Sections collapse, expand during search, and restore their
-previous state when search is cleared. The compact renderer reuses one header for all sections and keeps its existing
-provider switches in nested groups. Switches affect the full catalog during search and retain visibility defaults
-for future models. The selector and manager share their existing ordering through the local `providers/catalog/order.ts`.
-The composer uses package-owned provider icons and restores editor focus after model selection or Escape. With
-`manageModels` enabled, the selector stays available even when every model is hidden. Portal styles remain scoped
-to the model dialog for embedded hosts. Provider connection flows remain unavailable.
-
-The model selector's open state in `providers/models/select-dialog.tsx` also controls its ChatGPT-plan footer.
-Opening the picker with an OpenAI model selected reads the public client's integration catalog for the current
-directory. The first connection must be an OAuth credential to show **Using ChatGPT plan** and **Manage usage**.
-`providers/catalog/integrations.ts` uses a Solid resource to track the latest read and the existing event stream to
-refresh on connection changes or reconnect. While a read is pending or failed, model selection stays usable.
-Reopening retries. The footer also works when `manageModels` is disabled.
-
-Model picker headings now reuse `ProviderModelIcon` and the Console catalog helpers for short provider names and
-workspace badges when the same provider is also connected directly. Label resolution uses the full catalog, so
-search and visibility filtering cannot hide the workspace identity. This presentation logic stays in
-`providers/catalog/console.ts`; free-model classification follows `providers/models/models.tsx`. Model management
-uses the shared `TextInput` clear action, including its focus behavior, without a separate button or positioning CSS.
-`providers/models/tooltip.tsx` keeps the compact layout used by the picker; the unused legacy layout and its provider
-name heuristics are removed. Model tags, input ordering, optional reasoning information and locale-aware limits remain.
-
-The compact model picker in `providers/models/select-dialog.tsx` uses the same public `@opencode/ui/search-list`
-as the main app's desktop model dialog. A non-modal `@opencode/ui/popover` anchors it to the composer. The list
-owns provider sections, combobox IDs, active rows, arrow wrapping and keyboard scrolling. The picker supplies
-model visibility and provider order, with a 220 px cap on the results. Opening highlights the current model when
-visible. Editing or clearing search highlights the first match by model name. Arrow keys then follow the displayed
-provider order, including Ctrl/Shift with Up or Down. A checkmark identifies the selected model while browsing.
-When `manageModels` is enabled, **Manage models** sits below the results and is reachable by Tab or click, even
-when no models match. Enter in an empty result list keeps the picker open. Selection and Escape return focus to
-the composer. Clicking outside leaves focus on the clicked control.
-
-Recent-session search in `home/sessions/view.tsx` uses the public `TextInput`, `MenuScroll` and `createTypeahead`
-directly. It retains plain-arrow navigation, IME and repeated-Enter guards, and server paging. Both pickers have
-rendered coverage in `component-tests/pickers.spec.ts`.
-
-Recent-session loading follows the main app's `home/sessions/{index,queries,load-machine}.ts` boundaries.
-`index.ts` keeps cursor-page retrieval, exact-ID lookup, directory filtering and deduplication. The local query driver
-in `queries.ts` owns HTTP cancellation and search debounce timers; `load-machine.ts` owns query results, cursor,
-request attempts and loading/error transitions instead of separate flags and a generation counter. Whole-state
-replacement keeps transition snapshots independent of Solid store merging. Closing, clearing or replacing a query
-invalidates late successes and failures, including reopening the same query. The header region still clears work on
-source changes and disposal. The compact query stays local because it uses server-side search and 12-row cursor
-pages instead of the main app's shared query cache. Existing contracts moved from `home/sessions/index.test.ts` to
-`home/sessions/queries.test.ts`; the picker browser suite retains keyboard, paging and query-reset coverage.
-
-Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
-its header popover intentionally differs from the main app's routed Home view.
-
-Recent-session ordering, calendar-day grouping and display labels now live in `home/sessions/records.ts`, following
-the main app's record boundary. Controllers and views no longer import the directory-sync adapter for presentation
-helpers. The header region supplies the active agent's fallback title; record helpers remain independent of runtime
-state. Activity ordering (including ID ties), local dates, invalid-date fallback, twelve-row pagination and full-history
-search are preserved. The existing grouping and ordering tests now live in `home/sessions/records.test.ts`;
-`controller.test.ts` retains coverage for selecting the latest record and rejecting stale selections.
-
-Composer suggestion popups reuse `TextInput` and `MenuScroll` in `composer/editor/editor.tsx`.
-The shared field owns command-search styling and clearing; the shared viewport owns the popup scrollbar.
-Local code retains filtering, compact shortcuts, focus restoration, draft preservation and boundary-based sizing,
-including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
-same viewport without adding a separate search field.
-
-`composer/editor/interaction.ts` also delegates active-row reconciliation, wrapping and selection to public
-`@opencode/ui/typeahead`. It receives only selectable rows, excluding file results while their replacement search
-is pending. Query edits reset the highlight; catalog refreshes preserve a matching row and removed rows fall back
-to the first result. The adapter keeps Tab completion, Ctrl+N/P, modified arrows, IME Enter handling and keyboard
-reveal. Escape and Ctrl+G still dismiss suggestions before stopping a run, and an empty popup consumes Enter/Tab.
-The local `composer/suggestions/machine.ts` retains popup modes, queries and draft effects without a second active-row
-state. This intentionally uses the existing shared controller within the main app's editor/suggestions boundaries;
-no app source or new shared exports are needed. `component-tests/composer.spec.ts` owns the former machine arrow-loop
-contract through rendered controls, plus hover/refresh behavior, context completion and command-menu draft/focus
-preservation.
-
-Composer DOM synchronization follows the main app's `composer/editor/{dom,machine}.ts` boundaries with local
-implementations. The editor compares inline text and mention targets before rendering instead of skipping the next
-store update after input. Attachment-only changes preserve the DOM, caret and native undo/redo, while in-place store
-edits still update the editor. A two-state machine retains browser-created blank lines for the local input echo and
-allows a subsequent explicit clear. The compact parser keeps its existing Unicode offsets, block/newline rules and
-file metadata; matching mention nodes receive the latest URL, selection and source without replacing the node.
-`component-tests/composer.spec.ts` owns caret, undo/redo, reactive updates and blank-line behavior; `dom.test.ts` covers
-text-run matching and mention identity/metadata. No shared-package changes or app-source imports are required.
-
-Suggestions and recent-session results use `@opencode/ui/menu-scroll` directly. The model picker gets the same
-scroll viewport through `SearchList`. All three have an overlay thumb on pointer devices and native scrollbars on
-touch devices and in high-contrast modes. Recent-session keyboard reveal uses the viewport ref. The 220 px
-model-list limit, recent-session height cap, and composer suggestion boundary sizing remain local.
-The composer editor keeps its native scroll container,
-reserving the shared scrollbar width and compensating its end padding so long drafts keep the same text wrapping.
-The editor owns caret reveal, popup sizing and focus restoration. The attachment strip and toolbar also declare
-nested scroll ownership. Only the timeline keeps
-`ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
-
-Queued-prompt undo follows the main app's `session/composer/{queue,queue-machine,queue-panel,controller}` boundaries.
-The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
-persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
-boundary; the queue controller retains cancellation, draft merging, and activation guards. This shared local
-restoration helper intentionally replaces the main app's separate queue conversion. Hidden context without a
-mention and malformed queued mention ranges stay queued because the compact draft cannot preserve them.
-The local queue machine owns the operation and attempt; its driver listens to the originating runtime's events.
-Undo restores once after HTTP success or an explicit cancellation event. A delivered event settles without restoring,
-and a missing inbox row alone cannot confirm cancellation. Queue writes retain the transport's 60-second header
-limit. Failures schedule the existing runtime refresh without replaying mutations. Session changes or disposal
-settle the old caller and detach its listener; late responses cannot modify another activation or its draft.
-
-History actions follow `session/{revert,revert-machine}.ts`. One signal holds the local machine's immutable snapshot,
-including whether the mutation is awaiting confirmation or has committed and is refreshing history. Its 30-second
-bound settles callers even if a transport ignores cancellation. Timeout or failure before confirmation reconciles
-through existing session and history reads; neither automatically repeats the write. A confirmed boundary and
-restored draft survive refresh failure or timeout. Shared history loading keeps its own ownership and guards.
-Switching sessions, including reactivating the same ID, releases action-owned controls and rejects stale effects.
-The compact loaded-history navigation and draft-change checks remain local; no routed prompt cache is introduced.
-
-`composer/prompt.ts` also owns conversion between the compact persisted draft and editor parts, following the main
-app's prompt-conversion boundary. Draft restoration and attachment insertion share one attachment conversion;
-`composer/state.ts` owns reactive state and change notifications. The compact URL/range storage format remains
-local, including legacy blob IDs, absolute file URIs, mention validation, and isolated snapshots. Existing state,
-prompt, submission, queue, revert, and persistence tests cover these conversions through their consumers.
-One range validator now serves draft, message and queue restoration: drafts skip mismatches, historical display text
-can relocate mentions, and queue undo rejects invalid context. Draft ties retain stored order; transport ties prefer
-shorter ranges. Validation copies references before sorting and restoration keeps them isolated from mutable stores.
-
-`composer/schema.ts` follows the main app's schema boundary for text, agent, skill, and inline attachment parts.
-`composer/types.ts` re-exports their inferred types and extends the stored file reference with editor-only metadata,
-removing duplicate field definitions. The compact draft and history formats retain their existing validation,
-recovery, field order, and mutable decoded objects; file selections and source metadata remain editor-only.
-
-Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
-`composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` reads commands, skills, and agents from the active
-runtime's shared location resources and retains independent loading/failure states. Owned Solid resources now
-track those reads instead of a parallel status store and generation counter. Changing or clearing the source disposes
-the previous observations, while the public client's shared reads and cache remain available to other consumers.
-The adapter owns its cleanup; render-time status reads cannot suspend the composer or throw a catalog failure into
-its boundary. Retry, partial failures and live catalog updates retain their existing behavior. The local adapter stays
-separate from `composer/model.ts` because 7777 has no main-app workspace provider to own initial catalog loading.
-`catalog-compact.test.ts` exercises the real Solid browser lifecycle; the composer browser fixture covers typing and
-suggestions while a catalog is pending, failed and retried. Providers and models use the
-same resources, with the explicit server-default-model read first and compact selection/visibility rules afterward. File search follows the
-main app's `workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller
-and URI helpers. The compact-only `workspaces/files/search-machine.ts` owns request attempts and ready/loading/failed
-transitions, following the main app's separate file-lifecycle machine pattern. The model runs requests and uses the
-public `@opencode/util/abort` helper; its reactive status is derived from the machine, without a separate version counter.
-Clearing or replacing a search rejects late successes and failures, including repeated queries in the same directory.
-Existing limits, path deduplication, empty-query handling and composer cleanup remain unchanged, with coverage in
-`workspaces/files/model.test.ts`. It searches files and directories without file tabs or a workspace provider.
-File, skill, and agent mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
-Agent suggestions exclude hidden and primary-only agents. Local session actions enter through the composer adapter;
-the broader app command provider remains unavailable.
-
-`composer/suggestions/catalog-compact.ts` owns the compact catalog-to-suggestion conversion. It gives local and
-server slash commands one row builder, retains local-trigger precedence, and constructs skill, agent and file
-mentions without importing the runtime store. The main app keeps these projections in `composer/model.ts`;
-7777 deliberately separates them so its model only wires location resources, editor actions and submission.
-Catalog order, labels, agent filtering and original-directory file URLs remain unchanged. The local projection
-tests cover command collisions and mention payloads through draft restoration and request construction.
-Attachment IDs now use the public `@opencode/util/uuid` helper, including its insecure-origin fallback.
-The duplicate local helper and unit tests are removed; `packages/util/src/uuid.test.ts` owns UUID behavior,
-and `composer/attachments/attachments.test.ts` retains coverage of attachment insertion without `randomUUID`.
-
-Session JSON export follows `session/commands/{export,export-machine,export-session,use-session-commands}` and
-`composer/client-slash-command.ts`. The public client's `session.export` transfer API supplies the complete saved
-transcript, independently of the compact timeline's nine-dialog window. The browser download uses the native
-`{ info, messages }` transfer shape with pretty JSON and a safe title-based filename (falling back to the session ID).
-The shared UI toast reports preparation, download initiation or failure; concurrent export requests are ignored
-until the current one finishes. Local `/export` takes precedence over a same-named server command and never submits
-a prompt or changes model/session settings. Inline execution preserves attachments; choosing it from the Add menu
-preserves the existing draft and mentions. It needs no app imports, host command provider or native save dialog.
-The local exporter captures its session and continues across navigation. Its machine bounds fetch and response
-decoding to 60 seconds, then reports failure and allows another export. Timeout or owner disposal dismisses the
-loading toast, aborts the read and rejects late download effects; disposal is silent. The command hook only delegates
-to this driver. Notifications use the active language provider, including hosts without preference storage;
-missing locale keys retain the existing English fallback. Disposal during synchronous state or notification updates
-settles the caller, prevents unsent requests and suppresses completion notifications.
-
-`composer/request.ts` derives transport fields from the public client's `SessionPromptInput`; prompt and slash-command
-submission pass through that single payload builder. `composer/adapter.ts` reuses `SessionInboxDelivery` for queue/steer.
-Draft schemas, trimming, mention offsets, file names/URIs, optional-field omission, and submission lifecycle stay local
-and unchanged; no app source or additional dependency is needed.
-
-`composer/editor/editor.tsx` owns editor presentation, attachments, menus, suggestions, and submit controls.
-`composer/editor/dom.ts` owns DOM rendering, mention parsing, clipboard text insertion and cursor helpers.
-Editor and attachment paste share line-ending normalization and native insertion. The editor keeps a single native
-undo step for multiline text, escapes HTML, and falls back to replacing the selection with one text node and input
-event. Attachment routing retains its file-first policy, native clipboard images and draft-based large-text fallback.
-Caret reveal after paste also lives in this DOM boundary; the renderer only schedules it after insertion.
-Caret reads, attachment capture, restoration, and focused re-rendering follow the
-main app's handling of `<br>` line breaks and atomic mention pills. Restoration handles nested inline text and empty
-drafts without placing the caret inside a mention. Literal zero-width characters remain part of the compact draft's
-text and offsets.
-Attachment capture keeps a stored draft cursor when available; otherwise it uses the selection start, including for
-backward selections. An absent or external selection retains the attachment controller's zero-offset fallback.
-DOM regression tests use a test-only `happy-dom` dependency; runtime code has no dependency on the main app.
-Mention parsing preserves original metadata before updating content and offsets. File selections derive their line
-fields from the public `@opencode/session-ui/comment-card` contract and retain local character offsets.
-`composer/prompt-parts.ts` owns prompt text extraction, insertion, mention replacement, attachment removal and cloning.
-Draft restoration, DOM parsing and accepted-prompt history share its text/mention builder and offset calculation;
-editor actions use the same offset calculation while retaining separate text parts. The builder preserves UTF-16
-positions, significant whitespace, empty drafts and mention metadata. DOM traversal and caret behavior remain in
-`composer/editor/dom.ts`; retry handling and persistence notifications remain with state and editor actions.
-History retains its normalization, deduplication, byte budget and stored format. This compact implementation stays in
-the existing prompt-part boundary without app imports or new shared-package exports. Regression coverage includes
-recalling and editing Unicode text beside file/agent mentions without changing the saved history or file metadata.
-
-Suggestion sizing now follows the main app's `composer/editor/editor.tsx` boundary. The session screen passes its
-timeline viewport through `session/composer/region.tsx` and `composer/composer.tsx`; the editor observes its height
-only while a menu is open. Menus reserve visible conversation space, keep fixed-height rows and a partial next-row
-hint, and adapt when the window, draft or request dock changes size. Search, keyboard selection, empty states and
-draft contents retain their existing behavior. Missing or detached boundaries use the normal capped height.
-This local implementation uses the browser's `ResizeObserver` without an additional dependency.
-
-Attachment and file-comment removal share a local button in `composer/editor/editor.tsx`. It uses the public UI
-package's `hover-reveal` utility, matching the main app's touch visibility, and also reveals the control on keyboard
-focus. Mouse hover behavior, labels, removal callbacks, and hidden/disabled controls retain their existing behavior.
-
-Image attachment previews use the public `@opencode/ui/image-preview` component, connected in `composer/model.ts`
-through the editor's existing attachment callback, matching the main app's boundary. Thumbnails are named buttons
-that open with a click, Enter or Space; the shared dialog handles dismissal and focus return. Previewing keeps the
-draft intact and reads its existing inline URL. PDFs and text files keep their attachment cards and removal behavior.
-
-Compact differences remain intentional: inline attachment URLs and file-type filtering,
-file comments, disabled controls, optional queue editing, and provider icons.
-The main app's upload progress, path attachments, and note cards remain outside this view.
-All implementations stay package-local or use public shared-package exports.
-Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
-direct dependencies on `marked` or `dompurify`.
-
-`runtime/platform/file-picker.ts` owns the compact attachment format policy used by the browser input, composer
-picker/validation and desktop extension filters. Shared format entries supply MIME lists, native filters and image/PDF
-filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
-and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
-options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
-differs; attachment handling remains in `composer/attachments/attachments.ts`.
-That module now owns error reporting for picker, input, paste and drop operations, retaining files already added
-when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
-following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
-for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
-Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
-
-The compact runtime now uses explicit lifecycle machines for startup, runtime attachment, active reads, session
-switching, catalog loading, and the New session action. Finite read admission shares the local
-`runtime/server/load-machine.ts`; this deliberately stays compact-specific rather than adopting the main app's
-multi-server registry and workspace cache. `server-sync-machine.ts` owns stream connection state, and
-`refresh-machine.ts` owns hydration, debounce scheduling and one coalesced follow-up pass. Promise resolvers,
-controllers and timers stay in their drivers. Machine snapshots use immutable values outside Solid stores;
-UI busy/loading fields are projections. Switching away and returning creates a distinct owner.
-
-`runtime/server/operation.ts` bounds complete API promises, including response decoding. `read-client.ts`
-applies that bound beneath shared `createData` synchronization, so a stalled read releases its pending cache
-entry and can be retried. Data-owner cancellation covers shared resources; retiring one observer does not abort
-another consumer's catalog read. `read-errors.ts` supplies the compact error banner's localized Retry action.
-Startup, activation, catalogs and each hydration pass have 60-second deadlines. Retry keeps the current target,
-loaded transcript and unsent draft. The initial 36-record hydration and latest-nine dialog window remain bounded.
-
-`composer/{machine,submit}.ts` follows the main app's submission machine/driver boundary locally. Each send
-claims its owner before asynchronous work and captures prompt content, attachments, selection and delivery.
-Creation, configuration and admission each have a 60-second deadline. A matching inbox admission event can
-confirm a send before HTTP completes; history records once, and late HTTP results cannot restore a newer draft.
-Existing-session sends retain their captured target across navigation; a departed draft cannot promote a late
-creation. Interrupt remains `resume: true` with a 60-second bound. Uncertain writes reconcile through reads,
-without automatic resubmission.
-
-`providers/models/selection-machine.ts` follows the main app's selection boundary while keeping 7777's scoped
-keys and persisted shape. Persistence is an output effect. Model acknowledgement expires after ten seconds,
-retaining the local choice. Old acknowledgements and cancellations cannot retire newer choices or commits.
-Optional agent-catalog timeouts leave the model catalog available and permit a later refresh.
-
-`session/requests/{reply-machine,list-machine}.ts` deliberately shares compact permission/question lifecycle
-rules rather than importing the main app's dock controllers. Permission replies have 15-second deadlines;
-question replies and dismissal have 30 seconds. Directory reads cannot clear reply ownership, overwrite newer
-SSE-created forms, or resurrect settled IDs. These ledgers belong to one runtime activation. Existing widgets,
-answer editing, child-session routing, notifications and the separate web-search protocol stay local.
-
-## Recent Sessions
-
-Open **Recent sessions** in the header to browse other sessions in the active directory, grouped by local calendar
-day and sorted by most recent activity. The list starts with 12 sessions; **Load more** fetches the next batch of 12
-until the history is exhausted. Type a title to search the full server history in this directory, or paste a full
-session ID to find it directly. Search results also support **Load more** and are not limited to sessions already
-loaded. **Arrow Up** and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover.
-Clearing the search or reopening the popover starts again with the first batch.
-
-## Undo and Redo
-
-Use **Undo** in the header to rewind the latest user turn and restore its prompt and attachments to the composer.
-File, agent, and skill mentions remain structured references through editing, reload, and resubmission. Historical
-file mentions retain their server URI, including any line range. If visible prompt text shifts a mention's offsets,
-restoration searches for that mention in order; context absent from the visible text stays out of the draft.
-Use **Redo** to restore one undone turn; redoing the final turn clears the revert boundary and composer. The existing
-**Revert message** action uses the same controller, so a message-level revert can also be stepped forward with Redo.
-
-These actions operate on the loaded history and are available when the session is idle, messages have finished
-loading, and no follow-ups or requests are pending. Send or remove pending follow-ups before rewinding. The visible
-history remains bounded to nine dialogs. Failed requests preserve the current draft and boundary; responses from a
-previous session activation cannot overwrite the current session or its draft.
-
-## Composer History and Follow-ups
-
-Type **/** at the start of a prompt to search the active directory's server commands, or **@** to search its skills
-and eligible agents. Hidden agents and agents restricted to primary mode are excluded.
-Type a filename or path after **@** to also search files and directories in the active session directory (up to 50
-results). File search cancels superseded requests and hides stale file results while the next query loads. Selected
-files stay attached through edits, reloads, and prompt recall, retaining their original absolute server URI when
-switching sessions. Sending includes their mention ranges and lets the server resolve the file or directory.
-Use **Arrow Up/Down** to choose a result, **Tab** or **Enter** to insert it, and **Escape** to dismiss the menu.
-The **+** menu also offers Commands and Context. Selected skills and agents stay attached when editing, reloading,
-or recalling an accepted prompt. Sending a recognized `/command` invokes the server command with the remaining text
-as arguments; unrecognized command text is sent as an ordinary prompt.
-
-Use **/export** to download the current session as a `.json` file. Select the suggestion, or type `/export` and
-press **Send**. The export includes the full saved transcript, including messages outside the visible nine-dialog
-window, in `{ "info": ..., "messages": [...] }` format. It does not send a message to the model or include unsent
-drafts and queued prompts. The command takes no arguments; extra text is kept in the composer for correction.
-You can also choose **/export** from **Add → Commands** while keeping an existing draft.
-
-With the message editor focused and its text empty, press **Arrow Up** to recall the latest accepted prompt.
-At the start or end of a recalled prompt, **Arrow Up** and **Arrow Down** move through history; moving past the newest
-entry restores the draft you had before recall, including attachments. Text selections, Shift+Arrow keys, and IME
-composition keep their normal editing behavior.
-
-History is shared across sessions in this browser and survives reloads. Only prompts accepted by the server are
-recorded. The latest 100 entries share a one-million-character JSON budget (about 2 MB of localStorage); entries that
-do not fit, including oversized inline attachments, are skipped. If storage is unavailable, history remains usable
-in memory. Recalled prompts preserve file, skill, and agent mentions and inline attachments, and can be edited
-without changing the saved entry.
-
-Use the header's **Follow-up behavior** menu to choose **Steer** (the default) or **Queue** while a turn is running.
-**Enter** uses that preference and **Cmd+Enter** on macOS, or **Ctrl+Enter** elsewhere, uses the opposite delivery.
-When the session is idle, either shortcut sends immediately. The preference is saved in this browser; the composer
-also shows the alternate action while a follow-up is ready to send.
-
-Use **Undo** on a queued prompt to move it back into the composer. It appends after any current draft text and
-preserves existing attachments and file, agent, and skill mentions. The prompt leaves the queue only after the server confirms
-cancellation; failed requests leave both the queue and draft intact. Undo uses the full prompt text, including
-notes hidden by a shorter queue preview, and restores file mentions from their queued bytes. Prompts containing
-context without a mention, or invalid or overlapping mention ranges, stay
-queued with an explanation. Editing in place and reordering queued prompts remain unavailable.
-
-## Agent Welcome Content
-
-The fallback local agent, welcome markdown, and suggested questions shown after clicking **New session** live in
-`src/new-session/agent-default-config.json`. A desktop tab can override all three values during initialization. Suggested
-questions populate the composer when clicked. The welcome markdown is presentation-only and is never included in the
-prompt sent to the server. The 7777-only UI for this template feature lives in
-`src/session/agent-welcome-compact.tsx`.
-
-## Model Selector Defaults
-
-See [Model Selector Defaults](docs/model-defaults.md) for selector behavior, source configuration fields,
-and the localStorage-to-source update workflow.
+For a live check, send a short text prompt, watch the streamed reply, reload, then open a fresh draft and reopen the completed chat from Recent sessions. Browser network inspection should show chat requests and an event stream under `/api/7777`. The Nexus acceptance event identifies the Human author and the turn identifies rho as the answerer.

@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test"
 import { Schema } from "effect"
 import type { RpcMessage } from "effect/rpc"
 import { createDesktopApi } from "./desktop-rpc-client"
-import { resolveServer } from "@/runtime/server/resolver-compact"
 
 describe("desktop message-port transport", () => {
   test("initializes against the desktop host's structured-clone protocol", async () => {
@@ -73,7 +72,7 @@ describe("desktop message-port transport", () => {
           exit: { _tag: "Success", value },
         } satisfies RpcMessage.ResponseExitEncoded)
       })
-      expect((await resolveServer()).storageKeys).toEqual(data.storageKeys)
+      expect((await api.awaitInitialization()).storageKeys).toEqual(data.storageKeys)
       const [user, background, clipboard] = await Promise.all([
         api.getCybrosCurrentUser!(),
         api.setBackgroundColor!("#ffffff"),
