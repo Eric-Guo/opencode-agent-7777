@@ -4,7 +4,7 @@ import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
 import { fileBytes, outputs, outputTurn, review, rhoData } from "./outputs"
 import { isIP } from "node:net"
-import type { Connect, Plugin } from "vite"
+import type { Connect } from "vite"
 import { APIError } from "@cybros/agent"
 import {
   BridgeError,
@@ -330,21 +330,5 @@ export function middleware(
         })
       json(res, 503, { error: "Could not reach rho or Nexus. Check rho status and reconnect." })
     }
-  }
-}
-export function nexusPlugin(): Plugin {
-  let env: Record<string, string> = {}
-  return {
-    name: "7777-nexus",
-    async configResolved(config) {
-      const { loadEnv } = await import("vite")
-      env = loadEnv(config.mode, config.envDir, ["NEXUS_MEMBER_TOKEN", "RHO_HOME"])
-    },
-    configureServer(server) {
-      server.middlewares.use(middleware(() => ({ token: env.NEXUS_MEMBER_TOKEN, home: env.RHO_HOME })))
-    },
-    configurePreviewServer(server) {
-      server.middlewares.use(middleware(() => ({ token: env.NEXUS_MEMBER_TOKEN, home: env.RHO_HOME })))
-    },
   }
 }
