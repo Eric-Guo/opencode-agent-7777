@@ -16,7 +16,7 @@ type ElectronNative = {
 declare global {
   interface Window {
     api?: DesktopAPI
-    electron: ElectronNative
+    electron?: ElectronNative
   }
 }
 

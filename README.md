@@ -13,7 +13,7 @@ cd "<nexus-checkout>/sdks/typescript"
 pnpm install --frozen-lockfile
 pnpm run build
 
-cd "<repo-root>/packages/7777"
+cd "<repo-root>/packages/nexus-ui"
 mkdir -p .local
 ln -s "<absolute-path-to-nexus-checkout>/sdks/typescript" .local/nexus-sdk
 
@@ -30,7 +30,9 @@ NEXUS_MEMBER_TOKEN=<personal-member-token>
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 ```
 
-Run `bun run dev` in the package and open [the local chat](http://localhost:4777/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes provide the local API. A standalone static-file host would also need to provide that API. The packaged Electron integration is deferred.
+Run `bun run dev` in this package and visit [the local chat](http://localhost:4779/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes serve the Nexus bridge alongside the page.
+
+The SigmaAgents **Nexus** tab loads the bundled `sigma-agents/nexus-ui.html` entry. Start Nexus and rho, then launch the SigmaAgents desktop with `NEXUS_MEMBER_TOKEN` in its environment. The desktop serves the bridge itself and keeps the tab's browser storage in the dedicated `persist:desktop-tab-nexus-ui` partition. rho discovers the Nexus backend from its existing connection, for example `http://127.0.0.1:3000` in local development.
 
 The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It keeps the control bearer on the server for scoped rho operations such as runner discovery, channel ownership, recorded file changes, and site grants. The Human member token authenticates conversation and input writes to Nexus. Browser requests use only the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
 

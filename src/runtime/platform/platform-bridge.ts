@@ -76,7 +76,7 @@ export const windowsElectron =
 // Thin bridge to the embedding desktop shell; 7777 does not own a platform context provider.
 
 const desktopRpcPort =
-  typeof window !== "undefined" && isElectronUserAgent(navigator.userAgent) && !window.api
+  typeof window !== "undefined" && window.electron && !window.api
     ? waitForDesktopRpcPort()
     : undefined
 const desktopRpcClient = desktopRpcPort ? await import("@/runtime/platform/desktop-rpc-client") : undefined

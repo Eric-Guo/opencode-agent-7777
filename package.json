@@ -1,8 +1,11 @@
 {
-  "name": "@opencode/7777",
+  "name": "@opencode/nexus-ui",
   "version": "2.2.5",
   "private": true,
   "type": "module",
+  "exports": {
+    "./desktop": "./server/desktop.ts"
+  },
   "scripts": {
     "typecheck": "tsc -b",
     "test:components": "playwright test --config playwright.components.config.ts",
