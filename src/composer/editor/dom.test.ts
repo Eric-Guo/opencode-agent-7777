@@ -199,6 +199,6 @@ test.each(["absent", "external"])("does not apply fallback paste to an %s select
     expect(onInput).not.toHaveBeenCalled()
   } finally {
     if (descriptor) Object.defineProperty(document, "execCommand", descriptor)
-    else Reflect.deleteProperty(document, "execCommand")
+    else delete (document as { execCommand?: typeof document.execCommand }).execCommand
   }
 })

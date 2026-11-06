@@ -110,7 +110,7 @@ describe("attachment focus", () => {
       globals.forEach((name, index) => {
         const descriptor = previous[index]
         if (descriptor) Object.defineProperty(globalThis, name, descriptor)
-        else Reflect.deleteProperty(globalThis, name)
+        else delete (globalThis as Partial<typeof globalThis>)[name]
       })
     }
   })
