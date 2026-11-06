@@ -3,7 +3,6 @@ import "@/index.css"
 import { File } from "@opencode/session-ui/file"
 import { DialogProvider } from "@opencode/ui/context/dialog"
 import { FileComponentProvider } from "@opencode/ui/context/file"
-import { MarkedProvider } from "@opencode/ui/context/marked"
 import { ThemeProvider } from "@opencode/ui/theme/context"
 import { Toast } from "@opencode/ui/toast"
 import { type ParentProps } from "solid-js"
@@ -27,9 +26,7 @@ export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
           <Toast.Region />
           <DialogProvider>
             <SettingsProvider>
-              <MarkedProvider>
-                <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
-              </MarkedProvider>
+              <FileComponentProvider component={File}>{props.children}</FileComponentProvider>
             </SettingsProvider>
           </DialogProvider>
         </UiI18nBridge>

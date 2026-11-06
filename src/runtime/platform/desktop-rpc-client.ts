@@ -71,7 +71,7 @@ export function createDesktopApi(port: Promise<MessagePort>): DesktopAPI {
     openFilePicker: (options) => invoke("FilesOpenFilePicker", options ? { options } : {}),
     readPickedFile: (token, path) => invoke("FilesReadPickedFile", { token, path }).then(toArrayBuffer),
     releasePickedFiles: (token) => invoke("FilesReleasePickedFiles", { token }),
-    getPathForFile: (file) => window.electron.getPathForFile(file),
+    getPathForFile: (file) => window.electron?.getPathForFile(file) ?? "",
     readClipboardImage: () =>
       invoke("FilesReadClipboardImage").then((image) =>
         image ? { ...image, buffer: toArrayBuffer(image.buffer) } : null,
