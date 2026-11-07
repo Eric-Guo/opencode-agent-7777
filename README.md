@@ -731,8 +731,9 @@ in memory, but restored tabs become retained after a reload, matching the main a
 are stored, and only the selected file is fetched. Malformed saved entries are ignored; storage failures leave
 tabs usable in memory. Closing the last tab clears that scope's saved layout.
 `SHOW_FILE_TREE_PANEL` in `src/constants/session.ts` controls the entire feature and defaults
-to `true`; set it to `false` to restore the full-width conversation. The tree follows the active session's
-`location.directory`, including the default `<server-root>/agent-plm-meeting` folder and restored sessions.
+to `true`; set it to `false` to restore the full-width conversation. The tree follows the active workspace directory,
+including the draft's default `<server-root>/agent-plm-meeting` folder before the first message and restored sessions'
+`location.directory`. Browsing, searching, and previewing files in a draft does not create a persisted session.
 
 Drag a file tab left or right to reorder it, or focus it and press **Alt+Shift+Left** or **Alt+Shift+Right**.
 Keyboard moves retain focus for repeated moves. The conversation tab stays first; moving files preserves the

@@ -14,7 +14,7 @@ import "./session-side-panel.css"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createFileModel, type FileModel } from "@/workspaces/files/file-model"
 import { createClientForServer, type OpencodeClient } from "@/runtime/server/client-compact"
-import { state } from "@/runtime/server/session-store-compact"
+import { currentDirectory, state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { readFileTreeWidth, writeFileTreeWidth } from "@/runtime/persistence/settings-storage-compact"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
@@ -42,7 +42,7 @@ export type SessionFiles = {
 
 export function createSessionFiles(): SessionFiles {
   const [status, setStatus] = createStore({ error: "", revision: 0 })
-  const directory = () => state.session?.location.directory ?? ""
+  const directory = () => currentDirectory() ?? ""
   const layout = createSessionLayout()
   const tabs = createMemo(() =>
     layout.tabs(
