@@ -530,8 +530,13 @@ Composer suggestions follow the main app's `composer/model.ts`, `composer/editor
 runtime's shared location resources and retains independent loading/failure states. Providers and models use the
 same resources, with the explicit server-default-model read first and compact selection/visibility rules afterward. File search follows the
 main app's `workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller
-and URI helpers. It searches files and directories without file tabs or a workspace provider. File, skill, and agent
-mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
+and URI helpers. The compact-only `workspaces/files/search-machine.ts` owns request attempts and ready/loading/failed
+transitions, following the main app's separate file-lifecycle machine pattern. The model runs requests and uses the
+public `@opencode/util/abort` helper; its reactive status is derived from the machine, without a separate version counter.
+Clearing or replacing a search rejects late successes and failures, including repeated queries in the same directory.
+Existing limits, path deduplication, empty-query handling and composer cleanup remain unchanged, with coverage in
+`workspaces/files/model.test.ts`. It searches files and directories without file tabs or a workspace provider.
+File, skill, and agent mentions persist in drafts and accepted-prompt history and retain their offsets in prompt and command requests.
 Agent suggestions exclude hidden and primary-only agents. Local session actions enter through the composer adapter;
 the broader app command provider remains unavailable.
 

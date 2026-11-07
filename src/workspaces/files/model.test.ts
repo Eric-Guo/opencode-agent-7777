@@ -75,3 +75,30 @@ test("recovers after a failed search without rejecting the skill suggestion list
   expect(files.state.status).toBe("ready")
   expect(await createFileSearch(() => undefined).searchFilesAndDirectories("src")).toEqual([])
 })
+
+test.each(["success", "failure"])("keeps a newer search pending after a superseded %s", async (outcome) => {
+  const { client, calls } = fixture()
+  const files = createFileSearch(() => ({ client, directory: "/workspace" }))
+  const first = files.searchFilesAndDirectories("src")
+  const second = files.searchFilesAndDirectories("src")
+  expect(calls[0].signal?.aborted).toBe(true)
+
+  if (outcome === "success") calls[0].result.resolve({ data: [{ path: "stale.ts", type: "file" }] })
+  else calls[0].result.reject(new Error("Stale failure"))
+  expect(await first).toEqual([])
+  expect(files.state.status).toBe("loading")
+  expect(calls[1].signal?.aborted).toBe(false)
+
+  // Settling the older request must not release the newer request's cancellation handle.
+  expect(await files.searchFilesAndDirectories(" ")).toEqual([])
+  expect(calls).toHaveLength(2)
+  expect(calls[1].signal?.aborted).toBe(true)
+  expect(files.state.status).toBe("ready")
+  const third = files.searchFilesAndDirectories("src")
+  calls[1].result.resolve({ data: [{ path: "cancelled.ts", type: "file" }] })
+  expect(await second).toEqual([])
+  expect(files.state.status).toBe("loading")
+  calls[2].result.resolve({ data: [{ path: "current.ts", type: "file" }] })
+  expect(await third).toEqual(["current.ts"])
+  expect(files.state.status).toBe("ready")
+})
