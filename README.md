@@ -32,9 +32,11 @@ VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 
 Run `bun run dev` in this package and visit [the local chat](http://localhost:4779/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes serve the Nexus bridge alongside the page.
 
-The SigmaAgents **Nexus** tab loads the bundled `sigma-agents/nexus-ui.html` entry. Start Nexus and rho, then launch the SigmaAgents desktop with `NEXUS_MEMBER_TOKEN` in its environment. The desktop serves the bridge itself and keeps the tab's browser storage in the dedicated `persist:desktop-tab-nexus-ui` partition. rho discovers the Nexus backend from its existing connection, for example `http://127.0.0.1:3000` in local development.
+The SigmaAgents **Nexus** tab loads the bundled `sigma-agents/nexus-ui.html` entry. Start Nexus and rho, then open **SigmaAgents settings → Nexus** in the desktop. Save your Human member-plane token and, if needed, the rho home directory. Reopen or reload the Nexus tab to reconnect; no desktop or rho restart is required. The desktop serves the bridge itself and keeps the tab's browser storage in the dedicated `persist:desktop-tab-nexus-ui` partition. rho discovers the Nexus backend from its existing connection, for example `http://127.0.0.1:3000` in local development.
 
-The bridge reads `$RHO_HOME/tmp/announcement.json` (`~/.rho` by default). It keeps the control bearer on the server for scoped rho operations such as runner discovery, channel ownership, recorded file changes, and site grants. The Human member token authenticates conversation and input writes to Nexus. Browser requests use only the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
+Desktop settings override `NEXUS_MEMBER_TOKEN` and `RHO_HOME` from the desktop environment. The password field stays empty on load; leaving it empty preserves the saved token. Clearing the saved token and saving restores environment fallback; resetting to defaults removes both overrides. Tokens are encrypted in desktop SQLite and never bundled into renderer assets. Standalone `bun run dev` and `bun run serve` continue to read this package's `.env.local`.
+
+The bridge reads `tmp/announcement.json` under the saved rho home directory, otherwise `$RHO_HOME` (`~/.rho` by default). It keeps the control bearer on the server for scoped rho operations such as runner discovery, channel ownership, recorded file changes, and site grants. The Human member token authenticates conversation and input writes to Nexus. Browser requests use only the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
 
 ## Conversation behavior
 

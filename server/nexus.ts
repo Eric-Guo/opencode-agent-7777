@@ -30,7 +30,11 @@ export type Backend = {
   realtime: () => RealtimeClient
 }
 export async function discover(home: string, token?: string): Promise<Backend> {
-  if (!token) throw new BridgeError(503, "Set NEXUS_MEMBER_TOKEN in .env.local to your Nexus personal member token.")
+  if (!token)
+    throw new BridgeError(
+      503,
+      "Add your Nexus personal member token in SigmaAgents settings, or set NEXUS_MEMBER_TOKEN in .env.local for standalone development.",
+    )
   const announcementPath = join(home || join(homedir(), ".rho"), "tmp", "announcement.json")
   const announcement = JSON.parse(await readFile(announcementPath, "utf8"))
   const endpoint = new URL(announcement.endpoint)
