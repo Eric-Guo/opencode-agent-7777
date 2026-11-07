@@ -28,6 +28,9 @@ menu-scroll boundary. Local adapters retain height limits, viewport padding, key
 The composer editor keeps native scrolling; the timeline retains `ScrollView` for its custom thumb and keyboard navigation.
 The model and recent-session pickers use shared `createTypeahead`. The model picker reads the integration catalog
 only when open with an OpenAI model selected. A Solid resource tracks refreshes and discards superseded results.
+The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous
+translations. `runtime/i18n/language.tsx` also owns `UiI18nBridge`, following the main app's language boundary;
+`app.tsx` only composes providers. Compact locale detection, storage and eager English/Chinese dictionaries stay local.
 
 ## Remaining compact responsibilities
 

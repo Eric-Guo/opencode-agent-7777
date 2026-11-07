@@ -1,7 +1,6 @@
 import "@/index.css"
 
 import { File } from "@opencode/session-ui/file"
-import { I18nProvider } from "@opencode/ui/context"
 import { DialogProvider } from "@opencode/ui/context/dialog"
 import { FileComponentProvider } from "@opencode/ui/context/file"
 import { MarkedProvider } from "@opencode/ui/context/marked"
@@ -9,18 +8,9 @@ import { ThemeProvider } from "@opencode/ui/theme/context"
 import { Toast } from "@opencode/ui/toast"
 import { type ParentProps } from "solid-js"
 import { syncPlatformBackgroundColor } from "@/runtime/platform/platform-bridge"
-import { LanguageProvider, type Locale, useLanguage } from "@/runtime/i18n/language"
+import { LanguageProvider, type Locale, UiI18nBridge } from "@/runtime/i18n/language"
 import Session from "@/session/screen"
 import { SettingsProvider } from "@/settings/model"
-
-function UiI18nBridge(props: ParentProps) {
-  const language = useLanguage()
-  return (
-    <I18nProvider value={{ locale: language.intl, t: language.t, plural: language.plural }}>
-      {props.children}
-    </I18nProvider>
-  )
-}
 
 export function AppBaseProviders(props: ParentProps<{ locale?: Locale }>) {
   return (

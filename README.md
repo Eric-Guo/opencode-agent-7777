@@ -425,6 +425,12 @@ The local `Persistence.array` accepts a fresh fallback factory for compact provi
 operations remain in `providers/models/models.tsx`. `providers/models/selection.tsx` owns shared scoped choices,
 the persisted global fallback and server acknowledgement; it does not import the composer controller.
 
+`runtime/i18n/language.tsx` owns `UiI18nBridge`, matching the main app's language boundary while `app.tsx` composes
+the provider tree. Ordinary, plural and synchronous translations reuse the public `resolveTemplate` formatter and
+parameter type from `@opencode/ui/context/i18n`. Locale detection, the `opencode.7777.language` plain/legacy formats,
+English fallback and eager English/Chinese dictionaries remain local. The compact adapter keeps `zh-CN` formatting,
+its document language and cookie updates, and synchronous language switching without importing app source.
+
 `composer/selection.ts` owns active model precedence, variant resolution and recent-model cycling, following the main
 app's composer boundary. Both the editor and submit path use it. Unsent choices still precede the durable session
 model and global fallback; explicit Default variants, agent defaults, hidden-model filtering and recency order are

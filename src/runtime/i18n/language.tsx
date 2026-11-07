@@ -1,8 +1,14 @@
 import { createSimpleContext } from "@opencode/ui/context"
-import { pluralCategory, type UiI18nPluralKey } from "@opencode/ui/context/i18n"
+import {
+  I18nProvider,
+  pluralCategory,
+  resolveTemplate,
+  type UiI18nParams,
+  type UiI18nPluralKey,
+} from "@opencode/ui/context/i18n"
 import { dict as uiEn } from "@opencode/ui/i18n/en"
 import { dict as uiZh } from "@opencode/ui/i18n/zh"
-import { createEffect, createMemo } from "solid-js"
+import { createEffect, createMemo, type ParentProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import { storageGet, storageSet } from "@/runtime/persistence/storage"
 import { dict as en } from "@/runtime/i18n/en"
@@ -13,7 +19,7 @@ export type Locale = "en" | "zh"
 type RawDictionary = typeof en & typeof uiEn
 export type Dictionary = RawDictionary
 export type TranslationKey = keyof Dictionary
-export type TranslationParams = Record<string, string | number | boolean>
+export type TranslationParams = UiI18nParams
 type LocalPluralKey = keyof typeof en extends infer Key ? (Key extends `${infer Base}.other` ? Base : never) : never
 type PluralKey = UiI18nPluralKey | LocalPluralKey
 
@@ -36,15 +42,6 @@ const base = { ...en, ...uiEn } as Dictionary
 const dictionaries: Record<Locale, Dictionary> = {
   en: base,
   zh: { ...base, ...zh, ...uiZh } as Dictionary,
-}
-
-function resolveTemplate(text: string, params?: TranslationParams) {
-  if (!params) return text
-  return text.replace(/{{\s*([^}]+?)\s*}}/g, (_, rawKey) => {
-    const key = String(rawKey)
-    const value = params[key]
-    return value === undefined ? "" : String(value)
-  })
 }
 
 function template(dict: Dictionary, key: TranslationKey, params?: TranslationParams) {
@@ -110,10 +107,7 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
     const locale = createMemo<Locale>(() => normalizeLocale(store.locale))
     const intl = createMemo(() => INTL[locale()])
     const dict = createMemo(() => dictionaries[locale()])
-    const t = ((key: TranslationKey, params?: TranslationParams) => template(dict(), key, params)) as (
-      key: TranslationKey,
-      params?: TranslationParams,
-    ) => string
+    const t = (key: TranslationKey, params?: TranslationParams) => template(dict(), key, params)
     const plural = (key: PluralKey, count: number, params?: TranslationParams) => {
       const lookup = `${key}.${pluralCategory(intl(), count)}` as TranslationKey
       const other = `${key}.other` as TranslationKey
@@ -143,3 +137,12 @@ export const { use: useLanguage, provider: LanguageProvider } = createSimpleCont
     }
   },
 })
+
+export function UiI18nBridge(props: ParentProps) {
+  const language = useLanguage()
+  return (
+    <I18nProvider value={{ locale: language.intl, t: language.t, plural: language.plural }}>
+      {props.children}
+    </I18nProvider>
+  )
+}
