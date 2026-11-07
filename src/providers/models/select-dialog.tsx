@@ -1,6 +1,7 @@
 import { Badge } from "@opencode/ui/badge"
 import { Icon } from "@opencode/ui/icon"
 import { Menu } from "@opencode/ui/menu"
+import { MenuScroll } from "@opencode/ui/menu-scroll"
 import { TextInput } from "@opencode/ui/text-input"
 import { createTypeahead } from "@opencode/ui/typeahead"
 import { Tooltip } from "@opencode/ui/tooltip"
@@ -258,78 +259,76 @@ export function ModelSelectorPopoverView(props: {
             />
           </div>
           <div class="h-px bg-v2-border-border-muted" />
-          <div
+          <MenuScroll
             data-slot="model-selector-scroll"
-            data-scrollable
             role="region"
             aria-label={i18n.t("ui.scrollView.ariaLabel")}
             tabIndex={0}
-            class="max-h-[220px] min-h-0 overflow-y-auto outline-none"
+            class="max-h-[220px] [&_[data-slot=menu-scroll-content]]:flex [&_[data-slot=menu-scroll-content]]:flex-col"
+            viewportClass="p-0.5 pt-0 outline-none"
           >
-            <div class="flex flex-col p-0.5 pt-0">
-              <Show
-                when={models().length > 0}
-                fallback={
-                  <div class="flex h-12 items-center px-3 text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-faint">
-                    {language.t("dialog.model.empty")}
-                  </div>
-                }
-              >
-                <For each={groups()}>
-                  {(group) => (
-                    <Menu.Group>
-                      <Menu.GroupLabel
-                        class="gap-1.5 pe-3"
-                        style={{ "padding-inline-start": group.category === "opencode" ? "10px" : "12px" }}
-                      >
-                        <ProviderModelIcon provider={group.items[0].provider} class="shrink-0" />
-                        <span class="min-w-0 truncate">{providerLabel()(group.items[0].provider).name}</span>
-                        <Show when={providerLabel()(group.items[0].provider).workspace}>
-                          {(workspace) => <Badge class="shrink-0">{workspace()}</Badge>}
-                        </Show>
-                      </Menu.GroupLabel>
-                      <Menu.RadioGroup value={selectedKey()}>
-                        <For each={group.items}>
-                          {(item) => (
-                            <Tooltip
-                              class="w-full"
-                              placement="right-start"
-                              gutter={6}
-                              openDelay={0}
-                              value={<ModelTooltip model={item} latest={item.latest} free={isFreeModel(item)} />}
+            <Show
+              when={models().length > 0}
+              fallback={
+                <div class="flex h-12 items-center px-3 text-[13px] font-[440] leading-5 tracking-[-0.04px] text-v2-text-text-faint">
+                  {language.t("dialog.model.empty")}
+                </div>
+              }
+            >
+              <For each={groups()}>
+                {(group) => (
+                  <Menu.Group>
+                    <Menu.GroupLabel
+                      class="gap-1.5 pe-3"
+                      style={{ "padding-inline-start": group.category === "opencode" ? "10px" : "12px" }}
+                    >
+                      <ProviderModelIcon provider={group.items[0].provider} class="shrink-0" />
+                      <span class="min-w-0 truncate">{providerLabel()(group.items[0].provider).name}</span>
+                      <Show when={providerLabel()(group.items[0].provider).workspace}>
+                        {(workspace) => <Badge class="shrink-0">{workspace()}</Badge>}
+                      </Show>
+                    </Menu.GroupLabel>
+                    <Menu.RadioGroup value={selectedKey()}>
+                      <For each={group.items}>
+                        {(item) => (
+                          <Tooltip
+                            class="w-full"
+                            placement="right-start"
+                            gutter={6}
+                            openDelay={0}
+                            value={<ModelTooltip model={item} latest={item.latest} free={isFreeModel(item)} />}
+                          >
+                            <Menu.RadioItem
+                              value={modelKey(item)}
+                              data-option-key={modelKey(item)}
+                              data-selected-model={selectedKey() === modelKey(item) ? true : undefined}
+                              class="scroll-my-6 w-full"
+                              classList={{
+                                "!bg-v2-overlay-simple-overlay-hover": navigation.activeItem() === modelKey(item),
+                              }}
+                              onMouseEnter={() => {
+                                navigation.setActive(modelKey(item))
+                                setTimeout(() => searchRef?.focus())
+                              }}
+                              onSelect={() => selectModel(item)}
                             >
-                              <Menu.RadioItem
-                                value={modelKey(item)}
-                                data-option-key={modelKey(item)}
-                                data-selected-model={selectedKey() === modelKey(item) ? true : undefined}
-                                class="scroll-my-6 w-full"
-                                classList={{
-                                  "!bg-v2-overlay-simple-overlay-hover": navigation.activeItem() === modelKey(item),
-                                }}
-                                onMouseEnter={() => {
-                                  navigation.setActive(modelKey(item))
-                                  setTimeout(() => searchRef?.focus())
-                                }}
-                                onSelect={() => selectModel(item)}
-                              >
-                                <span class="min-w-0 truncate leading-5">{item.name}</span>
-                                <Show when={isFreeModel(item)}>
-                                  <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
-                                </Show>
-                                <Show when={item.latest}>
-                                  <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
-                                </Show>
-                              </Menu.RadioItem>
-                            </Tooltip>
-                          )}
-                        </For>
-                      </Menu.RadioGroup>
-                    </Menu.Group>
-                  )}
-                </For>
-              </Show>
-            </div>
-          </div>
+                              <span class="min-w-0 truncate leading-5">{item.name}</span>
+                              <Show when={isFreeModel(item)}>
+                                <Badge class="shrink-0">{language.t("model.tag.free")}</Badge>
+                              </Show>
+                              <Show when={item.latest}>
+                                <Badge class="shrink-0">{language.t("model.tag.latest")}</Badge>
+                              </Show>
+                            </Menu.RadioItem>
+                          </Tooltip>
+                        )}
+                      </For>
+                    </Menu.RadioGroup>
+                  </Menu.Group>
+                )}
+              </For>
+            </Show>
+          </MenuScroll>
           <Show when={props.onManage}>
             <div class="h-px bg-v2-border-border-muted" />
             <div class="flex flex-col p-0.5">

@@ -23,8 +23,9 @@ repeated custom-answer/navigation logic; fresh requests, payloads, focus and key
 Composer catalog projection stays in `composer/suggestions/catalog-compact.ts`: local/server commands share
 one row builder, and context/file mentions are independent of runtime wiring. Attachment IDs reuse public
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
-Composer, suggestion, model and recent-session scrolling use native containers with public UI scrollbar styles,
-following the main app's boundaries. The timeline retains `ScrollView` for its custom thumb and keyboard navigation.
+Suggestion, model and recent-session popups reuse public `@opencode/ui/menu-scroll`, following the main app's
+menu-scroll boundary. Local adapters retain height limits, viewport padding, keyboard reveal and search behavior.
+The composer editor keeps native scrolling; the timeline retains `ScrollView` for its custom thumb and keyboard navigation.
 The model and recent-session pickers use shared `createTypeahead`. The model picker reads the integration catalog
 only when open with an OpenAI model selected. A Solid resource tracks refreshes and discards superseded results.
 

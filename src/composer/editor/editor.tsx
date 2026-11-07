@@ -8,6 +8,7 @@ import { useI18n } from "@opencode/ui/context/i18n"
 import { Button } from "@opencode/ui/button"
 import { Keybind } from "@opencode/ui/keybind"
 import { Menu } from "@opencode/ui/menu"
+import { MenuScroll } from "@opencode/ui/menu-scroll"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { TextInput } from "@opencode/ui/text-input"
 import { AttachmentCard } from "@opencode/session-ui/attachment-card"
@@ -744,71 +745,69 @@ export function ComposerEditorPopover(props: {
       style={{ "max-height": `${store.maxHeight}px` }}
       onMouseDown={(event) => event.preventDefault()}
     >
-      <div
-        data-scrollable
+      <MenuScroll
         role="region"
         aria-label={i18n.t("ui.scrollView.ariaLabel")}
         tabIndex={0}
-        class="min-h-0 flex-1 overflow-y-auto scroll-pb-[18px] outline-none"
+        class="flex-1 [&_[data-slot=menu-scroll-content]]:flex [&_[data-slot=menu-scroll-content]]:flex-col"
+        viewportClass="scroll-pb-[18px] p-2 outline-none"
       >
-        <div class="flex flex-col p-2">
-          <Show when={props.search}>
-            {(search) => (
-              <div class="shrink-0 px-2">
-                <TextInput
-                  ref={(element) => {
-                    searchInput = element
-                    requestAnimationFrame(() => element.isConnected && element.focus())
-                  }}
-                  value={search().value}
-                  aria-label={search().label}
-                  placeholder={search().placeholder}
-                  class="w-full"
-                  showClearButton={!!search().value}
-                  onClearClick={() => {
-                    search().onValueChange("")
-                    searchInput?.focus()
-                  }}
-                  onInput={(event) => search().onValueChange(event.currentTarget.value)}
-                  onKeyDown={(event) => search().onKeyDown(event)}
-                  onMouseDown={(event) => event.stopPropagation()}
-                />
-              </div>
-            )}
-          </Show>
-          <Show
-            when={props.items.length > 0}
-            fallback={<div class="px-2 py-1 text-v2-text-text-muted">{props.emptyLabel}</div>}
-          >
-            <For each={props.items}>
-              {(item) => (
-                <button
-                  type="button"
-                  data-suggestion-id={item.id}
-                  data-active={props.activeID === item.id ? "" : undefined}
-                  class="flex h-7 w-full shrink-0 items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
-                  classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
-                  onPointerMove={() => props.onActiveChange(item)}
-                  onClick={() => props.onSelect(item)}
-                >
-                  <div class="flex min-w-0 flex-1 items-center gap-2">
-                    <ComposerSuggestionIcon item={item} />
-                    <bdi dir="auto" class="shrink-0 text-v2-text-text-base">
-                      {item.label}
-                    </bdi>
-                    <Show when={item.description}>
-                      <span class="min-w-0 truncate text-v2-text-text-muted">{item.description}</span>
-                    </Show>
-                  </div>
-                  <Show when={item.keybind?.length}>
-                    <span class="shrink-0 text-v2-text-text-muted">{item.keybind?.join("+")}</span>
+        <Show when={props.search}>
+          {(search) => (
+            <div class="shrink-0 px-2">
+              <TextInput
+                ref={(element) => {
+                  searchInput = element
+                  requestAnimationFrame(() => element.isConnected && element.focus())
+                }}
+                value={search().value}
+                aria-label={search().label}
+                placeholder={search().placeholder}
+                class="w-full"
+                showClearButton={!!search().value}
+                onClearClick={() => {
+                  search().onValueChange("")
+                  searchInput?.focus()
+                }}
+                onInput={(event) => search().onValueChange(event.currentTarget.value)}
+                onKeyDown={(event) => search().onKeyDown(event)}
+                onMouseDown={(event) => event.stopPropagation()}
+              />
+            </div>
+          )}
+        </Show>
+        <Show
+          when={props.items.length > 0}
+          fallback={<div class="px-2 py-1 text-v2-text-text-muted">{props.emptyLabel}</div>}
+        >
+          <For each={props.items}>
+            {(item) => (
+              <button
+                type="button"
+                data-suggestion-id={item.id}
+                data-active={props.activeID === item.id ? "" : undefined}
+                class="flex h-7 w-full shrink-0 items-center gap-2 rounded-md px-2 py-1 text-start hover:bg-v2-overlay-simple-overlay-hover"
+                classList={{ "bg-v2-overlay-simple-overlay-hover": props.activeID === item.id }}
+                onPointerMove={() => props.onActiveChange(item)}
+                onClick={() => props.onSelect(item)}
+              >
+                <div class="flex min-w-0 flex-1 items-center gap-2">
+                  <ComposerSuggestionIcon item={item} />
+                  <bdi dir="auto" class="shrink-0 text-v2-text-text-base">
+                    {item.label}
+                  </bdi>
+                  <Show when={item.description}>
+                    <span class="min-w-0 truncate text-v2-text-text-muted">{item.description}</span>
                   </Show>
-                </button>
-              )}
-            </For>
-          </Show>
-        </div>
-      </div>
+                </div>
+                <Show when={item.keybind?.length}>
+                  <span class="shrink-0 text-v2-text-text-muted">{item.keybind?.join("+")}</span>
+                </Show>
+              </button>
+            )}
+          </For>
+        </Show>
+      </MenuScroll>
     </div>
   )
 }

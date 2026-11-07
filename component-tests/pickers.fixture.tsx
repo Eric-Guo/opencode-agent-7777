@@ -82,6 +82,7 @@ function RecentSessions() {
 type ModelItem = ReturnType<ComponentProps<typeof ModelSelectorPopoverView>["all"]>[number]
 
 function Models() {
+  const params = new URLSearchParams(location.search)
   const [state, setState] = createStore({ selected: "openai:beta", managed: 0, closed: 0, removed: "" })
   let editor!: HTMLInputElement
   const model = (id: string, name: string, providerID: string): ModelItem => ({
@@ -103,9 +104,11 @@ function Models() {
     model("alpha", "Alpha", "openai"),
     model("beta", "Beta", "openai"),
     model("zulu", "Zulu", "console-openai"),
+    ...(params.has("overflow")
+      ? Array.from({ length: 20 }, (_, index) => model(`extra-${index}`, `Extra ${index}`, "openai"))
+      : []),
   ]
   const all = () => catalog.filter((item) => item.id !== state.removed)
-  const params = new URLSearchParams(location.search)
   const manage = params.get("manage") !== "false"
   const source = params.has("plan")
     ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
