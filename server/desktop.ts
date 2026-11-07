@@ -2,9 +2,14 @@ import { randomUUID } from "node:crypto"
 import { createServer } from "node:http"
 import { middleware } from "./middleware"
 
-export async function createDesktopBridge() {
+export async function createDesktopBridge(
+  config: () => { token?: string; home?: string } = () => ({
+    token: process.env.NEXUS_MEMBER_TOKEN,
+    home: process.env.RHO_HOME,
+  }),
+) {
   const authorization = `Bearer ${randomUUID()}`
-  const handle = middleware(() => ({ token: process.env.NEXUS_MEMBER_TOKEN, home: process.env.RHO_HOME }))
+  const handle = middleware(config)
   const server = createServer((request, response) => {
     if (request.headers.authorization !== authorization) return response.writeHead(403).end()
 
