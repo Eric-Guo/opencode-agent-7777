@@ -501,9 +501,20 @@ search are preserved. The existing grouping and ordering tests now live in `home
 
 Composer suggestion popups reuse `TextInput` and `MenuScroll` in `composer/editor/editor.tsx`.
 The shared field owns command-search styling and clearing; the shared viewport owns the popup scrollbar.
-Local code retains filtering, keyboard selection, focus restoration, draft preservation and boundary-based sizing,
+Local code retains filtering, compact shortcuts, focus restoration, draft preservation and boundary-based sizing,
 including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
 same viewport without adding a separate search field.
+
+`composer/editor/interaction.ts` also delegates active-row reconciliation, wrapping and selection to public
+`@opencode/ui/typeahead`. It receives only selectable rows, excluding file results while their replacement search
+is pending. Query edits reset the highlight; catalog refreshes preserve a matching row and removed rows fall back
+to the first result. The adapter keeps Tab completion, Ctrl+N/P, modified arrows, IME Enter handling and keyboard
+reveal. Escape and Ctrl+G still dismiss suggestions before stopping a run, and an empty popup consumes Enter/Tab.
+The local `composer/suggestions/machine.ts` retains popup modes, queries and draft effects without a second active-row
+state. This intentionally uses the existing shared controller within the main app's editor/suggestions boundaries;
+no app source or new shared exports are needed. `component-tests/composer.spec.ts` owns the former machine arrow-loop
+contract through rendered controls, plus hover/refresh behavior, context completion and command-menu draft/focus
+preservation.
 
 Composer DOM synchronization follows the main app's `composer/editor/{dom,machine}.ts` boundaries with local
 implementations. The editor compares inline text and mention targets before rendering instead of skipping the next
@@ -520,7 +531,7 @@ retaining native scrollbars on touch devices and in high-contrast modes. Popup p
 recent-session keyboard reveal uses its `viewportRef`. The 220 px model-list limit, recent-session height cap,
 and composer suggestion boundary sizing remain local. The composer editor keeps its native scroll container,
 reserving the shared scrollbar width and compensating its end padding so long drafts keep the same text wrapping.
-Caret reveal, scroll limits, popup sizing, active-result visibility, keyboard selection and focus restoration remain
+Caret reveal, scroll limits, popup sizing, active-result visibility, shortcut mapping and focus restoration remain
 local and unchanged. The attachment strip and toolbar also declare nested scroll ownership. Only the timeline keeps
 `ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 

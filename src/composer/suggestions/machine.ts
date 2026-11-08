@@ -5,9 +5,9 @@ export type ComposerInteractionState = {
   mode: "normal" | "shell"
   popover:
     | { type: "closed" }
-    | { type: "context"; query: string; activeID?: string }
-    | { type: "command-inline"; query: string; activeID?: string }
-    | { type: "command-menu"; query: string; activeID?: string }
+    | { type: "context"; query: string }
+    | { type: "command-inline"; query: string }
+    | { type: "command-menu"; query: string }
   drag: "idle" | "active"
   focus: "editor" | "command-search" | "external"
   activeContextID?: string
@@ -20,11 +20,9 @@ export type ComposerInteractionEvent =
   | { type: "commands.open" }
   | { type: "context.open" }
   | { type: "popover.query"; value: string }
-  | { type: "popover.results"; ids: string[] }
-  | { type: "popover.active"; id: string }
   | { type: "popover.close" }
   | { type: "popover.select"; item: ComposerSuggestion }
-  | { type: "key.down"; key: string; ctrl: boolean; composing: boolean; ids: string[]; empty?: boolean }
+  | { type: "key.down"; key: string; ctrl: boolean; empty?: boolean }
   | { type: "mode.shell" }
   | { type: "mode.normal" }
   | { type: "drag.enter" }
@@ -39,7 +37,6 @@ export type ComposerInteractionCommand =
   | { type: "draft.prependText"; value: string }
   | { type: "mention.add"; item: ComposerSuggestion; range?: { start: number; end: number } }
   | { type: "popover.filter"; popover: "command" | "context"; query: string }
-  | { type: "suggestion.select"; id: string }
   | { type: "focus.editor" }
   | { type: "focus.command-search" }
 
@@ -72,8 +69,6 @@ export function transitionComposer(
     return capabilities.commands === false ? unchanged(state) : openCommands(state, persisted)
   if (event.type === "context.open") return capabilities.context === false ? unchanged(state) : openContext(state)
   if (event.type === "popover.query") return queryChanged(state, event.value)
-  if (event.type === "popover.results") return resultsChanged(state, event.ids)
-  if (event.type === "popover.active") return activeChanged(state, event.id)
   if (event.type === "popover.close") return changed({ ...state, popover: { type: "closed" } })
   if (event.type === "popover.select") return suggestionSelected(state, event.item, persisted)
   if (event.type === "key.down") return keyDown(state, event)
@@ -154,21 +149,7 @@ function openContext(state: ComposerInteractionState): ComposerEditorTransition 
 function queryChanged(state: ComposerInteractionState, query: string): ComposerEditorTransition {
   if (state.popover.type === "closed") return unchanged(state)
   const popover = state.popover.type === "context" ? "context" : "command"
-  return changed({ ...state, popover: { ...state.popover, query, activeID: undefined } }, [
-    { type: "popover.filter", popover, query },
-  ])
-}
-
-function resultsChanged(state: ComposerInteractionState, ids: string[]): ComposerEditorTransition {
-  if (state.popover.type === "closed") return unchanged(state)
-  const activeID = state.popover.activeID && ids.includes(state.popover.activeID) ? state.popover.activeID : ids[0]
-  if (activeID === state.popover.activeID) return unchanged(state)
-  return changed({ ...state, popover: { ...state.popover, activeID } })
-}
-
-function activeChanged(state: ComposerInteractionState, id: string): ComposerEditorTransition {
-  if (state.popover.type === "closed" || state.popover.activeID === id) return unchanged(state)
-  return changed({ ...state, popover: { ...state.popover, activeID: id } })
+  return changed({ ...state, popover: { ...state.popover, query } }, [{ type: "popover.filter", popover, query }])
 }
 
 function suggestionSelected(
@@ -214,25 +195,7 @@ function keyDown(
   if (event.key === "Escape") {
     return changed({ ...state, popover: { type: "closed" }, focus: "editor" }, [{ type: "focus.editor" }], true)
   }
-  if (event.key === "Tab" || (event.key === "Enter" && !event.composing)) {
-    if (!state.popover.activeID) return unchanged(state, true)
-    return unchanged(state, true, [{ type: "suggestion.select", id: state.popover.activeID }])
-  }
-  const direction =
-    event.key === "ArrowDown" || (event.ctrl && event.key === "n")
-      ? 1
-      : event.key === "ArrowUp" || (event.ctrl && event.key === "p")
-        ? -1
-        : 0
-  if (!direction || event.ids.length === 0) return unchanged(state)
-  const current = state.popover.activeID ? event.ids.indexOf(state.popover.activeID) : -1
-  const index =
-    current < 0
-      ? direction === 1
-        ? 0
-        : event.ids.length - 1
-      : (current + direction + event.ids.length) % event.ids.length
-  return changed({ ...state, popover: { ...state.popover, activeID: event.ids[index] } }, [], true)
+  return unchanged(state)
 }
 
 function populated(persisted: ComposerPersistedState) {
@@ -256,10 +219,6 @@ function changed(
   return { state, commands, handled }
 }
 
-function unchanged(
-  state: ComposerInteractionState,
-  handled = false,
-  commands: ComposerInteractionCommand[] = [],
-): ComposerEditorTransition {
-  return { state, commands, handled }
+function unchanged(state: ComposerInteractionState): ComposerEditorTransition {
+  return { state, commands: [], handled: false }
 }

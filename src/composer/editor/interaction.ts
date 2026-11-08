@@ -1,6 +1,7 @@
 import { createEffect, on, type Accessor } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { useFilteredList } from "@opencode/ui/hooks"
+import { createTypeahead } from "@opencode/ui/typeahead"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "../attachments/attachments"
 import { createComposerEditorActions, type ComposerStateStoreInput } from "./actions"
 import { getCursorPosition, pasteComposerText, setCursorPosition } from "./dom"
@@ -166,6 +167,11 @@ export function createComposerEditor(input: {
     list()
       .flat()
       .filter((item) => item.kind !== "file" || !list().grouped.loading)
+  const navigation = createTypeahead({
+    items: () => (state.popover.type === "closed" ? [] : suggestions()),
+    key: (item) => item.id,
+    onSelect: (item) => dispatch({ type: "popover.select", item }),
+  })
 
   const execute = (command: ComposerInteractionCommand) => {
     if (command.type === "draft.setText") {
@@ -186,12 +192,8 @@ export function createComposerEditor(input: {
       return
     }
     if (command.type === "popover.filter") {
+      navigation.setActive(undefined)
       ;(command.popover === "command" ? commandList : contextList).onInput(command.query)
-      return
-    }
-    if (command.type === "suggestion.select") {
-      const item = suggestions().find((entry) => entry.id === command.id)
-      if (item) dispatch({ type: "popover.select", item })
       return
     }
     if (command.type === "focus.editor")
@@ -237,17 +239,31 @@ export function createComposerEditor(input: {
       attach()
       return true
     }
-    const handled = dispatch({
+    const ctrl = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey
+    let handled = dispatch({
       type: "key.down",
       key: event.key,
-      ctrl: event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey,
-      composing: event.isComposing,
-      ids: suggestions().map((item) => item.id),
+      ctrl,
       empty: draft.state.prompt.every((part) => !("content" in part) || part.content.length === 0),
     })
+    if (!handled && state.popover.type !== "closed") {
+      // Keep compact Tab/Ctrl+N/P and modified-arrow behavior; the shared controller owns selection and wrapping.
+      const key =
+        event.key === "Tab" || (event.key === "Enter" && !event.isComposing)
+          ? "Enter"
+          : event.key === "ArrowDown" || (ctrl && event.key === "n")
+            ? "ArrowDown"
+            : event.key === "ArrowUp" || (ctrl && event.key === "p")
+              ? "ArrowUp"
+              : undefined
+      if (key === "Enter" || (key && suggestions().length > 0)) {
+        navigation.onKeyDown(new KeyboardEvent("keydown", { key }))
+        handled = true
+      }
+    }
     if (handled) event.preventDefault()
     if (handled && event.key !== "Enter" && event.key !== "Tab" && state.popover.type !== "closed") {
-      const activeID = state.popover.activeID ?? ""
+      const activeID = navigation.activeItem()?.id ?? ""
       requestAnimationFrame(() =>
         document.querySelector(`[data-suggestion-id="${CSS.escape(activeID)}"]`)?.scrollIntoView({ block: "nearest" }),
       )
@@ -281,13 +297,6 @@ export function createComposerEditor(input: {
     }
     return event.defaultPrevented
   }
-
-  createEffect(() => {
-    if (state.popover.type === "closed") return
-    const ids = suggestions().map((item) => item.id)
-    if (state.popover.activeID ? ids.includes(state.popover.activeID) : ids.length === 0) return
-    dispatch({ type: "popover.results", ids })
-  })
 
   const restoreFocus = (cursor = draft.state.cursor ?? promptLength(draft.state.prompt)) => {
     requestAnimationFrame(() => {
@@ -352,6 +361,10 @@ export function createComposerEditor(input: {
     state,
     view: input.view,
     suggestions,
+    activeSuggestionID: () => navigation.activeItem()?.id,
+    setActiveSuggestion(id: string) {
+      if (state.popover.type !== "closed") navigation.setActive(id)
+    },
     dispatch,
     onKeyDown,
     value() {

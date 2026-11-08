@@ -83,11 +83,7 @@ describe("Composer interaction machine", () => {
 
   test("leaves shell mode with escape", () => {
     const state = { ...createComposerInteractionState(), mode: "shell" as const }
-    const result = transitionComposer(
-      state,
-      { type: "key.down", key: "Escape", ctrl: false, composing: false, ids: [] },
-      persisted(),
-    )
+    const result = transitionComposer(state, { type: "key.down", key: "Escape", ctrl: false }, persisted())
 
     expect(result.state.mode).toBe("normal")
     expect(result.handled).toBeTrue()
@@ -97,7 +93,7 @@ describe("Composer interaction machine", () => {
     const state = { ...createComposerInteractionState(), mode: "shell" as const }
     const result = transitionComposer(
       state,
-      { type: "key.down", key: "Backspace", ctrl: false, composing: false, ids: [], empty: true },
+      { type: "key.down", key: "Backspace", ctrl: false, empty: true },
       persisted(),
     )
 
@@ -108,13 +104,9 @@ describe("Composer interaction machine", () => {
   test("closes a popover with ctrl-g before stopping a run", () => {
     const state = {
       ...createComposerInteractionState(),
-      popover: { type: "context" as const, query: "", activeID: "first" },
+      popover: { type: "context" as const, query: "" },
     }
-    const result = transitionComposer(
-      state,
-      { type: "key.down", key: "g", ctrl: true, composing: false, ids: ["first"] },
-      persisted(),
-    )
+    const result = transitionComposer(state, { type: "key.down", key: "g", ctrl: true }, persisted())
 
     expect(result.state.popover).toEqual({ type: "closed" })
     expect(result.handled).toBeTrue()
@@ -162,20 +154,5 @@ describe("Composer interaction machine", () => {
     const selected = transitionComposer(state, { type: "popover.select", item }, persisted("@index"))
 
     expect(selected.commands).toContainEqual({ type: "mention.add", item })
-  })
-
-  test("loops active popover items with arrow keys", () => {
-    const state = {
-      ...createComposerInteractionState(),
-      popover: { type: "context" as const, query: "", activeID: "second" },
-    }
-    const result = transitionComposer(
-      state,
-      { type: "key.down", key: "ArrowDown", ctrl: false, composing: false, ids: ["first", "second"] },
-      persisted(),
-    )
-
-    expect(result.state.popover).toEqual({ type: "context", query: "", activeID: "first" })
-    expect(result.handled).toBeTrue()
   })
 })

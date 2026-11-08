@@ -189,9 +189,9 @@ export function ComposerEditor(props: ComposerEditorProps) {
           emptyLabel={labels().empty}
           items={props.controller.suggestions()}
           boundary={props.suggestionBoundary}
-          activeID={state.popover.type === "closed" ? undefined : state.popover.activeID}
+          activeID={props.controller.activeSuggestionID()}
           search={search()}
-          onActiveChange={(item) => props.controller.dispatch({ type: "popover.active", id: item.id })}
+          onActiveChange={(item) => props.controller.setActiveSuggestion(item.id)}
           onSelect={(item) => props.controller.dispatch({ type: "popover.select", item })}
         />
       </Show>

@@ -34,8 +34,12 @@ The compact composer catalog adapter reads live shared location catalogs. Owned 
 replacing its status store and generation counter. Source changes and cleanup retire previous observations without
 cancelling another consumer's shared request. Independent failures, retries and cache updates remain available;
 render-time status reads never suspend the composer. Loading ownership remains local without a workspace provider.
-The model and recent-session pickers use shared `createTypeahead`. The model picker reads the integration catalog
-only when open with an OpenAI model selected. A Solid resource tracks refreshes and discards superseded results.
+Composer suggestions, model and recent-session pickers use shared `createTypeahead`. The composer supplies only
+selectable rows and retains its compact shortcut mapping, IME handling, query resets, focus and draft effects.
+Its local suggestion machine no longer duplicates active-row state or wrapping; rendered keyboard, catalog-refresh
+and command-menu contracts live in `component-tests/composer.spec.ts`.
+The model picker reads the integration catalog only when open with an OpenAI model selected. A Solid resource
+tracks refreshes and discards superseded results.
 The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous
 translations. `runtime/i18n/language.tsx` also owns `UiI18nBridge`, following the main app's language boundary;
 `app.tsx` only composes providers. Compact locale detection, storage and eager English/Chinese dictionaries stay local.
