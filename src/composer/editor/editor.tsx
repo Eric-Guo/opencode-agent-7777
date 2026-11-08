@@ -22,7 +22,22 @@ import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import type { ComposerAttachment, ComposerComment, ComposerOption, ComposerSuggestion } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
 import { isAttachment, promptText } from "../prompt-parts"
-import { getCursorPosition, parseComposerEditor, renderComposerEditor, revealComposerCursor } from "./dom"
+import {
+  editorMatchesPrompt,
+  getCursorPosition,
+  isEditorDomBlank,
+  isPromptInlineBlank,
+  parseComposerEditor,
+  renderComposerEditor,
+  revealComposerCursor,
+} from "./dom"
+import {
+  INITIAL_EDITOR_SYNC_STATE,
+  INPUT_PARSED,
+  INPUT_PARSED_BLANK,
+  storeChanged,
+  transitionEditorSync,
+} from "./machine"
 
 export type {
   ComposerAttachment,
@@ -121,7 +136,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
     updateOverflow()
     onCleanup(() => observer.disconnect())
   })
-  let localInput = false
+  let sync = INITIAL_EDITOR_SYNC_STATE
   const updateCursor = () => {
     if (!editor || !window.getSelection()?.isCollapsed) return
     props.controller.onCursor(getCursorPosition(editor))
@@ -136,11 +151,11 @@ export function ComposerEditor(props: ComposerEditorProps) {
   createEffect(() => {
     const parts = props.controller.parts()
     if (!editor) return
-    if (localInput) {
-      localInput = false
-      return
-    }
-    renderComposerEditor(editor, parts)
+    const matches = editorMatchesPrompt(editor, parts)
+    const blank = !matches && isPromptInlineBlank(parts) && isEditorDomBlank(editor)
+    const step = transitionEditorSync(sync, storeChanged(matches, blank))
+    sync = step.state
+    if (step.render) renderComposerEditor(editor, parts)
   })
 
   const search = () =>
@@ -271,7 +286,10 @@ export function ComposerEditor(props: ComposerEditorProps) {
               const cursor = getCursorPosition(event.currentTarget)
               const prompt = parseComposerEditor(event.currentTarget)
               const attachments = props.controller.parts().filter(isAttachment)
-              localInput = true
+              sync = transitionEditorSync(
+                sync,
+                event.currentTarget.firstChild && isPromptInlineBlank(prompt) ? INPUT_PARSED_BLANK : INPUT_PARSED,
+              ).state
               props.controller.onInput(promptText(prompt), [...prompt, ...attachments], cursor)
             }}
             onKeyDown={(event) => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, mock, spyOn, test } from "bun:test"
 import { installDOM } from "@/test/dom"
 import {
+  editorMatchesPrompt,
   getCursorPosition,
   parseComposerEditor,
   pasteComposerText,
@@ -20,6 +21,78 @@ beforeEach(() => {
 afterEach(() => {
   mock.restore()
   cleanup()
+})
+
+test.each([
+  { html: "abc", text: "abc" },
+  { html: "a<span>b<b>c</b></span>", text: "abc" },
+  { html: "a<br>b", text: "a\nb" },
+  { html: "<div>a</div><p>b</p>", text: "a\nb" },
+  { html: "a\u200B😀<br>b", text: "a\u200B😀\nb" },
+])("matches split text runs using the parser's offsets in $html", ({ html, text }) => {
+  const editor = document.createElement("div")
+  editor.innerHTML = html
+  const prompt: ComposerPrompt = [
+    { type: "text", content: "", start: 0, end: 0 },
+    { type: "text", content: text.slice(0, 2), start: 0, end: 2 },
+    { type: "image", id: "attachment", filename: "a.txt", mime: "text/plain", blob: { id: "a", url: "data:,a" } },
+    { type: "text", content: text.slice(2), start: 2, end: text.length },
+  ]
+  expect(editorMatchesPrompt(editor, prompt)).toBe(true)
+  expect(promptText(parseComposerEditor(editor))).toBe(text)
+  expect(editorMatchesPrompt(editor, [{ type: "text", content: text + "x", start: 0, end: text.length + 1 }])).toBe(
+    false,
+  )
+  expect(editorMatchesPrompt(editor, [{ type: "text", content: text.slice(1), start: 0, end: text.length - 1 }])).toBe(
+    false,
+  )
+})
+
+test("matching mention labels retain the newest compact metadata without rewriting the DOM", () => {
+  const editor = document.createElement("div")
+  const original: ComposerPrompt = [{ type: "file", path: "a.ts", content: "@a.ts", start: 0, end: 5 }]
+  renderComposerEditor(editor, original)
+  const node = editor.firstChild
+  const current: ComposerPrompt = [
+    {
+      type: "file",
+      path: "a.ts",
+      content: "@a.ts",
+      start: 0,
+      end: 5,
+      url: "file:///workspace/a.ts#L2-L4",
+      selection: { startLine: 2, startChar: 0, endLine: 4, endChar: 3 },
+      source: { type: "file", path: "a.ts", text: { value: "selection", start: 20, end: 29 } },
+    },
+  ]
+  expect(editorMatchesPrompt(editor, current)).toBe(true)
+  expect(editor.firstChild).toBe(node)
+  expect(parseComposerEditor(editor)).toEqual([
+    {
+      type: "file",
+      path: "a.ts",
+      content: "@a.ts",
+      start: 0,
+      end: 5,
+      url: "file:///workspace/a.ts#L2-L4",
+      selection: { startLine: 2, startChar: 0, endLine: 4, endChar: 3 },
+      source: { type: "file", path: "a.ts", text: { value: "selection", start: 20, end: 29 } },
+    },
+  ])
+  expect(original).toEqual([{ type: "file", path: "a.ts", content: "@a.ts", start: 0, end: 5 }])
+  expect(editorMatchesPrompt(editor, [{ type: "text", content: "@a.ts", start: 0, end: 5 }])).toBe(false)
+})
+
+test.each([
+  { type: "file", path: "a.ts", mime: "text/plain", filename: "a.ts", content: "@same", start: 0, end: 5 },
+  { type: "file", path: "directory", mime: "application/x-directory", content: "@same", start: 0, end: 5 },
+  { type: "agent", name: "agent", content: "@same", start: 0, end: 5 },
+] satisfies ComposerPrompt)("detects a changed $type target behind the same label", (part) => {
+  const editor = document.createElement("div")
+  renderComposerEditor(editor, [part])
+  expect(editorMatchesPrompt(editor, [part])).toBe(true)
+  const changed = part.type === "file" ? { ...part, path: "different" } : { ...part, name: "different" }
+  expect(editorMatchesPrompt(editor, [changed])).toBe(false)
 })
 
 test("editing a recalled prompt preserves mention metadata and leaves its history snapshot intact", () => {

@@ -505,6 +505,15 @@ Local code retains filtering, keyboard selection, focus restoration, draft prese
 including the 28 px search row and partial next-row hint. Inline slash commands and context suggestions use the
 same viewport without adding a separate search field.
 
+Composer DOM synchronization follows the main app's `composer/editor/{dom,machine}.ts` boundaries with local
+implementations. The editor compares inline text and mention targets before rendering instead of skipping the next
+store update after input. Attachment-only changes preserve the DOM, caret and native undo/redo, while in-place store
+edits still update the editor. A two-state machine retains browser-created blank lines for the local input echo and
+allows a subsequent explicit clear. The compact parser keeps its existing Unicode offsets, block/newline rules and
+file metadata; matching mention nodes receive the latest URL, selection and source without replacing the node.
+`component-tests/composer.spec.ts` owns caret, undo/redo, reactive updates and blank-line behavior; `dom.test.ts` covers
+text-run matching and mention identity/metadata. No shared-package changes or app-source imports are required.
+
 These compact surfaces follow the main app's scroll ownership: suggestions, model lists and recent-session results
 use `@opencode/ui/menu-scroll`, which supplies a `data-scrollable` viewport and an overlay thumb on pointer devices,
 retaining native scrollbars on touch devices and in high-contrast modes. Popup padding belongs to the viewport;

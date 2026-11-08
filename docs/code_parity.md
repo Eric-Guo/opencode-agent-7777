@@ -15,6 +15,10 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
+Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching text and mentions retain their
+nodes during attachment-only updates, preserving the caret and native undo/redo. In-place store edits remain
+reactive; local blank-line echoes and later explicit clears are separate transitions. Compact mention metadata
+refreshes without replacing matching nodes. The rendered contract lives in `component-tests/composer.spec.ts`.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
@@ -57,7 +61,7 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 ## Validation
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
-Request widgets and pickers also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
 For session/timeline changes, compare production benchmarks:
 
 ```sh

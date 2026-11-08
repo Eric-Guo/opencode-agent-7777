@@ -107,6 +107,87 @@ export function revealComposerCursor(editor: HTMLElement | undefined, viewport: 
 
 const mentionParts = new WeakMap<HTMLElement, Exclude<ComposerPrompt[number], ComposerAttachment | { type: "text" }>>()
 
+// Follow the parser's text/block/mention rules without rebuilding the prompt on each store echo.
+// Reading every matching part also keeps in-place Solid store edits subscribed.
+export function editorMatchesPrompt(editor: HTMLElement, prompt: ComposerPrompt) {
+  let index = 0
+  let offset = 0
+  const nextPart = () => {
+    for (; index < prompt.length; index++, offset = 0) {
+      const part = prompt[index]!
+      if (isAttachment(part)) continue
+      if (part.type !== "text" || part.content.length > offset) return part
+    }
+  }
+  const textMatches = (text: string) => {
+    let start = 0
+    while (start < text.length) {
+      const part = nextPart()
+      if (part?.type !== "text") return false
+      const length = Math.min(text.length - start, part.content.length - offset)
+      if (start === 0 && length === text.length) {
+        if (!part.content.startsWith(text, offset)) return false
+      } else {
+        for (let i = 0; i < length; i++)
+          if (text.charCodeAt(start + i) !== part.content.charCodeAt(offset + i)) return false
+      }
+      start += length
+      offset += length
+    }
+    return true
+  }
+  const matches = (node: Node): boolean => {
+    if (node.nodeType === Node.TEXT_NODE) return textMatches(node.textContent ?? "")
+    if (!(node instanceof HTMLElement)) return true
+    if (node.dataset.mention) {
+      const part = nextPart()
+      if (!part || part.type === "text" || isAttachment(part) || offset !== 0) return false
+      const kind = part.type === "file" && part.mime === "application/x-directory" ? "reference" : part.type
+      if (node.dataset.mention !== kind || node.textContent !== part.content) return false
+      if (part.type === "agent" && node.dataset.name !== part.name) return false
+      if (part.type === "skill" && (node.dataset.id !== part.id || node.dataset.name !== part.name)) return false
+      if (
+        part.type === "file" &&
+        (node.dataset.path !== part.path ||
+          node.dataset.mime !== (part.mime || undefined) ||
+          node.dataset.filename !== (part.filename || undefined))
+      )
+        return false
+      // The label can stay while a restored draft changes its URL, selection or source metadata.
+      // Keep the parser's reference current even when the DOM does not need replacing.
+      mentionParts.set(node, part)
+      index++
+      return true
+    }
+    if (node.tagName === "BR") return textMatches("\n")
+    for (let child = node.firstChild; child; child = child.nextSibling) if (!matches(child)) return false
+    return true
+  }
+  for (let node = editor.firstChild; node; node = node.nextSibling) {
+    if (!matches(node)) return false
+    if (node.nextSibling && node instanceof HTMLElement && (node.tagName === "DIV" || node.tagName === "P")) {
+      if (!textMatches("\n")) return false
+    }
+  }
+  return nextPart() === undefined
+}
+
+export function isPromptInlineBlank(prompt: ComposerPrompt) {
+  return prompt.every((part) => isAttachment(part) || (part.type === "text" && part.content.length === 0))
+}
+
+// The parser normalizes these browser-created placeholders to an empty draft.
+export function isEditorDomBlank(node: Node): boolean {
+  for (let child = node.firstChild; child; child = child.nextSibling) {
+    if (child.nodeType === Node.TEXT_NODE) {
+      if (/[^\n\u200B]/.test(child.textContent ?? "")) return false
+    } else if (child instanceof HTMLElement) {
+      if (child.dataset.mention || (child.tagName !== "BR" && !isEditorDomBlank(child))) return false
+    }
+  }
+  return true
+}
+
 export function renderComposerEditor(editor: HTMLDivElement, prompt: ComposerPrompt) {
   const active = document.activeElement === editor
   editor.replaceChildren(
