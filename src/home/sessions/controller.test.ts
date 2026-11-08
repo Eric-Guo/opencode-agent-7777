@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test"
 import type { SessionInfo } from "@opencode/client/promise"
 import { createHomeSessionsController } from "./controller"
-import { createHomeSessionIndex } from "./index"
+import { createHomeSessionIndex } from "./queries"
 
 function session(id: string, created: number, updated?: number): SessionInfo {
   return {

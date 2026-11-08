@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import type { SessionInfo, SessionListInput, SessionsResponse } from "@opencode/client/promise"
-import { createHomeSessionIndex, loadHomeSessionPage, type HomeSessionSource } from "./index"
+import { loadHomeSessionPage, type HomeSessionSource } from "./index"
+import { createHomeSessionIndex } from "./queries"
 
 function session(id: string, directory = "/repo"): SessionInfo {
   return {
@@ -190,6 +191,35 @@ test("closing or changing the source prevents an in-flight result from populatin
   response.resolve(page([session("old-server")]))
   await pending
   expect(index.list().map((item) => item.id)).toEqual(["other-server"])
+})
+
+test.each(["success", "failure"])("a late %s cannot settle a reopened search for the same query", async (outcome) => {
+  const old = Promise.withResolvers<SessionsResponse>()
+  const latest = Promise.withResolvers<SessionsResponse>()
+  const signals: AbortSignal[] = []
+  const api = source(async (_input, options) => {
+    signals.push(options!.signal!)
+    return signals.length === 1 ? old.promise : latest.promise
+  })
+  const index = createHomeSessionIndex({ source: () => api })
+  const first = index.refresh("same")
+  index.clear()
+  const second = index.refresh("same")
+  expect(signals[0].aborted).toBe(true)
+  if (outcome === "success") old.resolve(page([session("obsolete")], "obsolete-cursor"))
+  else old.reject(new Error("obsolete failure"))
+  await first
+  expect(index.list()).toEqual([])
+  expect(index.loading()).toBe(true)
+  expect(index.failed()).toBe(false)
+  expect(index.hasMore()).toBe(false)
+  await index.more()
+  expect(signals).toHaveLength(2)
+  latest.resolve(page([session("current")]))
+  await second
+  expect(index.list().map((item) => item.id)).toEqual(["current"])
+  expect(index.loading()).toBe(false)
+  expect(signals[1].aborted).toBe(false)
 })
 
 test("debounces search and cancels scheduled work when clearing the query or closing", async () => {

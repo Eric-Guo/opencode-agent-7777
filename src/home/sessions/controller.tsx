@@ -1,6 +1,6 @@
 import type { SessionInfo } from "@opencode/client/promise"
 import type { Accessor } from "solid-js"
-import type { HomeSessionIndex } from "./index"
+import type { HomeSessionIndex } from "./queries"
 import { compareSessionTime } from "./records"
 
 // Match Home's controller boundary, with one directory and cursor-paged history.

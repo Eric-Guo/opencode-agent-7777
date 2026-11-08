@@ -35,6 +35,10 @@ File-mention search follows the main app's separate file-lifecycle machine patte
 `workspaces/files/search-machine.ts`. It owns request attempts and status transitions; `model.tsx` drives HTTP reads
 and cancellation through public `@opencode/util/abort`. Replaced or cleared requests cannot publish paths or change
 the current status. Query limits, deduplication, error recovery and the existing reactive status API are preserved.
+Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts`: cursor retrieval stays in the index,
+the local query driver owns HTTP cancellation and debounce timers, and a pure machine owns results, cursors and
+request attempts. This replaces parallel loading/error flags and a generation counter while preserving server-side
+search, 12-row paging, exact-ID lookup and retry behavior. No shared query cache or app source dependency is added.
 
 ## Remaining compact responsibilities
 

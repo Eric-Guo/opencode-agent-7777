@@ -478,6 +478,17 @@ contracts through the rendered controls, alongside model search, empty results, 
 It also checks the model list's height cap and active-row visibility after filtering and keyboard wrapping, plus
 recent-session keyboard reveal through the shared viewport.
 The compact adapters stay in their existing modules and do not import app source or add shared-package exports.
+
+Recent-session loading follows the main app's `home/sessions/{index,queries,load-machine}.ts` boundaries.
+`index.ts` keeps cursor-page retrieval, exact-ID lookup, directory filtering and deduplication. The local query driver
+in `queries.ts` owns HTTP cancellation and search debounce timers; `load-machine.ts` owns query results, cursor,
+request attempts and loading/error transitions instead of separate flags and a generation counter. Whole-state
+replacement keeps transition snapshots independent of Solid store merging. Closing, clearing or replacing a query
+invalidates late successes and failures, including reopening the same query. The header region still clears work on
+source changes and disposal. The compact query stays local because it uses server-side search and 12-row cursor
+pages instead of the main app's shared query cache. Existing contracts moved from `home/sessions/index.test.ts` to
+`home/sessions/queries.test.ts`; the picker browser suite retains keyboard, paging and query-reset coverage.
+
 Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
 its header popover intentionally differs from the main app's routed Home view.
 
