@@ -1,7 +1,6 @@
 import type { Data } from "@opencode/client/solid"
 import type { AgentInfo, CommandInfo, SkillInfo } from "@opencode/client/promise"
-import { createSignal } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createMemo, createResource, createSignal, onCleanup, untrack } from "solid-js"
 
 type CatalogStatus = "loading" | "ready" | "failed"
 type CatalogState = {
@@ -21,17 +20,25 @@ type ComposerCatalog = {
 // Shared location resources own catalog contents. Only editor loading/error state is local.
 export function createComposerCatalog(): ComposerCatalog {
   const [source, setSource] = createSignal<{ data: Data; directory: string }>()
-  const [status, setStatus] = createStore({
-    commandStatus: "loading" as CatalogStatus,
-    skillStatus: "loading" as CatalogStatus,
-    agentStatus: "loading" as CatalogStatus,
+  const reads = createMemo(() => {
+    const active = source()
+    if (!active) return
+    const read = (key: "command" | "skill" | "agent") => {
+      const complete = active.data.location[key].sync({ directory: active.directory })
+      const [resource] = createResource(() => complete)
+      return {
+        complete,
+        // Read state only: catalog loading must never suspend the composer or throw into its boundary.
+        status: (): CatalogStatus =>
+          resource.state === "errored" ? "failed" : resource.state === "ready" ? "ready" : "loading",
+      }
+    }
+    return { command: read("command"), skill: read("skill"), agent: read("agent") }
   })
-  let version = 0
   const clear = () => {
-    version++
     setSource(undefined)
-    setStatus({ commandStatus: "loading", skillStatus: "loading", agentStatus: "loading" })
   }
+  onCleanup(clear)
   const list = <K extends "command" | "skill" | "agent">(key: K) => {
     const active = source()
     return active?.data.location[key].list({ directory: active.directory })
@@ -47,31 +54,21 @@ export function createComposerCatalog(): ComposerCatalog {
       return (list("agent") ?? []) as AgentInfo[]
     },
     get commandStatus() {
-      return status.commandStatus
+      return reads()?.command.status() ?? "loading"
     },
     get skillStatus() {
-      return status.skillStatus
+      return reads()?.skill.status() ?? "loading"
     },
     get agentStatus() {
-      return status.agentStatus
+      return reads()?.agent.status() ?? "loading"
     },
   }
   const load = async (data: Data, directory: string) => {
-    clear()
-    const current = version
+    // A new owner disposes the previous resource observations, even for a repeat load of the same directory.
+    // The shared client's reads continue for other consumers; this adapter never cancels or copies their cache.
     setSource({ data, directory })
-    await Promise.all(
-      (["command", "skill", "agent"] as const).map((key) =>
-        data.location[key].sync({ directory }).then(
-          () => {
-            if (current === version) setStatus(`${key}Status`, "ready")
-          },
-          () => {
-            if (current === version) setStatus(`${key}Status`, "failed")
-          },
-        ),
-      ),
-    )
+    const current = untrack(reads)
+    if (current) await Promise.allSettled(Object.values(current).map((read) => read.complete))
   }
   return { state, load, clear }
 }

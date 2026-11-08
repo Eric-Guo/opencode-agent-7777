@@ -30,6 +30,10 @@ one row builder, and context/file mentions are independent of runtime wiring. At
 Suggestion, model and recent-session popups reuse public `@opencode/ui/menu-scroll`, following the main app's
 menu-scroll boundary. Local adapters retain height limits, viewport padding, keyboard reveal and search behavior.
 The composer editor keeps native scrolling; the timeline retains `ScrollView` for its custom thumb and keyboard navigation.
+The compact composer catalog adapter reads live shared location catalogs. Owned Solid resources track each read,
+replacing its status store and generation counter. Source changes and cleanup retire previous observations without
+cancelling another consumer's shared request. Independent failures, retries and cache updates remain available;
+render-time status reads never suspend the composer. Loading ownership remains local without a workspace provider.
 The model and recent-session pickers use shared `createTypeahead`. The model picker reads the integration catalog
 only when open with an OpenAI model selected. A Solid resource tracks refreshes and discards superseded results.
 The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous

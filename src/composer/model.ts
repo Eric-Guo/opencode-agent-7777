@@ -51,7 +51,6 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     }
     void catalog.load(data, active.directory)
   })
-  onCleanup(catalog.clear)
   onCleanup(files.clear)
   const clientCommands = () => adapter.commands?.() ?? []
   const localCommands = createClientSlashCommands({

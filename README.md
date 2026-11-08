@@ -547,7 +547,14 @@ recovery, field order, and mutable decoded objects; file selections and source m
 
 Composer suggestions follow the main app's `composer/model.ts`, `composer/editor/`, `composer/suggestions/`, and
 `composer/client-slash-command.ts` boundaries. The package-local `composer/catalog-compact.ts` reads commands, skills, and agents from the active
-runtime's shared location resources and retains independent loading/failure states. Providers and models use the
+runtime's shared location resources and retains independent loading/failure states. Owned Solid resources now
+track those reads instead of a parallel status store and generation counter. Changing or clearing the source disposes
+the previous observations, while the public client's shared reads and cache remain available to other consumers.
+The adapter owns its cleanup; render-time status reads cannot suspend the composer or throw a catalog failure into
+its boundary. Retry, partial failures and live catalog updates retain their existing behavior. The local adapter stays
+separate from `composer/model.ts` because 7777 has no main-app workspace provider to own initial catalog loading.
+`catalog-compact.test.ts` exercises the real Solid browser lifecycle; the composer browser fixture covers typing and
+suggestions while a catalog is pending, failed and retried. Providers and models use the
 same resources, with the explicit server-default-model read first and compact selection/visibility rules afterward. File search follows the
 main app's `workspaces/files/model.tsx` and `workspaces/files/path.ts` boundaries with a package-local search controller
 and URI helpers. The compact-only `workspaces/files/search-machine.ts` owns request attempts and ready/loading/failed
