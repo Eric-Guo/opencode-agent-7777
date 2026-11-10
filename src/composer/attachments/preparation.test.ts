@@ -53,45 +53,79 @@ browserSuite(import.meta.path, () => {
     })
   }
 
-  test.each(["restore", "reset", "identity", "dispose", "cancel"] as const)(
-    "%s settles an abort-ignoring read immediately and prevents late draft writes",
-    async (exit) => {
-      const read = Promise.withResolvers<ReturnType<typeof blob>>()
-      const started = Promise.withResolvers<void>()
-      let signal: AbortSignal | undefined
-      const input = fixture({
-        store: (_file, value) => {
-          signal = value
+  test.each(
+    ["restore", "reset", "identity", "dispose", "cancel"].flatMap((exit) =>
+      ["inline", "audio"].map((kind) => ({ exit, kind })),
+    ),
+  )("$exit settles an abort-ignoring $kind read immediately and prevents late draft writes", async ({ exit, kind }) => {
+    const read = Promise.withResolvers<string>()
+    const started = Promise.withResolvers<void>()
+    let signal: AbortSignal | undefined
+    const input = fixture({
+      store: (_file, value) => {
+        signal = value
+        started.resolve()
+        return read.promise.then(() => blob())
+      },
+      destination: () => ({
+        upload: () => {
           started.resolve()
           return read.promise
         },
-      })
-      const pending = input.attachments.addAttachments([file()], true, undefined, input.done)
-      expect(input.attachments.preparing()).toBe(true)
-      await started.promise
-      if (exit === "restore") input.draft.restore({ prompt: "replacement draft", attachments: [] })
-      if (exit === "reset") input.draft.reset()
-      if (exit === "identity") {
-        const original = input.identity()
-        input.setIdentity({})
-        input.setIdentity(original)
-      }
-      if (exit === "dispose") input.dispose()
-      if (exit === "cancel") input.attachments.cancelPending()
-      expect(input.attachments.preparing()).toBe(false)
-      await expect(pending).resolves.toBeUndefined()
-      expect(signal?.aborted).toBe(true)
-      read.resolve(blob())
-      await read.promise
-      await Promise.resolve()
-      expect(input.draft.capture()).toEqual({
-        prompt: exit === "reset" ? "" : exit === "restore" ? "replacement draft" : "draft",
-        attachments: [],
-      })
-      expect(input.onError).not.toHaveBeenCalled()
-      expect(input.done).not.toHaveBeenCalled()
-    },
-  )
+      }),
+    })
+    const attachment = kind === "audio" ? new File(["ID3\0binary"], "record.mp3", { type: "audio/mpeg" }) : file()
+    const pending = input.attachments.addAttachments([attachment], true, undefined, input.done)
+    expect(input.attachments.preparing()).toBe(true)
+    await started.promise
+    if (exit === "restore") input.draft.restore({ prompt: "replacement draft", attachments: [] })
+    if (exit === "reset") input.draft.reset()
+    if (exit === "identity") {
+      const original = input.identity()
+      input.setIdentity({})
+      input.setIdentity(original)
+    }
+    if (exit === "dispose") input.dispose()
+    if (exit === "cancel") input.attachments.cancelPending()
+    expect(input.attachments.preparing()).toBe(false)
+    await expect(pending).resolves.toBeUndefined()
+    if (kind === "inline") expect(signal?.aborted).toBe(true)
+    read.resolve("/server/tmp/uploads/record.mp3")
+    await read.promise
+    await Promise.resolve()
+    expect(input.draft.capture()).toEqual({
+      prompt: exit === "reset" ? "" : exit === "restore" ? "replacement draft" : "draft",
+      attachments: [],
+    })
+    expect(input.onError).not.toHaveBeenCalled()
+    expect(input.done).not.toHaveBeenCalled()
+  })
+
+  test("audio preparation retains edits and inserts its path at the latest caret", async () => {
+    const upload = Promise.withResolvers<string>()
+    const started = Promise.withResolvers<void>()
+    const input = fixture({
+      destination: () => ({
+        upload: () => {
+          started.resolve()
+          return upload.promise
+        },
+      }),
+    })
+    const pending = input.attachments.addAttachments([new File(["ID3\0binary"], "record.mp3", { type: "audio/mpeg" })])
+    await started.promise
+    expect(input.attachments.preparing()).toBe(true)
+    input.draft.set("edited while uploading ")
+    upload.resolve("/server/tmp/uploads/record.mp3")
+    await pending
+    expect(input.attachments.preparing()).toBe(false)
+    expect(input.draft.current()).toBe("edited while uploading @/server/tmp/uploads/record.mp3 ")
+    expect(input.draft.attachments()).toEqual([])
+    expect(input.draft.store[0].prompt.filter((part) => part.type === "file").map((part) => part.path)).toEqual([
+      "/server/tmp/uploads/record.mp3",
+    ])
+    expect(input.onError).not.toHaveBeenCalled()
+  })
 
   test("completed files survive a batch failure while other gestures and later edits finish normally", async () => {
     const read = Promise.withResolvers<ReturnType<typeof blob>>()
