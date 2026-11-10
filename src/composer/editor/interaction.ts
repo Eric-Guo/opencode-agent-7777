@@ -183,11 +183,17 @@ export function createComposerEditor(input: {
     ? createComposerAttachments({
         ...input.attachments,
         identity: input.identity,
-        capture: () => ({
-          current: () => draft.state.prompt,
-          cursor: () => draft.state.cursor,
-          set: (prompt, cursor) => draft.setPrompt(prompt, cursor),
-        }),
+        capture: () => {
+          const identity = input.identity?.()
+          return {
+            current: () => draft.state.prompt,
+            cursor: () => draft.state.cursor,
+            set: (prompt, cursor) => {
+              if (input.identity && input.identity() !== identity) return
+              draft.setPrompt(prompt, cursor)
+            },
+          }
+        },
         editor: () => editor,
         focusEditor: () => editor?.focus(),
         addPart,

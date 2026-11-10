@@ -800,14 +800,19 @@ The PLM meeting prompt omits the direct file picker and its Mod+U shortcut. Its 
 workspace references, pasted or dropped attachments, and restored drafts keep their existing behavior.
 
 `runtime/platform/file-picker.ts` owns the compact attachment format policy used by composer validation and desktop
-extension filters. Shared format entries supply MIME lists, native filters and image/PDF
+extension filters. Shared format entries supply MIME lists, native filters and image/PDF/audio
 filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
 and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
 options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
 differs; attachment handling remains in `composer/attachments/attachments.ts`.
 That module owns error reporting for attachment operations, retaining files already added when a later read fails.
 The PLM composer uses its paste and drop entry points; picker completion and focus restoration remain outside this UI.
-Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
+Finder audio drops (MP3, M4A and WAV) use `composer/attachments/destination.ts`, matching the main app's destination
+boundary with the compact server SDK. Each import saves a separate copy under the server's temporary uploads directory
+and inserts its absolute path as a file mention for the agent's tools. Audio bytes stay out of inline draft storage and
+model media input, so models without audio input can still use transcription tools and large recordings avoid the
+prompt attachment size limit. Existing image, PDF and text attachments retain their inline handling and embedded scope.
+Attachment completion checks the captured composer identity before changing the draft after a session switch.
 
 Animated presence follows the main app's `runtime/{presence-machine,presence,animated-presence}.ts` boundaries
 with local implementations. The pure machine owns visibility, retained values and minimum-duration attempts;
@@ -826,10 +831,11 @@ and uses this adapter only for the model picker. Outside-click focus, keyboard
 navigation and search behavior remain owned by the existing public Menu/Popover/SearchList controls.
 
 Attachment preparation now follows local `composer/attachments/{preparation-machine,preparation}.ts` boundaries.
-The main app's upload lifecycle is the structural reference; 7777 deliberately keeps inline files and has no server
-upload destination or global upload service. One machine owns each gesture's attempt, picker/preparation phase and
-completion. The driver owns timers, cancellation and caller settlement. `PromptState.scope` is an ephemeral token
-replaced on reset or restoration, so navigation (including returning to the same session), draft replacement and
+The main app's upload lifecycle is the structural reference; PLM keeps image, PDF and text files inline and stages
+audio through its temporary-file destination without a global upload service. One machine owns each gesture's
+attempt, picker/preparation phase and completion. The driver owns timers, cancellation and caller settlement.
+`PromptState.scope` is an ephemeral token replaced on reset or restoration, so navigation (including returning to
+the same session), draft replacement and
 disposal retire pending work without writing files or errors into another draft. Ordinary typing keeps its scope,
 and completed files append to the latest draft and retain its current caret.
 

@@ -168,9 +168,10 @@ release them on settlement or navigation, and offer Retry on a failed read or a 
 The recent-session picker retains its 12-row pages.
 
 Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
-app's upload machine/driver separation without adopting server uploads or a global upload service. Paste and drop
-gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal retire pending
-reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second inactivity deadline
+app's upload machine/driver separation without a global upload service. Audio uses the PLM temporary-file destination;
+image, PDF and text files remain inline. Paste and drop gestures capture draft ownership before work begins.
+Reset/restoration, navigation and disposal retire pending reads; completed files and ordinary edits retain the
+existing compact draft rules. A 60-second inactivity deadline
 begins after selection and renews after each processed file. Send and alternate delivery wait for all preparation,
 with a public `Loader` and cancellation control; typing and Stop remain available. Attachment format detection and
 picker filters share `runtime/platform/file-picker.ts`; notification delivery uses the shell boundary. Attachment
