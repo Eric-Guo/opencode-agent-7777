@@ -6,6 +6,11 @@ const IMAGE_FORMATS = [
   ["image/webp", "webp"],
 ] as const
 const PDF_FORMAT = ["application/pdf", "pdf"] as const
+const AUDIO_FORMATS = [
+  ["audio/mpeg", "mp3"],
+  ["audio/mp4", "m4a"],
+  ["audio/wav", "wav"],
+] as const
 const TEXT_FORMATS = [
   ["application/json", "json"],
   ["application/ld+json", "jsonld"],
@@ -73,12 +78,20 @@ export const ACCEPTED_FILE_TYPES = Object.freeze([
 
 const MIME_EXT = new Map<string, string>([...IMAGE_FORMATS, PDF_FORMAT, ...TEXT_FORMATS])
 const imageMimes = new Set<string>(ACCEPTED_IMAGE_TYPES)
+const audioMimes = new Map<string, string>([
+  ...AUDIO_FORMATS.map(([mime]) => [mime, mime] as const),
+  ["audio/mp3", "audio/mpeg"],
+  ["audio/x-mp3", "audio/mpeg"],
+  ["audio/x-m4a", "audio/mp4"],
+  ["audio/x-wav", "audio/wav"],
+  ["audio/wave", "audio/wav"],
+])
 const textMimes = new Set<string>(ACCEPTED_TEXT_TYPES)
-const inlineExtensions = new Map<string, string>(
-  [...IMAGE_FORMATS, PDF_FORMAT].map(([mime, extension]) => [extension, mime]),
+const attachmentExtensions = new Map<string, string>(
+  [...IMAGE_FORMATS, PDF_FORMAT, ...AUDIO_FORMATS].map(([mime, extension]) => [extension, mime]),
 )
 // Accept the legacy filename alias without changing the native picker's existing .jpg filter.
-inlineExtensions.set("jpeg", "image/jpeg")
+attachmentExtensions.set("jpeg", "image/jpeg")
 
 const TEXT_EXT = ["txt", "text", "md", "markdown", "log", "csv"]
 
@@ -103,9 +116,11 @@ export function filePickerFilters(name: string, ext?: string[]) {
 export async function attachmentMime(file: File) {
   const type = file.type.split(";", 1)[0]?.trim().toLowerCase() ?? ""
   if (imageMimes.has(type) || type === PDF_FORMAT[0]) return type
+  const audio = audioMimes.get(type)
+  if (audio) return audio
   const index = file.name.lastIndexOf(".")
   const suffix = index === -1 ? "" : file.name.slice(index + 1).toLowerCase()
-  const fallback = inlineExtensions.get(suffix)
+  const fallback = attachmentExtensions.get(suffix)
   if ((!type || type === "application/octet-stream") && fallback) return fallback
   if (type.startsWith("text/") || textMimes.has(type) || type.endsWith("+json") || type.endsWith("+xml")) {
     return "text/plain"

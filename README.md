@@ -746,14 +746,19 @@ The PLM meeting prompt omits the direct file picker and its Mod+U shortcut. Its 
 workspace references, pasted or dropped attachments, and restored drafts keep their existing behavior.
 
 `runtime/platform/file-picker.ts` owns the compact attachment format policy used by composer validation and desktop
-extension filters. Shared format entries supply MIME lists, native filters and image/PDF
+extension filters. Shared format entries supply MIME lists, native filters and image/PDF/audio
 filename fallbacks; bounded text-content detection also lives here. Declared MIME precedence, the JPEG filename alias
 and existing picker filters are preserved. Exported lists are frozen and picker calls receive copies, avoiding mutable
 options shared with the host. This policy stays local because the main app's attachment destination/upload behavior
 differs; attachment handling remains in `composer/attachments/attachments.ts`.
 That module owns error reporting for attachment operations, retaining files already added when a later read fails.
 The PLM composer uses its paste and drop entry points; picker completion and focus restoration remain outside this UI.
-Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
+Finder audio drops (MP3, M4A and WAV) use `composer/attachments/destination.ts`, matching the main app's destination
+boundary with the compact server SDK. Each import saves a separate copy under the server's temporary uploads directory
+and inserts its absolute path as a file mention for the agent's tools. Audio bytes stay out of inline draft storage and
+model media input, so models without audio input can still use transcription tools and large recordings avoid the
+prompt attachment size limit. Existing image, PDF and text attachments retain their inline handling and embedded scope.
+Attachment completion checks the captured composer identity before changing the draft after a session switch.
 
 The compact runtime now uses explicit lifecycle machines for startup, runtime attachment, active reads, session
 switching, catalog loading, and the New session action. Finite read admission shares the local

@@ -1,8 +1,10 @@
 import { describe, expect, mock, test } from "bun:test"
 import { createRoot } from "solid-js"
-import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
+import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-picker"
 import { installDOM } from "@/test/dom"
 import type { ComposerPrompt } from "../types"
+import { createPromptState } from "../state"
+import { buildPromptRequest } from "../request"
 import { createComposerAttachments } from "./attachments"
 
 function fixture(
@@ -42,6 +44,20 @@ function fixture(
 }
 
 describe("composer attachments", () => {
+  test.each([
+    ["record.mp3", "audio/mpeg", "audio/mpeg"],
+    ["record.MP3", "", "audio/mpeg"],
+    ["record.mp3", "application/octet-stream", "audio/mpeg"],
+    ["record.mp3", "AUDIO/MP3; charset=binary", "audio/mpeg"],
+    ["record.m4a", "audio/x-m4a", "audio/mp4"],
+    ["record.m4a", "", "audio/mp4"],
+    ["record.wav", "audio/x-wav", "audio/wav"],
+    ["record.wav", "application/octet-stream", "audio/wav"],
+    ["record.mp3", "text/plain", "text/plain"],
+  ])("recognizes binary audio %s (%s)", async (name, type, expected) => {
+    expect(await attachmentMime(new File(["ID3\0binary"], name, { type }))).toBe(expected)
+  })
+
   test.each([
     { name: "unknown", type: "IMAGE/PNG; charset=binary", bytes: "\0", mime: "image/png" },
     { name: "photo.JPG", type: "", bytes: "\0", mime: "image/jpeg" },
@@ -273,6 +289,77 @@ function dropFixture() {
 }
 
 describe("embedded attachment drops", () => {
+  test("stages Finder audio files in order and preserves their tool-readable paths through draft reload", async () => {
+    const state = createPromptState({ prompt: "Transcribe ", attachments: [] })
+    const upload = mock(async (file: File) => `/server/tmp/uploads/${file.name}`)
+    const store = mock(async () => ({ id: "unused", url: "unused" }))
+    const warn = mock(() => {})
+    const input = fixture(store, {
+      editor: () => ({}) as HTMLElement,
+      destination: () => ({ upload }),
+      capture: () => ({
+        current: () => state.store[0].prompt,
+        cursor: () => state.store[0].cursor,
+        set: (prompt, cursor) => state.store[1]({ prompt, cursor }),
+      }),
+      warn,
+    })
+    const files = [
+      new File(["ID3\0binary"], "record.mp3", { type: "audio/mpeg" }),
+      new File(["RIFF\0binary"], "record.wav"),
+      new File(["ftyp\0binary"], "record.m4a", { type: "application/octet-stream" }),
+    ]
+    const preventDefault = mock(() => {})
+    try {
+      await input.attachments.handleDrop({
+        dataTransfer: { types: ["Files"], files, getData: () => "" },
+        preventDefault,
+      } as unknown as DragEvent)
+      expect(preventDefault).toHaveBeenCalledTimes(1)
+      expect(upload.mock.calls.map(([file]) => file)).toEqual(files)
+      expect(store).not.toHaveBeenCalled()
+      expect(warn).not.toHaveBeenCalled()
+      const restored = createPromptState(JSON.parse(JSON.stringify(state.capture())))
+      expect(restored.capture().attachments).toEqual([])
+      expect(buildPromptRequest(restored.capture())).toEqual({
+        text: "Transcribe @/server/tmp/uploads/record.mp3 @/server/tmp/uploads/record.wav @/server/tmp/uploads/record.m4a",
+        files: [],
+      })
+      expect(restored.store[0].prompt.filter((part) => part.type === "file").map((part) => part.path)).toEqual([
+        "/server/tmp/uploads/record.mp3",
+        "/server/tmp/uploads/record.wav",
+        "/server/tmp/uploads/record.m4a",
+      ])
+    } finally {
+      input.dispose()
+    }
+  })
+
+  test("reports an audio upload failure once without inserting an unusable path", async () => {
+    const error = new Error("Audio upload failed")
+    const onError = mock(() => {})
+    const input = fixture(async () => ({ id: "unused", url: "unused" }), {
+      editor: () => ({}) as HTMLElement,
+      destination: () => ({
+        upload: async () => {
+          throw error
+        },
+      }),
+      onError,
+    })
+    try {
+      await input.attachments.handleDrop({
+        dataTransfer: { files: [new File(["ID3\0binary"], "record.mp3", { type: "audio/mpeg" })], getData: () => "" },
+        preventDefault() {},
+      } as unknown as DragEvent)
+      expect(onError).toHaveBeenCalledTimes(1)
+      expect(onError).toHaveBeenCalledWith(error)
+      expect(input.prompt()).toEqual([{ type: "text", content: "draft", start: 0, end: 5 }])
+    } finally {
+      input.dispose()
+    }
+  })
+
   test("accepts a tree drag and inserts a workspace reference without uploading bytes", async () => {
     const addPart = mock(() => true)
     const store = mock(async () => ({ id: "unused", url: "unused" }))
