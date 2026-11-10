@@ -85,6 +85,58 @@ test("inserts successive workspace files at the cursor without replacing an earl
   })
 })
 
+test("does not insert an audio upload into a different session after completion", async () => {
+  const started = Promise.withResolvers<void>()
+  const uploaded = Promise.withResolvers<string>()
+  let identity = "original-session"
+  const store = createStore<ComposerPersistedState>({
+    prompt: [{ type: "text", content: "original draft", start: 0, end: 14 }],
+    cursor: 14,
+    context: { items: [] },
+  })
+  const onChange = mock(() => {})
+  const onError = mock(() => {})
+  renderToString(() => {
+    const editor = createComposerEditor({
+      store,
+      identity: () => identity,
+      commands: () => [],
+      context: () => [],
+      searchContextFiles: () => [],
+      onChange,
+      attachments: {
+        directory: () => "/workspace",
+        destination: () => ({
+          upload: () => {
+            started.resolve()
+            return uploaded.promise
+          },
+        }),
+        isDialogActive: () => false,
+        warn() {},
+        duplicate() {},
+        onError,
+      },
+      view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+    })
+    editor.setEditor({} as HTMLElement)
+    editor.onDrop({
+      dataTransfer: { files: [new File(["ID3\0binary"], "record.mp3", { type: "audio/mpeg" })], getData: () => "" },
+      preventDefault() {},
+      stopPropagation() {},
+    } as unknown as DragEvent)
+    return ""
+  })
+  await started.promise
+  identity = "next-session"
+  store[1]({ prompt: [{ type: "text", content: "next draft", start: 0, end: 10 }], cursor: 10 })
+  uploaded.resolve("/server/tmp/uploads/record.mp3")
+  await Bun.sleep(0)
+  expect(store[0].prompt).toEqual([{ type: "text", content: "next draft", start: 0, end: 10 }])
+  expect(onChange).not.toHaveBeenCalled()
+  expect(onError).not.toHaveBeenCalled()
+})
+
 describe("composer submission admission", () => {
   test("preserves the draft while submission is unavailable and still allows interruption", () => {
     renderToString(() => {

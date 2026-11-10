@@ -6,13 +6,20 @@ import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-pic
 import { pathToFileUrl } from "@/session/files/file-tree"
 import { resolveOpenInAppPath } from "@/session/files/open-in-app-path"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
-import { isAttachment } from "../prompt-parts"
+import { insertPromptMention, isAttachment } from "../prompt-parts"
 import { clipboardText, getCursorPosition, insertComposerText } from "../editor/dom"
+import type { AttachmentDestination } from "./destination"
 
 type PromptTarget = {
   current: () => ComposerPrompt
   cursor: () => number | undefined
   set: (prompt: ComposerPrompt, cursor?: number) => void
+}
+
+type AttachmentTarget = {
+  prompt: PromptTarget
+  cursor: number
+  destination?: AttachmentDestination
 }
 
 export type ComposerAttachmentConfig = {
@@ -21,6 +28,7 @@ export type ComposerAttachmentConfig = {
     onFile: (file: File) => Promise<unknown>,
   ) => Promise<void>
   directory: () => string
+  destination?: () => AttachmentDestination | undefined
   isDialogActive: () => boolean
   warn: () => void
   duplicate: () => void
@@ -57,11 +65,15 @@ export function createComposerAttachments(
   const handleDragLeave = (event: DragEvent) => {
     if (!event.relatedTarget || !contains(event.relatedTarget)) clearDrag()
   }
-  const capture = () => {
+  const capture = (): AttachmentTarget | undefined => {
     const prompt = input.capture()
     const editor = input.editor()
     if (!editor) return
-    return { prompt, cursor: prompt.cursor() ?? getCursorPosition(editor, "start") }
+    return {
+      prompt,
+      cursor: prompt.cursor() ?? getCursorPosition(editor, "start"),
+      destination: input.destination?.(),
+    }
   }
   const add = async (file: File, toast = true, target = capture(), clipboard = false) => {
     if (!target) return false
@@ -69,6 +81,29 @@ export function createComposerAttachments(
     if (!mime) {
       if (toast) input.warn()
       return false
+    }
+    if (mime.startsWith("audio/")) {
+      if (!target.destination) {
+        if (toast) input.warn()
+        return false
+      }
+      const path = await target.destination.upload(file)
+      const content = `@${path}`
+      const cursor = target.cursor
+      // Keep audio out of inline draft storage and the model's unsupported media input.
+      // The absolute path remains visible to the agent and its transcription tools.
+      target.prompt.set(
+        insertPromptMention(target.prompt.current(), cursor, cursor, {
+          type: "file",
+          path,
+          content,
+          start: 0,
+          end: 0,
+        }),
+        cursor + content.length + 1,
+      )
+      target.cursor = cursor + content.length + 1
+      return true
     }
     const blob = input.store ? await input.store(file) : await createBlobReference(file)
     const sourcePath = input.getPathForFile?.(file) || undefined

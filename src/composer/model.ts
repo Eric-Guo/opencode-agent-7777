@@ -8,6 +8,7 @@ import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { currentData, currentDirectory, state } from "@/runtime/server/session-store-compact"
 import { createFileSearch } from "@/workspaces/files/model"
 import type { ComposerAdapter, ComposerControls, ComposerQueue } from "./adapter"
+import { createAttachmentDestination } from "./attachments/destination"
 import { createComposerCatalog } from "./catalog-compact"
 import { createClientSlashCommands, parseSlashCommand } from "./client-slash-command"
 import { useComposerCommands } from "./commands"
@@ -99,7 +100,11 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     },
     attachments: {
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
-      directory: () => state.session?.location.directory ?? "",
+      directory: () => currentDirectory() ?? "",
+      destination: () => {
+        const active = location()
+        return active ? createAttachmentDestination(active) : undefined
+      },
       isDialogActive: () => adapter.disabled() || !!dialog.active,
       warn: () => adapter.onAttachmentError(language.t("prompt.unsupportedFiles")),
       duplicate: () => adapter.onAttachmentError(language.t("prompt.attachmentDuplicate")),
