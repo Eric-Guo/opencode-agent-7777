@@ -6,14 +6,21 @@ import { ACCEPTED_FILE_TYPES, attachmentMime, type AttachmentPickerLifecycle } f
 import { pathToFileUrl } from "@/session/files/file-tree"
 import { resolveOpenInAppPath } from "@/session/files/open-in-app-path"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
-import { isAttachment } from "../prompt-parts"
+import { insertPromptMention, isAttachment } from "../prompt-parts"
 import { clipboardText, getCursorPosition, insertComposerText } from "../editor/dom"
 import { createAttachmentPreparation, type AttachmentOperation } from "./preparation"
+import type { AttachmentDestination } from "./destination"
 
 type PromptTarget = {
   current: () => ComposerPrompt
   cursor: () => number | undefined
   set: (prompt: ComposerPrompt, cursor?: number) => void
+}
+
+type AttachmentTarget = {
+  prompt: PromptTarget
+  cursor: number
+  destination?: AttachmentDestination
 }
 
 export type ComposerAttachmentConfig = {
@@ -23,6 +30,7 @@ export type ComposerAttachmentConfig = {
     lifecycle?: AttachmentPickerLifecycle,
   ) => Promise<void>
   directory: () => string
+  destination?: () => AttachmentDestination | undefined
   isDialogActive: () => boolean
   warn: () => void
   duplicate: () => void
@@ -49,7 +57,7 @@ export function createComposerAttachments(
     owner: () => ({ scope: input.scope?.(), identity: input.identity?.() }),
     onError: input.onError,
   })
-  type Work = { operation: AttachmentOperation; target: { prompt: PromptTarget; cursor: number | undefined } }
+  type Work = { operation: AttachmentOperation; target: AttachmentTarget }
   // This callback registration survives retirement so a late native input event is consumed, not retargeted.
   let browserChoice: Work | undefined
   const clearDrag = () => {
@@ -68,11 +76,15 @@ export function createComposerAttachments(
   const handleDragLeave = (event: DragEvent) => {
     if (!event.relatedTarget || !contains(event.relatedTarget)) clearDrag()
   }
-  const capture = () => {
+  const capture = (): AttachmentTarget | undefined => {
     const prompt = input.capture()
     const editor = input.editor()
     if (!editor) return
-    return { prompt, cursor: prompt.cursor() ?? getCursorPosition(editor, "start") }
+    return {
+      prompt,
+      cursor: prompt.cursor() ?? getCursorPosition(editor, "start"),
+      destination: input.destination?.(),
+    }
   }
   const begin = (phase: "choosing" | "preparing", target = capture(), done?: () => void): Work | undefined => {
     if (!target) return
@@ -89,6 +101,32 @@ export function createComposerAttachments(
       if (toast) input.warn()
       operation.progress()
       return false
+    }
+    if (mime.startsWith("audio/")) {
+      if (!target.destination) {
+        if (toast) input.warn()
+        operation.progress()
+        return false
+      }
+      const path = await target.destination.upload(file)
+      if (!operation.current()) return false
+      const content = `@${path}`
+      const cursor = target.prompt.cursor() ?? target.cursor
+      // Keep audio out of inline draft storage and the model's unsupported media input.
+      // The absolute path remains visible to the agent and its transcription tools.
+      target.prompt.set(
+        insertPromptMention(target.prompt.current(), cursor, cursor, {
+          type: "file",
+          path,
+          content,
+          start: 0,
+          end: 0,
+        }),
+        cursor + content.length + 1,
+      )
+      target.cursor = cursor + content.length + 1
+      operation.progress()
+      return true
     }
     const blob = await (input.store ?? createBlobReference)(file, operation.signal)
     if (!operation.current()) return false
