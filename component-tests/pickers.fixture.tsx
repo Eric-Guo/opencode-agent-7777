@@ -9,7 +9,6 @@ import { createHomeSessionsController } from "../src/home/sessions/controller"
 import { createHomeSessionSearchController } from "../src/home/sessions/search"
 import { HomeSessionsView } from "../src/home/sessions/view"
 import { ModelSelectorPopoverView } from "../src/providers/models/select-dialog"
-import { matchesModelSearch } from "../src/providers/models/search"
 
 function RecentSessions() {
   const [state, setState] = createStore({ opened: "", closed: 0, query: "", switching: false, removed: "" })
@@ -101,11 +100,13 @@ function Models() {
     latest: false,
   })
   const catalog = [
-    model("alpha", "Alpha", "openai"),
+    model("alpha", "Alpha", "console-openai"),
     model("beta", "Beta", "openai"),
-    model("zulu", "Zulu", "console-openai"),
+    model("zulu", "Zulu", "openai"),
     ...(params.has("overflow")
-      ? Array.from({ length: 20 }, (_, index) => model(`extra-${index}`, `Extra ${index}`, "openai"))
+      ? Array.from({ length: 20 }, (_, index) =>
+          model(`extra-${index}`, `Extra ${String(index).padStart(2, "0")}`, "openai"),
+        )
       : []),
   ]
   const all = () => catalog.filter((item) => item.id !== state.removed)
@@ -129,13 +130,7 @@ function Models() {
       <input ref={editor} aria-label="Draft" value="Keep this draft" />
       <ModelSelectorPopoverView
         all={all}
-        models={(query) => all().filter((item) => matchesModelSearch(query, [item.name, item.id, item.provider.name]))}
-        groups={(items) =>
-          ["console-openai", "openai"].flatMap((category) => {
-            const matches = items.filter((item) => item.provider.id === category)
-            return matches.length ? [{ category, items: matches }] : []
-          })
-        }
+        visible={() => true}
         current={catalog.find((item) => `${item.providerID}:${item.id}` === state.selected)}
         integrationSource={source}
         trigger={(props) => <button {...props}>Models</button>}

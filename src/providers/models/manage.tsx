@@ -6,7 +6,7 @@ import { createMemo, For, Show, type Component } from "solid-js"
 import { createStore } from "solid-js/store"
 import "@/settings/settings.css"
 import type { ModelSelectorState } from "@/providers/models/selection"
-import { sortProviderGroups } from "@/providers/catalog/order"
+import { compareProviders } from "@/providers/catalog/order"
 import { useLanguage } from "@/runtime/i18n/language"
 import { SettingsList } from "@/settings/list"
 import { SettingsRow } from "@/settings/row"
@@ -33,7 +33,7 @@ export const DialogManageModels: Component<{ model: ModelSelectorState }> = (pro
     filterKeys: ["provider.name", "name", "id"],
     sortBy: (a, b) => a.name.localeCompare(b.name),
     groupBy: (x) => x.provider.id,
-    sortGroupsBy: sortProviderGroups,
+    sortGroupsBy: (a, b) => compareProviders(a.items[0].provider, b.items[0].provider),
   })
   const managed = createMemo(() => consoleModelGroup(props.model.list()))
   const searching = () => list.filter().length > 0

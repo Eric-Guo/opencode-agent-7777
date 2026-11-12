@@ -27,18 +27,21 @@ repeated custom-answer/navigation logic; fresh requests, payloads, focus and key
 Composer catalog projection stays in `composer/suggestions/catalog-compact.ts`: local/server commands share
 one row builder, and context/file mentions are independent of runtime wiring. Attachment IDs reuse public
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.
-Suggestion, model and recent-session popups reuse public `@opencode/ui/menu-scroll`, following the main app's
+Suggestion and recent-session popups reuse public `@opencode/ui/menu-scroll`, following the main app's
 menu-scroll boundary. Local adapters retain height limits, viewport padding, keyboard reveal and search behavior.
 The composer editor keeps native scrolling; the timeline retains `ScrollView` for its custom thumb and keyboard navigation.
 The compact composer catalog adapter reads live shared location catalogs. Owned Solid resources track each read,
 replacing its status store and generation counter. Source changes and cleanup retire previous observations without
 cancelling another consumer's shared request. Independent failures, retries and cache updates remain available;
 render-time status reads never suspend the composer. Loading ownership remains local without a workspace provider.
-Composer suggestions, model and recent-session pickers use shared `createTypeahead`. The composer supplies only
+Composer suggestions and the recent-session picker use shared `createTypeahead`. The composer supplies only
 selectable rows and retains its compact shortcut mapping, IME handling, query resets, focus and draft effects.
 Its local suggestion machine no longer duplicates active-row state or wrapping; rendered keyboard, catalog-refresh
 and command-menu contracts live in `component-tests/composer.spec.ts`.
-The model picker reads the integration catalog only when open with an OpenAI model selected. A Solid resource
+The model picker uses public `@opencode/ui/search-list` for provider sections, combobox navigation and scrolling,
+matching the main app's desktop picker. Its non-modal `@opencode/ui/popover` keeps the compact layout and focus
+behavior. **Manage models** is a separate, source-controlled button below the results. Arrow keys select only model
+rows. The picker reads the integration catalog only when open with an OpenAI model selected. A Solid resource
 tracks refreshes and discards superseded results.
 The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous
 translations. `runtime/i18n/language.tsx` also owns `UiI18nBridge`, following the main app's language boundary;

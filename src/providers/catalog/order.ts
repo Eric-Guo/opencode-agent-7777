@@ -9,15 +9,15 @@ export const popularProviders = [
   "vercel",
 ]
 
-type ProviderGroup = { category: string; items: { provider: { name: string } }[] }
+type Provider = { id: string; name: string }
 
-export function sortProviderGroups(a: ProviderGroup, b: ProviderGroup) {
-  const aRank = popularProviders.indexOf(a.category)
-  const bRank = popularProviders.indexOf(b.category)
+export function compareProviders(a: Provider, b: Provider) {
+  const aRank = popularProviders.indexOf(a.id)
+  const bRank = popularProviders.indexOf(b.id)
   const aPopular = aRank >= 0
   const bPopular = bRank >= 0
   if (aPopular && !bPopular) return -1
   if (!aPopular && bPopular) return 1
   if (aPopular && bPopular) return aRank - bRank
-  return a.items[0].provider.name.localeCompare(b.items[0].provider.name)
+  return a.name.localeCompare(b.name)
 }

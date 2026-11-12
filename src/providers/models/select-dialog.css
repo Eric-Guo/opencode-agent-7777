@@ -1,0 +1,54 @@
+/* The picker is portaled outside the embedded app. Scope its sizing to this popover. */
+[data-component="popover-content"].oc-agent-model-picker {
+  width: 284px;
+  min-width: 0;
+  max-width: calc(100vw - 16px);
+  overflow: hidden;
+  border: 0;
+  background: var(--v2-background-bg-layer-01);
+  box-shadow: var(--v2-elevation-floating);
+
+  &.with-plan {
+    width: 320px;
+  }
+
+  /* The title names the dialog. Its search field is the visible heading. */
+  [data-slot="popover-header"] {
+    display: none;
+  }
+
+  [data-slot="popover-body"] {
+    padding: 0;
+  }
+
+  [data-component="search-list"] {
+    --search-list-surface: var(--v2-background-bg-layer-01);
+  }
+
+  [data-slot="search-list-scroll"] {
+    max-height: 220px;
+  }
+
+  [data-slot="search-list-results"] {
+    padding: 0 2px 2px;
+  }
+
+  [data-slot="search-list-section"]:not(:last-child) {
+    padding-bottom: 2px;
+  }
+
+  [data-slot="search-list-header"] {
+    margin-inline: -2px;
+    padding-inline: 12px;
+  }
+
+  [data-slot="search-list-row"] {
+    justify-content: flex-start;
+  }
+
+  [data-slot="search-list-empty"] {
+    min-height: 48px;
+    justify-items: start;
+    padding-inline: 12px;
+  }
+}

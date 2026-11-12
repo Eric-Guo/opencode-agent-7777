@@ -465,19 +465,19 @@ uses the shared `TextInput` clear action, including its focus behavior, without 
 `providers/models/tooltip.tsx` keeps the compact layout used by the picker; the unused legacy layout and its provider
 name heuristics are removed. Model tags, input ordering, optional reasoning information and locale-aware limits remain.
 
-The model picker and compact recent-session search use the public `TextInput` and `MenuScroll` from
-`@opencode/ui`. Their existing `providers/models/select-dialog.tsx` and `home/sessions/view.tsx` boundaries retain
-filtering, selection and focus restoration while the shared controls own field styling, clearing and scrollbars.
-Both now delegate active-row reconciliation, arrow wrapping and keyboard selection to `createTypeahead` from
-`@opencode/ui/typeahead`, the controller behind the main app's shared search list. Recent-session combobox IDs also
-come from that controller; mouse and keyboard opening share the same switching guard. The model picker retains its
-current-model opening highlight, provider display order, separate Manage action, Ctrl/Shift-arrow behavior and menu
-focus teardown. Recent sessions retain plain-arrow navigation, IME/repeated-Enter guards and server paging.
-`component-tests/pickers.spec.ts` now owns the former `home/sessions/search.test.ts` navigation and refreshed-list
-contracts through the rendered controls, alongside model search, empty results, catalog updates and focus restoration.
-It also checks the model list's height cap and active-row visibility after filtering and keyboard wrapping, plus
-recent-session keyboard reveal through the shared viewport.
-The compact adapters stay in their existing modules and do not import app source or add shared-package exports.
+The compact model picker in `providers/models/select-dialog.tsx` uses the same public `@opencode/ui/search-list`
+as the main app's desktop model dialog. A non-modal `@opencode/ui/popover` anchors it to the composer. The list
+owns provider sections, combobox IDs, active rows, arrow wrapping and keyboard scrolling. The picker supplies
+model visibility and provider order, with a 220 px cap on the results. Opening highlights the current model when
+visible. Editing or clearing search highlights the first match by model name. Arrow keys then follow the displayed
+provider order, including Ctrl/Shift with Up or Down. A checkmark identifies the selected model while browsing.
+When `manageModels` is enabled, **Manage models** sits below the results and is reachable by Tab or click, even
+when no models match. Enter in an empty result list keeps the picker open. Selection and Escape return focus to
+the composer. Clicking outside leaves focus on the clicked control.
+
+Recent-session search in `home/sessions/view.tsx` uses the public `TextInput`, `MenuScroll` and `createTypeahead`
+directly. It retains plain-arrow navigation, IME and repeated-Enter guards, and server paging. Both pickers have
+rendered coverage in `component-tests/pickers.spec.ts`.
 
 Recent-session loading follows the main app's `home/sessions/{index,queries,load-machine}.ts` boundaries.
 `index.ts` keeps cursor-page retrieval, exact-ID lookup, directory filtering and deduplication. The local query driver
@@ -525,14 +525,14 @@ file metadata; matching mention nodes receive the latest URL, selection and sour
 `component-tests/composer.spec.ts` owns caret, undo/redo, reactive updates and blank-line behavior; `dom.test.ts` covers
 text-run matching and mention identity/metadata. No shared-package changes or app-source imports are required.
 
-These compact surfaces follow the main app's scroll ownership: suggestions, model lists and recent-session results
-use `@opencode/ui/menu-scroll`, which supplies a `data-scrollable` viewport and an overlay thumb on pointer devices,
-retaining native scrollbars on touch devices and in high-contrast modes. Popup padding belongs to the viewport;
-recent-session keyboard reveal uses its `viewportRef`. The 220 px model-list limit, recent-session height cap,
-and composer suggestion boundary sizing remain local. The composer editor keeps its native scroll container,
+Suggestions and recent-session results use `@opencode/ui/menu-scroll` directly. The model picker gets the same
+scroll viewport through `SearchList`. All three have an overlay thumb on pointer devices and native scrollbars on
+touch devices and in high-contrast modes. Recent-session keyboard reveal uses the viewport ref. The 220 px
+model-list limit, recent-session height cap, and composer suggestion boundary sizing remain local.
+The composer editor keeps its native scroll container,
 reserving the shared scrollbar width and compensating its end padding so long drafts keep the same text wrapping.
-Caret reveal, scroll limits, popup sizing, active-result visibility, shortcut mapping and focus restoration remain
-local and unchanged. The attachment strip and toolbar also declare nested scroll ownership. Only the timeline keeps
+The editor owns caret reveal, popup sizing and focus restoration. The attachment strip and toolbar also declare
+nested scroll ownership. Only the timeline keeps
 `ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.

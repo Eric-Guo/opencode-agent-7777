@@ -1,3 +1,15 @@
+/** Waits for the closing surface to unmount and finish restoring focus. */
+export function afterMenuClose(element: HTMLElement | undefined, callback: () => void) {
+  const complete = () => {
+    if (element?.isConnected) {
+      requestAnimationFrame(complete)
+      return
+    }
+    requestAnimationFrame(() => requestAnimationFrame(callback))
+  }
+  requestAnimationFrame(complete)
+}
+
 /** Coordinates focus restoration and actions that must run after menu content unmounts. */
 export function createMenuDismissController(content: () => HTMLElement | undefined) {
   let restoreTrigger = true
@@ -17,14 +29,7 @@ export function createMenuDismissController(content: () => HTMLElement | undefin
     },
     /** Runs an action after the menu unmounts and its focus-close work has settled. */
     afterClose(callback: () => void) {
-      const complete = () => {
-        if (content()?.isConnected) {
-          requestAnimationFrame(complete)
-          return
-        }
-        requestAnimationFrame(() => requestAnimationFrame(callback))
-      }
-      requestAnimationFrame(complete)
+      afterMenuClose(content(), callback)
     },
   }
 }
