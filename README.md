@@ -59,6 +59,11 @@ VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 
 Run `bun run dev` in this package and visit [the local chat](http://localhost:4779/). For a production preview, use `bun run build` and `bun run serve`. Set `OPENCODE_SERVICE_FILE` when using a nondefault service registration. Keep tokens and service credentials out of `VITE_*` variables.
 
+When reusing a service paired in SigmaAgents, set `NEXUS_URL` to that service’s Nexus origin and
+`OPENCODE_SERVICE_FILE` to its registration, such as `<state-home>/opencode/service-eric_dev.json` for a dev
+build. The standalone bridge defaults to `service.json`; a healthy pairing in the desktop does not configure the
+standalone bridge automatically.
+
 ## Conversation behavior
 
 - **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
@@ -82,6 +87,9 @@ Run `bun run dev` in this package and visit [the local chat](http://localhost:47
 | `server/` | Loopback middleware; Human/workspace and channel ownership checks; scoped chat writes, conversation mode reads and updates, policy-bound send tickets, realtime subscriptions, execution inspection, and variant-bound artifacts and reviews. |
 | `src/nexus/` | Browser transport, per-conversation drafts, turn projection, delivery and mode controls, typed decisions, usage, activity and output views. These adapters consume Nexus data rather than the main app’s OpenCode runtime. |
 | `src/session/`, `src/home/sessions/`, `src/composer/editor/` | Compact header, bounded timeline, paged recent picker and composer. Shared timeline, Markdown, file review, line comments, dialogs and controls come from public `@opencode/session-ui` and `@opencode/ui` exports. |
+
+The Nexus connection notice stays in `session/screen.tsx`. Reconnect keeps a disabled connecting control visible
+through the request and reports each manual attempt through the shared toast component, including repeated failures.
 
 `runtime/i18n/language.tsx` owns `UiI18nBridge` and reuses the public UI template formatter and parameter type. The retained composer suggestions and recent-session picker use `MenuScroll` from `@opencode/ui`; their compact controllers retain sizing, keyboard selection and focus restoration.
 
