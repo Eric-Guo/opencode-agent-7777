@@ -5,6 +5,7 @@ export const dict = {
   "review.retry": "Retry",
   "review.loading": "Loading changes…",
   "review.loadFailed": "Could not load changes",
+  "review.timeout": "The server took too long to return the changes.",
   "review.empty": "No file changes recorded for this turn.",
   "review.mode.label": "Changes to review",
   "review.mode.turn": "Latest turn",

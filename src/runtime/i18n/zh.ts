@@ -9,6 +9,7 @@ export const dict = {
   "review.retry": "重试",
   "review.loading": "正在加载变更…",
   "review.loadFailed": "无法加载变更",
+  "review.timeout": "服务器未能及时返回变更。",
   "review.empty": "本轮没有记录文件变更。",
   "review.mode.label": "待查看的变更",
   "review.mode.turn": "最新一轮",

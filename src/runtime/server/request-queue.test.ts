@@ -204,6 +204,17 @@ describe("createRequestQueue", () => {
     expect(input.queue.inflight()).toBe(0)
   })
 
+  test("a diff deadline can abort the response body after headers release the queue slot", async () => {
+    const input = setup()
+    const controller = new AbortController()
+    const reading = input.queue.fetch("http://server/api/vcs/diff", { signal: controller.signal })
+    input.pending[0]!.resolve()
+    await reading
+    expect(input.queue.inflight()).toBe(0)
+    controller.abort()
+    expect(input.pending[0]!.signal.aborted).toBe(true)
+  })
+
   test("a burst that drains promptly is not thrashing", async () => {
     const input = setup({ stallMs: 5 })
     const responses = Array.from({ length: 12 }, (_, index) => input.queue.fetch(`http://server/api/${index}`))

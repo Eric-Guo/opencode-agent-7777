@@ -50,6 +50,7 @@ const requests: Record<string, number> = {}
 const vcsReads: { mode: string | null; base: string | null }[] = []
 let reviewFailure = false
 let reviewEmpty = false
+let holdVcsDiff: Promise<void> | undefined
 let sequence = 0
 const emit = (type: string, data: object) => {
   const event = {
@@ -140,6 +141,7 @@ const server = Bun.serve({
       const mode = url.searchParams.get("mode")
       const base = url.searchParams.get("base")
       vcsReads.push({ mode, base })
+      if (holdVcsDiff) await holdVcsDiff
       if (base === "missing-ref") return new Response("Unknown base reference", { status: 400 })
       const file = `${mode}.txt`
       if (mode === "committed" && base === "HEAD") return json({ location, data: [] })
@@ -255,6 +257,9 @@ try {
       { id: sessions[0].id, directory },
     )
     const page = await context.newPage()
+    const verifyReview =
+      iteration === 0 && (process.env.BENCH_VERIFY_UI === "true" || process.env.BENCH_VERIFY_REVIEW === "true")
+    if (verifyReview) await page.clock.install()
     page.on("pageerror", (error) => errors.push(error.message))
     const started = performance.now()
     await page.goto(server.url.href)
@@ -528,7 +533,7 @@ try {
         if ((await page.title()) !== "Fixture host") throw new Error("The runtime changed the host document title")
       }
 
-      if (process.env.BENCH_VERIFY_UI === "true" || process.env.BENCH_VERIFY_REVIEW === "true") {
+      if (verifyReview) {
         // Exercise our demand/transport/dialog integration; session-ui owns the diff controls themselves.
         expect(Object.keys(requests).some((path) => path.endsWith("/diff"))).toBe(false)
         const editor = page.locator('[contenteditable="true"]').first()
@@ -575,6 +580,25 @@ try {
         await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
         expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: "release/v2" })
         await expect(review.getByText(/Changes since the common ancestor with release\/v2/)).toBeVisible()
+        // A stalled read must release the dialog for Retry without losing the applied comparison.
+        const held = Promise.withResolvers<void>()
+        const reads = vcsReads.length
+        holdVcsDiff = held.promise
+        try {
+          await review.getByRole("button", { name: "Refresh changes", exact: true }).click()
+          await expect.poll(() => vcsReads.length).toBe(reads + 1)
+          await expect(review.getByRole("status")).toHaveText("Loading changes…")
+          await page.clock.fastForward(30_000)
+          await expect(review.getByRole("alert")).toContainText("The server took too long to return the changes.")
+          await page.screenshot({ path: output.replace(/\.json$/, "-review-timeout.png") })
+        } finally {
+          holdVcsDiff = undefined
+          held.resolve()
+        }
+        await review.getByRole("button", { name: "Retry", exact: true }).click()
+        await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
+        expect(vcsReads).toHaveLength(reads + 2)
+        expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: "release/v2" })
         await review.getByText("branch.txt", { exact: true }).click()
         await expect(review.getByText("After branch", { exact: true })).toBeVisible()
         await page.screenshot({ path: output.replace(/\.json$/, "-review-branch.png") })

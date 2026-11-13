@@ -1,8 +1,15 @@
-import type { FileDiffInfo, OpenCodeClient, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
-import { createStore } from "solid-js/store"
+import type { OpenCodeClient, OpenCodeEvent } from "@opencode/client/promise"
+import { abort } from "@opencode/util/abort"
+import { createSignal, untrack } from "solid-js"
+import {
+  createReviewState,
+  REVIEW_DIFF_TIMEOUT_MS,
+  transitionReview,
+  type ReviewEvent,
+  type ReviewSource,
+} from "./machine"
 
-export type ChangeMode = "turn" | VcsDiffInput["mode"]
-export type ReviewSource = { mode: ChangeMode; base?: string }
+export type { ChangeMode, ReviewSource } from "./machine"
 
 // The compact review owns one activation's reads. Diff rendering belongs to session-ui.
 export function createReviewModel(input: {
@@ -11,67 +18,74 @@ export function createReviewModel(input: {
   directory: string
   signal: AbortSignal
 }) {
-  const [state, setState] = createStore({
-    source: { mode: "turn" } as ReviewSource,
-    diffs: [] as FileDiffInfo[],
-    loading: false,
-    error: undefined as unknown,
-  })
-  let pending: AbortController | undefined
+  const [state, setState] = createSignal(createReviewState())
+  let finishRead: ((cancel: boolean) => void) | undefined
   let scheduled: ReturnType<typeof setTimeout> | undefined
-  let disposed = false
-  const alive = () => !disposed && !input.signal.aborted
   const clearScheduled = () => {
     clearTimeout(scheduled)
     scheduled = undefined
   }
 
-  const refresh = async () => {
-    if (!alive()) return
-    clearScheduled()
-    pending?.abort()
-    const controller = new AbortController()
-    pending = controller
-    const signal = AbortSignal.any([input.signal, controller.signal])
-    const source = { ...state.source }
-    setState({ loading: true, error: undefined })
-
-    try {
-      // Both sources use public APIs and bounded patches; neither reads files from the renderer checkout.
-      const diffs =
-        source.mode === "turn"
-          ? await input.client.session.diff({ sessionID: input.sessionID, context: 3 }, { signal })
-          : (
-              await input.client.vcs.diff(
-                { location: { directory: input.directory }, mode: source.mode, base: source.base, context: 3 },
-                { signal },
-              )
-            ).data
-      if (!signal.aborted) setState({ diffs, loading: false })
-    } catch (error) {
-      if (!signal.aborted) setState({ loading: false, error })
-    }
+  async function read(source: ReviewSource, signal: AbortSignal) {
+    if (source.mode === "turn") return input.client.session.diff({ sessionID: input.sessionID, context: 3 }, { signal })
+    const result = await input.client.vcs.diff(
+      { location: { directory: input.directory }, mode: source.mode, base: source.base, context: 3 },
+      { signal },
+    )
+    return result.data
   }
 
-  input.signal.addEventListener("abort", clearScheduled, { once: true })
+  function dispatch(event: ReviewEvent): Promise<void> | undefined {
+    const previous = untrack(state)
+    const next = transitionReview(previous, event)
+    if (next === previous) return
+    finishRead?.(event.type !== "loaded" && event.type !== "failed")
+    finishRead = undefined
+    if (next.status !== "loading") {
+      setState(next)
+      return
+    }
+
+    clearScheduled()
+    const { attempt, source } = next
+    const controller = new AbortController()
+    const done = Promise.withResolvers<void>()
+    const timer = setTimeout(() => dispatch({ type: "timed-out", attempt }), REVIEW_DIFF_TIMEOUT_MS)
+    // A transport may ignore abort. Settle callers as soon as this attempt ends.
+    finishRead = (cancel) => {
+      clearTimeout(timer)
+      if (cancel) abort(controller)
+      done.resolve()
+    }
+    setState(next)
+    if (!controller.signal.aborted)
+      void read(source, controller.signal).then(
+        (diffs) => dispatch({ type: "loaded", attempt, diffs }),
+        (error: unknown) => dispatch({ type: "failed", attempt, error }),
+      )
+    return done.promise
+  }
+
+  const refresh = () => dispatch({ type: "refresh" }) ?? Promise.resolve()
+  function dispose() {
+    input.signal.removeEventListener("abort", dispose)
+    clearScheduled()
+    dispatch({ type: "dispose" })
+  }
+  if (input.signal.aborted) dispose()
+  else input.signal.addEventListener("abort", dispose, { once: true })
 
   return {
-    state,
-    refresh,
-    select(source: ReviewSource) {
-      if (!alive()) return
-      const base =
-        source.mode === "branch" || source.mode === "committed" ? source.base?.trim() || undefined : undefined
-      if (source.mode === state.source.mode && base === state.source.base) return
-      // Replace the source and its result together so an old diff never appears under a new label.
-      setState({ source: { mode: source.mode, base }, diffs: [], error: undefined })
-      return refresh()
+    get state() {
+      return state()
     },
+    refresh,
+    select: (source: ReviewSource) => dispatch({ type: "select", source }),
     event(event: OpenCodeEvent) {
-      if (!alive()) return
+      if (untrack(state).status === "disposed") return
       if (event.type === "server.connected") return void refresh()
       if (event.type === "filesystem.changed") {
-        if (state.source.mode === "turn" || event.location?.directory !== input.directory) return
+        if (untrack(state).source.mode === "turn" || event.location?.directory !== input.directory) return
         // Match the extension's coalescing of workspace watcher bursts, using the existing stream.
         clearScheduled()
         scheduled = setTimeout(() => void refresh(), 100)
@@ -89,12 +103,7 @@ export function createReviewModel(input: {
 
       if (event.data.sessionID === input.sessionID) void refresh()
     },
-    dispose() {
-      disposed = true
-      clearScheduled()
-      input.signal.removeEventListener("abort", clearScheduled)
-      pending?.abort()
-    },
+    dispose,
   }
 }
 

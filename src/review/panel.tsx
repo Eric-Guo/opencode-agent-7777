@@ -30,26 +30,33 @@ export default function ReviewPanel(props: { runtime: SessionRuntime }) {
           <ReviewTitle review={review} />
           <ReviewDescription review={review} />
         </div>
-        <Button variant="ghost" size="small" disabled={review.state.loading} onClick={() => void review.refresh()}>
+        <Button
+          variant="ghost"
+          size="small"
+          disabled={review.state.status === "loading"}
+          onClick={() => void review.refresh()}
+        >
           {language.t("review.refresh")}
         </Button>
       </div>
-      <Show when={review.state.loading}>
+      <Show when={review.state.status === "loading"}>
         <div class="flex items-center justify-center gap-2 p-6" role="status">
           <Spinner class="size-4" />
           {language.t("review.loading")}
         </div>
       </Show>
-      <Show when={!review.state.loading && review.state.error}>
+      <Show when={review.state.status === "error" || review.state.status === "timed-out"}>
         <div class="flex flex-col items-center gap-2 p-6 text-13-regular" role="alert">
           <span>{language.t("review.loadFailed")}</span>
-          <span class="max-w-full break-words text-text-weak">{readableError(review.state.error)}</span>
+          <span class="max-w-full break-words text-text-weak">
+            {review.state.status === "timed-out" ? language.t("review.timeout") : readableError(review.state.error)}
+          </span>
           <Button variant="neutral" onClick={() => void review.refresh()}>
             {language.t("review.retry")}
           </Button>
         </div>
       </Show>
-      <Show when={!review.state.loading && !review.state.error}>
+      <Show when={review.state.status === "ready"}>
         <SessionReview
           class="min-h-0 flex-1"
           classes={{ header: "px-4 !h-auto min-h-12 !py-2 max-sm:!flex max-sm:flex-wrap max-sm:gap-2" }}

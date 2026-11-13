@@ -135,17 +135,16 @@ export function createRequestQueue(input: {
         throw request.signal.reason ?? new DOMException("The operation was aborted.", "AbortError")
       }
       const controller = new AbortController()
-      const abort = () => controller.abort(request.signal.reason)
-      request.signal.addEventListener("abort", abort, { once: true })
+      // The header deadline ends when fetch resolves; caller cancellation still owns the response body.
+      const signal = AbortSignal.any([request.signal, controller.signal])
       const timer = setTimeout(
         () => controller.abort(new DOMException("Timed out waiting for the server to respond", "TimeoutError")),
         isSetupRequest(request.method, pathname) ? setupHeadersTimeoutMs : headersTimeoutMs,
       )
       try {
-        return await base(new Request(request, { signal: controller.signal }))
+        return await base(new Request(request, { signal }))
       } finally {
         clearTimeout(timer)
-        request.signal.removeEventListener("abort", abort)
         release(entry)
       }
     },

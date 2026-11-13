@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test"
+import { expect, jest, test } from "bun:test"
 import type { FileDiffInfo, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
 import { createReviewModel } from "./model"
 
@@ -41,12 +41,12 @@ test("review is demand-loaded and requests bounded patches for the captured sess
   const { model, calls } = fixture()
   expect(calls).toHaveLength(0)
   const pending = model.refresh()
-  expect(model.state.loading).toBe(true)
+  expect(model.state.status).toBe("loading")
   expect(calls[0].input).toEqual({ sessionID: "session", context: 3 })
   calls[0].response.resolve(diffs())
   await pending
   expect(model.state.diffs).toEqual(diffs())
-  expect(model.state.loading).toBe(false)
+  expect(model.state.status).toBe("ready")
   expect(model.state.error).toBeUndefined()
 })
 
@@ -131,7 +131,7 @@ test.each([false, true])(
     await branch
     expect(model.state.source).toEqual({ mode: "committed", base: "release/v2" })
     expect(model.state.diffs).toEqual([])
-    expect(model.state.loading).toBe(false)
+    expect(model.state.status).toBe("ready")
     expect(model.state.error).toBeUndefined()
     model.dispose()
   },
@@ -193,7 +193,7 @@ test.each([false, true])("a newer review read wins over a late response (failed=
   else calls[0].response.resolve(diffs())
   await old
   expect(model.state.diffs).toEqual([])
-  expect(model.state.loading).toBe(false)
+  expect(model.state.status).toBe("ready")
   expect(model.state.error).toBeUndefined()
 })
 
@@ -217,13 +217,42 @@ test("a failed read can be retried, including a valid empty result", async () =>
   calls[0].response.reject(new Error("offline"))
   await failed
   expect(model.state.error).toEqual(new Error("offline"))
-  expect(model.state.loading).toBe(false)
+  expect(model.state.status).toBe("error")
   const retry = model.refresh()
   expect(model.state.error).toBeUndefined()
   calls[1].response.resolve([])
   await retry
   expect(model.state.diffs).toEqual([])
-  expect(model.state.loading).toBe(false)
+  expect(model.state.status).toBe("ready")
+})
+
+test.each(["turn", "branch"] as const)("a stalled %s read expires and cannot overwrite its retry", async (mode) => {
+  jest.useFakeTimers()
+  const { model, calls } = fixture()
+  try {
+    const pending = mode === "turn" ? model.refresh() : model.select({ mode, base: "release/v2" })
+    jest.advanceTimersByTime(29_999)
+    expect(calls[0].signal?.aborted).toBe(false)
+    jest.advanceTimersByTime(1)
+    expect(calls[0].signal?.aborted).toBe(true)
+    // The transport deliberately ignores cancellation. Refresh still settles when the deadline passes.
+    await pending
+    expect(model.state.status).toBe("timed-out")
+    jest.useRealTimers()
+    const retry = model.refresh()
+    expect(calls[1].input).toEqual(calls[0].input)
+    calls[0].response.resolve(diffs())
+    await Bun.sleep(0)
+    expect(model.state.status).toBe("loading")
+    expect(model.state.diffs).toEqual([])
+    calls[1].response.resolve([])
+    await retry
+    expect(model.state.status).toBe("ready")
+    expect(model.state.diffs).toEqual([])
+  } finally {
+    model.dispose()
+    jest.useRealTimers()
+  }
 })
 
 test("review refreshes on reconnect, completion and revert, excluding other sessions and streaming deltas", () => {

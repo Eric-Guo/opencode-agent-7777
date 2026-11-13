@@ -64,6 +64,9 @@ Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts`: 
 the local query driver owns HTTP cancellation and debounce timers, and a pure machine owns results, cursors and
 request attempts. This replaces parallel loading/error flags and a generation counter while preserving server-side
 search, 12-row paging, exact-ID lookup and retry behavior. No shared query cache or app source dependency is added.
+Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
+30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
+results after a timeout, source change or close. The model still uses the existing activation and event stream.
 
 ## Remaining compact responsibilities
 
@@ -72,7 +75,7 @@ search, 12-row paging, exact-ID lookup and retry behavior. No shared query cache
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
-- Scroll pause/resume; source model defaults, visibility and scoped choices; review lifecycle,
+- Scroll pause/resume; source model defaults, visibility and scoped choices; review event routing,
   three context lines, bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,
@@ -92,6 +95,7 @@ BENCH_RUNS=3 bun run bench:runtime
 
 Optional checks: `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
 overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
+`BENCH_VERIFY_REVIEW=true` checks that a stalled branch comparison times out and can be retried with the same base.
 `BENCH_VERIFY_UI=true` also checks the 38 px initial-follow gap. The fixture briefly enlarges the viewport,
 reads its clamped offset and restores its height before the scroll event arrives. It checks following on activation,
 after **Jump to latest** and after switching sessions, alongside wheel, keyboard, scrollbar and text-selection behavior.

@@ -337,13 +337,14 @@ A shared selector adds working-tree, branch, and committed comparisons through t
 the active session's directory. Branch and committed comparisons share the base-reference form, applied on Compare
 or Enter. Both start at the common ancestor with that base; branch review includes uncommitted changes, while committed
 review ends at `HEAD` and excludes them. `review/parts.tsx` owns the title, description, and empty states, keeping mode
-presentation out of the rendering/lifecycle panel. `review/model.ts`, `review/panel.tsx`, and `review/parts.tsx` follow
+presentation out of the rendering/lifecycle panel. `review/{machine,model,panel,parts}` follows
 the review plugin's boundaries in `packages/gui-plugins`; the compact-only `review/trigger-compact.tsx` supplies its
 header action. `shell/commands/session-dialog-compact.tsx` shares the review and context dialogs' fixed-size lazy
 loading, error boundary, dismissal and activation lifetime in place of the main app's plugin host.
 Reads use the current activation and existing event stream, refresh after completion,
 revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
-Errors can be retried and drafts are preserved. Staged-only review (unsupported by the current public API),
+Each read has a 30-second deadline. A timeout offers Retry for the same mode and base; a late reply cannot
+replace a newer comparison. Drafts are preserved. Staged-only review (unsupported by the current public API),
 comments, arbitrary history ranges, and docked extension panels remain outside this compact view.
 
 `runtime/server/runtime.ts` and `runtime/server/data.ts` follow the main app's separate orchestration and data-adapter
