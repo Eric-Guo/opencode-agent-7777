@@ -1,55 +1,57 @@
-# 7777 with Nexus and rho
+# 7777 with Nexus
 
-The `nexus_backend` branch runs the 7777 SolidJS conversation UI in a local browser. Nexus stores conversations, authenticates the person sending each message, and dispatches replies to the answering agent registered by the local rho daemon.
+7777 uses a same-origin `/api/7777` bridge. Nexus stores conversations and authorizes each message as its Human author. OpenCode’s managed service pairs separately as the answering agent and executes tools in the selected project directory.
 
-## Local development
+## Pair OpenCode
 
-Use the OpenCode monorepo's Bun version and a checkout of the Nexus TypeScript SDK. The SDK's HTTP and realtime entry points run on the Vite server. The realtime entry point uses `ws`.
+Use a build of the service and SigmaAgents desktop extension that includes the native runtime. In a release build, enable `experimental.nexus_runtime` in the service user configuration and restart the managed service. Local and dev builds enable experimental flags by default.
 
-Build the SDK from its checkout with its pinned pnpm version, then link it into this package before installing workspace dependencies. The local link is ignored by Git.
+1. Open **SigmaAgents settings → OpenCode Nexus runtime**. Enter the Nexus origin, a Nexus text model, an absolute project directory and your Human member token from Nexus personal token settings.
+2. Supply an existing Nexus workspace ID, or leave it blank to create a private workspace. Select **Pair OpenCode**, open the verification link and approve the agent on Nexus.
+3. Select **Refresh connection**. Once the state is **ready**, open the Nexus tab and start a chat. The service restores the registration after a restart. File tools are scoped to that project. Approved shell commands run with the permissions of the OpenCode service account. The desktop encrypts the Human token separately and binds it to the chosen Nexus origin.
+
+You can also pair from the CLI. Use the verification URL and code printed by the pair command. A desktop using an already-paired service can save its Human member token in the same settings section.
 
 ```sh
-cd "<nexus-checkout>/sdks/typescript"
-pnpm install --frozen-lockfile
-pnpm run build
-
-cd "<repo-root>/packages/nexus-ui"
-mkdir -p .local
-ln -s "<absolute-path-to-nexus-checkout>/sdks/typescript" .local/nexus-sdk
-
-cd "<repo-root>"
-bun install
+opencode nexus pair --url https://nexus.example.com --model PROVIDER/MODEL --directory /absolute/path/to/project
+opencode nexus status
+opencode nexus runners
+opencode nexus schedules
+opencode nexus memory
+opencode nexus mcp
+opencode nexus disconnect
 ```
 
-Rebuild the SDK after updating its checkout. The package exports compiled files from its `dist` directory.
+For Human platform sign-in, use `opencode nexus login`, open the printed browser URL, then run `opencode nexus account`. Use `opencode nexus logout` to revoke that session. The service completes PKCE on a temporary loopback callback. The Human member token in the desktop or Vite bridge still authenticates chat input.
 
-With Nexus running and rho connected, check `rho status` for an adopted workspace and a declared default model. In Nexus personal token settings, issue a **member-plane** token for the Human account with access to that workspace. Put the following in this package's ignored `.env.local`.
+## Standalone browser development
+
+Run `bun install` from the monorepo root. The bridge and service share the packaged Nexus SDK from `packages/nexus-runtime/vendor`. Pair the managed OpenCode service, then set these values in this package’s ignored `.env.local`.
 
 ```dotenv
-NEXUS_MEMBER_TOKEN=<personal-member-token>
+NEXUS_URL=https://nexus.example.com
+NEXUS_MEMBER_TOKEN=<human-member-token>
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false
 ```
 
-Run `bun run dev` in this package and visit [the local chat](http://localhost:4779/). For a local production-build check, run `bun run build` and `bun run serve` with the same configuration. Both Vite modes serve the Nexus bridge alongside the page.
+Run `bun run dev` in this package and visit [the local chat](http://localhost:4779/). For a production preview, use `bun run build` and `bun run serve`. Set `OPENCODE_SERVICE_FILE` when using a nondefault service registration. Keep tokens and service credentials out of `VITE_*` variables.
 
-The SigmaAgents **Nexus** tab loads the bundled `sigma-agents/nexus-ui.html` entry. Start Nexus and rho, then open **SigmaAgents settings → Nexus** in the desktop. Save your Human member-plane token and, if needed, the rho home directory. Reopen or reload the Nexus tab to reconnect; no desktop or rho restart is required. The desktop serves the bridge itself and keeps the tab's browser storage in the dedicated `persist:desktop-tab-nexus-ui` partition. rho discovers the Nexus backend from its existing connection, for example `http://127.0.0.1:3000` in local development.
+## Existing Rho installations
 
-Desktop settings override `NEXUS_MEMBER_TOKEN` and `RHO_HOME` from the desktop environment. The password field stays empty on load; leaving it empty preserves the saved token. Clearing the saved token and saving restores environment fallback; resetting to defaults removes both overrides. Tokens are encrypted in desktop SQLite and never bundled into renderer assets. Standalone `bun run dev` and `bun run serve` continue to read this package's `.env.local`.
-
-The bridge reads `tmp/announcement.json` under the saved rho home directory, otherwise `$RHO_HOME` (`~/.rho` by default). It keeps the control bearer on the server for scoped rho operations such as runner discovery, channel ownership, recorded file changes, and site grants. The Human member token authenticates conversation and input writes to Nexus. Browser requests use only the same-origin `/api/7777` routes. Keep both credentials out of `VITE_*` variables.
+The legacy desktop settings still accept a Rho home and Human member token. In standalone mode, omit `NEXUS_URL` and set `RHO_HOME` to select that backend. Legacy mode reads Rho’s announcement and uses its scoped control API. Native pairing creates its own agent registration. Native write and edit tasks record patches for review. Rho checkpoint restoration, site grants and Rho extension integrations still require the legacy backend.
 
 ## Conversation behavior
 
 - **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
 - The new-chat draft and each conversation’s draft, send choices and uncertain submission receipt are stored separately under the Nexus origin, Human, workspace and answering agent. Switching chats or reloading never resubmits a message. A deliberate retry uses the original input and mutation keys.
-- **Run settings** selects a runner for a new chat, the current rho preset’s model or an explicit model, and a permission policy. During a reply, Enter steers by default; choose **Queue after reply** for separate work. Ctrl/Cmd+Enter sends an immediate steer, or promotes the latest waiting steer when the editor is empty. The pending label follows the delivery mode Nexus accepted.
+- **Run settings** selects a runner for a new chat, the configured answering model or an explicit model, and a permission policy. During a reply, Enter steers by default; choose **Queue after reply** for separate work. Ctrl/Cmd+Enter sends an immediate steer, or promotes the latest waiting steer when the editor is empty. The pending label follows the delivery mode Nexus accepted.
 - The timeline retains the latest **nine** user dialogs. Streamed text and reasoning follow their answer variant. A background receipt or context summary is a disclosure, not another user dialog. Reconnecting reads the durable history and pending work again.
 - **Activity** shows in-progress runs, steps waiting for attention, child conversations and communication links. Pause or resume a run, retry or abandon a failed step, or stop a branch. **Stop all work** uses the conversation cancellation command, including background work after the visible reply ends. Expand **Tools and activity** under an answer for recorded rounds, task output, captures and sealed model requests.
 - The decision dock accepts typed answers or one-time approvals. For a held native `web_fetch` call, a Human with verified write access can also ask rho to allow that site until restart. Only rho derives the site rule from the held call.
 - **Usage** separates the cumulative request, token and cost totals from the latest reported context window and actual model. When some requests have no price, the amount is a **known subtotal**.
 - Files belong to a particular answer variant or task. Download published files, preview Markdown and images, or open a recorded Git patch and add a line comment to the current draft. Explicit file paths in an answer are resolved on its conversation runner within the bound output directory; a bare filename in prose does not create a file card.
-- **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft starts with rho’s defaults; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. Code mode requires the rho Code mode plugin.
-- Sending requires a rho daemon with `POST /conversations/prepare-input-policy`. After verifying Human write access, the bridge seals rho’s exact tool list and optional executor contexts into the send ticket. An empty list means no tools; omitted contexts stay inherited. If rho refuses or cannot prepare a policy, no new input is sent.
+- **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft starts with the runtime’s defaults; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. The native runner uses OpenCode’s Code mode sandbox.
+- After verifying Human write access, the bridge asks the selected runtime for its tool list and executor contexts, then seals them into the send ticket. An empty list means no tools; omitted contexts stay inherited. If the runtime cannot prepare a policy, no new input is sent.
 - Browser file uploads, queue reordering, undo and export remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
 
 ## Code Layout Parity Review
@@ -148,4 +150,6 @@ bun run build
 bun run test:components
 ```
 
-For a live check, send a short text prompt, watch the streamed reply, reload, then open a fresh draft and reopen the completed chat from Recent sessions. Browser network inspection should show chat requests and an event stream under `/api/7777`. The Nexus acceptance event identifies the Human author and the turn identifies rho as the answerer.
+To exercise a paired packaged service against a Nexus development deployment, select `dev/mock-priced`, set the server-only environment variables above and run `bun scripts/native-smoke.ts path/to/test-fixture.txt` from this package. It creates a test conversation and verifies the recorded Human, the answering agent and the contents of the runner’s file.
+
+For a live check, send a short text prompt, watch the streamed reply, reload, then open a fresh draft and reopen the completed chat from Recent sessions. Browser network inspection should show chat requests and an event stream under `/api/7777`. The Nexus acceptance event identifies the Human author and the turn identifies the paired agent as the answerer.

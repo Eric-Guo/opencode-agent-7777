@@ -1,3 +1,4 @@
+import { discover } from "@opencode/client/service"
 import { middleware } from "./server/middleware"
 import tailwindcss from "@tailwindcss/vite"
 import { readFileSync } from "node:fs"
@@ -11,13 +12,33 @@ const loopback = { host: "localhost", port: 4779, strictPort: true, cors: false 
 function nexusPlugin(): Plugin {
   let env: Record<string, string> = {}
   const serve = (server: { middlewares: Connect.Server }) => {
-    server.middlewares.use(middleware(() => ({ token: env.NEXUS_MEMBER_TOKEN, home: env.RHO_HOME })))
+    server.middlewares.use(
+      middleware(() => ({
+        token: env.NEXUS_MEMBER_TOKEN,
+        home: env.RHO_HOME,
+        native: env.NEXUS_URL
+          ? {
+              origin: new URL(env.NEXUS_URL).origin,
+              connection: async () => {
+                const service = await discover({ file: env.OPENCODE_SERVICE_FILE })
+                if (!service?.auth) throw new Error("Start the paired OpenCode service.")
+                return { url: service.url, password: service.auth.password }
+              },
+            }
+          : undefined,
+      })),
+    )
   }
 
   return {
     name: "nexus-bridge",
     configResolved(config) {
-      env = loadEnv(config.mode, config.envDir, ["NEXUS_MEMBER_TOKEN", "RHO_HOME"])
+      env = loadEnv(config.mode, config.envDir, [
+        "NEXUS_MEMBER_TOKEN",
+        "NEXUS_URL",
+        "OPENCODE_SERVICE_FILE",
+        "RHO_HOME",
+      ])
     },
     configureServer: serve,
     configurePreviewServer: serve,

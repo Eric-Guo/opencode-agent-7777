@@ -1,4 +1,4 @@
-import type { CreateInput } from "@cybros/agent"
+import type { CreateInput, JsonObject } from "@cybros/agent"
 import type { ConversationModes, ModeValues } from "../src/nexus/chat"
 import { BridgeError, type Backend } from "./nexus"
 
@@ -30,6 +30,7 @@ function decodeModes(value: unknown): ConversationModes {
   }
 }
 export async function defaultModes(b: Backend) {
+  if (b.native) return { code_mode: true, subagent: true, available: true, code_mode_available: true }
   if (!(await supportsPolicy(b))) return null
   const res = await b.rhoGet("/settings/status")
   if (!res.ok) throw new BridgeError(res.status, "Could not read rho’s default conversation modes.")
@@ -39,6 +40,12 @@ function address(b: Backend, id: string) {
   return { workspace_public_id: b.workspaceID, public_id: id }
 }
 export async function readModes(b: Backend, id: string) {
+  if (b.native)
+    return {
+      ...(await b.native.modes({ workspace: b.workspaceID, conversation: id })),
+      available: true,
+      code_mode_available: true,
+    }
   const res = await b.rhoGet("/conversations/modes?" + new URLSearchParams(address(b, id)))
   if (!res.ok) throw new BridgeError(res.status, "Could not read conversation modes.")
   return decodeModes((await res.json()).modes)
@@ -50,6 +57,12 @@ export async function updateModes(b: Backend, id: string, patch: Partial<ModeVal
     keys.some((k) => !["code_mode", "subagent"].includes(k) || typeof patch[k as keyof ModeValues] !== "boolean")
   )
     throw new BridgeError(400, "Expected a boolean Code mode or Subagent choice.")
+  if (b.native)
+    return {
+      ...(await b.native.modes({ workspace: b.workspaceID, conversation: id, patch })),
+      available: true,
+      code_mode_available: true,
+    }
   if (!(await supportsPolicy(b))) throw new BridgeError(503, unavailable)
   const modes = await readModes(b, id)
   if (!modes.available || (patch.code_mode === true && !modes.code_mode_available))
@@ -67,6 +80,18 @@ export async function updateModes(b: Backend, id: string, patch: Partial<ModeVal
   return decodeModes((await res.json()).modes)
 }
 export async function inputPolicy(b: Backend, id: string) {
+  if (b.native) {
+    const policy = await b.native.policy({ workspace: b.workspaceID, conversation: id })
+    if (!policy.runner || !policy.directory) return { tool_names: [...policy.tools] }
+    const context: JsonObject =
+      policy.runner === b.localRunner
+        ? { "opencode.directory": policy.directory }
+        : {
+            "rho.environment": { root: policy.directory, directories: [], anchor: id },
+            "opencode.directory": policy.directory,
+          }
+    return { tool_names: [...policy.tools], executor_contexts: { [policy.runner]: context } }
+  }
   const res = await b.rhoGet(route, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -1,3 +1,5 @@
+import { FileDiff } from "@opencode/schema/file-diff"
+import { Schema } from "effect"
 import { randomUUID } from "node:crypto"
 import { replyContext, storedBinding } from "./reply"
 import { realpath } from "node:fs/promises"
@@ -31,7 +33,44 @@ function locator(b: Backend, chat: Conversation, turn: Turn) {
     variant: turn.active_variant!.public_id,
   })
 }
+const RecordedChange = Schema.Struct({ root: Schema.String, change: FileDiff.Info })
+
 export async function review(b: Backend, chat: Conversation, turn: Turn) {
+  if (b.native) {
+    const id = turn.active_variant?.run_public_id
+    if (!id || !b.localRunner || turn.reference || turn.active_variant?.details_pruned_at) return []
+    const { run, data } = await ownedRun(b, chat.public_id, id)
+    const reviews: Review[] = []
+    for (const task of data.tasks) {
+      if (
+        task.status !== "completed" ||
+        !["write", "edit"].includes(task.tool_name ?? "") ||
+        task.target?.executor_public_id !== b.localRunner
+      )
+        continue
+      const result = await run.task(task.key).fetch()
+      const change = Schema.decodeUnknownOption(RecordedChange)(result.structured_content)
+      if (change._tag !== "Some") continue
+      const file = change.value.change
+      reviews.push({
+        runner: b.localRunner,
+        root: change.value.root,
+        base: task.key,
+        run: id,
+        files: [
+          {
+            state: "text",
+            path: file.file,
+            status: file.status,
+            patch: file.patch,
+            additions: file.additions,
+            deletions: file.deletions,
+          },
+        ],
+      })
+    }
+    return reviews
+  }
   const data = await rhoData<{ reviews: Review[] }>(await b.rhoGet("/conversations/review?" + locator(b, chat, turn)))
   return data.reviews
 }
@@ -40,6 +79,7 @@ export async function outputs(b: Backend, chat: Conversation, turn: Turn): Promi
   const files = new Map<string, OutputFile>()
   for (const f of variant.attachments ?? []) files.set(f.public_id, { id: f.public_id, name: f.filename })
   if (
+    !b.native &&
     !turn.reference &&
     turn.kind !== "compaction_summary" &&
     turn.status === "completed" &&
@@ -50,6 +90,21 @@ export async function outputs(b: Backend, chat: Conversation, turn: Turn): Promi
       await b.rhoGet("/conversations/artifacts?" + locator(b, chat, turn)),
     )
     for (const f of data.published_artifacts) files.set(f.public_id, { id: f.public_id, name: f.filename })
+  }
+  if (
+    b.native &&
+    variant.run_public_id &&
+    !turn.reference &&
+    !variant.details_pruned_at &&
+    turn.status === "completed"
+  ) {
+    const { run, data } = await ownedRun(b, chat.public_id, variant.run_public_id)
+    for (const task of data.tasks.filter(
+      (item) => item.status === "completed" && item.tool_name === "file_publish" && item.target?.kind !== "mcp",
+    )) {
+      const detail = await run.task(task.key).fetch()
+      for (const file of captures(detail.content)) files.set(file.id, file)
+    }
   }
   const names = new Set([...files.values()].map((f) => f.name))
   if (turn.role === "assistant" && !turn.reference && chat.default_runner) {
@@ -75,14 +130,22 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
   // Require a confirmed conversation binding, and never turn this into a general path reader.
   const runner = info.default_runner?.executor_public_id
   if (!runner) throw new BridgeError(409, "This conversation has no bound runner.")
-  const context = await replyContext(info, b.rhoGet, (r) => storedBinding(b.workspace, info, r))
-  const env = context.executor_contexts?.[runner]?.["rho.environment"]
-  if (!env || typeof env !== "object" || Array.isArray(env) || typeof env.root !== "string")
+  const binding = b.native
+    ? {
+        root:
+          runner === b.localRunner
+            ? (await b.native.status()).directory
+            : (await b.client.executors.fetch(runner)).services.runner?.environment.root,
+      }
+    : (await replyContext(info, b.rhoGet, (r) => storedBinding(b.workspace, info, r))).executor_contexts?.[runner]?.[
+        "rho.environment"
+      ]
+  if (!binding || typeof binding !== "object" || Array.isArray(binding) || typeof binding.root !== "string")
     throw new BridgeError(409, "Runner file binding is unavailable.")
-  const paths = /^[a-z]:[\\/]|^\\\\/i.test(env.root) ? win32 : posix
-  let root = env.root,
+  const paths = /^[a-z]:[\\/]|^\\\\/i.test(binding.root) ? win32 : posix
+  let root = binding.root,
     path = paths.resolve(root, id.slice(5))
-  if (b.localRunner === runner) {
+  if (!b.native && b.localRunner === runner) {
     try {
       ;[root, path] = await Promise.all([realpath(root), realpath(path)])
     } catch {
@@ -93,7 +156,7 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
   if (!rel || paths.isAbsolute(rel) || rel.split(paths.sep).some((part) => part.startsWith(".")))
     throw new BridgeError(403, "File is outside the conversation’s output directory.")
   // Name the exact remote runner. Without a rho follower /files/bytes would read on this machine.
-  if (b.localRunner !== runner) {
+  if (b.native || b.localRunner !== runner) {
     const run = await b.workspace.runs.startToolCall(
       { runner_executor_public_id: runner, tool: "files_bytes", input: { path }, timeout_ms: 30000 },
       { idempotencyKey: randomUUID() },
@@ -102,7 +165,8 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
     if (!capture) throw new BridgeError(404, "Runner file unavailable.")
     return { name: file.name, body: (await b.client.uploads.bytes(capture.id)).body }
   }
-  if (path === (await realpath(b.announcementPath))) throw new BridgeError(403, "Not a conversation output.")
+  if (!b.announcementPath || path === (await realpath(b.announcementPath)))
+    throw new BridgeError(403, "Not a conversation output.")
   const res = await b.rhoGet("/files/bytes?" + new URLSearchParams({ path, download: "1" }))
   if (!res.ok) throw new BridgeError(res.status, "Runner file unavailable.")
   return { name: file.name, body: res.body }

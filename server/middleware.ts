@@ -3,12 +3,14 @@ import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
 import { fileBytes, outputs, outputTurn, review, rhoData } from "./outputs"
+import type { ServiceConnection } from "./native"
 import { isIP } from "node:net"
 import type { Connect } from "vite"
 import { APIError } from "@cybros/agent"
 import {
   BridgeError,
   discover,
+  discoverNative,
   canWrite,
   grantSite,
   ownership,
@@ -92,6 +94,7 @@ async function stream(backend: Backend, id: string, res: ServerResponse) {
 }
 
 async function mainPreset(b: Backend) {
+  if (b.native) return { model: b.connection.model, approval_mode: "ask" as const, fallback_models: [] }
   const data = await rhoData<{
     main_preset_public_id: string
     presets: {
@@ -106,17 +109,27 @@ async function mainPreset(b: Backend) {
   return data.presets.find((row) => row.public_id === data.main_preset_public_id)?.configuration
 }
 
+export type BridgeConfig = {
+  token?: string
+  home?: string
+  native?: { origin: string; connection: () => Promise<ServiceConnection> }
+}
+
 export function middleware(
-  env: () => { token?: string; home?: string },
+  env: () => BridgeConfig | Promise<BridgeConfig>,
   connect = discover,
 ): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url ?? "/", "http://localhost")
     if (!url.pathname.startsWith(root + "/")) return next()
+    let native = false
     try {
       if (!localRequest(req)) throw new BridgeError(403, "Local same-origin requests only.")
-      const config = env()
-      const b = await connect(config.home ?? "", config.token)
+      const config = await env()
+      native = !!config.native
+      const b = config.native
+        ? await discoverNative(config.native, config.token)
+        : await connect(config.home ?? "", config.token)
       const route = url.pathname.slice(root.length)
       if (req.method === "GET" && route === "/connection") return json(res, 200, b.connection)
       const scope = req.headers["x-7777-scope"]
@@ -128,7 +141,11 @@ export function middleware(
       if (route === "/choices" && req.method === "GET") {
         const [models, inventory, preset, modes] = await Promise.all([
           b.client.models.list({ workload: "text_generation" }),
-          rhoData<{ runners: { public_id: string; display_name?: string }[] }>(await b.rhoGet("/runners")),
+          b.native
+            ? b.native
+                .runners()
+                .then((rows) => ({ runners: rows.map((row) => ({ public_id: row.id, display_name: row.name })) }))
+            : rhoData<{ runners: { public_id: string; display_name?: string }[] }>(await b.rhoGet("/runners")),
           mainPreset(b),
           defaultModes(b),
         ])
@@ -186,8 +203,15 @@ export function middleware(
           (body.runner !== null && typeof body.runner !== "string")
         )
           throw new BridgeError(400, "Invalid conversation request.")
+        if (b.native && body.runner !== null && !(await b.native.runners()).some((runner) => runner.id === body.runner))
+          throw new BridgeError(400, "Unknown native runner.")
         const receipt = await b.workspace.conversations.create(
-          { title: body.title, answering_user_public_id: b.agentID, default_runner_executor_public_id: body.runner },
+          {
+            ...(b.native ? { metadata: { "opencode.surface": "desktop" } } : {}),
+            title: body.title,
+            answering_user_public_id: b.agentID,
+            default_runner_executor_public_id: body.runner,
+          },
           { idempotencyKey: body.key },
         )
         return json(res, 201, { id: receipt.conversation.public_id })
@@ -252,9 +276,11 @@ export function middleware(
         }
         if (action === "prepare") {
           const [policy, preset] = await Promise.all([inputPolicy(b, id!), mainPreset(b)])
+          if (b.native && submission.approval === "bypass")
+            throw new BridgeError(403, "This installation requires approval.")
           const context = {
             ...policy,
-            ...(info.default_runner && policy.tool_names.length ? runnerGuidance() : {}),
+            ...(!b.native && info.default_runner && policy.tool_names.length ? runnerGuidance() : {}),
             ...modelFields(
               submission.model,
               preset?.model ?? b.connection.model,
@@ -328,7 +354,11 @@ export function middleware(
               ? "This step belongs to the main reply. Use Stop all work."
               : "Nexus: " + (error.code || error.status),
         })
-      json(res, 503, { error: "Could not reach rho or Nexus. Check rho status and reconnect." })
+      json(res, 503, {
+        error: native
+          ? "Could not complete the Nexus request. Check the OpenCode Nexus connection."
+          : "Could not reach rho or Nexus. Check rho status and reconnect.",
+      })
     }
   }
 }

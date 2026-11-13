@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto"
 import { createServer } from "node:http"
-import { middleware } from "./middleware"
+export { nexusService, type ServiceConnection } from "./native"
+import { middleware, type BridgeConfig } from "./middleware"
 
 export async function createDesktopBridge(
-  config: () => { token?: string; home?: string } = () => ({
+  config: () => BridgeConfig | Promise<BridgeConfig> = () => ({
     token: process.env.NEXUS_MEMBER_TOKEN,
     home: process.env.RHO_HOME,
   }),
