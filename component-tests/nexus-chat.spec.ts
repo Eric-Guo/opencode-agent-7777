@@ -22,6 +22,47 @@ async function mockEvents(page: import("@playwright/test").Page) {
   })
 }
 
+test("keeps reconnect visible while pending and reports a repeated failure before recovering", async ({ page }) => {
+  const failure = "Configure a Nexus origin and pair the OpenCode service."
+  let reads = 0,
+    release!: () => void
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith("/connection")) {
+      const attempt = ++reads
+      if (attempt > 1) await new Promise<void>((resolve) => (release = resolve))
+      if (attempt < 3) return route.fulfill({ status: 503, json: { error: failure } })
+      return route.fulfill({
+        json: { scope: "reconnect", user: "Human", agent: "rho", workspace: "Workspace", model: "m", runner: "local" },
+      })
+    }
+    return route.fulfill({ json: { models: [], runners: [], approvals: ["ask"] } })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  const reconnect = page.getByRole("button", { name: "Reconnect", exact: true })
+  const connecting = page.getByRole("button", { name: "Connecting…", exact: true })
+  await expect(reconnect).toBeVisible()
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await reconnect.click()
+  await expect(connecting).toBeDisabled()
+  await expect(connecting).toHaveAttribute("aria-busy", "true")
+  await expect.poll(() => reads).toBe(2)
+  release()
+  await expect(page.getByText("Could not reconnect", { exact: true })).toBeVisible()
+  await expect(page.getByText(failure, { exact: true }).first()).toBeVisible()
+  await expect(reconnect).toBeEnabled()
+  await reconnect.click()
+  await expect(connecting).toBeDisabled()
+  await expect.poll(() => reads).toBe(3)
+  release()
+  await expect(page.getByText("Connected to OpenCode", { exact: true })).toBeVisible()
+  await expect(page.getByRole("banner")).toContainText("Ready")
+  await expect(editor).toHaveAttribute("contenteditable", "true")
+  await expect(reconnect).toHaveCount(0)
+  await expect(connecting).toHaveCount(0)
+})
+
 test("sends text, renders partial and settled replies, restores a decision, and stops the current chat", async ({
   page,
 }) => {
