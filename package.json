@@ -9,14 +9,15 @@
   "scripts": {
     "typecheck": "tsc -b",
     "test:components": "playwright test --config playwright.components.config.ts",
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "bun --bun vite",
+    "build": "bun --bun vite build",
     "build:shared": "bun scripts/build-shared.ts",
-    "serve": "vite preview",
+    "serve": "bun --bun vite preview",
     "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
   },
   "dependencies": {
-    "@cybros/agent": "file:./.local/nexus-sdk",
+    "@cybros/agent": "file:../nexus-runtime/vendor/cybros-agent-0.1.0.tgz",
+    "@opencode/client": "workspace:*",
     "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
     "@opencode/ui": "workspace:*",
