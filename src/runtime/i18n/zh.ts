@@ -86,6 +86,7 @@ export const dict = {
   "session.websearch.loadFailed": "无法加载搜索提供商。",
   "session.websearch.empty": "暂无可用的搜索提供商。",
   "session.websearch.failed": "无法保存你的选择，请重试。",
+  "session.websearch.unavailable": "该搜索提供商已不可用，请选择其他提供商。",
   "session.websearch.retry": "重试",
   "session.timeline.notice.finished": "{{actor}} 已完成",
   "session.timeline.notice.failed": "{{actor}} 失败",

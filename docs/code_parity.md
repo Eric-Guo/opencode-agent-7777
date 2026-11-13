@@ -28,6 +28,10 @@ The README documents the local runtime/cache, desktop schemas, request widgets, 
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
 keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
 repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
+Web-search consent follows `session/requests/{websearch,websearch-machine}.ts`. A local state machine tracks
+the choice and provider replies across HTTP, events and pending-form reads. The compact request model owns
+child-session routing and shared-client access. The compact dock retains its existing controls and asks for
+confirmation when a selected provider disappears. Browser coverage lives in `component-tests/websearch.spec.ts`.
 Composer catalog projection stays in `composer/suggestions/catalog-compact.ts`: local/server commands share
 one row builder, and context/file mentions are independent of runtime wiring. Attachment IDs reuse public
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.

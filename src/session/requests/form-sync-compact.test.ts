@@ -73,6 +73,32 @@ describe("form sync", () => {
     expect(state.form.session_test?.map((item) => item.id)).toEqual(["form_provider"])
   })
 
+  test.each([
+    ["FormNotFoundError", 404, true],
+    ["FormAlreadySettledError", 409, true],
+    ["FormNotFoundError", 404, false],
+  ] as const)("handles %s (%i) only for the submitted form (matches %s)", async (tag, status, matches) => {
+    const active = { id: "parent", location: { directory: "/repo" } } as SessionInfo
+    const next = { ...form, id: "still-pending" }
+    const error = { _tag: tag, id: matches ? form.id : next.id, message: "Form settled" }
+    setSessionClient(
+      OpenCode.make({
+        baseUrl: "http://localhost",
+        fetch: (async (_input, _init) => Response.json(error, { status })) as typeof fetch,
+      }),
+      active,
+    )
+    setState("form", form.sessionID, [form, next])
+    const reply = replyForm({ sessionID: form.sessionID, formID: form.id, answer: { choice: "choose" } })
+    if (matches) {
+      expect(await reply).toBe("already-settled")
+      expect(state.form[form.sessionID]?.map((item) => item.id)).toEqual([next.id])
+    } else {
+      await expect(reply).rejects.toMatchObject(error)
+      expect(state.form[form.sessionID]?.map((item) => item.id)).toEqual([form.id, next.id])
+    }
+  })
+
   test("discards a forms refresh completed after switching sessions", async () => {
     setState("session", { id: "session_test", location: { directory: "/repo" } } as SessionInfo)
     const result = Promise.withResolvers<Response>()

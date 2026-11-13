@@ -1,6 +1,6 @@
 import type { FormAnswer } from "@opencode/client/promise"
 import { createMemo } from "solid-js"
-import { currentSession, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { sessionDirectory } from "@/session/directory"
 import { translateSync } from "@/runtime/i18n/language"
@@ -14,20 +14,36 @@ export function createSessionRequestModel() {
   const permissionRequest = createMemo(() => sessionPermissionRequest(sessions(), state.permission, state.session?.id))
   const formRequest = createMemo(() => sessionFormRequest(sessions(), state.form, state.session?.id))
   const websearch = createWebSearchRequest({
-    owner: () => state.session?.id,
+    owner: createMemo(() => {
+      const runtime = currentRuntime()
+      return runtime?.id === state.session?.id ? runtime : undefined
+    }),
     connected: () => state.status === "ready" && state.eventsConnected,
     request: () => {
       const form = formRequest()
       return form?.metadata?.kind === "websearch.provider" ? form : undefined
     },
-    providers: async (sessionID) => {
+    providers: async (sessionID, signal) => {
       const active = currentSession()
       if (!active) throw new Error(translateSync("error.sessionNotReady"))
       const session =
-        sessions().find((session) => session.id === sessionID) ?? (await active.client.session.get({ sessionID }))
-      const result = await active.client.websearch.providers({ location: { directory: sessionDirectory(session) } })
+        sessions().find((session) => session.id === sessionID) ??
+        (await active.client.session.get({ sessionID }, { signal }))
+      const result = await active.client.websearch.providers(
+        { location: { directory: sessionDirectory(session) } },
+        { signal },
+      )
       return result.data.map((provider) => ({ value: provider.id, label: provider.name }))
     },
+    pendingForms: (sessionID, signal) => {
+      const active = currentSession()
+      if (!active) throw new Error(translateSync("error.sessionNotReady"))
+      return active.client.session.form.list({ sessionID }, { signal })
+    },
+    rememberForm: (form) =>
+      setState("form", form.sessionID, (current = []) =>
+        current.some((item) => item.id === form.id) ? current : [...current, form],
+      ),
     reply: replyForm,
     events: sessionEvents,
   })

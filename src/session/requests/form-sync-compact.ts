@@ -1,4 +1,11 @@
-import type { FormAnswer, FormInfo, SessionFormReplyInput, OpenCodeEvent } from "@opencode/client/promise"
+import {
+  isFormAlreadySettledError,
+  isFormNotFoundError,
+  type FormAnswer,
+  type FormInfo,
+  type SessionFormReplyInput,
+  type OpenCodeEvent,
+} from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
 import { setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
@@ -39,13 +46,20 @@ export function handleFormEvent(event: OpenCodeEvent) {
   return false
 }
 
-export async function replyForm(input: SessionFormReplyInput) {
+export async function replyForm(input: SessionFormReplyInput, signal?: AbortSignal): Promise<void | "already-settled"> {
   const active = captureSessionOwnership()
   if (!active) throw new Error(translateSync("error.sessionNotReady"))
-  await active.client.session.form.reply(input)
+  let settled = false
+  try {
+    await active.client.session.form.reply(input, { signal })
+  } catch (error) {
+    if ((!isFormAlreadySettledError(error) && !isFormNotFoundError(error)) || error.id !== input.formID) throw error
+    settled = true
+  }
   if (!active.current()) return
   setState("form", input.sessionID, (current = []) => current.filter((form) => form.id !== input.formID))
   active.runtime.schedule(120)
+  if (settled) return "already-settled"
 }
 
 export function replyQuestion(request: FormInfo, answer: FormAnswer) {

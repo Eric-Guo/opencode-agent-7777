@@ -373,7 +373,7 @@ tests retain coverage for draft restoration, request routing, pending flags, err
 The permission and form adapters retain their public client endpoints, event filtering and child-session routing.
 Replies keep the request visible until accepted, block duplicate submissions, preserve failures for retry,
 and ignore results from an earlier activation even after returning to the same session. An older response
-cannot clear a newer pending reply. Web-search forms retain their separate promise-based submission lifecycle.
+cannot clear a newer pending reply. Web-search forms have their own two-step reply protocol.
 This compact-only module replaces duplicated lifecycle code without depending on the main app or moving request
 policy into the shared `session-ui` rendering library.
 
@@ -396,8 +396,16 @@ The `session-question-dock.tsx` and `session-permission-dock.tsx` boundaries ret
 fallbacks, compact translations and the existing callbacks. Each request mounts a fresh question widget.
 Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming and deduplication, Escape and
 modifier-Enter behavior are preserved. Package-local browser fixtures render the production widgets; run
-`bun run test:components` from this checkout to exercise them without a backend. Web-search setup and response
-lifecycle policies also remain local.
+`bun run test:components` from this checkout to exercise them without a backend.
+
+Web-search consent follows the main app’s `session/requests/{websearch,websearch-machine}.ts` boundary.
+The compact dock sends **Any** and **Don’t use search** in one reply. For a named provider it waits for the
+server to accept `choose` before answering the same session’s provider form. Both the event stream and the
+request store can supply that form. If it is still missing after acceptance, 7777 reads pending forms once
+through the public `session.form.list` API for the originating session, including child sessions.
+If the chosen provider disappears, the dock asks the user to confirm a replacement. The handoff releases the composer after 10 seconds if the
+form never arrives. Provider-list reads and replies have 15-second deadlines. The compact dock keeps its
+existing shell, translations and composer placement.
 
 Permission notification delivery follows the main app's `shell/notifications/notification.tsx` boundary with a
 package-local controller. It owns translated copy, request-ID deduplication, desktop delivery and the browser fallback;

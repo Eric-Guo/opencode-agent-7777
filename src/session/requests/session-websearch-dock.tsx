@@ -16,9 +16,12 @@ export function SessionWebSearchDock(props: { model: WebSearchRequestModel }) {
   const current = createMemo(() => options().find((option) => option.value === props.model.selected()))
   const busy = () => props.model.sending() || !props.model.connected()
   const status = () => {
+    if (props.model.sending()) return
     if (props.model.loading()) return language.t("common.loading")
     if (props.model.failed()) return language.t("session.websearch.failed")
+    if (props.model.loadFailed()) return language.t("session.websearch.loadFailed")
     if (!props.model.options().length) return language.t("session.websearch.empty")
+    if (props.model.optionUnavailable()) return language.t("session.websearch.unavailable")
   }
   const unavailable = () => props.model.loading() || props.model.loadFailed() || !props.model.options().length
   const submit = (selection: string | false) => {
@@ -54,8 +57,8 @@ export function SessionWebSearchDock(props: { model: WebSearchRequestModel }) {
       </DockShell>
       <DockTray attach="top" class="websearch-footer">
         <div class="websearch-status" aria-live="polite">
-          <Show when={props.model.loadFailed()} fallback={status()}>
-            <span>{language.t("session.websearch.loadFailed")}</span>
+          <span>{status()}</span>
+          <Show when={props.model.loadFailed()}>
             <Button variant="ghost" size="small" onClick={props.model.retry} disabled={busy()}>
               {language.t("session.websearch.retry")}
             </Button>
