@@ -10,7 +10,7 @@ export function timeline(
 ): SessionDocument {
   const messages: SessionDocument["messages"] = []
   const model = { id: connection?.model ?? "", providerID: "nexus" }
-  const agent = connection?.agent ?? "rho"
+  const agent = connection?.agent ?? "OpenCode"
   const user = (id: string, text: string, created: number, selected = model) => {
     messages.push({ id, type: "user", text, time: { created }, metadata: { agent, model: selected } })
   }

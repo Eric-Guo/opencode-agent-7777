@@ -58,7 +58,7 @@ export function SendControls(p: { chat: ChatController }) {
         trigger={
           <>
             <Icon name="settings-gear" size="small" />
-            <span>{s.model || s.connection?.agent || "rho"}</span>
+            <span>{s.model || s.connection?.agent || "OpenCode"}</span>
           </>
         }
       >

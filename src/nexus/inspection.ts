@@ -6,6 +6,7 @@ export type Review = {
   root: string
   base: string
   run: string
+  restorable?: boolean
   truncated?: boolean
   files: {
     path: string
