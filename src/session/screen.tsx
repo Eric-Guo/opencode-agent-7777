@@ -2,6 +2,8 @@ import { createEffect, createMemo, onCleanup, onMount, on, Show } from "solid-js
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
+import { Loader } from "@opencode/ui/loader"
+import { showToast } from "@opencode/ui/toast"
 import { SessionHeader } from "./header/session-header"
 import { ScrollView } from "@opencode/ui/scroll-view"
 import { ComposerEditor } from "@/composer/editor/editor"
@@ -65,6 +67,15 @@ export default function SessionPage() {
   })
   onCleanup(chat.close)
   const problem = () => s.error || s.streamError || s.snapshot.problem
+  const reconnect = async () => {
+    if (s.sending || s.connecting) return
+    await chat.connect()
+    showToast(
+      s.connection
+        ? { variant: "success", title: language.t("nexus.reconnected") }
+        : { variant: "error", title: language.t("nexus.connectionFailed"), description: s.error },
+    )
+  }
   const decisionID = () => {
     const d = s.snapshot.decisions[0]
     return d ? d.run + "/" + d.key : undefined
@@ -112,15 +123,16 @@ export default function SessionPage() {
         </Show>
       </main>
       <div>
-        <Show when={problem()}>
-          {(message) => (
-            <>
-              <ErrorBanner error={message()} />
-              <Button disabled={s.sending || s.connecting} onClick={() => void chat.connect()}>
-                {language.t("nexus.reconnect")}
-              </Button>
-            </>
-          )}
+        <Show when={problem()}>{(message) => <ErrorBanner error={message()} />}</Show>
+        <Show when={problem() || s.connecting}>
+          <div class="mx-[22px] mb-3">
+            <Button disabled={s.sending || s.connecting} aria-busy={s.connecting} onClick={() => void reconnect()}>
+              <Show when={s.connecting}>
+                <Loader />
+              </Show>
+              {language.t(s.connecting ? "nexus.connecting" : "nexus.reconnect")}
+            </Button>
+          </div>
         </Show>
       </div>
       <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
