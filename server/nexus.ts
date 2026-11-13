@@ -1,3 +1,4 @@
+import { nexusService, type ServiceConnection } from "./native"
 import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
@@ -22,7 +23,8 @@ export type Backend = {
   agentID: string
   connection: Connection
   rhoGet: (path: string, init?: RequestInit) => Promise<Response>
-  announcementPath: string
+  native?: ReturnType<typeof nexusService>
+  announcementPath?: string
   humanID: string
   workspaceActive: boolean
   localRunner: string | null
@@ -59,7 +61,55 @@ export async function discover(home: string, token?: string): Promise<Backend> {
   const model = rho.profile?.default_model
   if (!workspaceID || !agentID || typeof model !== "string" || !model)
     throw new BridgeError(503, "rho needs a workspace, answering agent, and declared model.")
-  const options = { baseURL: announcement.base_url as string, credential: token }
+  return connectMember(announcement.base_url, token, {
+    workspaceID,
+    agentID,
+    model,
+    agent: rho.identity.handle || "rho",
+    runner: rho.runner?.selected ?? rho.identity.runner_executor_public_id ?? null,
+    localRunner: rho.identity.runner_executor_public_id ?? null,
+    fallbackModels: Array.isArray(rho.profile?.fallback_models) ? rho.profile.fallback_models : [],
+    announcementPath,
+    rhoGet,
+  })
+}
+
+export async function discoverNative(
+  config: { origin: string; connection: () => Promise<ServiceConnection> },
+  token?: string,
+) {
+  if (!token) throw new BridgeError(503, "Save a Human member token for this Nexus origin.")
+  const service = nexusService(await config.connection())
+  const state = await service.status()
+  if (state.origin !== config.origin || state.state !== "ready" || !state.identity)
+    throw new BridgeError(503, state.error ?? "Pair OpenCode with this Nexus origin in Settings.")
+  const identity = state.identity
+  return connectMember(state.origin, token, {
+    workspaceID: identity.workspace,
+    agentID: identity.agent,
+    model: state.model,
+    agent: identity.name,
+    runner: identity.runner,
+    localRunner: identity.runner,
+    fallbackModels: [],
+    native: service,
+    rhoGet: async () => {
+      throw new BridgeError(409, "This operation is unavailable on the native runner.")
+    },
+  })
+}
+
+async function connectMember(
+  baseURL: string,
+  token: string,
+  runtime: Pick<
+    Backend,
+    "agentID" | "workspaceID" | "localRunner" | "fallbackModels" | "announcementPath" | "rhoGet" | "native"
+  > &
+    Pick<Connection, "model" | "agent" | "runner">,
+): Promise<Backend> {
+  const { workspaceID, agentID, model } = runtime
+  const options = { baseURL, credential: token }
   const client = new Client(options)
   const profile = await client.profile.fetch()
   if (profile.member.kind !== "human")
@@ -69,23 +119,18 @@ export async function discover(home: string, token?: string): Promise<Backend> {
   const connection: Connection = {
     scope: JSON.stringify([options.baseURL, profile.member.public_id, workspaceID, agentID]),
     user: profile.member.display_name || profile.member.handle,
-    agent: rho.identity.handle || "rho",
-    workspace: rho.workspace.name,
+    agent: runtime.agent,
+    workspace: workspaceInfo.name,
     model,
-    runner: rho.runner?.selected ?? rho.identity.runner_executor_public_id ?? null,
+    runner: runtime.runner,
   }
   return {
     client,
-    announcementPath,
+    ...runtime,
     humanID: profile.member.public_id,
     workspaceActive: ["active", "restoring"].includes(workspaceInfo.state),
     workspace,
-    workspaceID: workspaceID as string,
-    agentID: agentID as string,
     connection,
-    rhoGet,
-    localRunner: rho.identity.runner_executor_public_id ?? null,
-    fallbackModels: Array.isArray(rho.profile?.fallback_models) ? rho.profile.fallback_models : [],
     realtime: () => new RealtimeClient(options),
   }
 }
@@ -105,6 +150,7 @@ export async function readChat(
 }
 // Nexus owns Human standing; rho also knows which conversations have live channel bindings.
 export async function ownership(b: Backend, info: Conversation) {
+  if (b.native) return info.metadata["opencode.surface"] !== "desktop"
   const query = new URLSearchParams({ public_id: info.public_id, workspace_public_id: b.workspaceID })
   const res = await b.rhoGet("/conversations/detail?" + query)
   if (!res.ok) throw new BridgeError(503, "Could not verify conversation ownership with rho.")
@@ -170,7 +216,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
         run: runID,
         kind: task.status === "needs_approval" ? "approval" : "ask",
         tool: task.tool_name,
-        siteGrant: canWrite(backend, info) ? grantSite(detail) : undefined,
+        siteGrant: !backend.native && canWrite(backend, info) ? grantSite(detail) : undefined,
         prompt: detail.prompt,
         options: detail.options,
         multi: detail.multi,

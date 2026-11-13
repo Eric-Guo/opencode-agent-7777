@@ -20,6 +20,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "server", "src/**/*.json", "scripts/build-shared*.ts", "vite.config.ts", "package.json"],
+  "include": ["src", "server", "src/**/*.json", "scripts/build-shared*.ts", "scripts/native-smoke.ts", "vite.config.ts", "package.json"],
   "exclude": ["dist", "node_modules/.ts-dist"]
 }
