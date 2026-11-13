@@ -5,7 +5,7 @@ import type { Connection, Snapshot } from "./chat"
 const connection: Connection = {
   scope: "scope",
   workspace: "workspace",
-  agent: "rho",
+  agent: "OpenCode",
   user: "Human",
   runner: "runner",
   model: "model",

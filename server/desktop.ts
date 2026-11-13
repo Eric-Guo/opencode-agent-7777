@@ -4,10 +4,7 @@ export { nexusService, type ServiceConnection } from "./native"
 import { middleware, type BridgeConfig } from "./middleware"
 
 export async function createDesktopBridge(
-  config: () => BridgeConfig | Promise<BridgeConfig> = () => ({
-    token: process.env.NEXUS_MEMBER_TOKEN,
-    home: process.env.RHO_HOME,
-  }),
+  config: () => BridgeConfig | Promise<BridgeConfig>,
 ) {
   const authorization = `Bearer ${randomUUID()}`
   const handle = middleware(config)

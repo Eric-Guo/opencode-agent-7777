@@ -2,14 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
-import { fileBytes, outputs, outputTurn, review, rhoData } from "./outputs"
+import { fileBytes, outputs, outputTurn, review, restoreReview } from "./outputs"
 import type { ServiceConnection } from "./native"
 import { isIP } from "node:net"
 import type { Connect } from "vite"
 import { APIError } from "@cybros/agent"
 import {
   BridgeError,
-  discover,
   discoverNative,
   canWrite,
   grantSite,
@@ -19,9 +18,9 @@ import {
   snapshot,
   type Backend,
 } from "./nexus"
-import { modelFields, openReply, runnerGuidance, sealReply, submitReply } from "./reply"
+import { modelFields, openReply, sealReply, submitReply } from "./reply"
 import { defaultModes, inputPolicy, readModes, updateModes } from "./input-policy"
-import { projectFrame, type Approval, type Choices, type Resolution } from "../src/nexus/chat"
+import { projectFrame, type Choices, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
 function loopback(address = "") {
@@ -93,43 +92,22 @@ async function stream(backend: Backend, id: string, res: ServerResponse) {
   }
 }
 
-async function mainPreset(b: Backend) {
-  if (b.native) return { model: b.connection.model, approval_mode: "ask" as const, fallback_models: [] }
-  const data = await rhoData<{
-    main_preset_public_id: string
-    presets: {
-      public_id: string
-      configuration: {
-        model: string | null
-        approval_mode: Approval | null
-        fallback_models: string[] | null
-      }
-    }[]
-  }>(await b.rhoGet("/presets"))
-  return data.presets.find((row) => row.public_id === data.main_preset_public_id)?.configuration
-}
-
 export type BridgeConfig = {
   token?: string
-  home?: string
   native?: { origin: string; connection: () => Promise<ServiceConnection> }
 }
 
 export function middleware(
   env: () => BridgeConfig | Promise<BridgeConfig>,
-  connect = discover,
+  connect = discoverNative,
 ): Connect.NextHandleFunction {
   return async (req, res, next) => {
     const url = new URL(req.url ?? "/", "http://localhost")
     if (!url.pathname.startsWith(root + "/")) return next()
-    let native = false
     try {
       if (!localRequest(req)) throw new BridgeError(403, "Local same-origin requests only.")
       const config = await env()
-      native = !!config.native
-      const b = config.native
-        ? await discoverNative(config.native, config.token)
-        : await connect(config.home ?? "", config.token)
+      const b = await connect(config.native, config.token)
       const route = url.pathname.slice(root.length)
       if (req.method === "GET" && route === "/connection") return json(res, 200, b.connection)
       const scope = req.headers["x-7777-scope"]
@@ -139,24 +117,12 @@ export function middleware(
         throw new BridgeError(409, "The active Nexus identity or workspace changed. Reconnect.")
       const body = req.method === "POST" ? await payload(req) : undefined
       if (route === "/choices" && req.method === "GET") {
-        const [models, inventory, preset, modes] = await Promise.all([
-          b.client.models.list({ workload: "text_generation" }),
-          b.native
-            ? b.native
-                .runners()
-                .then((rows) => ({ runners: rows.map((row) => ({ public_id: row.id, display_name: row.name })) }))
-            : rhoData<{ runners: { public_id: string; display_name?: string }[] }>(await b.rhoGet("/runners")),
-          mainPreset(b),
-          defaultModes(b),
-        ])
-        const policy = preset ? (preset.approval_mode ?? "bypass") : "ask"
-        const approvals: Approval[] =
-          policy === "rules" ? ["rules"] : policy === "bypass" ? ["ask", "rules", "bypass"] : ["ask", "rules"]
+        const [models, runners] = await Promise.all([b.client.models.list({ workload: "text_generation" }), b.native.runners()])
         return json(res, 200, {
           models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
-          runners: inventory.runners.map((r) => ({ id: r.public_id, name: r.display_name || r.public_id })),
-          approvals,
-          modes,
+          runners: [...runners],
+          approvals: ["ask", "rules"],
+          modes: defaultModes,
         } satisfies Choices)
       }
       if (route === "/chats" && req.method === "GET") {
@@ -203,11 +169,11 @@ export function middleware(
           (body.runner !== null && typeof body.runner !== "string")
         )
           throw new BridgeError(400, "Invalid conversation request.")
-        if (b.native && body.runner !== null && !(await b.native.runners()).some((runner) => runner.id === body.runner))
+        if (body.runner !== null && !(await b.native.runners()).some((runner) => runner.id === body.runner))
           throw new BridgeError(400, "Unknown native runner.")
         const receipt = await b.workspace.conversations.create(
           {
-            ...(b.native ? { metadata: { "opencode.surface": "desktop" } } : {}),
+            metadata: { "opencode.surface": "desktop" },
             title: body.title,
             answering_user_public_id: b.agentID,
             default_runner_executor_public_id: body.runner,
@@ -224,7 +190,7 @@ export function middleware(
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
       if (req.method === "GET") {
         if (action === "modes") {
-          if (!canWrite(b, info) || (await ownership(b, info))) return json(res, 200, null)
+          if (!canWrite(b, info) || ownership(info)) return json(res, 200, null)
           return json(res, 200, await readModes(b, id!))
         }
         if (action === "files" || action === "review") {
@@ -248,9 +214,15 @@ export function middleware(
       }
       if (req.method !== "POST") throw new BridgeError(405, "Expected POST.")
       if (action !== "stop") {
-        if (await ownership(b, info)) throw new BridgeError(403, "Continue this conversation in its channel.")
+        if (ownership(info)) throw new BridgeError(403, "Continue this conversation in its channel.")
         if (info.archived_at && !["restore", "rename"].includes(action!))
           throw new BridgeError(409, "Restore this conversation first.")
+      }
+      if (action === "restore-files") {
+        if (!canWrite(b, info)) throw new BridgeError(403, "Write access is required to restore files.")
+        const turn = await outputTurn(b, info, url.searchParams)
+        await restoreReview(b, info, turn, field(body.task, "task"), field(body.receipt, "receipt"))
+        return json(res, 200, {})
       }
       if (action === "modes" || action === "prepare") {
         if (!canWrite(b, info)) throw new BridgeError(403, "This Human needs write access to the conversation.")
@@ -275,18 +247,8 @@ export function middleware(
           target: body.target,
         }
         if (action === "prepare") {
-          const [policy, preset] = await Promise.all([inputPolicy(b, id!), mainPreset(b)])
-          if (b.native && submission.approval === "bypass")
-            throw new BridgeError(403, "This installation requires approval.")
-          const context = {
-            ...policy,
-            ...(!b.native && info.default_runner && policy.tool_names.length ? runnerGuidance() : {}),
-            ...modelFields(
-              submission.model,
-              preset?.model ?? b.connection.model,
-              preset?.fallback_models ?? b.fallbackModels,
-            ),
-          }
+          if (submission.approval === "bypass") throw new BridgeError(403, "This installation requires approval.")
+          const context = { ...(await inputPolicy(b, id!)), ...modelFields(submission.model, b.connection.model, b.fallbackModels) }
           return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission, context) })
         }
         if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
@@ -320,26 +282,10 @@ export function middleware(
         const { run } = await ownedRun(b, id!, body.run)
         if (body.response.action === "site") {
           const detail = await run.task(body.key).fetch()
-          if (!canWrite(b, info) || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
-          const result = await rhoData<{ grant?: { refused?: string } }>(
-            await b.rhoGet("/runs/approve", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-rho-viewing-conversation": id!,
-                "x-rho-viewing-workspace": b.workspaceID,
-              },
-              body: JSON.stringify({
-                workspace_public_id: b.workspaceID,
-                public_id: body.run,
-                task_key: body.key,
-                always: true,
-              }),
-            }),
-          )
-          return json(res, 200, {
-            notice: result.grant?.refused ? "Approved this call; rho could not retain the site grant." : undefined,
-          })
+          if (!canWrite(b, info) || detail.task.target?.executor_public_id !== b.localRunner || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
+          await run.task(body.key).approve()
+          const retained = await b.native.grant({ workspace: b.workspaceID, conversation: id!, run: body.run, task: body.key }).then(() => true, () => false)
+          return json(res, 200, { notice: retained ? undefined : "Approved this call. The site grant could not be saved for this session." })
         }
         await resolveDecision(run.task(body.key), body.response as Resolution)
       } else throw new BridgeError(404, "Unknown chat action.")
@@ -355,9 +301,7 @@ export function middleware(
               : "Nexus: " + (error.code || error.status),
         })
       json(res, 503, {
-        error: native
-          ? "Could not complete the Nexus request. Check the OpenCode Nexus connection."
-          : "Could not reach rho or Nexus. Check rho status and reconnect.",
+        error: "Could not complete the Nexus request. Check the OpenCode Nexus connection.",
       })
     }
   }

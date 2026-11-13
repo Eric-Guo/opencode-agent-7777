@@ -38,6 +38,7 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     public_id: "a",
     workspace_public_id: "w",
     answering_user_public_id: "agent",
+    metadata: { "opencode.surface": bound ? "channel" : "desktop" },
     archived_at: archived ? "now" : null,
     side: false,
     access: { entries: [], default: "full" },
@@ -77,7 +78,6 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
       uploads: { bytes: async (id: string) => new Response(id === "published" ? new Uint8Array([0, 255, 17]) : null) },
       work: { attention: async () => ({ items: [], next_after: null }) },
     },
-    rhoGet: async () => Response.json({ conversation: { ...info(), ingresses: bound ? [{ label: "channel" }] : [] } }),
     workspace: {
       conversation: () => chat,
       conversations: { list: (q: any) => page("active", q), archived: (q: any) => page("archived", q) },
@@ -130,15 +130,12 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
   }
 })
 
-test("only rho’s prepared tools and contexts reach the Human SDK, including on receipt replay", async () => {
+test("only the paired service’s prepared tools and contexts reach the Human SDK, including on receipt replay", async () => {
   let access = "full",
-    owned = false,
-    supports = true,
-    plugin = true
-  let policy: unknown = {
-    tool_names: [],
-    executor_contexts: { runner: { marker: "original" } },
-    speaker_public_id: "spoof",
+    owned = false
+  let policy = {
+    tools: [] as string[],
+    directory: "/original" as string | null, runner: "runner" as string | null,
   }
   const preparations: unknown[] = [],
     patches: unknown[] = [],
@@ -146,7 +143,8 @@ test("only rho’s prepared tools and contexts reach the Human SDK, including on
   const info = (id: string) => ({
     public_id: id,
     workspace_public_id: "w",
-    answering_user_public_id: "rho",
+    metadata: { "opencode.surface": owned ? "channel" : "desktop" },
+    answering_user_public_id: "agent",
     access: { default: "full", entries: [{ user_public_id: "human", level: access }] },
     default_runner: { executor_public_id: "runner" },
   })
@@ -155,7 +153,8 @@ test("only rho’s prepared tools and contexts reach the Human SDK, including on
     workspaceID: "w",
     humanID: "human",
     workspaceActive: true,
-    agentID: "rho",
+    agentID: "agent",
+    localRunner: "runner",
     fallbackModels: [],
     workspace: {
       conversation: (id: string) => ({
@@ -168,30 +167,9 @@ test("only rho’s prepared tools and contexts reach the Human SDK, including on
         },
       }),
     },
-    rhoGet: (path: string, init?: RequestInit) => {
-      const body = init?.body && JSON.parse(String(init.body))
-      if (path.startsWith("/conversations/detail?"))
-        return Response.json({
-          conversation: {
-            ...info(new URLSearchParams(path.split("?")[1]).get("public_id")!),
-            ingresses: owned ? ["channel"] : [],
-          },
-        })
-      if (path === "/presets") return Response.json({ presets: [] })
-      if (path === "/conversations/prepare-input-policy" && init?.method === "POST") {
-        if (!supports || (policy === null && Object.keys(body).length))
-          return Response.json({ error: { code: "not_found" } }, { status: 404 })
-        if (!Object.keys(body).length) return Response.json({ error: { code: "parameter_missing" } }, { status: 400 })
-        preparations.push(body)
-        return Response.json(policy)
-      }
-      if (path.startsWith("/conversations/modes")) {
-        if (init?.method === "PATCH") patches.push(body)
-        return Response.json({
-          modes: { code_mode: false, subagent: false, available: true, code_mode_available: plugin },
-        })
-      }
-      throw new Error("unexpected rho route: " + path)
+    native: {
+      policy(input: unknown) { preparations.push(input); return policy },
+      modes(input: unknown) { patches.push(input); return { code_mode: false, subagent: true } },
     },
   } as unknown as Backend
   const { send, close } = await bridge(backend)
@@ -201,8 +179,8 @@ test("only rho’s prepared tools and contexts reach the Human SDK, including on
     expect(r.status).toBe(200)
     const { ticket } = await r.json()
     expect((await send("/chats/a/modes", { subagent: true })).status).toBe(200)
-    expect(patches).toEqual([{ public_id: "a", workspace_public_id: "w", subagent: true }])
-    policy = { tool_names: ["code", "spawn"] }
+    expect(patches).toEqual([{ conversation: "a", workspace: "w", patch: { subagent: true } }])
+    policy = { tools: ["code", "spawn"], directory: null, runner: null }
     for (let i = 0; i < 2; i++) expect((await send("/chats/a/inputs", { ...body, ticket })).status).toBe(202)
     expect(inputs).toHaveLength(2)
     expect(inputs[0]).toEqual(inputs[1])
@@ -212,34 +190,17 @@ test("only rho’s prepared tools and contexts reach the Human SDK, including on
         kind: "direct_reply",
         text: "hello",
         tool_names: [],
-        executor_contexts: { runner: { marker: "original" } },
+        executor_contexts: { runner: { "opencode.directory": "/original" } },
       },
     })
     expect(inputs[0].fields).not.toHaveProperty("speaker_public_id")
-    expect(preparations).toEqual([{ public_id: "a", workspace_public_id: "w" }])
+    expect(preparations).toEqual([{ conversation: "a", workspace: "w" }])
     expect((await send("/chats/b/inputs", { ...body, ticket })).status).toBe(409)
     const next = { ...body, key: "two" }
     const nextTicket = await (await send("/chats/a/prepare", next)).json()
     expect((await send("/chats/a/inputs", { ...next, ...nextTicket })).status).toBe(202)
     expect(inputs[2].fields.tool_names).toEqual(["code", "spawn"])
     expect(inputs[2].fields).not.toHaveProperty("executor_contexts")
-    for (const invalid of [
-      {},
-      { tool_names: null },
-      { tool_names: [false] },
-      { tool_names: [], executor_contexts: { runner: null } },
-    ]) {
-      policy = invalid
-      expect((await send("/chats/a/prepare", body)).status).toBe(502)
-    }
-    policy = null
-    expect((await send("/chats/a/prepare", body)).status).toBe(404)
-    supports = false
-    expect((await send("/chats/a/prepare", body)).status).toBe(503)
-    expect((await send("/chats/a/modes", { subagent: true })).ok).toBe(false)
-    supports = true
-    plugin = false
-    expect((await send("/chats/a/modes", { code_mode: true })).status).toBe(409)
     expect((await send("/chats/a/modes", { tool_names: [] })).status).toBe(400)
     for (const level of ["read", "none", "full"]) {
       access = level

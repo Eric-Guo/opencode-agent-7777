@@ -324,7 +324,7 @@ export function createChatController(
     try {
       if (!s.id && !attempt) {
         await choicesReady
-        if (!s.choices?.modes?.available) throw new Error("Cannot prepare a reply until rho provides its input policy.")
+        if (!s.choices?.modes?.available) throw new Error("Cannot prepare a reply until OpenCode provides its input policy.")
       }
       const initial = !s.id ? modes() : null
       attempt ??= {

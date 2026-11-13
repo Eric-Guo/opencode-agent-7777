@@ -44,7 +44,7 @@ Recent commits use short, imperative summaries such as `Add drag support.` and `
 
 ## Configuration Notes
 
-On `nexus_backend`, the browser uses the same-origin `/api/7777` bridge. Server-only code in `server/` discovers Nexus through rho’s announcement and reads `NEXUS_MEMBER_TOKEN` from the local environment. Keep the token and rho’s control bearer out of the renderer and Git.
+On `nexus_backend`, the browser uses the same-origin `/api/7777` bridge. Server-only code in `server/` discovers the paired agent through the authenticated OpenCode service. The standalone bridge reads `NEXUS_URL` and `NEXUS_MEMBER_TOKEN` from the local environment. Keep the token and service credentials out of the renderer and Git.
 
 ## Agent-Specific Instructions
 

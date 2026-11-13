@@ -51,10 +51,7 @@ test("typed answers preserve zero, false, empty lists, and omitted fields; appro
 })
 
 test("discovery checks workspace access and sends only the Human credential for task decisions", async () => {
-  const { mkdtemp, mkdir, rm, writeFile } = await import("node:fs/promises")
-  const { tmpdir } = await import("node:os")
-  const { join } = await import("node:path")
-  const { discover } = await import("./nexus")
+  const { discoverNative } = await import("./nexus")
   const calls: [string, string | null][] = []
   let readable = false
   const service = Bun.serve({
@@ -63,12 +60,8 @@ test("discovery checks workspace access and sends only the Human credential for 
     fetch(req) {
       const path = new URL(req.url).pathname
       calls.push([path, req.headers.get("authorization")])
-      if (path === "/status")
-        return Response.json({
-          identity: { user_public_id: "rho" },
-          workspace: { public_id: "workspace", name: "Workspace" },
-          profile: { default_model: "model" },
-        })
+      if (path === "/api/experimental/nexus/status")
+        return Response.json({ state: "ready", origin: new URL(req.url).origin, model: "model", directory: "/project", workspace: "workspace", identity: { agent: "agent", name: "OpenCode", runner: "runner", workspace: "workspace", workspaceName: "Workspace" } })
       if (path === "/agent_api/v1/profile")
         return Response.json({
           member: {
@@ -116,26 +109,18 @@ test("discovery checks workspace access and sends only the Human credential for 
       return Response.json({ error: { code: "not_authorized", message: "Denied" } }, { status: 403 })
     },
   })
-  const home = await mkdtemp(join(tmpdir(), "7777-rho-"))
+  const config = { origin: service.url.origin, connection: async () => ({ url: service.url.origin, password: "fixture" }) }
   try {
-    await mkdir(join(home, "tmp"))
-    await writeFile(
-      join(home, "tmp", "announcement.json"),
-      JSON.stringify({
-        state: "active",
-        endpoint: service.url.origin,
-        base_url: service.url.origin,
-        bearer: "daemon-test",
-      }),
-    )
-    await expect(discover(home, "human-test")).rejects.toMatchObject({ status: 403 })
+    await expect(discoverNative({ ...config, origin: "https://other.example" }, "human-test")).rejects.toMatchObject({ status: 503 })
+    expect(calls.splice(0).map(([path]) => path)).toEqual(["/api/experimental/nexus/status"])
+    await expect(discoverNative(config, "human-test")).rejects.toMatchObject({ status: 403 })
     expect(calls).toEqual([
-      ["/status", "Bearer daemon-test"],
+      ["/api/experimental/nexus/status", "Basic " + Buffer.from("opencode:fixture").toString("base64")],
       ["/agent_api/v1/profile", "Bearer human-test"],
       ["/agent_api/v1/workspaces/workspace", "Bearer human-test"],
     ])
     readable = true
-    const backend = await discover(home, "human-test")
+    const backend = await discoverNative(config, "human-test")
     const task = backend.workspace.run("run").task("bash")
     for (const action of ["approve", "deny"] as const) await resolveDecision(task, { action })
     expect(calls.slice(-2)).toEqual([
@@ -144,7 +129,6 @@ test("discovery checks workspace access and sends only the Human credential for 
     ])
   } finally {
     service.stop(true)
-    await rm(home, { recursive: true, force: true })
   }
 })
 

@@ -3,7 +3,7 @@ import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { Markdown } from "@opencode/session-ui/markdown"
 import { useLanguage } from "../runtime/i18n/language"
-import type { ChatController } from "./controller"
+import { request, type ChatController } from "./controller"
 import type { OutputFile, Review } from "./inspection"
 import { chatPath, DetailRead } from "./detail-read"
 
@@ -106,7 +106,8 @@ export function AnswerFiles(p: { chat: ChatController; query: Record<string, str
 
 export function AnswerReview(p: { chat: ChatController; query: Record<string, string>; valid: Accessor<boolean> }) {
   const lang = useLanguage()
-  const [s, set] = createStore({ open: false, notice: "" })
+  const [s, set] = createStore({ open: false, notice: "", restoring: false })
+  const receipts = new Map<string, string>()
   return (
     <details class="chat-disclosure" onToggle={(e) => set("open", e.currentTarget.open)}>
       <summary>{lang.t("chat.review")}</summary>
@@ -117,6 +118,33 @@ export function AnswerReview(p: { chat: ChatController; query: Record<string, st
               {(r) => (
                 <section>
                   <p>{lang.t("chat.scopedReview", { runner: r.runner, root: r.root })}</p>
+                  <Show when={r.restorable && p.chat.writable()}>
+                    <Button
+                      type="button"
+                      disabled={s.restoring || !p.valid()}
+                      onClick={async () => {
+                        if (!p.valid() || !p.chat.writable()) return
+                        set({ restoring: true, notice: "" })
+                        const key = JSON.stringify([r.run, r.base])
+                        const receipt = receipts.get(key) ?? crypto.randomUUID()
+                        receipts.set(key, receipt)
+                        try {
+                          await request(chatPath(p.chat, "restore-files", p.query), p.chat.s.connection?.scope, {
+                            task: r.base,
+                            receipt,
+                          })
+                          receipts.delete(key)
+                          set("notice", lang.t("chat.filesRestored"))
+                        } catch (error) {
+                          set("notice", error instanceof Error ? error.message : String(error))
+                        } finally {
+                          set("restoring", false)
+                        }
+                      }}
+                    >
+                      {lang.t("chat.restoreFiles")}
+                    </Button>
+                  </Show>
                   <Show when={r.truncated}>{lang.t("chat.limit")}</Show>
                   <For each={r.files.filter((f) => f.state !== "text")}>
                     {(f) => <p>{lang.t("chat.nonText", { path: f.path, state: f.state })}</p>}
