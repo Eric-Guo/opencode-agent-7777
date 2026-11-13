@@ -241,8 +241,10 @@ public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, 
 ownership, and draggable scrollbar. `createAutoScroll` from `@opencode/ui/hooks` still owns following streamed content,
 pausing for reading or text selection, and overflow anchoring. The local adapter pauses on upward keyboard navigation
 and uses the main app's arrival check so delayed scroll events cannot cancel that intent. Reaching the end or using
-**Jump to latest** resumes following. Activation resets, viewport resize handling, existing spacing, and the nine-dialog
-window remain. The compact screen owns the viewport and resume control; the main app places them in its virtualizer.
+**Jump to latest** resumes following. On activation and explicit resume, the adapter keeps the timeline at the end
+if layout briefly clamps the viewport before its scroll event arrives. Timeline input returns control to the reader.
+The shared hook pins on viewport and content resize. While reading, the compact adapter updates **Jump to latest**
+when content grows. The compact screen owns the viewport and resume control and retains the nine-dialog window.
 
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
 to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;

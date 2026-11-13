@@ -3,55 +3,44 @@ import { isScrollKeyTarget, scrollKey, scrollKeyOwner } from "@opencode/ui/scrol
 import { createEffect, on, onCleanup, type Accessor } from "solid-js"
 import { createStore } from "solid-js/store"
 
-export function createSessionTimelineInteraction(input: {
-  identity: Accessor<unknown>
-  items: Accessor<readonly unknown[]>
-}) {
+const BOTTOM_THRESHOLD = 10
+
+export function createSessionTimelineInteraction(input: { identity: Accessor<unknown> }) {
   const [state, setState] = createStore({
     scroller: undefined as HTMLElement | undefined,
     content: undefined as HTMLElement | undefined,
     jump: false,
   })
-  // The bounded timeline follows layout changes even after a turn finishes
-  // (for example, images loading). User scroll/selection pauses the shared helper.
-  const follow = createAutoScroll({ working: () => true })
+  const follow = createAutoScroll({ working: () => true, bottomThreshold: BOTTOM_THRESHOLD })
+  let readerInteracted = false
   let position = { top: 0, max: 0 }
   const readPosition = () => {
     const el = state.scroller
     return el ? { top: el.scrollTop, max: el.scrollHeight - el.clientHeight } : { top: 0, max: 0 }
   }
-  let frame: number | undefined
-  const updateScrollState = () => {
+  const updateJump = () => {
     const el = state.scroller
-    setState("jump", !!el && follow.userScrolled() && el.scrollHeight - el.clientHeight - el.scrollTop >= 10)
+    setState(
+      "jump",
+      follow.userScrolled() && !!el && el.scrollHeight - el.clientHeight - el.scrollTop >= BOTTOM_THRESHOLD,
+    )
   }
-  const schedule = () => {
-    if (frame !== undefined) return
-    frame = requestAnimationFrame(() => {
-      frame = undefined
-      follow.scrollToBottom()
-      updateScrollState()
-    })
+  const resume = () => {
+    readerInteracted = false
+    follow.resume()
+    position = readPosition()
   }
-  createEffect(
-    on(input.identity, () => {
-      follow.resume()
-      schedule()
-    }),
-  )
-  createEffect(on(input.items, schedule))
-  createEffect(updateScrollState)
+  createEffect(on(input.identity, resume))
+
+  // createAutoScroll observes both elements and pins in the resize delivery. While reading,
+  // content or composer growth can reveal Jump to latest without a viewport scroll event.
   createEffect(() => {
-    const elements = [state.scroller, state.content].filter((el): el is HTMLElement => !!el)
-    // Composer, request dock and window resizing can change the viewport
-    // without resizing the content. Content growth also updates Jump to latest
-    // when text selection paused following before the viewport moved.
-    const observer = new ResizeObserver(schedule)
-    elements.forEach((el) => observer.observe(el))
+    updateJump()
+    if (!follow.userScrolled()) return
+    const observer = new ResizeObserver(updateJump)
+    if (state.scroller) observer.observe(state.scroller)
+    if (state.content) observer.observe(state.content)
     onCleanup(() => observer.disconnect())
-  })
-  onCleanup(() => {
-    if (frame !== undefined) cancelAnimationFrame(frame)
   })
 
   const markUserScroll = (target?: EventTarget | null) => {
@@ -64,20 +53,16 @@ export function createSessionTimelineInteraction(input: {
   return {
     scroller: () => state.scroller,
     scroll: state,
-    actions: {
-      resume: () => {
-        follow.resume()
-        updateScrollState()
-      },
-    },
+    actions: { resume },
     view: {
+      markInput: () => {
+        readerInteracted = true
+      },
       onKeyDown: (event: KeyboardEvent) => {
         const el = state.scroller
         const key = scrollKey(event)
         if (!el || !key || !isScrollKeyTarget(event.target, key)) return
         if (scrollKeyOwner(el, event.target, key) !== el) return
-        // Pause before ScrollView's smooth keyboard navigation starts. A resize
-        // in the same frame must not pull the reader back to the latest message.
         if (key === "up" || key === "page-up" || key === "home") {
           position = readPosition()
           follow.pause()
@@ -94,13 +79,18 @@ export function createSessionTimelineInteraction(input: {
       onScroll: () => {
         const previous = position
         position = readPosition()
-        // A delayed scroll event or the first smooth-scroll tick can still be
-        // at the end after an upward key paused following. As in the main
-        // timeline, resume only on arrival (downward movement or a collapse).
+        const distance = position.max - position.top
+        if (!readerInteracted && !follow.userScrolled() && distance >= BOTTOM_THRESHOLD) {
+          // Layout can clamp the offset, then grow the range again before the browser delivers
+          // its scroll event. On activation or explicit resume the reader is still at the end.
+          follow.scrollToBottom()
+          return
+        }
+        // A delayed event resting at the end must not cancel an upward key or a text selection.
         const arrived = position.top > previous.top + 0.5 || position.max < previous.max
-        const resting = position.max > 1 && position.max - position.top < 10 && !arrived
-        if (!follow.userScrolled() || !resting) follow.handleScroll()
-        updateScrollState()
+        if (!follow.userScrolled() || position.max <= 1 || distance >= BOTTOM_THRESHOLD || arrived)
+          follow.handleScroll()
+        updateJump()
       },
       markUserScroll,
     },

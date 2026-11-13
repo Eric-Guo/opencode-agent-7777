@@ -411,6 +411,22 @@ try {
         const scroller = scroll.getByRole("region", { name: "scrollable content", exact: true })
         const distance = () => scroller.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)
         await expect.poll(distance).toBeLessThan(10)
+        // A composer or dock reflow can briefly enlarge the viewport and clamp its offset.
+        // Restore its size in the same task, before Chrome delivers the resulting scroll event.
+        const expectFollowAfterReflow = async () => {
+          const clamped = await scroller.evaluate((el) => {
+            const main = el.closest("main")!
+            const previousHeight = main.style.height
+            const before = el.scrollTop
+            main.style.height = `${main.offsetHeight + 38}px`
+            const movement = before - el.scrollTop
+            main.style.height = previousHeight
+            return movement
+          })
+          expect(clamped).toBe(38)
+          await expect.poll(distance).toBeLessThan(10)
+        }
+        await expectFollowAfterReflow()
         await scroller.hover()
         await page.mouse.wheel(0, -600)
         const resume = page.getByRole("button", { name: "Jump to latest", exact: true })
@@ -426,6 +442,7 @@ try {
         await resume.click()
         await expect.poll(distance).toBeLessThan(10)
         await expect(resume).toBeHidden()
+        await expectFollowAfterReflow()
         emit("session.text.delta", { ...data, ordinal: 1, delta: "\n\nFollowing position probe\n\n".repeat(20) })
         await expect(page.getByText("Following position probe", { exact: true }).last()).toBeVisible()
         await expect.poll(distance).toBeLessThan(10)
@@ -506,6 +523,7 @@ try {
         await expect(page.getByText("stream complete", { exact: true })).toHaveCount(0)
         await expect(resume).toBeHidden()
         await expect.poll(distance).toBeLessThan(10)
+        await expectFollowAfterReflow()
         await expect(page.locator("body")).toContainText("9/9")
         if ((await page.title()) !== "Fixture host") throw new Error("The runtime changed the host document title")
       }

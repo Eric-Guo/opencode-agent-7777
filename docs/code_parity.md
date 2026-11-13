@@ -23,6 +23,8 @@ Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching 
 nodes during attachment-only updates, preserving the caret and native undo/redo. In-place store edits remain
 reactive; local blank-line echoes and later explicit clears are separate transitions. Compact mention metadata
 refreshes without replacing matching nodes. The rendered contract lives in `component-tests/composer.spec.ts`.
+The shared `createAutoScroll` hook owns timeline pinning on content and viewport resize. The local interaction adapter
+distinguishes an initial layout adjustment from reader input and tracks jump-button visibility while paused.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
@@ -90,5 +92,6 @@ BENCH_RUNS=3 bun run bench:runtime
 
 Optional checks: `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
 overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
-The historical 38 px initial-follow failure also reproduced on unchanged baselines; retain its assertion and
-resolve it before claiming a scrolling fix.
+`BENCH_VERIFY_UI=true` also checks the 38 px initial-follow gap. The fixture briefly enlarges the viewport,
+reads its clamped offset and restores its height before the scroll event arrives. It checks following on activation,
+after **Jump to latest** and after switching sessions, alongside wheel, keyboard, scrollbar and text-selection behavior.

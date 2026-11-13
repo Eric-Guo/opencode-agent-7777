@@ -47,10 +47,7 @@ export function SessionPage() {
     }),
   )
 
-  const interaction = createSessionTimelineInteraction({
-    identity: currentRuntime,
-    items: timeline.visibleMessages,
-  })
+  const interaction = createSessionTimelineInteraction({ identity: currentRuntime })
 
   const toggleReasoningSummaries = () => {
     settings.general.setShowReasoningSummaries(!settings.general.showReasoningSummaries())
@@ -71,7 +68,14 @@ export function SessionPage() {
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />
 
-      <main class="relative min-h-0">
+      <main
+        class="relative min-h-0"
+        on:pointerdown={{ capture: true, handleEvent: interaction.view.markInput }}
+        on:keydown={{ capture: true, handleEvent: interaction.view.markInput }}
+        on:click={{ capture: true, handleEvent: interaction.view.markInput }}
+        on:wheel={{ passive: true, handleEvent: interaction.view.markInput }}
+        on:focusin={interaction.view.markInput}
+      >
         <ScrollView
           data-slot="session-message-scroller"
           class={`${SESSION_MESSAGE_SCROLLER_CLASS} h-full`}
