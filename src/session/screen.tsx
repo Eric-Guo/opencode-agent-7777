@@ -30,7 +30,7 @@ export default function SessionPage() {
   const doc = createMemo(() => timeline(s.id, s.snapshot, s.live, s.connection))
   const interaction = createSessionTimelineInteraction({ identity: () => s.id })
   const draft = createStore<ComposerPersistedState>({ prompt: [], context: { items: [] } })
-  const agent = () => s.connection?.agent || "rho"
+  const agent = () => s.connection?.agent || "OpenCode"
   const editor = createComposerEditor({
     store: draft,
     identity: () => s.id,

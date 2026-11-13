@@ -15,7 +15,6 @@ function nexusPlugin(): Plugin {
     server.middlewares.use(
       middleware(() => ({
         token: env.NEXUS_MEMBER_TOKEN,
-        home: env.RHO_HOME,
         native: env.NEXUS_URL
           ? {
               origin: new URL(env.NEXUS_URL).origin,
@@ -37,7 +36,6 @@ function nexusPlugin(): Plugin {
         "NEXUS_MEMBER_TOKEN",
         "NEXUS_URL",
         "OPENCODE_SERVICE_FILE",
-        "RHO_HOME",
       ])
     },
     configureServer: serve,

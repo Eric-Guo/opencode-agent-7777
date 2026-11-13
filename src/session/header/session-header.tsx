@@ -17,7 +17,7 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
       class="flex flex-wrap items-center justify-between gap-4 px-11 pb-4 pt-5 max-[720px]:px-[18px]"
     >
       <div class="min-w-0 max-w-full">
-        <h1 class="truncate text-xl font-[720]">{s.snapshot.detail?.title || s.connection?.agent || "rho"}</h1>
+        <h1 class="truncate text-xl font-[720]">{s.snapshot.detail?.title || s.connection?.agent || "OpenCode"}</h1>
         <p class="text-xs text-v2-text-text-faint">
           {s.connection?.workspace}
           {" · "}

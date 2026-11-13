@@ -97,7 +97,7 @@ export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatCo
             {language.t("chat.archived")}
           </button>
         </div>
-        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={props.chat.s.connection?.agent ?? "rho"} />
+        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={props.chat.s.connection?.agent ?? "OpenCode"} />
       </Show>
     </Popover>
   )
