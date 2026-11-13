@@ -13,6 +13,10 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
 | `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
 
+Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
+Shared Markdown owns fence completion, source copying and block disposal. The 7777 renderer handles ECharts
+options, chart controls and resizing in timeline text parts. Its former timeline-wide DOM observer is removed.
+
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching text and mentions retain their

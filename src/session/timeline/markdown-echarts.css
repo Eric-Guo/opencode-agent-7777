@@ -34,8 +34,9 @@
   margin-inline: auto;
 }
 
-[data-component="markdown-code"][data-echarts-ready="true"][data-echarts-source="false"] > pre {
-  display: none;
+[data-component="markdown-code"][data-echarts-ready="false"] > pre,
+[data-component="markdown-code"][data-echarts-source="true"] > pre {
+  display: block;
 }
 
 [data-component="markdown-code"][data-echarts-ready="true"] > [data-slot="markdown-copy-button"] {

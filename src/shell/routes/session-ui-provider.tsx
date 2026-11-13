@@ -4,11 +4,13 @@ import { showToast } from "@opencode/ui/toast"
 import { parsePathLineSuffix } from "@opencode/util/path"
 import type { ComponentProps } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import { createMarkdownEcharts } from "@/session/timeline/markdown-echarts"
 import { readableError } from "@/shell/errors/readable"
 import { fileUrl } from "@/workspaces/files/path"
 
 export function SessionUIProvider(props: ComponentProps<typeof DataProvider>) {
   const language = useLanguage()
+  const codeBlocks = createMarkdownEcharts()
   const openLocalFile = async (path: string) => {
     try {
       // Markdown supplies decoded paths. Resolve relative links against this session, preserving filename characters.
@@ -27,7 +29,7 @@ export function SessionUIProvider(props: ComponentProps<typeof DataProvider>) {
 
   return (
     <DataProvider {...props}>
-      <MarkdownProvider openLocalFile={window.api?.openPath ? openLocalFile : undefined}>
+      <MarkdownProvider codeBlocks={codeBlocks} openLocalFile={window.api?.openPath ? openLocalFile : undefined}>
         {props.children}
       </MarkdownProvider>
     </DataProvider>

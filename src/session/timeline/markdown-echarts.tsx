@@ -1,7 +1,8 @@
+import type { MarkdownCodeBlocks } from "@opencode/session-ui/context/markdown"
 import { Button } from "@opencode/ui/button"
 import { Select } from "@opencode/ui/select"
 import type { EChartsType } from "echarts"
-import { createEffect, createUniqueId, onCleanup, onMount, Show } from "solid-js"
+import { createEffect, createUniqueId, getOwner, onCleanup, onMount, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { render } from "solid-js/web"
 import "./markdown-echarts.css"
@@ -15,8 +16,8 @@ import {
   type ChartProportion,
 } from "./markdown-echarts-layout"
 
-const CODE = '[data-component="text-part"] [data-slot="text-part-body"] [data-component="markdown"] pre > code'
-const OWNED = '[data-component="markdown-echarts"]'
+const CHART_BLOCKS = { render: new Set(["echarts", "json"]), actions: new Set<string>() }
+const TIMELINE_TEXT = '[data-slot="session-message-timeline"] [data-component="text-part"] [data-slot="text-part-body"]'
 let loaded: Promise<typeof import("echarts")> | undefined
 
 function loadCharts() {
@@ -26,134 +27,45 @@ function loadCharts() {
   }))
 }
 
-type Entry = { source: string; language: string; complete: boolean; dispose?: () => void }
+export function createMarkdownEcharts(): MarkdownCodeBlocks {
+  const owner = getOwner()
+  return {
+    current: () => CHART_BLOCKS,
+    actions: () => [],
+    render(target, block, fallback) {
+      let disposed = false
+      let disposeChart: VoidFunction | undefined
 
-/** Enhances shared Markdown DOM without taking ownership of its source nodes. */
-export function useMarkdownEcharts(root: () => HTMLDivElement) {
-  const language = useLanguage()
-  const entries = new Map<HTMLElement, Entry>()
-  const pending = new Set<HTMLElement>()
-  let frame: number | undefined
-  let stopped = false
-  let observer: MutationObserver | undefined
+      // Markdown can decorate a detached block. Its text-part ancestors are available after insertion.
+      queueMicrotask(() => {
+        if (disposed) return
+        const wrapper = target.parentElement
+        const source = wrapper?.querySelector<HTMLPreElement>(":scope > pre")
+        if (!wrapper || !source || !target.closest(TIMELINE_TEXT)) return fallback()
+        const result = parseChartOptions(block.code, block.language)
+        if (result.kind === "code") return fallback()
 
-  function update(code: HTMLElement) {
-    if (!root().contains(code) || !code.matches(CODE)) return
-    const wrapper = code.closest<HTMLElement>('[data-component="markdown-code"]')
-    const markdown = code.closest<HTMLElement>('[data-component="markdown"]')
-    if (!wrapper || !markdown) return
-    const block = code.closest<HTMLElement>("[data-markdown-block]")
-    const complete =
-      block?.dataset.markdownComplete === "true" ||
-      (!markdown.hasAttribute("data-streaming") && markdown.hasAttribute("data-markdown-ready"))
-    const source = code.textContent ?? ""
-    const fence = wrapper.dataset.language?.toLowerCase() ?? ""
-    const previous = entries.get(code)
-    if (previous?.source === source && previous.language === fence && previous.complete === complete) return
-    previous?.dispose?.()
-    const entry: Entry = { source, language: fence, complete }
-    entries.set(code, entry)
-    if (!complete) return
-    const result = parseChartOptions(source, fence)
-    if (result.kind === "code") return
-
-    const host = document.createElement("div")
-    host.dataset.component = "markdown-echarts"
-    wrapper.prepend(host)
-    const dispose = render(
-      () => (
-        <Chart
-          result={result}
-          wrapper={wrapper}
-          language={language}
-          current={() =>
-            !stopped &&
-            entries.get(code) === entry &&
-            root().contains(code) &&
-            host.parentElement === wrapper &&
-            code.textContent === source &&
-            wrapper.dataset.language?.toLowerCase() === fence
-          }
-        />
-      ),
-      host,
-    )
-    entry.dispose = () => {
-      dispose()
-      host.remove()
-      delete wrapper.dataset.echartsReady
-      delete wrapper.dataset.echartsSource
-    }
-  }
-
-  function collect(node: Node) {
-    const element = node instanceof Element ? node : node.parentElement
-    if (!element || element.closest(OWNED)) return
-    const code = element.closest<HTMLElement>("pre > code")
-    if (code) pending.add(code)
-    element.querySelectorAll<HTMLElement>(CODE).forEach((code) => pending.add(code))
-  }
-
-  function flush() {
-    frame = undefined
-    for (const [code, entry] of entries) {
-      if (root().contains(code) && code.matches(CODE)) continue
-      entry.dispose?.()
-      entries.delete(code)
-    }
-    const codes = [...pending]
-    pending.clear()
-    codes.forEach(update)
-  }
-
-  onMount(() => {
-    observer = new MutationObserver((records) => {
-      let changed = false
-      for (const record of records) {
-        const element = record.target instanceof Element ? record.target : record.target.parentElement
-        if (element?.closest(OWNED)) continue
-        if (record.type === "childList") {
-          // Ignore our own host insertion/removal and shared copy-button label changes.
-          const nodes = [...record.addedNodes, ...record.removedNodes]
-          if (nodes.length && nodes.every((node) => node instanceof Element && node.matches(OWNED))) continue
-          if (element?.closest('[data-slot="markdown-copy-button"]')) continue
-          changed = true
-          if (element?.closest("pre > code")) collect(record.target)
-          record.addedNodes.forEach(collect)
-        } else {
-          changed = true
-          collect(record.target)
-        }
+        // Keep the controls above the shared source, including while the chart loads or reports an error.
+        target.dataset.component = "markdown-echarts"
+        wrapper.insertBefore(target, source)
+        disposeChart = render(() => <Chart result={result} wrapper={wrapper} source={source} />, target, undefined, {
+          owner,
+        })
+      })
+      return () => {
+        disposed = true
+        disposeChart?.()
       }
-      if (changed && frame === undefined) frame = requestAnimationFrame(flush)
-    })
-    observer.observe(root(), {
-      subtree: true,
-      childList: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["data-language", "data-markdown-complete", "data-streaming", "data-markdown-ready"],
-    })
-    collect(root())
-    flush()
-  })
-
-  onCleanup(() => {
-    stopped = true
-    observer?.disconnect()
-    if (frame !== undefined) cancelAnimationFrame(frame)
-    entries.forEach((entry) => entry.dispose?.())
-    entries.clear()
-    pending.clear()
-  })
+    },
+  }
 }
 
 function Chart(props: {
   result: Exclude<ReturnType<typeof parseChartOptions>, { kind: "code" }>
   wrapper: HTMLElement
-  language: ReturnType<typeof useLanguage>
-  current: () => boolean
+  source: HTMLPreElement
 }) {
+  const language = useLanguage()
   const [state, setState] = createStore({
     ...(props.result.kind === "chart"
       ? chartLayout(props.result.option)
@@ -163,9 +75,8 @@ function Chart(props: {
     error: props.result.kind === "error" ? props.result.reason : "",
   })
   const id = createUniqueId()
-  const source = props.wrapper.querySelector("pre")
-  const previousID = source?.getAttribute("id")
-  source?.setAttribute("id", id)
+  const previousID = props.source.getAttribute("id")
+  props.source.id = id
   let container!: HTMLDivElement
   let library: typeof import("echarts") | undefined
   let instance: EChartsType | undefined
@@ -180,7 +91,7 @@ function Chart(props: {
   })
 
   function draw() {
-    if (closed || !props.current() || !library || state.error || props.result.kind !== "chart") return
+    if (closed || !library || state.error || props.result.kind !== "chart") return
     if (!container.clientWidth || !container.clientHeight) return
     try {
       if (instance) {
@@ -201,7 +112,7 @@ function Chart(props: {
   }
 
   function reset() {
-    if (closed || !props.current() || !instance) return
+    if (closed || !instance) return
     // Recreate views too: graph layouts can retain dragged positions across option updates.
     instance.dispose()
     instance = undefined
@@ -218,7 +129,7 @@ function Chart(props: {
         draw()
       })
       .catch(() => {
-        if (!closed && props.current()) setState("error", "load")
+        if (!closed) setState("error", "load")
       })
   })
 
@@ -226,10 +137,12 @@ function Chart(props: {
     closed = true
     resize?.disconnect()
     instance?.dispose()
+    delete props.wrapper.dataset.echartsReady
+    delete props.wrapper.dataset.echartsSource
     delete props.wrapper.dataset.echartsLayout
     props.wrapper.style.removeProperty("--markdown-chart-width")
-    if (previousID === null) source?.removeAttribute("id")
-    else if (previousID !== undefined) source?.setAttribute("id", previousID)
+    if (previousID === null) props.source.removeAttribute("id")
+    else props.source.id = previousID
   })
 
   return (
@@ -239,7 +152,7 @@ function Chart(props: {
           when={state.ready}
           fallback={
             <span role={state.error ? "alert" : "status"}>
-              {state.error ? props.language.t("timeline.chart.error") : props.language.t("timeline.chart.loading")}
+              {state.error ? language.t("timeline.chart.error") : language.t("timeline.chart.loading")}
             </span>
           }
         >
@@ -250,23 +163,23 @@ function Chart(props: {
             aria-controls={id}
             onClick={() => setState("source", !state.source)}
           >
-            {props.language.t(state.source ? "timeline.chart.hideSource" : "timeline.chart.showSource")}
+            {language.t(state.source ? "timeline.chart.hideSource" : "timeline.chart.showSource")}
           </Button>
           <Button size="small" variant="ghost" onClick={reset}>
-            {props.language.t("timeline.chart.reset")}
+            {language.t("timeline.chart.reset")}
           </Button>
           <Select<ChartSize>
-            aria-label={props.language.t("timeline.chart.size")}
+            aria-label={language.t("timeline.chart.size")}
             options={["small", "medium", "large"]}
             current={state.size}
-            label={(value) => props.language.t(`timeline.chart.size.${value}`)}
+            label={(value) => language.t(`timeline.chart.size.${value}`)}
             onSelect={(value) => value && setState("size", value)}
           />
           <Select<ChartProportion>
-            aria-label={props.language.t("timeline.chart.proportion")}
+            aria-label={language.t("timeline.chart.proportion")}
             options={["wide", "square"]}
             current={state.proportion}
-            label={(value) => props.language.t(`timeline.chart.proportion.${value}`)}
+            label={(value) => language.t(`timeline.chart.proportion.${value}`)}
             onSelect={(value) => value && setState("proportion", value)}
           />
         </Show>
@@ -277,7 +190,7 @@ function Chart(props: {
           class="markdown-echarts-canvas"
           data-proportion={state.proportion}
           role="img"
-          aria-label={props.language.t("timeline.chart.label")}
+          aria-label={language.t("timeline.chart.label")}
         />
       </Show>
     </>

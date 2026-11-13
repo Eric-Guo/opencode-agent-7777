@@ -6,6 +6,7 @@ import { CurrentSessionProviders, STORY_MODEL, STORY_TIME } from "@opencode/sess
 import { Button } from "@opencode/ui/button"
 import { AppBaseProviders } from "../src/app"
 import { CompactMessageTimeline } from "../src/session/timeline/message-timeline-compact"
+import { SessionUIProvider } from "../src/shell/routes/session-ui-provider"
 import { fence, graphSource, lineSource, pieSource, zoomSource } from "./echarts-data"
 import layoutExamples from "./echarts-layout-examples.json"
 
@@ -53,7 +54,10 @@ function Fixture() {
           agent: "build",
           model: STORY_MODEL,
           time: { created: STORY_TIME + 100, completed: state.completed ? STORY_TIME + 1000 : undefined },
-          content: [{ type: "text", text: state.text }],
+          content: [
+            ...(scenario === "reasoning" ? [{ type: "reasoning" as const, text: state.text }] : []),
+            { type: "text", text: state.text },
+          ],
         },
       ],
     }),
@@ -84,9 +88,11 @@ function Fixture() {
         </nav>
         <div style={{ width: state.narrow ? "360px" : "100%", display: state.hidden ? "none" : "block" }}>
           <Show when={state.mounted}>
-            <CurrentSessionProviders document={document()}>
-              <CompactMessageTimeline document={document()} showReasoningSummaries={false} />
-            </CurrentSessionProviders>
+            <SessionUIProvider data={{ session: [], session_status: {}, session_diff: {} }} directory="/workspace">
+              <CurrentSessionProviders document={document()}>
+                <CompactMessageTimeline document={document()} showReasoningSummaries={scenario === "reasoning"} />
+              </CurrentSessionProviders>
+            </SessionUIProvider>
           </Show>
         </div>
       </section>

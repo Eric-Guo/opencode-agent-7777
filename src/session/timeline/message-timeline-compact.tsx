@@ -3,7 +3,6 @@ import type { SessionUserActions } from "@opencode/session-ui/actions"
 import { SessionTimeline, type SessionUserPresentation } from "@opencode/session-ui/timeline"
 import { createMemo } from "solid-js"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
-import { useMarkdownEcharts } from "./markdown-echarts"
 
 type CompactMessageTimelineProps = {
   document: SessionDocument
@@ -13,8 +12,6 @@ type CompactMessageTimelineProps = {
 }
 
 export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
-  let root!: HTMLDivElement
-  useMarkdownEcharts(() => root)
   const document = createMemo(() => ({
     ...props.document,
     messages: props.document.messages.map((message) => {
@@ -54,7 +51,6 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
 
   return (
     <div
-      ref={root}
       data-slot="session-message-timeline"
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}

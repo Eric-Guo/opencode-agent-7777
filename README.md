@@ -251,12 +251,13 @@ from the broader timeline-detail settings. Before shared Markdown parsing, the c
 HTTP(S) URLs inside full-width Chinese parentheses into standard angle-bracket autolinks so trailing prose and inline
 code cannot become part of the link target.
 
-`session/timeline/markdown-echarts.tsx` is a 7777-only adapter over the public shared timeline. It observes assistant
-response Markdown and adds interactive ECharts SVG charts without replacing the shared parser or code nodes.
-ECharts is loaded only when a completed chart block is found. Charts resize with their containers and are disposed
-when messages leave the timeline. **Show source / Hide source** reveals the original JSON; the existing copy button
-always copies that source. Loading or rendering failures leave the source readable. Controls use English fallback
-until translations are reviewed.
+`shell/routes/session-ui-provider.tsx` registers the local ECharts renderer through the public
+`MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`. Shared Markdown detects completed fences
+and disposes each renderer when its block changes or leaves the timeline. The 7777 adapter in
+`session/timeline/markdown-echarts.tsx` loads ECharts for recognized charts in timeline text parts, including
+compaction summaries. Reasoning keeps its fenced code. Charts resize with their containers.
+**Show source / Hide source** reveals the original highlighted JSON, and **Copy** copies that source.
+The source stays readable while a chart loads or if rendering fails.
 **Reset** recreates only that chart from its original options, clearing zoom, pan, dragged-node positions, and legend
 selections while preserving source visibility and the chosen size/proportion. The adjacent **Small / Medium / Large**
 and **Wide / Square** selectors change one chart's viewport without resetting interactions. Choices are temporary.

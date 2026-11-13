@@ -164,6 +164,15 @@ test("waits for completion, replaces charts, and disposes removed instances", as
   await expect(page.locator(`${charts} ${canvas} svg`)).toHaveCount(1)
 })
 
+test("keeps the same chart source as code in expanded reasoning", async ({ page }) => {
+  await page.goto("/component-tests/echarts.html?scenario=reasoning")
+  const reasoning = page.locator('[data-component="reasoning-part"] pre code')
+  await expect(reasoning).toBeVisible()
+  expect(await reasoning.textContent()).toBe(lineSource)
+  await expect(page.locator(`[data-component="text-part"] ${charts} ${canvas} svg`)).toBeVisible()
+  await expect(page.locator(charts)).toHaveCount(1)
+})
+
 test("reset restores authored zoom and legend state without changing source or another chart", async ({ page }) => {
   await page.goto("/component-tests/echarts.html?scenario=reset")
   const line = page.locator(charts).first()
@@ -289,6 +298,7 @@ test("ignores a stale chart while the library is still loading", async ({ page }
   })
   await page.goto("/component-tests/echarts.html")
   await expect(page.locator(charts).getByRole("status")).toHaveText("Loading chart…")
+  await expect(page.locator('[data-component="text-part"] pre')).toBeVisible()
   const original = await page.locator(canvas).elementHandle()
   await page.getByRole("button", { name: "Replace chart" }).click()
   await expect(page.locator('[data-component="text-part"] pre')).toContainText("Pie replacement")
