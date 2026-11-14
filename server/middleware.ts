@@ -7,6 +7,7 @@ import type { ServiceConnection } from "./native"
 import { isIP } from "node:net"
 import type { Connect } from "vite"
 import { APIError } from "@cybros/agent"
+import { Schema } from "effect"
 import {
   BridgeError,
   discoverNative,
@@ -18,8 +19,8 @@ import {
   snapshot,
   type Backend,
 } from "./nexus"
-import { modelFields, openReply, sealReply, submitReply } from "./reply"
-import { defaultModes, inputPolicy, readModes, updateModes } from "./input-policy"
+import { openReply, sealReply } from "./reply"
+import { defaultModes, readModes, updateModes } from "./input-policy"
 import { projectFrame, type Choices, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
@@ -163,7 +164,6 @@ export function middleware(
       if (route === "/chats" && req.method === "POST") {
         if (
           typeof body.title !== "string" ||
-          !body.title.trim() ||
           typeof body.key !== "string" ||
           !body.key ||
           (body.runner !== null && typeof body.runner !== "string")
@@ -171,15 +171,7 @@ export function middleware(
           throw new BridgeError(400, "Invalid conversation request.")
         if (body.runner !== null && !(await b.native.runners()).some((runner) => runner.id === body.runner))
           throw new BridgeError(400, "Unknown native runner.")
-        const receipt = await b.workspace.conversations.create(
-          {
-            metadata: { "opencode.surface": "desktop" },
-            title: body.title,
-            answering_user_public_id: b.agentID,
-            default_runner_executor_public_id: body.runner,
-          },
-          { idempotencyKey: body.key },
-        )
+        const receipt = await b.native.manage({ payload: { action: "application.open", key: body.key, title: body.title, runner: body.runner } }) as { conversation: { public_id: string } }
         return json(res, 201, { id: receipt.conversation.public_id })
       }
       const match = /^\/chats\/([\w-]+)(?:\/([a-z-]+))?$/.exec(route)
@@ -246,16 +238,26 @@ export function middleware(
           approval: body.approval,
           target: body.target,
         }
+        const command = {
+          key: submission.key,
+          workspace: b.workspaceID,
+          conversation: id!,
+          text: submission.text,
+          model: submission.model ?? undefined,
+          delivery: submission.delivery,
+          approval: submission.approval ?? "ask",
+          target: submission.target,
+        }
+        const headers = { "x-nexus-origin": config.native!.origin, "x-nexus-member-token": config.token! }
         if (action === "prepare") {
           if (submission.approval === "bypass") throw new BridgeError(403, "This installation requires approval.")
-          const policy = await inputPolicy(b, id!)
-          const context = { ...policy, ...modelFields(submission.model, policy.model?.model ?? b.connection.model, policy.fallback_models ?? b.fallbackModels) }
-          return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission, context) })
+          await b.native.manage({ payload: { action: "application.prepare", ...command }, ...headers })
+          return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission) })
         }
         if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
-        const input = openReply(config.token!, b.connection.scope, info, submission, body.ticket)
-        const result = await submitReply(input, (fields) =>
-          chat.inputs.create(fields, { idempotencyKey: submission.key }),
+        openReply(config.token!, b.connection.scope, info, submission, body.ticket)
+        const result = Schema.decodeUnknownSync(Schema.Struct({ input: Schema.Struct({ public_id: Schema.String }) }))(
+          await b.native.manage({ payload: { action: "application.submit", ...command }, ...headers }),
         )
         return json(res, 202, { id: result.input.public_id })
       }
