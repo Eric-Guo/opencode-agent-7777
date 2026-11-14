@@ -1,4 +1,4 @@
-import { createEffect, on, type Accessor } from "solid-js"
+import { createEffect, on, onCleanup, type Accessor } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import { useFilteredList } from "@opencode/ui/hooks"
 import { createTypeahead } from "@opencode/ui/typeahead"
@@ -79,7 +79,10 @@ export function createComposerEditor(input: {
 }) {
   let editor: HTMLElement | undefined
   let fileInput: HTMLInputElement | undefined
-  let finishPicker: (() => void) | undefined
+  onCleanup(() => {
+    editor = undefined
+    fileInput = undefined
+  })
   const draft = createComposerEditorActions(input.store, input.onChange)
   const capabilities = {
     commands: input.capabilities?.commands !== false,
@@ -108,6 +111,7 @@ export function createComposerEditor(input: {
   const attachments = input.attachments
     ? createComposerAttachments({
         ...input.attachments,
+        identity: input.identity,
         capture: () => ({
           current: () => draft.state.prompt,
           cursor: () => draft.state.cursor,
@@ -126,7 +130,6 @@ export function createComposerEditor(input: {
     }
     const done = attachmentFocus(afterClose)
     return attachments.pick(() => {
-      finishPicker = done
       fileInput?.click()
     }, done)
   }
@@ -308,12 +311,22 @@ export function createComposerEditor(input: {
   const attachmentFocus = (afterClose = (callback: () => void) => callback()) => {
     const target = editor
     const identity = input.identity?.()
+    const scope = input.attachments?.scope?.()
+    const current = () =>
+      editor === target &&
+      target?.isConnected &&
+      input.identity?.() === identity &&
+      input.attachments?.scope?.() === scope &&
+      !input.attachments?.isDialogActive()
     return () =>
       afterClose(() => {
-        // A picker or file read may finish after switching sessions or opening another dialog.
-        if (editor !== target || !target?.isConnected || input.identity?.() !== identity) return
-        if (input.attachments?.isDialogActive()) return
-        restoreFocus()
+        // Check again at the frame: menu teardown or disposal may retire the captured editor.
+        if (!current()) return
+        requestAnimationFrame(() => {
+          if (!current()) return
+          target!.focus()
+          setCursorPosition(target, draft.state.cursor ?? promptLength(draft.state.prompt))
+        })
       })
   }
 
@@ -398,7 +411,14 @@ export function createComposerEditor(input: {
     removeAttachment(id: string) {
       draft.removeAttachment(id)
     },
+    preparingAttachments: () => attachments?.preparing() ?? false,
+    cancelPendingAttachments() {
+      const focus = attachmentFocus()
+      attachments?.cancelPending()
+      focus()
+    },
     canSubmit() {
+      if (attachments?.preparing()) return false
       if (input.view.submit.available?.() === false) return false
       if (input.view.draftOnly || input.view.submit.enabled?.() === false) return false
       const persisted = draft.state
@@ -435,6 +455,10 @@ export function createComposerEditor(input: {
       if (input.view.submit.available?.() === false) return
       if (input.view.submit.enabled?.() === false) return
       if (input.view.draftOnly) return
+      if (attachments?.preparing()) {
+        if (input.view.submit.stopping()) input.view.submit.onStop()
+        return
+      }
       input.view.submit.onSubmit(options)
       dispatch({ type: "popover.close" })
     },
@@ -483,17 +507,13 @@ export function createComposerEditor(input: {
       fileInput = element
     },
     addAttachments(files: File[]) {
-      if (!attachments) return
-      const done = finishPicker ?? attachmentFocus()
-      finishPicker = undefined
-      return attachments.addAttachments(files).then((added) => {
-        if (added !== undefined) done()
-      })
+      return attachments?.addAttachments(files, true, undefined, attachmentFocus())
+    },
+    acceptPickedFiles(files: File[]) {
+      return attachments?.acceptPickedFiles(files, attachmentFocus())
     },
     cancelAttachments() {
-      const done = finishPicker
-      finishPicker = undefined
-      done?.()
+      attachments?.cancelPicker()
     },
     setQuery(value: string) {
       dispatch({ type: "popover.query", value })

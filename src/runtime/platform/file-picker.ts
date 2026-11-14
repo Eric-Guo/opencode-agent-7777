@@ -1,3 +1,10 @@
+// Local picker lifecycle; these callbacks and the signal never cross the desktop RPC boundary.
+export type AttachmentPickerLifecycle = {
+  signal: AbortSignal
+  selected: () => void
+  complete: () => void
+}
+
 // One compact attachment policy for browser input, content detection and desktop picker filters.
 const IMAGE_FORMATS = [
   ["image/png", "png"],

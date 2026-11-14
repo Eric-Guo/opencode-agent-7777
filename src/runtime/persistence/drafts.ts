@@ -7,9 +7,12 @@ export type BlobReference = { id: string; url: string }
 
 const decodePromptDraft = Schema.decodeUnknownOption(Schema.fromJsonString(PromptDraft))
 
-async function blobID(blob: Blob) {
+async function blobID(blob: Blob, signal?: AbortSignal) {
+  signal?.throwIfAborted()
+  const data = crypto.subtle ? await blob.arrayBuffer() : undefined
+  signal?.throwIfAborted()
   const bytes = crypto.subtle
-    ? new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()))
+    ? new Uint8Array(await crypto.subtle.digest("SHA-256", data!))
     : crypto.getRandomValues(new Uint8Array(16))
   const id = Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
@@ -17,18 +20,37 @@ async function blobID(blob: Blob) {
   return id
 }
 
-function dataUrl(blob: Blob) {
+function dataUrl(blob: Blob, signal?: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
+    signal?.throwIfAborted()
     const reader = new FileReader()
-    reader.addEventListener("error", () => reject(reader.error))
-    reader.addEventListener("load", () => resolve(typeof reader.result === "string" ? reader.result : ""))
-    reader.readAsDataURL(blob)
+    const cleanup = () => signal?.removeEventListener("abort", cancel)
+    const cancel = () => {
+      cleanup()
+      reader.abort()
+      reject(signal?.reason)
+    }
+    signal?.addEventListener("abort", cancel, { once: true })
+    reader.addEventListener("error", () => {
+      cleanup()
+      reject(reader.error)
+    })
+    reader.addEventListener("load", () => {
+      cleanup()
+      resolve(typeof reader.result === "string" ? reader.result : "")
+    })
+    try {
+      reader.readAsDataURL(blob)
+    } catch (error) {
+      cleanup()
+      reject(error)
+    }
   })
 }
 
 // The compact draft stores data URLs, so every reference survives a reload without a separate blob store.
-export async function createBlobReference(blob: Blob): Promise<BlobReference> {
-  return { id: await blobID(blob), url: await dataUrl(blob) }
+export async function createBlobReference(blob: Blob, signal?: AbortSignal): Promise<BlobReference> {
+  return { id: await blobID(blob, signal), url: await dataUrl(blob, signal) }
 }
 
 export const createPersistedBlobReference = createBlobReference

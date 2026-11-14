@@ -2,10 +2,11 @@ import { onCleanup, onMount } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { uuid } from "@opencode/util/uuid"
 import { createBlobReference } from "@/runtime/persistence/drafts"
-import { ACCEPTED_FILE_TYPES, attachmentMime } from "@/runtime/platform/file-picker"
+import { ACCEPTED_FILE_TYPES, attachmentMime, type AttachmentPickerLifecycle } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 import { isAttachment } from "../prompt-parts"
 import { clipboardText, getCursorPosition, insertComposerText } from "../editor/dom"
+import { createAttachmentPreparation, type AttachmentOperation } from "./preparation"
 
 type PromptTarget = {
   current: () => ComposerPrompt
@@ -17,6 +18,7 @@ export type ComposerAttachmentConfig = {
   picker?: (
     options: { defaultPath?: string; multiple?: boolean; accept?: string[] },
     onFile: (file: File) => Promise<unknown>,
+    lifecycle?: AttachmentPickerLifecycle,
   ) => Promise<void>
   directory: () => string
   isDialogActive: () => boolean
@@ -27,18 +29,27 @@ export type ComposerAttachmentConfig = {
   getPathForFile?: (file: File) => string
   onDragCancel?: (callback: () => void) => () => void
   dropTarget?: () => HTMLElement | undefined
-  store?: (file: File) => Promise<{ id: string; url: string }>
+  scope?: () => unknown
+  store?: (file: File, signal?: AbortSignal) => Promise<{ id: string; url: string }>
 }
 
 export function createComposerAttachments(
   input: ComposerAttachmentConfig & {
     capture: () => PromptTarget
+    identity?: () => unknown
     editor: () => HTMLElement | undefined
     focusEditor: () => void
     addPart: (part: ComposerPrompt[number]) => boolean
     setDraggingType: (type: "image" | "@mention" | null) => void
   },
 ) {
+  const preparation = createAttachmentPreparation({
+    owner: () => ({ scope: input.scope?.(), identity: input.identity?.() }),
+    onError: input.onError,
+  })
+  type Work = { operation: AttachmentOperation; target: { prompt: PromptTarget; cursor: number | undefined } }
+  // This callback registration survives retirement so a late native input event is consumed, not retargeted.
+  let browserChoice: Work | undefined
   const clearDrag = () => {
     input.setDraggingType(null)
   }
@@ -59,17 +70,28 @@ export function createComposerAttachments(
     if (!editor) return
     return { prompt, cursor: prompt.cursor() ?? getCursorPosition(editor, "start") }
   }
-  const add = async (file: File, toast = true, target = capture(), clipboard = false) => {
-    if (!target) return false
+  const begin = (phase: "choosing" | "preparing", target = capture(), done?: () => void): Work | undefined => {
+    if (!target) return
+    const editor = input.editor()
+    const operation = preparation.start(phase, () => input.editor() === editor && editor?.isConnected !== false, done)
+    return operation ? { operation, target } : undefined
+  }
+  const add = async (file: File, work: Work, toast = true, clipboard = false) => {
+    const { operation, target } = work
+    if (!operation.current()) return false
     const mime = await attachmentMime(file)
+    if (!operation.current()) return false
     if (!mime) {
       if (toast) input.warn()
+      operation.progress()
       return false
     }
-    const blob = input.store ? await input.store(file) : await createBlobReference(file)
+    const blob = await (input.store ?? createBlobReference)(file, operation.signal)
+    if (!operation.current()) return false
     const sourcePath = input.getPathForFile?.(file) || undefined
     // Native clipboard images arrive with a fresh timestamped filename on every paste, so identical
     // clipboard content is matched on bytes alone.
+    if (!operation.current()) return false
     const duplicate = target.prompt
       .current()
       .some(
@@ -82,6 +104,7 @@ export function createComposerAttachments(
       )
     if (duplicate) {
       input.duplicate()
+      operation.progress()
       return true
     }
     const attachment: ComposerAttachment = {
@@ -92,17 +115,30 @@ export function createComposerAttachments(
       mime,
       blob,
     }
-    target.prompt.set([...target.prompt.current(), attachment], target.cursor)
+    // Keep edits made while bytes were being read, including their latest caret position.
+    target.prompt.set([...target.prompt.current(), attachment], target.prompt.cursor() ?? target.cursor)
+    operation.progress()
     return true
   }
-  const addAttachments = async (files: File[], toast = true, target = capture()) => {
-    const found = await files.reduce(async (result, file) => {
-      const previous = await result
-      return (await add(file, false, target)) || previous
-    }, Promise.resolve(false))
-    if (!found && files.length > 0 && toast) input.warn()
+  const batch = async (files: File[], work: Work, toast = true) => {
+    let found = false
+    for (const file of files) {
+      if (!work.operation.current()) return found
+      found = (await add(file, work, false)) || found
+    }
+    if (work.operation.current() && !found && files.length > 0 && toast) input.warn()
     return found
   }
+  const run = (work: Work | undefined, action: (work: Work) => Promise<boolean>) => {
+    if (!work) return Promise.resolve(undefined)
+    if (work.operation.current()) {
+      void action(work).then(work.operation.succeed, work.operation.fail)
+    }
+    return work.operation.result
+  }
+  const addAttachments = (files: File[], toast = true, target = capture(), done?: () => void) =>
+    run(begin("preparing", target, done), (work) => batch(files, work, toast))
+
   const handlePaste = async (event: ClipboardEvent) => {
     const clipboardData = event.clipboardData
     if (!clipboardData) return
@@ -115,14 +151,13 @@ export function createComposerAttachments(
       const file = item.getAsFile()
       return file ? [file] : []
     })
-    if (files.length > 0) {
-      await addAttachments(files, true, target)
-      return
-    }
+    if (files.length > 0) return addAttachments(files, true, target)
     const text = clipboardText(clipboardData)
     if (input.readClipboardImage && !text) {
-      const file = await input.readClipboardImage()
-      if (file && (await add(file, true, target, true))) return
+      return run(begin("preparing", target), async (work) => {
+        const file = await input.readClipboardImage!()
+        return file && work.operation.current() ? add(file, work, true, true) : false
+      })
     }
     if (!text) return
     const put = () => {
@@ -155,7 +190,7 @@ export function createComposerAttachments(
   }
 
   // All attachment entry points report failures through the same composer error surface.
-  const run = async <T>(action: () => Promise<T>) => {
+  const report = async <T>(action: () => Promise<T>) => {
     try {
       return await action()
     } catch (error) {
@@ -175,26 +210,58 @@ export function createComposerAttachments(
     })
     makeEventListener(document, "dragend", clearDrag)
     makeEventListener(window, "blur", clearDrag)
-    makeEventListener(target, "drop", (event) => void run(() => handleDrop(event)))
+    makeEventListener(target, "drop", (event) => void report(() => handleDrop(event)))
   })
 
   return {
-    addAttachments: (...args: Parameters<typeof addAttachments>) => run(() => addAttachments(...args)),
-    handlePaste: (event: ClipboardEvent) => run(() => handlePaste(event)),
-    handleDrop: (event: DragEvent) => run(() => handleDrop(event)),
+    preparing: preparation.preparing,
+    cancelPending: preparation.cancel,
+    addAttachments,
+    handlePaste: (event: ClipboardEvent) => report(() => handlePaste(event)),
+    handleDrop: (event: DragEvent) => report(() => handleDrop(event)),
     handleDragOver,
     handleDragLeave,
+    acceptPickedFiles(files: File[], done?: () => void) {
+      const work = browserChoice
+      browserChoice = undefined
+      if (!work) return addAttachments(files, true, capture(), done)
+      work.operation.selected()
+      return run(work, (work) => batch(files, work))
+    },
+    cancelPicker() {
+      const work = browserChoice
+      browserChoice = undefined
+      work?.operation.succeed()
+    },
     pick(fallback: () => void, done?: () => void) {
+      // A file input has one outstanding change/cancel callback, even after its draft is retired.
+      if (!input.picker && browserChoice) return
+      const work = begin("choosing", capture(), done)
+      if (!work?.operation.current()) return
       if (!input.picker) {
-        fallback()
+        browserChoice = work
+        try {
+          fallback()
+        } catch (error) {
+          browserChoice = undefined
+          work.operation.fail(error)
+        }
         return
       }
-      return run(async () => {
+      return run(work, async (work) => {
         await input.picker!(
           { defaultPath: input.directory(), multiple: true, accept: [...ACCEPTED_FILE_TYPES] },
-          (file) => add(file),
+          (file) => {
+            work.operation.selected()
+            return add(file, work)
+          },
+          {
+            signal: work.operation.signal,
+            selected: work.operation.selected,
+            complete: () => work.operation.succeed(true),
+          },
         )
-        done?.()
+        return true
       })
     },
   }

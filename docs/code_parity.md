@@ -116,6 +116,16 @@ survive older snapshots, and settled IDs cannot be resurrected. Attempt IDs reje
 SSE acknowledgement and a subsequent reply. Child routing, notification delivery, answer state and web-search
 behavior retain their existing owners. No app-source imports, parent edits or shared-package exports are added.
 
+Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
+app's upload machine/driver separation without adopting server uploads or a global upload service. Picker, paste,
+drop and input gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal
+retire pending reads; completed files and ordinary edits retain the existing compact draft rules. A 60-second
+inactivity deadline begins after selection and renews after each processed file. Send and alternate delivery wait
+for all preparation, with a public `Loader` and cancellation control; typing and Stop remain available. Native
+picker tokens are released once, even for late selections, and cleanup does not block sending. Inline formats,
+filtering, duplicate detection, RPC schemas and persistence stay local and unchanged. Tests cover stale results,
+partial failures, cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
+
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
@@ -134,6 +144,18 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Attachment lifecycle validation (2026-11-15): 627 Bun tests, typecheck, the browser-enabled production build and
+all 40 component tests passed. An isolated late-read regression failed against the original attachment controller
+and passed against the refactor. Three-run production medians before/after were 169/162 ms for entry, 58/57 ms for
+session switching and 173/173 ms for streaming; the final run also passed UI and runtime timeout/Retry checks.
+One intervening UI verification run timed out waiting for a skill suggestion. A diagnostic run confirmed successful
+catalog responses, and both diagnostic and unmodified reruns passed without production changes.
+IAB access timed out. Live Playwright checks against the existing dev server verified the preparation indicator,
+send blocking, cancel focus, ignored late reads, a fresh attachment, model-picker dismissal and draft cleanup,
+with no page errors or API writes. Neither app nor backend was restarted. Logs, benchmark JSON and screenshots
+are in ignored `node_modules/.cache/attachment-lifecycle/` artifacts.
+
 For session/timeline changes, compare production benchmarks:
 
 ```sh

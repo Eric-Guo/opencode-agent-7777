@@ -1,6 +1,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { FileIcon } from "@opencode/ui/file-icon"
+import { Loader } from "@opencode/ui/loader"
 import { Icon } from "@opencode/ui/icon"
 import { IconButton } from "@opencode/ui/icon-button"
 import { ProviderIcon } from "@opencode/ui/provider-icon"
@@ -16,6 +17,7 @@ import { CommentCard } from "@opencode/session-ui/comment-card"
 import { typeLabel } from "@opencode/session-ui/message-file"
 import "../attachments/attachments.css"
 import "./editor.css"
+import { useLanguage } from "@/runtime/i18n/language"
 import { createAnimatedPresence } from "@/runtime/animated-presence"
 import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
@@ -96,6 +98,7 @@ export type ComposerEditorProps = {
 
 export function ComposerEditor(props: ComposerEditorProps) {
   const i18n = useI18n()
+  const language = useLanguage()
   const state = props.controller.state
   const view = props.controller.view
   const labels = createMemo<ComposerLabels>(() => ({
@@ -180,7 +183,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
         onCancel={props.controller.cancelAttachments}
         onChange={(event) => {
           const list = event.currentTarget.files
-          if (list) props.controller.addAttachments(Array.from(list))
+          if (list) props.controller.acceptPickedFiles(Array.from(list))
           event.currentTarget.value = ""
         }}
       />
@@ -206,6 +209,15 @@ export function ComposerEditor(props: ComposerEditorProps) {
             <span>{notice()}</span>
           </div>
         )}
+      </Show>
+      <Show when={props.controller.preparingAttachments()}>
+        <div class="flex items-center gap-2 px-3 py-2 text-[13px] leading-5 text-v2-text-text-muted" role="status">
+          <Loader class="size-4 shrink-0" />
+          <span>{language.t("prompt.attachments.preparing")}</span>
+          <Button type="button" variant="ghost-muted" size="small" onClick={props.controller.cancelPendingAttachments}>
+            {language.t("prompt.attachments.cancel")}
+          </Button>
+        </div>
       </Show>
       <form
         data-component="composer"

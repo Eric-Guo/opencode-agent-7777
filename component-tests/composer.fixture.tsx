@@ -6,17 +6,20 @@ import { AppBaseProviders } from "../src/app"
 import { createSessionDraft } from "../src/new-session/draft"
 import { createComposerCatalog } from "../src/composer/catalog-compact"
 import { commandSuggestions, contextSuggestions, fileSuggestions } from "../src/composer/suggestions/catalog-compact"
+import { createBlobReference } from "../src/runtime/persistence/drafts"
 import { createPromptState } from "../src/composer/state"
 import { ComposerEditor } from "../src/composer/editor/editor"
 import { createComposerEditor } from "../src/composer/editor/interaction"
 
 function ComposerFixture() {
   const draft = createPromptState()
+  const attachmentFixture = new URLSearchParams(location.search).has("attachments")
   const suggestions = new URLSearchParams(location.search).has("suggestions")
   const [state, setState] = createStore({
     commands: suggestions ? ["alpha", "beta", "gamma"].map((name) => ({ name })) : [],
     submissions: 0,
     stops: 0,
+    error: "",
   })
   const source = new URLSearchParams(location.search).has("catalog")
     ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
@@ -27,6 +30,23 @@ function ComposerFixture() {
   onCleanup(() => source?.dispose())
   const controller = createComposerEditor({
     store: draft.store,
+    attachments: attachmentFixture
+      ? {
+          scope: draft.scope,
+          directory: () => "",
+          dropTarget: () => document.getElementById("oc-agent")!,
+          isDialogActive: () => false,
+          onError: (error) => setState("error", error instanceof Error ? error.message : String(error)),
+          warn: () => setState("error", "Unsupported file"),
+          duplicate: () => setState("error", "Duplicate file"),
+          store: async (file, signal) => {
+            // Hold preparation through a fixture request, including reads that ignore cancellation.
+            const response = await fetch(`/component-tests/attachment?name=${encodeURIComponent(file.name)}`)
+            if (!response.ok) throw new Error("Attachment read failed")
+            return createBlobReference(file, signal)
+          },
+        }
+      : undefined,
     commands: () => commandSuggestions(catalog?.state.commands ?? state.commands, []),
     context: () =>
       contextSuggestions(
@@ -43,8 +63,9 @@ function ComposerFixture() {
     capabilities: { shell: false },
     view: {
       submit: {
-        stopping: () => false,
-        working: () => suggestions,
+        stopping: () => attachmentFixture && !draft.dirty(),
+        working: () => suggestions || attachmentFixture,
+        queue: attachmentFixture ? { count: () => 1, delivery: () => "steer", alternate: () => "queue" } : undefined,
         onSubmit: () => setState("submissions", (count) => count + 1),
         onStop: () => setState("stops", (count) => count + 1),
       },
@@ -81,9 +102,14 @@ function ComposerFixture() {
       </div>
       <output aria-label="Draft text">{draft.current()}</output>
       <output aria-label="Attachments">{draft.attachments().length}</output>
-      <Show when={suggestions}>
+      <Show when={suggestions || attachmentFixture}>
         <output aria-label="Submissions">{state.submissions}</output>
         <output aria-label="Stops">{state.stops}</output>
+      </Show>
+      <Show when={attachmentFixture}>
+        <button onClick={() => controller.submit()}>Submit directly</button>
+        <button onClick={() => controller.submit({ alternate: true })}>Submit alternate</button>
+        <output aria-label="Attachment error">{state.error}</output>
       </Show>
       <Show when={catalog}>
         {(catalog) => (

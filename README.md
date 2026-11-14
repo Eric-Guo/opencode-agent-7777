@@ -706,6 +706,30 @@ following the main app's attachment/editor boundaries. The Add menu reuses `shel
 for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
 Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
 
+Attachment preparation now follows local `composer/attachments/{preparation-machine,preparation}.ts` boundaries.
+The main app's upload lifecycle is the structural reference; 7777 deliberately keeps inline files and has no server
+upload destination or global upload service. One machine owns each gesture's attempt, picker/preparation phase and
+completion. The driver owns timers, cancellation and caller settlement. `PromptState.scope` is an ephemeral token
+replaced on reset or restoration, so navigation (including returning to the same session), draft replacement and
+disposal retire pending work without writing files or errors into another draft. Ordinary typing keeps its scope,
+and completed files append to the latest draft and retain its current caret.
+
+The composer shows the public `Loader` and **Cancel pending files** during preparation. Sending, including Enter
+and alternate delivery, waits for every active preparation; blocked send attempts are not replayed automatically.
+Typing, attachment removal, navigation and Stop stay available. Cancellation retains completed attachments. Each
+batch processes files in order and stops on failure, without cancelling independent batches. A 60-second inactivity
+deadline starts when files are selected (or a native clipboard read begins) and renews after each processed file.
+Time spent choosing files is excluded. Timeout reports one localized error and permits a fresh attempt.
+
+The package-local picker bridge reports selection before native reads and completion before token cleanup. It
+releases each token once, including selections returned after retirement, and skips subsequent reads after
+cancellation. Native reads that cannot be physically aborted settle locally; their late results are ignored.
+The desktop RPC contract and persisted draft/history formats are unchanged. FileReader work accepts cancellation;
+hashing and other non-cancellable reads cannot publish retired results. Browser picker events retain their opening
+scope, and focus return rechecks ownership after menu teardown and at the animation frame. New attachment labels
+use the existing English fallback until translated. Machine/driver tests, the existing platform and editor suites,
+and the composer browser fixture own these contracts.
+
 The compact runtime now uses explicit lifecycle machines for startup, runtime attachment, active reads, session
 switching, catalog loading, and the New session action. Finite read admission shares the local
 `runtime/server/load-machine.ts`; this deliberately stays compact-specific rather than adopting the main app's

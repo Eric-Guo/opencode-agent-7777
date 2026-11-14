@@ -9,6 +9,7 @@ function fixture(
   store: (file: File) => Promise<{ id: string; url: string }>,
   overrides: Partial<Parameters<typeof createComposerAttachments>[0]> = {},
 ) {
+  const editor = {} as HTMLElement
   let prompt: ComposerPrompt = [{ type: "text", content: "draft", start: 0, end: 5 }]
   const duplicate = mock(() => {})
   const target = {
@@ -30,7 +31,7 @@ function fixture(
         throw error
       },
       capture: () => target.prompt,
-      editor: () => undefined,
+      editor: () => editor,
       focusEditor() {},
       addPart: () => false,
       setDraggingType() {},
@@ -132,7 +133,6 @@ describe("composer attachments", () => {
           return { id: "notes", url: "data:text/plain;base64,bm90ZXM=" }
         },
         {
-          editor: () => ({}) as HTMLElement,
           onError,
           picker: async (_options, onFile) => {
             for (const file of files) await onFile(file)
@@ -248,7 +248,6 @@ function dropFixture() {
   let drag: "image" | "@mention" | null = null
   const store = mock(async () => ({ id: "notes", url: "data:text/plain;base64,bm90ZXM=" }))
   const input = fixture(store, {
-    editor: () => ({}) as HTMLElement,
     dropTarget: () => (mounted ? root : undefined),
     isDialogActive: () => blocked,
     setDraggingType: (value) => (drag = value),

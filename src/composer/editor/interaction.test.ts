@@ -84,7 +84,9 @@ describe("attachment focus", () => {
           ? editor.cancelAttachments()
           : source === "picker" || source === "canceled"
             ? editor.attach()
-            : editor.addAttachments([new File([source === "unsupported" ? "\0" : "notes"], "notes.txt")])
+            : (browser ? editor.acceptPickedFiles : editor.addAttachments)([
+                new File([source === "unsupported" ? "\0" : "notes"], "notes.txt"),
+              ])
       expect(frames).toHaveLength(0)
       if (source === "session") identity = "second"
       if (source === "dialog") dialog = true
@@ -103,7 +105,7 @@ describe("attachment focus", () => {
       expect(onError).toHaveBeenCalledTimes(source === "failed" ? 1 : 0)
       expect(editor.value()).toBe("draft")
       expect(editor.parts().length).toBe(
-        ["failed", "canceled", "browser-canceled", "unsupported"].includes(source) ? 1 : 2,
+        ["failed", "canceled", "browser-canceled", "unsupported", "session", "unmounted"].includes(source) ? 1 : 2,
       )
     } finally {
       cleanup()

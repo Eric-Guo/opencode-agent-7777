@@ -1,4 +1,4 @@
-import { batch } from "solid-js"
+import { batch, createSignal } from "solid-js"
 import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 import type { ComposerPersistedState } from "@/composer/types"
 import type { PromptAttachment, PromptDraft } from "./schema"
@@ -12,6 +12,7 @@ type PromptStateChange = (draft: PromptDraft) => void
 
 export type PromptState = {
   store: [Store<ComposerPersistedState>, SetStoreFunction<ComposerPersistedState>]
+  scope: () => object
   current: () => string
   attachments: () => PromptAttachment[]
   dirty: () => boolean
@@ -33,6 +34,7 @@ function promptState(draft?: PromptDraft): ComposerPersistedState {
 }
 
 export function createPromptState(initial?: PromptDraft, onChange?: PromptStateChange): PromptState {
+  const [scope, setScope] = createSignal<object>({})
   const [state, setStore] = createStore(promptState(initial))
   const store: [typeof state, typeof setStore] = [state, setStore]
 
@@ -41,6 +43,7 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
 
   return {
     store,
+    scope,
     current: () => promptText(state.prompt),
     attachments: () => draftAttachments(state.prompt),
     dirty: () => promptText(state.prompt).trim().length > 0 || draftAttachments(state.prompt).length > 0,
@@ -62,10 +65,12 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
       changed()
     },
     restore(draft?: PromptDraft) {
+      setScope({})
       setStore(promptState(draft))
       changed()
     },
     reset() {
+      setScope({})
       setStore(promptState())
       changed()
     },

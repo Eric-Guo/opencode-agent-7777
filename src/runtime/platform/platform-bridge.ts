@@ -1,4 +1,4 @@
-import { ACCEPTED_FILE_EXTENSIONS } from "./file-picker"
+import { ACCEPTED_FILE_EXTENSIONS, type AttachmentPickerLifecycle } from "./file-picker"
 import type { DesktopAPI } from "./desktop-api"
 
 type DesktopAttachmentAPI = Pick<
@@ -10,6 +10,7 @@ type AttachmentPlatform = {
   openAttachmentPickerDialog?: (
     options: { defaultPath?: string; multiple?: boolean; accept?: string[] },
     onFile: (file: File) => Promise<unknown>,
+    lifecycle?: AttachmentPickerLifecycle,
   ) => Promise<void>
   getPathForFile?: (file: File) => string
   readClipboardImage?: () => Promise<File | null>
@@ -27,7 +28,9 @@ export function createPlatformAttachments(
 
   return {
     openAttachmentPickerDialog: canPick
-      ? async (options, onFile) => {
+      ? async (options, onFile, lifecycle) => {
+          const signal = lifecycle?.signal
+          signal?.throwIfAborted()
           const result = await openFilePicker({
             multiple: options.multiple ?? false,
             defaultPath: options.defaultPath,
@@ -35,13 +38,23 @@ export function createPlatformAttachments(
           })
           if (!result) return
           try {
+            signal?.throwIfAborted()
+            if (result.files.length) lifecycle?.selected()
             for (const file of result.files) {
-              const selected = new File([await readPickedFile(result.token, file.path)], file.name)
+              signal?.throwIfAborted()
+              const bytes = await withPickerCancellation(() => readPickedFile(result.token, file.path), signal)
+              signal?.throwIfAborted()
+              const selected = new File([bytes], file.name)
               attachmentPaths.set(selected, file.path)
-              await onFile(selected)
+              await withPickerCancellation(() => onFile(selected), signal)
             }
+            signal?.throwIfAborted()
+            // The composer can send once ingestion finishes; token cleanup is independent.
+            lifecycle?.complete()
           } finally {
-            await releasePickedFiles(result.token)
+            const release = releasePickedFiles(result.token)
+            if (lifecycle) void release.catch(() => {})
+            else await release
           }
         }
       : undefined,
@@ -57,6 +70,30 @@ export function createPlatformAttachments(
         }
       : undefined,
   }
+}
+
+// Native RPC reads cannot be aborted remotely. Settle locally so cancellation still releases the token.
+function withPickerCancellation<T>(read: () => Promise<T>, signal?: AbortSignal) {
+  if (!signal) return read()
+  return new Promise<T>((resolve, reject) => {
+    const cancel = () => {
+      signal.removeEventListener("abort", cancel)
+      reject(signal.reason)
+    }
+    if (signal.aborted) return cancel()
+    signal.addEventListener("abort", cancel, { once: true })
+    Promise.try(read).then(
+      (bytes) => {
+        signal.removeEventListener("abort", cancel)
+        if (signal.aborted) reject(signal.reason)
+        else resolve(bytes)
+      },
+      (error) => {
+        signal.removeEventListener("abort", cancel)
+        reject(error)
+      },
+    )
+  })
 }
 
 export function isElectronUserAgent(userAgent: string) {

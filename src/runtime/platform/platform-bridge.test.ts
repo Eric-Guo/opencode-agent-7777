@@ -3,6 +3,111 @@ import { createPlatformAttachments, isAgent7777Enabled, isElectronUserAgent } fr
 import { ACCEPTED_FILE_EXTENSIONS } from "./file-picker"
 
 describe("platform attachments", () => {
+  test("cancelling while the picker is open releases a late token without reading its files", async () => {
+    const selection = Promise.withResolvers<{ token: string; files: { path: string; name: string; size: number }[] }>()
+    const controller = new AbortController()
+    const readPickedFile = mock(async () => new ArrayBuffer(0))
+    const releasePickedFiles = mock(async () => {})
+    const selected = mock(() => {})
+    const complete = mock(() => {})
+    const onFile = mock(async () => {})
+    const platform = createPlatformAttachments({
+      openFilePicker: () => selection.promise,
+      readPickedFile,
+      releasePickedFiles,
+    })
+    const pending = platform.openAttachmentPickerDialog!({}, onFile, { signal: controller.signal, selected, complete })
+    controller.abort()
+    selection.resolve({ token: "late", files: [{ path: "/repo/one.txt", name: "one.txt", size: 1 }] })
+    await expect(pending).rejects.toBeDefined()
+    expect(readPickedFile).not.toHaveBeenCalled()
+    expect(onFile).not.toHaveBeenCalled()
+    expect(selected).not.toHaveBeenCalled()
+    expect(complete).not.toHaveBeenCalled()
+    expect(releasePickedFiles).toHaveBeenCalledTimes(1)
+    expect(releasePickedFiles).toHaveBeenCalledWith("late")
+  })
+
+  test.each(["read", "consume"])("cancellation releases the token even when %s never settles", async (stage) => {
+    const entered = Promise.withResolvers<void>()
+    const stalled = Promise.withResolvers<ArrayBuffer>()
+    const controller = new AbortController()
+    const releasePickedFiles = mock(async () => {})
+    const onFile = mock(async () => {
+      if (stage === "consume") {
+        entered.resolve()
+        await stalled.promise
+      }
+    })
+    const readPickedFile = mock(async () => {
+      if (stage === "read") {
+        entered.resolve()
+        return stalled.promise
+      }
+      return new ArrayBuffer(1)
+    })
+    const selected = mock(() => {})
+    const complete = mock(() => {})
+    const platform = createPlatformAttachments({
+      openFilePicker: async () => ({
+        token: "token",
+        files: [
+          { path: "/repo/one.txt", name: "one.txt", size: 1 },
+          { path: "/repo/two.txt", name: "two.txt", size: 1 },
+        ],
+      }),
+      readPickedFile,
+      releasePickedFiles,
+    })
+    const pending = platform.openAttachmentPickerDialog!({}, onFile, { signal: controller.signal, selected, complete })
+    await entered.promise
+    expect(selected).toHaveBeenCalledTimes(1)
+    controller.abort()
+    await expect(pending).rejects.toBeDefined()
+    expect(releasePickedFiles).toHaveBeenCalledTimes(1)
+    expect(complete).not.toHaveBeenCalled()
+    stalled.resolve(new ArrayBuffer(1))
+    await stalled.promise
+    await Promise.resolve()
+    expect(readPickedFile).toHaveBeenCalledTimes(1)
+    expect(onFile).toHaveBeenCalledTimes(stage === "read" ? 0 : 1)
+    expect(releasePickedFiles).toHaveBeenCalledTimes(1)
+  })
+
+  test("ingestion completes before token cleanup and cleanup failure cannot invalidate consumed files", async () => {
+    const cleanup = Promise.withResolvers<void>()
+    const calls: string[] = []
+    const platform = createPlatformAttachments({
+      openFilePicker: async () => ({ token: "token", files: [{ path: "/repo/one.txt", name: "one.txt", size: 1 }] }),
+      readPickedFile: async () => {
+        calls.push("read")
+        return new ArrayBuffer(1)
+      },
+      releasePickedFiles: () => {
+        calls.push("release")
+        return cleanup.promise
+      },
+    })
+    await platform.openAttachmentPickerDialog!(
+      {},
+      async () => {
+        calls.push("consume")
+      },
+      {
+        signal: new AbortController().signal,
+        selected: () => {
+          calls.push("selected")
+        },
+        complete: () => {
+          calls.push("complete")
+        },
+      },
+    )
+    expect(calls).toEqual(["selected", "read", "consume", "complete", "release"])
+    cleanup.reject(new Error("late cleanup failure"))
+    await Promise.resolve()
+  })
+
   test("preserves desktop extensions across calls when the host mutates picker options", async () => {
     const expected = (
       "c,cc,cjs,conf,cpp,css,csv,cts,env,gif,go,gql,graphql,h,hh,hpp,htm,html,ini,java,jpg,js,json,jsonld,jsx," +

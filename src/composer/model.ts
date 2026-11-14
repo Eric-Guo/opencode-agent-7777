@@ -98,6 +98,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       void dialog.show(() => createComponent(ImagePreview, { src, alt }))
     },
     attachments: {
+      scope: adapter.state.scope,
       dropTarget: () => document.getElementById("oc-agent") ?? undefined,
       picker: platform.openAttachmentPickerDialog,
       directory: () => "",
