@@ -248,7 +248,8 @@ export function middleware(
         }
         if (action === "prepare") {
           if (submission.approval === "bypass") throw new BridgeError(403, "This installation requires approval.")
-          const context = { ...(await inputPolicy(b, id!)), ...modelFields(submission.model, b.connection.model, b.fallbackModels) }
+          const policy = await inputPolicy(b, id!)
+          const context = { ...policy, ...modelFields(submission.model, policy.model?.model ?? b.connection.model, policy.fallback_models ?? b.fallbackModels) }
           return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission, context) })
         }
         if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
