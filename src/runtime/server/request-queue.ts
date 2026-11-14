@@ -1,4 +1,12 @@
-type Entry = { method: string; url: string; at: number; slow: boolean }
+import {
+  createRequestQueueState,
+  isRequestInflight,
+  selectInflightCount,
+  selectQueuedCount,
+  transitionRequestQueue,
+  type RequestQueueEffect,
+  type RequestQueueEvent,
+} from "./request-queue-machine"
 
 // Chromium allows six connections per origin. The event stream holds one for the life of the
 // connection and health probes use their own fetch, so the app's API calls stay below that or
@@ -42,97 +50,77 @@ export function createRequestQueue(input: {
   log?: (message: string, data: Record<string, unknown>) => void
   now?: () => number
 }) {
-  const limit = input.limit ?? requestQueueLimit
-  const slowLimit = input.slowLimit ?? requestQueueSlowLimit
-  const stallMs = input.stallMs ?? requestStallMs
+  const config = {
+    limit: input.limit ?? requestQueueLimit,
+    slowLimit: input.slowLimit ?? requestQueueSlowLimit,
+    stallMs: input.stallMs ?? requestStallMs,
+  }
   const headersTimeoutMs = input.headersTimeoutMs ?? requestHeadersTimeoutMs
   const setupHeadersTimeoutMs = input.setupHeadersTimeoutMs ?? setupRequestHeadersTimeoutMs
   // Call the browser fetch unbound; `input.fetch(...)` would make `this` the options object.
   const base = input.fetch
   const now = input.now ?? Date.now
   const log = input.log ?? ((message, data) => console.warn(`[server-request-queue] ${message}`, data))
-  const inflight = new Set<Entry>()
-  const waiting: Array<{ entry: Entry; start: () => void }> = []
-  let warned = -Infinity
+  let queue = createRequestQueueState()
+  // Only promise callbacks live here; the machine owns admission and waiting order.
+  const waiters = new Map<number, () => void>()
   let watcher: ReturnType<typeof setTimeout> | undefined
 
-  const describe = (entry: Entry) => ({ method: entry.method, url: entry.url, ms: now() - entry.at })
-  // Debug exports include the console, so list what the server is busy with while requests wait.
-  const watch = () => {
-    watcher = undefined
-    const oldest = waiting[0]?.entry
-    if (!oldest) return
-    if (now() - oldest.at >= stallMs && now() - warned >= 10_000) {
-      warned = now()
-      log("server thrashing detected", {
-        limit,
-        inflight: [...inflight].map(describe),
-        queued: waiting.map((item) => describe(item.entry)),
-      })
-    }
-    watcher = setTimeout(watch, stallMs)
-  }
-  const canStart = (entry: Entry) => {
-    if (inflight.size >= limit) return false
-    if (!entry.slow) return true
-    return [...inflight].filter((item) => item.slow).length < slowLimit
-  }
-  const stopWatching = () => {
-    if (waiting.length > 0 || watcher === undefined) return
+  const run = (effect: RequestQueueEffect) => {
+    if (effect.type === "request.start") return waiters.get(effect.id)?.()
+    if (effect.type === "log.stall") return log("server thrashing detected", effect.data)
     clearTimeout(watcher)
-    watcher = undefined
+    watcher =
+      effect.type === "watcher.start"
+        ? setTimeout(() => dispatch({ type: "watch.due", now: now() }), effect.delayMs)
+        : undefined
   }
-  // FIFO, except a slow request waits its turn behind faster ones while the slow slots are full.
-  const release = (entry: Entry) => {
-    inflight.delete(entry)
-    const index = waiting.findIndex((item) => canStart(item.entry))
-    if (index === -1) return
-    waiting.splice(index, 1)[0]?.start()
-    stopWatching()
+
+  const dispatch = (event: RequestQueueEvent) => {
+    const result = transitionRequestQueue(queue, event, config)
+    queue = result.state
+    result.effects.forEach(run)
   }
-  const acquire = (entry: Entry, signal: AbortSignal) => {
-    // A free slot must start fetch before the caller's synchronous UI work.
-    // Awaiting an already-resolved promise postpones that dispatch until after it.
-    if (canStart(entry)) {
-      inflight.add(entry)
-      return
-    }
-    return new Promise<void>((resolve, reject) => {
-      const start = () => {
+
+  const waitForSlot = (id: number, signal: AbortSignal) =>
+    new Promise<void>((resolve, reject) => {
+      const leave = () => {
         signal.removeEventListener("abort", abort)
-        entry.at = now()
-        inflight.add(entry)
-        resolve()
+        waiters.delete(id)
       }
-      const pending = { entry, start }
       const abort = () => {
-        const index = waiting.indexOf(pending)
-        if (index === -1) return
-        waiting.splice(index, 1)
-        stopWatching()
-        reject(signal.reason ?? new DOMException("The operation was aborted.", "AbortError"))
+        leave()
+        dispatch({ type: "request.aborted", id, now: now() })
+        reject(abortReason(signal))
       }
-      waiting.push(pending)
+      waiters.set(id, () => {
+        leave()
+        resolve()
+      })
       signal.addEventListener("abort", abort, { once: true })
-      watcher ??= setTimeout(watch, stallMs)
+      if (signal.aborted) abort()
     })
-  }
 
   const fetch: typeof globalThis.fetch = Object.assign(
     async (resource: RequestInfo | URL, init?: RequestInit) => {
       const request = new Request(resource, init)
       const pathname = new URL(request.url).pathname
-      if (request.signal.aborted) {
-        throw request.signal.reason ?? new DOMException("The operation was aborted.", "AbortError")
-      }
+      if (request.signal.aborted) throw abortReason(request.signal)
       // The event stream is long-lived; never count it against the request budget.
       if (pathname === "/api/event") return base(request)
-      const entry = { method: request.method, url: request.url, at: now(), slow: isSlowRequest(pathname) }
-      const queued = acquire(entry, request.signal)
-      if (queued) await queued
+      const id = queue.nextId
+      dispatch({
+        type: "request.arrived",
+        method: request.method,
+        url: request.url,
+        slow: isSlowRequest(pathname),
+        now: now(),
+      })
+      // Keep free-slot dispatch synchronous; await only when the machine withheld a slot.
+      if (!isRequestInflight(queue, id)) await waitForSlot(id, request.signal)
       if (request.signal.aborted) {
-        release(entry)
-        throw request.signal.reason ?? new DOMException("The operation was aborted.", "AbortError")
+        dispatch({ type: "request.aborted", id, now: now() })
+        throw abortReason(request.signal)
       }
       const controller = new AbortController()
       // The header deadline ends when fetch resolves; caller cancellation still owns the response body.
@@ -145,7 +133,7 @@ export function createRequestQueue(input: {
         return await base(new Request(request, { signal }))
       } finally {
         clearTimeout(timer)
-        release(entry)
+        dispatch({ type: "request.settled", id, now: now() })
       }
     },
     // Bun's fetch type carries preconnect; the browser never calls it.
@@ -154,7 +142,11 @@ export function createRequestQueue(input: {
 
   return {
     fetch,
-    inflight: () => inflight.size,
-    queued: () => waiting.length,
+    inflight: () => selectInflightCount(queue),
+    queued: () => selectQueuedCount(queue),
   }
+}
+
+function abortReason(signal: AbortSignal) {
+  return signal.reason ?? new DOMException("The operation was aborted.", "AbortError")
 }

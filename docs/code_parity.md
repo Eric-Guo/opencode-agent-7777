@@ -81,6 +81,13 @@ language provider. Synchronous disposal prevents unsent requests and suppresses 
 No shared exports or app-source dependencies are added. Machine tests and the existing queue/revert/transfer suites
 cover these contracts alongside the local export-driver suite.
 
+Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
+The pure machine owns slots, FIFO eligibility, request IDs and stall warnings; the driver retains fetch, abort signals,
+promise callbacks and timers. The shared fetch/origin budget, synchronous free-slot dispatch, slow-request limits,
+event-stream bypass, header deadlines and response-body cancellation remain unchanged. Compact FIFO scheduling and
+transport lifetime stay local; the main app's priorities and disposal API are not adopted. Machine and transport tests
+cover stale completions, watcher cleanup, cancellation between grant and dispatch, and synchronous fetch failures.
+
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
@@ -105,6 +112,13 @@ For session/timeline changes, compare production benchmarks:
 VITE_OPENCODE_7777_ACTIVATE_IN_ELECTRON_ONLY=false bun run build
 BENCH_RUNS=3 bun run bench:runtime
 ```
+
+Transport refactor validation (2026-11-14): 601 Bun tests, typecheck and the browser-enabled production build passed.
+Three-run benchmark medians before/after were 162/163 ms for entry, 63/67 ms for session switching and 172/174 ms
+for streaming. The after run also passed `BENCH_VERIFY_REVIEW=true`, including timeout and retry checks.
+Live Playwright verification against the existing dev server passed model-picker loading, recent-session navigation
+and review reads with no page errors. IAB automation timed out; neither the app nor the backend was restarted.
+Logs, benchmark JSON and screenshots are kept in ignored `node_modules/.cache/request-queue-*` artifacts.
 
 Optional checks: `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
 overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.

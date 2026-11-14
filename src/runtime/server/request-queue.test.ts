@@ -44,11 +44,11 @@ describe("createRequestQueue", () => {
     expect(input.queue.inflight()).toBe(0)
   })
 
-  test("releases a free slot without sending an already-aborted request", async () => {
+  test.each(["session", "event"])("never sends an already-aborted %s request", async (path) => {
     const input = setup()
     const controller = new AbortController()
     controller.abort()
-    await expect(input.queue.fetch("http://server/api/session", { signal: controller.signal })).rejects.toBeInstanceOf(
+    await expect(input.queue.fetch(`http://server/api/${path}`, { signal: controller.signal })).rejects.toBeInstanceOf(
       DOMException,
     )
     expect(input.pending).toHaveLength(0)
@@ -144,6 +144,53 @@ describe("createRequestQueue", () => {
     await expect(queue.fetch("http://server/api/first")).rejects.toThrow("transport failed")
     await expect(queue.fetch("http://server/api/next")).resolves.toBeInstanceOf(Response)
     expect(queue.inflight()).toBe(0)
+  })
+
+  test("keeps eligible requests FIFO across background reads, navigation and writes", async () => {
+    const input = setup({ limit: 1 })
+    const requests = [
+      input.queue.fetch("http://server/api/first"),
+      input.queue.fetch("http://server/api/model"),
+      input.queue.fetch("http://server/api/session"),
+      input.queue.fetch("http://server/api/session/ses_1/prompt", { method: "POST" }),
+    ]
+    for (let index = 0; index < requests.length; index++) {
+      expect(input.pending).toHaveLength(index + 1)
+      input.pending[index]!.resolve()
+      await requests[index]
+    }
+    expect(input.pending.map(({ url }) => new URL(url).pathname)).toEqual([
+      "/api/first",
+      "/api/model",
+      "/api/session",
+      "/api/session/ses_1/prompt",
+    ])
+    expect(input.queue.inflight()).toBe(0)
+    expect(input.queue.queued()).toBe(0)
+  })
+
+  test("an abort between a slot grant and dispatch skips fetch and admits the next caller", async () => {
+    const input = setup({ limit: 1 })
+    const controller = new AbortController()
+    const first = input.queue.fetch("http://server/api/first")
+    const second = input.queue.fetch("http://server/api/cancelled", { signal: controller.signal })
+    const third = input.queue.fetch("http://server/api/next")
+    const reason = new Error("cancel after grant")
+    const rejected = second.catch((error: unknown) => error)
+    input.pending[0]!.resolve()
+    // The first continuation grants the slot; resume before the granted caller dispatches fetch.
+    await Promise.resolve()
+    expect(input.queue.inflight()).toBe(1)
+    expect(input.queue.queued()).toBe(1)
+    controller.abort(reason)
+    await first
+    expect(await rejected).toBe(reason)
+    expect(input.pending.map(({ url }) => new URL(url).pathname)).toEqual(["/api/first", "/api/next"])
+    expect(input.queue.inflight()).toBe(1)
+    expect(input.queue.queued()).toBe(0)
+    input.pending[1]!.resolve()
+    await third
+    expect(input.queue.inflight()).toBe(0)
   })
 
   test("releases slots after headers without waiting for a streaming response body", async () => {

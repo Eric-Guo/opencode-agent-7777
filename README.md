@@ -364,6 +364,17 @@ snapshot or event arrives. Neither helper creates a root, timer or SSE connectio
 contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
 exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
 
+Transport scheduling follows the main app's `runtime/server/{request-queue-machine,request-queue}.ts` boundary.
+One immutable machine owns active slots, FIFO waiting order, request IDs and stall-warning state; the driver owns
+fetch, promise callbacks, cancellation and timers. The compact queue retains four total slots, two slow slots and
+FIFO among eligible requests, without the main app's request priorities or transport disposal API. Server and directory
+clients still share the same fetch/origin budget. Free slots dispatch synchronously; event streams bypass scheduling.
+Slots release at response headers or fetch failure, including synchronous throws, while caller cancellation continues
+to reach streaming bodies. Header deadlines remain 60 seconds, or ten minutes for worktree creation; stall diagnostics
+retain their two-second threshold and ten-second cooldown. Pure transition tests cover immutable snapshots, stale
+events and watcher cleanup; transport tests cover dispatch ordering, cancellation races and streaming behavior.
+The implementation and tests stay local, with no app-source imports or new shared-package exports.
+
 `session/session-ownership.ts` captures the active request client, runtime, session ID and local agent together with
 the activation check used by submit/interrupt, undo/redo, queue actions, and permission/form reads and replies.
 It follows the main app's ownership boundary using the compact runtime's identity instead of a routed key watcher.
