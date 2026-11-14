@@ -3,6 +3,10 @@ import { dict as en } from "./en"
 type Keys = keyof typeof en
 
 export const dict = {
+  "error.operationTimeout": "操作超时，请重试。",
+  "session.read.retry": "重试",
+  "session.revert.timeout": "服务器未能及时完成历史记录操作。请检查当前历史记录后重试。",
+  "toast.session.export.timeout": "服务器未能及时准备好导出内容，请重试。",
   "review.title": "查看本轮变更",
   "review.description": "本会话最新一轮记录的文件变更。",
   "review.refresh": "刷新变更",
@@ -240,4 +244,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>
