@@ -25,7 +25,7 @@ export function ReviewTrigger() {
       aria-label={language.t("review.title")}
       title={language.t("review.title")}
       disabled={!currentRuntime()}
-      onClick={open}
+      onClick={() => open()}
     >
       <Icon name="code" size="small" />
     </button>

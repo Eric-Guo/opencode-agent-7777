@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test"
+import { afterEach, expect, jest, test } from "bun:test"
 import {
   OpenCode,
   type OpenCodeEvent,
@@ -15,6 +15,7 @@ import { browserSuite } from "./runtime.test-fixture"
 browserSuite(import.meta.path, () => {
   const disposers: (() => void)[] = []
   afterEach(() => {
+    jest.useRealTimers()
     disposers.splice(0).forEach((dispose) => dispose())
   })
   const session = (): SessionInfo => ({
@@ -108,6 +109,34 @@ browserSuite(import.meta.path, () => {
       pending: () => structuredClone(unwrap(runtime.view().sessionPending)),
     }
   }
+
+  test("a stalled hydration releases loading and its shared sync entry before retry", async () => {
+    jest.useFakeTimers()
+    const f = fixture()
+    const held = Promise.withResolvers<unknown>()
+    f.read((url) => (url.pathname.endsWith("/message") ? held.promise : undefined))
+    const pending = f.runtime.refreshMessages()
+    void pending.catch(() => {})
+    jest.advanceTimersByTime(60_000)
+    await expect(pending).rejects.toThrow("timed out")
+    expect(f.runtime.view().messagesLoading).toBe(false)
+    f.read(undefined)
+    f.snapshot([user(2)])
+    await f.runtime.refreshMessages()
+    held.resolve({ data: [user(1)], cursor: {} })
+    await Promise.resolve()
+    expect(f.rows()).toEqual([user(2)])
+    expect(f.runtime.view().messagesLoading).toBe(false)
+  })
+
+  test("disposal settles hydration callers even when a transport never settles", async () => {
+    const f = fixture()
+    f.read(() => new Promise(() => {}))
+    const pending = f.runtime.refreshMessages()
+    f.runtime.dispose()
+    await pending
+    expect(f.runtime.alive()).toBe(false)
+  })
 
   test("hydrates nine dialogs through shared cursor reads and leaves visible history bounded", async () => {
     const f = fixture()

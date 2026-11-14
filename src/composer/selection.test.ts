@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
 import { isServer } from "solid-js/web"
 import type { SessionInfo } from "@opencode/client/promise"
 import { setState, state } from "@/runtime/server/session-store-compact"
@@ -228,6 +228,23 @@ describe("session model selection", () => {
     setState("selectedModel", { ...other })
     const selection = createPromptModelSelection()
     expect(selection.current()).toMatchObject(other)
+  })
+
+  test("acknowledgement expiry keeps the local choice instead of accepting a late echo", () => {
+    jest.useFakeTimers()
+    try {
+      const selection = createPromptModelSelection()
+      setState("session", session("expired-ack", "high"))
+      selection.variant.set("low")
+      selection.trackSessionCommit({ model, variant: "low" })
+      jest.advanceTimersByTime(10_000)
+      setState("session", "model", { providerID: model.providerID, id: model.modelID, variant: "low" })
+      reconcileModelSelection()
+      setState("session", "model", { providerID: model.providerID, id: model.modelID, variant: "high" })
+      expect(selection.variant.current()).toBe("low")
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   test("retires an acknowledged choice so later server selections can take effect", () => {

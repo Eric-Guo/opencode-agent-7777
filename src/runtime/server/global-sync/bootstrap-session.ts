@@ -1,4 +1,7 @@
 // Single-session bootstrap variant of the main app's global/directory bootstrap boundary.
+import { bounded } from "../operation"
+import { createLoadState, transitionLoad, type LoadState } from "../load-machine"
+import { clearReadError, reportReadError } from "../read-errors"
 import { reconcile } from "solid-js/store"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import {
@@ -33,8 +36,7 @@ export function refreshSessionStatus(activeClient: OpencodeClient, session: NonN
   const revision = runtime?.statusRevision()
   const current = () =>
     currentRuntime() === runtime && runtime?.statusRevision() === revision && state.session?.id === session.id
-  return activeClient.session
-    .active()
+  return bounded((signal) => activeClient.session.active({ signal }), { signal: runtime?.signal })
     .then((active) => {
       if (!current()) return
       setSessionStatus(active[session.id] ? { type: "busy" } : idleStatus)
@@ -42,6 +44,13 @@ export function refreshSessionStatus(activeClient: OpencodeClient, session: NonN
     .catch(() => {
       if (current()) setSessionStatus(idleStatus)
     })
+}
+
+const activationStates = new WeakMap<object, LoadState>()
+const activationRetries = new WeakMap<object, () => Promise<void>>()
+export function retrySessionActivation() {
+  const owner = currentRuntime() ?? currentDraft()
+  return owner ? (activationRetries.get(owner)?.() ?? Promise.resolve()) : Promise.resolve()
 }
 
 export function activateSession(
@@ -66,16 +75,53 @@ export function activateSession(
   }
   prompt.restore(draft)
   setState("submitting", false)
-  return Promise.all([
-    refreshSessionStatus(activeClient, session).then(() => {
-      if (currentRuntime() === runtime) setState("status", "ready")
-    }),
-    runtime?.refreshMessages(FETCH_MESSAGE_LIMIT),
-    refreshModels(activeClient, session),
-    refreshPermissions(),
-    refreshForms(),
-    refreshRecentSessions(),
-  ]).then(() => undefined)
+  const owner = runtime!
+  const hydrate = () => {
+    activationStates.set(owner, transitionLoad(activationStates.get(owner) ?? createLoadState(), { type: "started" }))
+    const attempt = activationStates.get(owner)!.attempt
+    clearReadError(owner)
+    return bounded(
+      () =>
+        Promise.all([
+          refreshSessionStatus(activeClient, session).then(() => {
+            if (
+              currentRuntime() === runtime &&
+              activationStates.get(owner)?.status === "loading" &&
+              activationStates.get(owner)?.attempt === attempt
+            )
+              setState("status", "ready")
+          }),
+          runtime?.refreshMessages(FETCH_MESSAGE_LIMIT),
+          refreshModels(activeClient, session),
+          refreshPermissions(),
+          refreshForms(),
+          refreshRecentSessions(),
+        ]),
+      { signal: owner.signal },
+    )
+      .then(() => {
+        const machine = activationStates.get(owner)!
+        if (machine.attempt === attempt)
+          activationStates.set(owner, transitionLoad(machine, { type: "succeeded", attempt }))
+      })
+      .catch((error) => {
+        if (
+          currentRuntime() === owner &&
+          !owner.signal.aborted &&
+          activationStates.get(owner)?.status === "loading" &&
+          activationStates.get(owner)?.attempt === attempt
+        ) {
+          activationStates.set(owner, transitionLoad(activationStates.get(owner)!, { type: "failed", attempt, error }))
+          reportReadError(owner, error, () => {
+            void hydrate().catch(() => {})
+          })
+        }
+        throw error
+      })
+  }
+  owner.signal.addEventListener("abort", () => clearReadError(owner), { once: true })
+  activationRetries.set(owner, hydrate)
+  return hydrate()
 }
 
 export function activateDraft(server: ServerInfo, directory: string, options: { restoreDraft?: boolean } = {}) {
@@ -85,21 +131,51 @@ export function activateDraft(server: ServerInfo, directory: string, options: { 
   const draft = currentDraft()
   prompt.restore(saved)
   setState("status", "ready")
-  return Promise.all([refreshModels(draft?.api, undefined), refreshRecentSessions()]).then(() => undefined)
+  const owner = draft!
+  const hydrate = () => {
+    clearReadError(owner)
+    return bounded(() => Promise.all([refreshModels(owner.api, undefined), refreshRecentSessions()]), {
+      signal: owner.signal,
+    })
+      .then(() => undefined)
+      .catch((error) => {
+        if (currentDraft() === owner && !owner.signal.aborted)
+          reportReadError(owner, error, () => {
+            void hydrate().catch(() => {})
+          })
+        throw error
+      })
+  }
+  activationRetries.set(owner, hydrate)
+  owner.signal.addEventListener("abort", () => clearReadError(owner), { once: true })
+  return hydrate()
 }
 
-export function initializeSessionSync(current = () => true) {
+export function initializeSessionSync(
+  current = () => true,
+  signal?: AbortSignal,
+  attached: (signal: AbortSignal) => void = () => {},
+) {
   setState("status", "loading")
   setState("modelStatus", "loading")
   return resolveServer().then((server) => {
     if (!current()) return
     setState("server", server)
     const baseClient = createServerSdk(server).client
-    return restoreSession(baseClient, readSessionRecord(server.storageKeys)).then(async (session) => {
+    return restoreSession(baseClient, readSessionRecord(server.storageKeys), signal).then(async (session) => {
       if (!current()) return
-      if (session) return activateSession(server, session, { restoreDraft: true })
-      const directory = readSessionDirectory(server.storageKeys) ?? (await loadDefaultSessionDirectory(baseClient))
-      if (current()) return activateDraft(server, directory, { restoreDraft: true })
+      if (session) {
+        const loading = activateSession(server, session, { restoreDraft: true })
+        attached(currentRuntime()!.signal)
+        return loading
+      }
+      const directory =
+        readSessionDirectory(server.storageKeys) ?? (await loadDefaultSessionDirectory(baseClient, signal))
+      if (current()) {
+        const loading = activateDraft(server, directory, { restoreDraft: true })
+        attached(currentDraft()!.signal)
+        return loading
+      }
     })
   })
 }

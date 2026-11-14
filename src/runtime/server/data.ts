@@ -9,6 +9,7 @@ import type {
 } from "@opencode/client/promise"
 import { batch, onCleanup, type Accessor } from "solid-js"
 import { createStore, unwrap } from "solid-js/store"
+import { boundedReadClient } from "./read-client"
 import { createSessionMessageCache } from "./global-sync/session-cache-messages"
 
 type EventListener = Parameters<CreateDataInput["event"]["listen"]>[0]
@@ -32,6 +33,7 @@ export function createSessionData(input: {
   refresh: () => void
   error: (error: unknown) => void
 }) {
+  const client = boundedReadClient(input.client, input.signal)
   const id = input.session.id
   const listeners = new Set<EventListener>()
   let revision = 0
@@ -67,43 +69,43 @@ export function createSessionData(input: {
   }
   // Only snapshot publication needs a copy. Streamed content remains the shared store's reactive objects.
   const api: OpenCodeClient = {
-    ...input.client,
+    ...client,
     session: {
-      ...input.client.session,
+      ...client.session,
       async get(request, init) {
         const started = sessionRevision
-        const session = await read(input.client.session.get(request, options(init)))
+        const session = await read(client.session.get(request, options(init)))
         return copy(started === sessionRevision ? session : data.session.get(id))
       },
       message: {
-        ...input.client.session.message,
-        get: (request, init) => read(input.client.session.message.get(request, options(init))),
+        ...client.session.message,
+        get: (request, init) => read(client.session.message.get(request, options(init))),
       },
       inbox: {
-        ...input.client.session.inbox,
-        list: (request, init) => read(input.client.session.inbox.list(request, options(init))),
+        ...client.session.inbox,
+        list: (request, init) => read(client.session.inbox.list(request, options(init))),
       },
     },
-    model: { ...input.client.model, list: (request, init) => read(input.client.model.list(request, options(init))) },
+    model: { ...client.model, list: (request, init) => read(client.model.list(request, options(init))) },
     provider: {
-      ...input.client.provider,
-      list: (request, init) => read(input.client.provider.list(request, options(init))),
+      ...client.provider,
+      list: (request, init) => read(client.provider.list(request, options(init))),
     },
     integration: {
-      ...input.client.integration,
-      list: (request, init) => read(input.client.integration.list(request, options(init))),
+      ...client.integration,
+      list: (request, init) => read(client.integration.list(request, options(init))),
     },
-    agent: { ...input.client.agent, list: (request, init) => read(input.client.agent.list(request, options(init))) },
+    agent: { ...client.agent, list: (request, init) => read(client.agent.list(request, options(init))) },
     command: {
-      ...input.client.command,
-      list: (request, init) => read(input.client.command.list(request, options(init))),
+      ...client.command,
+      list: (request, init) => read(client.command.list(request, options(init))),
     },
-    skill: { ...input.client.skill, list: (request, init) => read(input.client.skill.list(request, options(init))) },
+    skill: { ...client.skill, list: (request, init) => read(client.skill.list(request, options(init))) },
     message: {
-      ...input.client.message,
+      ...client.message,
       async list(request, init) {
         const started = revision
-        const response = await read(input.client.message.list(request, options(init)))
+        const response = await read(client.message.list(request, options(init)))
         return cache.snapshot(request, response, started)
       },
     },

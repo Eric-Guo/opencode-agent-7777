@@ -7,10 +7,10 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 
 ## Shared and local boundaries
 
-| Public package | Reused responsibility |
-| --- | --- |
-| `@opencode/client` | Data, catalogs, APIs, transport types and context-usage selection |
-| `@opencode/session-ui` | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers |
+| Public package                   | Reused responsibility                                                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `@opencode/client`               | Data, catalogs, APIs, transport types and context-usage selection                                                         |
+| `@opencode/session-ui`           | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers                  |
 | `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
 
 Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
@@ -88,6 +88,34 @@ event-stream bypass, header deadlines and response-body cancellation remain unch
 transport lifetime stay local; the main app's priorities and disposal API are not adopted. Machine and transport tests
 cover stale completions, watcher cleanup, cancellation between grant and dispatch, and synchronous fetch failures.
 
+Startup, runtime attachment, activation reads, session switching and New session admission now use the local
+`runtime/server/load-machine.ts` finite-read boundary. It replaces independent generation counters and busy
+flags while leaving the main app's multi-server registry and workspace providers outside the compact runtime.
+Stream activity/EOF ownership follows `server-sync-machine.ts`; hydration scheduling, loading and coalescing
+follow `refresh-machine.ts`. Controllers, timers and caller settlement remain in drivers; immutable machine
+snapshots never enter mutable Solid stores.
+
+Complete API reads, including decoding, are bounded through local `operation.ts` and `read-client.ts` beneath
+shared `createData`, so stalled synchronization entries settle and retries can proceed. Shared reads retain data-owner
+cancellation; an individual observer cannot abort another consumer's catalog work. Startup, activation, catalogs
+and hydration passes have 60-second deadlines. The error banner offers localized Retry without restoring over
+an edited draft. Non-AI session loading uses the public `Loader`.
+
+Submission follows local `composer/{machine,submit}.ts`: synchronous admission and captured targets, with separate
+60-second creation/configuration/admission bounds. Matching SSE admission can confirm success before HTTP;
+history records once and retired responses cannot overwrite newer drafts. Existing-session sends retain their
+original target after navigation, while departed drafts reject promotion. Interrupt retains `resume: true` and a
+60-second deadline. Uncertain outcomes reconcile through reads without automatic write retries.
+Model choices follow `providers/models/selection-machine.ts`; persistence is an output effect. A ten-second
+acknowledgement deadline retains local preferences, and older cancellation or acknowledgement cannot retire a
+newer choice. Optional agent-catalog stalls do not disable successfully loaded models.
+
+Permission/question replies and directory lists use compact-local `session/requests/{reply-machine,list-machine}.ts`.
+Replies have 15/30-second deadlines respectively. List reads cannot release active replies; SSE-created requests
+survive older snapshots, and settled IDs cannot be resurrected. Attempt IDs reject older HTTP completion after an
+SSE acknowledgement and a subsequent reply. Child routing, notification delivery, answer state and web-search
+behavior retain their existing owners. No app-source imports, parent edits or shared-package exports are added.
+
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
@@ -120,9 +148,29 @@ Live Playwright verification against the existing dev server passed model-picker
 and review reads with no page errors. IAB automation timed out; neither the app nor the backend was restarted.
 Logs, benchmark JSON and screenshots are kept in ignored `node_modules/.cache/request-queue-*` artifacts.
 
-Optional checks: `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
+Runtime lifecycle validation (2026-11-14): 616 Bun tests, typecheck, the browser-enabled production build and
+all 37 component tests passed. Three-run production medians were 161 ms entry, 62 ms switching and 174 ms
+streaming, against the 166/58/173 ms baseline. Review, timeline interaction and runtime timeout/Retry fixture
+checks passed, including draft retention and recovery to `9/9`. Live Playwright checks exercised models, recent
+sessions and review without page errors or API writes. After browser access was enabled, IAB model search and
+Escape dismissal passed on the existing chart/table conversation, retaining `1/9` and composer focus. Neither
+app nor backend was restarted. Evidence is in ignored `node_modules/.cache/parity-*` artifacts.
+
+Optional checks: `BENCH_VERIFY_RUNTIME=true`, `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
 overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
 `BENCH_VERIFY_REVIEW=true` checks that a stalled branch comparison times out and can be retried with the same base.
 `BENCH_VERIFY_UI=true` also checks the 38 px initial-follow gap. The fixture briefly enlarges the viewport,
 reads its clamped offset and restores its height before the scroll event arrives. It checks following on activation,
 after **Jump to latest** and after switching sessions, alongside wheel, keyboard, scrollbar and text-selection behavior.
+
+`BENCH_VERIFY_RUNTIME=true` stalls a production activation read, advances its deadline, and verifies Retry,
+retained draft text, successful history recovery and the restored `9/9` counter against the deterministic fixture.
+
+Context focus-return validation (2026-11-14): the existing production context keeper reproduced the command-menu
+then ring-open regression before the fix. The compact dialog adapter now accepts an explicit opener and restores
+it through the public Dialog close-focus hook, guarded against replacement dialogs and retired runtimes. Command
+opens retain shared editor/caret restoration. Context, review, timeline and runtime Retry checks all passed together;
+three-run medians were 162 ms entry, 60 ms switching and 175 ms streaming. IAB verified command/Escape return to
+the editor, pointer/Escape and keyboard/Close return to the ring, and retention of the unsent draft and `1/9` counter.
+The test draft was cleared afterward. The app and backend remained running. Evidence is in ignored
+`node_modules/.cache/context-focus-*` artifacts.

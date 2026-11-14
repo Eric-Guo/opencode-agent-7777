@@ -27,6 +27,19 @@ afterEach(() => {
 })
 
 describe("form sync", () => {
+  test("a stale list keeps forms created by SSE while it was pending", async () => {
+    const held = Promise.withResolvers<Response>()
+    setSessionClient(
+      OpenCode.make({ baseUrl: "http://localhost", fetch: ((_input, _init) => held.promise) as typeof fetch }),
+      { id: "session_test", location: { directory: "/repo" } } as SessionInfo,
+    )
+    const pending = refreshForms()
+    handleFormEvent({ id: "event", created: 1, type: "form.created", data: { form } })
+    held.resolve(Response.json({ data: [] }))
+    await pending
+    expect(state.form.session_test?.map((item) => item.id)).toEqual(["form_test"])
+  })
+
   test("keeps web search forms from SSE and removes cancelled requests", () => {
     expect(
       handleFormEvent({

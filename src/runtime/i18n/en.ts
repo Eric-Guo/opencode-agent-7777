@@ -1,4 +1,6 @@
 export const dict = {
+  "error.operationTimeout": "The operation timed out. Please try again.",
+  "session.read.retry": "Retry",
   "session.revert.timeout":
     "The server took too long to finish the history action. Check the current history before trying again.",
   "toast.session.export.timeout": "The server took too long to prepare the export. Try again.",

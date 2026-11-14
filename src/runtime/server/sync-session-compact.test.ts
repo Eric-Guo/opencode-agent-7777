@@ -1,8 +1,15 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, spyOn, test } from "bun:test"
 import { OpenCode, type OpenCodeEvent, type SessionInfo } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { disposeSessionSync, restartSessionEventStream, sessionEvents } from "./sync-session-compact"
-import { setSessionClient, setState, state } from "./session-store-compact"
+import {
+  disposeSessionSync,
+  initializeSessionSync,
+  restartSessionEventStream,
+  sessionEvents,
+} from "./sync-session-compact"
+import * as resolver from "./resolver-compact"
+import * as catalogs from "@/providers/catalog/loader-compact"
+import { currentDraft, setSessionClient, setState, state } from "./session-store-compact"
 
 const originalFetch = globalThis.fetch
 const encode = new TextEncoder()
@@ -41,6 +48,38 @@ function fixture() {
 }
 
 describe("compact session event stream", () => {
+  test("navigation retires unfinished startup without replacing the new stream or reporting its failure", async () => {
+    const server = { url: "http://fixture.test", localAgent: "7777", welcomeText: "", suggestedQuestions: [] }
+    const held = Promise.withResolvers<void>()
+    const resolve = spyOn(resolver, "resolveServer").mockResolvedValue(server)
+    const catalog = spyOn(catalogs, "refreshModels").mockImplementation(() => held.promise)
+    globalThis.fetch = (async (input, init) => {
+      const path = new URL(new Request(input, init).url).pathname
+      if (path === "/api/location") return Response.json({ directory: "/repo" })
+      return Response.json({ data: [], cursor: {} })
+    }) as typeof fetch
+    try {
+      const pending = initializeSessionSync()
+      await until(() => !!currentDraft())
+      const streams = fixture()
+      setState("status", "ready")
+      restartSessionEventStream()
+      await until(() => streams.length === 1)
+      streams[0].enqueue(encode.encode(": connected\n\n"))
+      await until(() => state.eventsConnected)
+      held.reject(new Error("old startup failure"))
+      await pending
+      expect(state.status).toBe("ready")
+      expect(state.error).not.toBe("old startup failure")
+      expect(state.eventsConnected).toBe(true)
+      expect(streams).toHaveLength(1)
+      streams[0].close()
+    } finally {
+      resolve.mockRestore()
+      catalog.mockRestore()
+    }
+  })
+
   test("admits form handoffs only after SSE activity and disconnects on EOF", async () => {
     const streams = fixture()
     restartSessionEventStream()

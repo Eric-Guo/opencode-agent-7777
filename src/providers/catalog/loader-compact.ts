@@ -6,29 +6,51 @@ import { sessionDirectory } from "@/session/directory"
 import { syncModelSelection } from "@/providers/models/selection"
 import { translateSync } from "@/runtime/i18n/language"
 import { currentDirectory, currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
-import { readableError } from "@/shell/errors/readable"
+import { bounded } from "@/runtime/server/operation"
+import { abort } from "@opencode/util/abort"
+import { createLoadState, transitionLoad } from "@/runtime/server/load-machine"
+import { clearReadError, reportReadError } from "@/runtime/server/read-errors"
 import { loadProviderCatalog } from "./providers"
 
 // Active-session refresh admission and model selection stay local to the embedded app.
 
-let refreshVersion = 0
+let machine = createLoadState()
+let observation: AbortController | undefined
+let releaseOwner: (() => void) | undefined
+const errorOwner = {}
 
 export function refreshModels(activeClient: OpencodeClient | undefined, session: Session | undefined) {
   const runtime = currentRuntime() ?? currentDraft()
   const directory = session ? sessionDirectory(session) : currentDirectory()
   if (!activeClient || !directory || !runtime || runtime.api !== activeClient) return Promise.resolve()
-  const version = ++refreshVersion
+  machine = transitionLoad(machine, { type: "started" })
+  const attempt = machine.attempt
+  abort(observation)
+  const controller = new AbortController()
+  observation = controller
+  const signal = AbortSignal.any([runtime.signal, controller.signal])
+  const retire = () => {
+    if (machine.attempt !== attempt) return
+    machine = transitionLoad(machine, { type: "disposed" })
+    clearReadError(errorOwner)
+  }
+  releaseOwner?.()
+  runtime.signal.addEventListener("abort", retire, { once: true })
+  releaseOwner = () => runtime.signal.removeEventListener("abort", retire)
+  clearReadError(errorOwner)
   const current = () =>
-    version === refreshVersion && (currentRuntime() ?? currentDraft()) === runtime && state.session?.id === session?.id
+    machine.status === "loading" &&
+    machine.attempt === attempt &&
+    (currentRuntime() ?? currentDraft()) === runtime &&
+    state.session?.id === session?.id
   const location = { directory }
   setState("modelStatus", "loading")
   // Agent defaults are optional; an unavailable agent catalog must not disable the model picker.
   return Promise.all([
-    loadProviderCatalog(activeClient, runtime.data, location.directory, runtime.signal),
-    runtime.data.location.agent
-      .sync(location)
-      .then(() => runtime.data.location.agent.list(location))
-      .catch(() => undefined),
+    bounded((signal) => loadProviderCatalog(activeClient, runtime.data, location.directory, signal), { signal }),
+    bounded(() => runtime.data.location.agent.sync(location).then(() => runtime.data.location.agent.list(location)), {
+      signal,
+    }).catch(() => undefined),
   ])
     .then(([catalog, agents]) => {
       if (!current()) return
@@ -52,12 +74,16 @@ export function refreshModels(activeClient: OpencodeClient | undefined, session:
           ),
         )
         syncModelSelection(catalog)
+        machine = transitionLoad(machine, { type: "succeeded", attempt })
         setState("modelStatus", "ready")
       })
     })
     .catch((error) => {
       if (!current()) return
+      machine = transitionLoad(machine, { type: "failed", attempt, error })
       setState("modelStatus", "failed")
-      setState("error", readableError(error))
+      reportReadError(errorOwner, error, () => {
+        void refreshModels(activeClient, session)
+      })
     })
 }

@@ -1,5 +1,10 @@
-import { batch, createRoot } from "solid-js"
-import { persisted } from "@/runtime/persistence/storage"
+import { batch, createRoot, createSignal } from "solid-js"
+import {
+  COMMIT_ACK_TIMEOUT_MS,
+  createModelSelectionState,
+  transitionModelSelection,
+  type ModelSelectionEvent,
+} from "./selection-machine"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
 import type { ProviderListResponse } from "@/runtime/server/types"
@@ -33,8 +38,31 @@ export type ModelSelectorState = {
 }
 
 const models = createRoot(() => createModelsController(() => state.models))
-const [choices, setChoices] = persisted({ read: readSessionModelSelections, write: writeSessionModelSelections })
-const pending = new Map<string, SessionModelSelection>()
+const [selectionState, setSelectionState] = createSignal(createModelSelectionState(readSessionModelSelections()))
+const timers = new Map<string, ReturnType<typeof setTimeout>>()
+function dispatch(event: ModelSelectionEvent) {
+  const previous = selectionState()
+  const next = transitionModelSelection(previous, event)
+  if (next === previous) return
+  setSelectionState(next)
+  const before = previous.entries[event.key]
+  const after = next.entries[event.key]
+  if (before?.choice !== after?.choice) {
+    writeSessionModelSelections(
+      Object.fromEntries(Object.entries(next.entries).map(([key, entry]) => [key, entry?.choice])),
+    )
+  }
+  if (after?.status === "awaiting-ack" && before?.status === "awaiting-ack" && after.attempt === before.attempt) return
+  clearTimeout(timers.get(event.key))
+  timers.delete(event.key)
+  if (after?.status === "awaiting-ack")
+    timers.set(
+      event.key,
+      setTimeout(() => {
+        dispatch({ type: "cancelled", key: event.key, attempt: after.attempt })
+      }, COMMIT_ACK_TIMEOUT_MS),
+    )
+}
 
 function scope() {
   const directory = currentDirectory()
@@ -44,7 +72,7 @@ function scope() {
 
 function writeChoice(key: string, value: SessionModelSelection | undefined) {
   // Whole values avoid mutating snapshots retained by an in-flight submission.
-  setChoices(key, () => value && { model: { ...value.model }, variant: value.variant })
+  dispatch({ type: "edited", key, choice: value && { model: { ...value.model }, variant: value.variant } })
 }
 
 function durable() {
@@ -55,18 +83,10 @@ function durable() {
   return { model: { providerID: model.providerID, modelID: model.id }, variant: model.variant ?? null }
 }
 
-function sameChoice(a: SessionModelSelection | undefined, b: SessionModelSelection) {
-  return a?.model.providerID === b.model.providerID && a.model.modelID === b.model.modelID && a.variant === b.variant
-}
-
-// Retire only the acknowledged submission; a newer draft selection still belongs to the composer.
+// Retire only the acknowledged submission; newer draft choices remain local.
 export function reconcileModelSelection() {
   const key = scope()
-  if (!key || state.session?.agent !== currentLocalAgent()) return
-  const expected = pending.get(key)
-  if (!expected || !sameChoice(durable(), expected)) return
-  pending.delete(key)
-  if (sameChoice(choices[key], expected)) writeChoice(key, undefined)
+  if (key && state.session?.agent === currentLocalAgent()) dispatch({ type: "reconciled", key, durable: durable() })
 }
 
 export function resolveSelectedModel<T extends ModelKey>(
@@ -119,7 +139,7 @@ export const localModelSelection = {
   draft: {
     current() {
       const key = scope()
-      return key ? choices[key] : undefined
+      return key ? selectionState().entries[key]?.choice : undefined
     },
     set(value: SessionModelSelection | undefined) {
       const key = scope()
@@ -138,10 +158,11 @@ export const localModelSelection = {
     const key = scope()
     if (!key) return () => {}
     const expected = { model: { ...value.model }, variant: value.variant }
-    pending.set(key, expected)
+    dispatch({ type: "tracked", key, expected })
+    const attempt = selectionState().attempt
     reconcileModelSelection()
     return () => {
-      if (pending.get(key) === expected) pending.delete(key)
+      dispatch({ type: "cancelled", key, attempt })
     }
   },
 }

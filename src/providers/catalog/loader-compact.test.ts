@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, jest, test } from "bun:test"
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 import { refreshModels as loadModels } from "./loader-compact"
@@ -8,7 +8,10 @@ function refreshModels(client: OpencodeClient, session: Session) {
   setSessionClient(client, session)
   return loadModels(client, session)
 }
-afterEach(() => setSessionClient(undefined))
+afterEach(() => {
+  jest.useRealTimers()
+  setSessionClient(undefined)
+})
 
 function catalogClient(providerID: string, ready = Promise.resolve(), agentsReady = Promise.resolve()) {
   const model = {
@@ -67,6 +70,23 @@ afterEach(() =>
 
 describe("active catalog refresh", () => {
   const session = (id: string) => ({ id, location: { directory: "/repo" } }) as Session
+
+  test("a stalled optional agent read expires without disabling models and can be retried", async () => {
+    jest.useFakeTimers()
+    const agents = Promise.withResolvers<void>()
+    const { client } = catalogClient("available", Promise.resolve(), agents.promise)
+    const active = session("stalled-agents")
+    const loading = refreshModels(client, active)
+    for (let i = 0; i < 30; i++) await Promise.resolve()
+    jest.advanceTimersByTime(60_000)
+    await loading
+    expect(state.modelStatus).toBe("ready")
+    expect(state.models.map((item) => item.providerID)).toEqual(["available"])
+    expect(state.agentModels).toEqual({})
+    agents.resolve()
+    await loadModels(client, active)
+    expect(state.agentModels).toEqual({ "7777": { providerID: "available", modelID: "reasoning", variant: "high" } })
+  })
 
   test("loads agent defaults in the active directory using catalog model IDs", async () => {
     const { client, locations } = catalogClient("provider")

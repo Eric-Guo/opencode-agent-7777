@@ -259,7 +259,7 @@ try {
     const page = await context.newPage()
     const verifyReview =
       iteration === 0 && (process.env.BENCH_VERIFY_UI === "true" || process.env.BENCH_VERIFY_REVIEW === "true")
-    if (verifyReview) await page.clock.install()
+    if (verifyReview || (iteration === 0 && process.env.BENCH_VERIFY_RUNTIME === "true")) await page.clock.install()
     page.on("pageerror", (error) => errors.push(error.message))
     const started = performance.now()
     await page.goto(server.url.href)
@@ -657,6 +657,34 @@ try {
         await editor.fill("")
         reviewEmpty = false
       }
+    }
+    if (iteration === 0 && process.env.BENCH_VERIFY_RUNTIME === "true") {
+      const target = sessions[process.env.BENCH_VERIFY_UI === "true" ? 1 : 0]
+      const pattern = `**/api/session/${target.id}/message*`
+      let stalled = true
+      await page.route(pattern, (route) => {
+        if (!stalled) return route.continue()
+      })
+      const editor = page.getByRole("textbox", { name: "Message", exact: true })
+      const read = page.waitForRequest(
+        (request) => new URL(request.url()).pathname === `/api/session/${target.id}/message`,
+      )
+      await page.getByRole("button", { name: "Recent sessions", exact: true }).click()
+      await page.getByRole("option").filter({ hasText: target.title }).click()
+      await read
+      await editor.fill("Keep this draft through a stalled history read")
+      await page.clock.fastForward(60_001)
+      const retry = page.getByRole("button", { name: "Retry", exact: true })
+      await expect(retry).toBeVisible()
+      await expect(editor).toHaveText("Keep this draft through a stalled history read")
+      await page.screenshot({ path: output.replace(/\.json$/, "-runtime-timeout.png") })
+      stalled = false
+      await retry.click()
+      await expect(retry).toBeHidden()
+      await expect(editor).toHaveText("Keep this draft through a stalled history read")
+      await expect(page.getByText(`${target.id} answer 39`, { exact: true })).toBeVisible()
+      await expect(page.locator('[data-slot="session-header"]')).toContainText("9/9")
+      await page.unroute(pattern)
     }
     await context.close()
     streams.clear()

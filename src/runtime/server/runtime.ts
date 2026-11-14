@@ -7,8 +7,10 @@ import type {
   SessionMessageInfo,
   SessionStatus,
 } from "@opencode/client/promise"
-import { createComputed, createRoot, onCleanup, untrack } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createComputed, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js"
+import { bounded } from "./operation"
+import { clearReadError, reportReadError } from "./read-errors"
+import { createRefreshState, transitionRefresh, refreshLoading, type RefreshEvent } from "./refresh-machine"
 import { FETCH_MESSAGE_LIMIT, HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { isSessionDialogRoot } from "@/session/session-domain"
 import { createSessionData, type SessionDataView } from "./data"
@@ -48,73 +50,87 @@ export function createSessionRuntime(input: {
     const id = input.session.id
     const abort = new AbortController()
     let refreshTimer: ReturnType<typeof setTimeout> | undefined
-    let refresh: Promise<void> | undefined
-    let refreshAgain = false
-    let initialLimit = FETCH_MESSAGE_LIMIT
-    const [state, setState] = createStore({ loading: false })
+    const [machine, setMachine] = createSignal(createRefreshState())
+    let waiter: ReturnType<typeof Promise.withResolvers<void>> | undefined
+    const errorOwner = {}
+    const loading = createMemo(() => refreshLoading(machine()))
     const sessionData = createSessionData({
       client: input.client,
       session: input.session,
       signal: abort.signal,
-      initialMessageLimit: () => initialLimit,
+      initialMessageLimit: () => {
+        const value = machine()
+        return value.status === "loading" ? value.limit : FETCH_MESSAGE_LIMIT
+      },
       refresh: () => schedule(),
       error: input.error,
     })
     const data = sessionData.data
-    const view = (): SessionView => ({ ...sessionData.view(), messagesLoading: state.loading })
+    const view = (): SessionView => ({ ...sessionData.view(), messagesLoading: loading() })
     const publish = () => {
       const value = view()
       untrack(() => input.changed(value))
     }
     createComputed(publish)
-    onCleanup(() => {
-      abort.abort()
+    const dispatch = (event: RefreshEvent) => {
+      const previous = untrack(machine)
+      const next = transitionRefresh(previous, event)
+      if (next === previous) return
+      setMachine(next)
       clearTimeout(refreshTimer)
-    })
-    const refreshMessages = (limit = FETCH_MESSAGE_LIMIT): Promise<void> => {
-      if (abort.signal.aborted) return Promise.resolve()
-      if (refresh) {
-        refreshAgain = true
-        return refresh
+      if (next.status === "scheduled") {
+        refreshTimer = setTimeout(() => {
+          void refreshMessages().catch(() => {})
+        }, next.delay)
       }
-      initialLimit = limit
-      setState("loading", true)
-      data.session.pending.invalidate(id)
-      data.session.message.invalidate(id)
-      const run = (async () => {
-        do {
-          refreshAgain = false
-          const started = sessionData.revision()
-          await Promise.all([data.session.pending.sync(id), data.session.message.sync(id)])
-          sessionData.acknowledgePending(started)
-          abort.signal.throwIfAborted()
-          while (
-            sessionData.messages().filter(isSessionDialogRoot).length < HISTORY_DIALOG_LIMIT &&
-            data.session.message.more(id)
-          ) {
-            await data.session.message.loadMore(id, { signal: abort.signal })
-          }
-          if (refreshAgain) {
-            data.session.pending.invalidate(id)
-            data.session.message.invalidate(id)
-          }
-        } while (refreshAgain)
-      })().finally(() => {
-        refresh = undefined
-        if (!abort.signal.aborted) setState("loading", false)
-      })
-      refresh = run
-      return run
-    }
-    const schedule = (delay = 120) => {
-      if (abort.signal.aborted) return
-      clearTimeout(refreshTimer)
-      refreshTimer = setTimeout(() => {
-        void refreshMessages().catch((error) => {
-          if (!abort.signal.aborted) input.error(error)
+      if (next.status === "loading" && (previous.status !== "loading" || previous.attempt !== next.attempt)) {
+        clearReadError(errorOwner)
+        data.session.pending.invalidate(id)
+        data.session.message.invalidate(id)
+        void bounded(
+          async (signal) => {
+            const started = sessionData.revision()
+            await Promise.all([data.session.pending.sync(id), data.session.message.sync(id)])
+            signal.throwIfAborted()
+            sessionData.acknowledgePending(started)
+            while (
+              sessionData.messages().filter(isSessionDialogRoot).length < HISTORY_DIALOG_LIMIT &&
+              data.session.message.more(id)
+            ) {
+              await data.session.message.loadMore(id, { signal })
+              signal.throwIfAborted()
+            }
+          },
+          { signal: abort.signal },
+        ).then(
+          () => dispatch({ type: "succeeded", attempt: next.attempt }),
+          (error) => dispatch({ type: "failed", attempt: next.attempt, error }),
+        )
+      }
+      if (next.status === "failed") {
+        reportReadError(errorOwner, next.error, () => {
+          void refreshMessages().catch(() => {})
         })
-      }, delay)
+        waiter?.reject(next.error)
+        waiter = undefined
+      } else if (next.status === "idle" || next.status === "disposed") {
+        waiter?.resolve()
+        waiter = undefined
+      }
     }
+    const refreshMessages = (limit = FETCH_MESSAGE_LIMIT): Promise<void> => {
+      if (machine().status === "disposed") return Promise.resolve()
+      waiter ??= Promise.withResolvers<void>()
+      const promise = waiter.promise
+      dispatch({ type: "refresh", limit })
+      return promise
+    }
+    const schedule = (delay = 120) => dispatch({ type: "schedule", delay })
+    onCleanup(() => {
+      dispatch({ type: "disposed" })
+      abort.abort()
+      clearReadError(errorOwner)
+    })
     return {
       ...sessionData.mutations,
       api: input.client,

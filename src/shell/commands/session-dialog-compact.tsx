@@ -19,14 +19,24 @@ export function useSessionDialog(input: {
   createEffect(on(currentRuntime, () => dialog.close(input.id), { defer: true }))
   onCleanup(() => dialog.close(input.id))
 
-  return () => {
+  return (returnFocus?: HTMLElement) => {
     const runtime = currentRuntime()
     if (!runtime || runtime.signal.aborted) return
     const title = runtime.view().session.title
 
     void dialog.show(
       () => (
-        <Dialog containerClass={input.containerClass}>
+        <Dialog
+          containerClass={input.containerClass}
+          onCloseAutoFocus={(event) => {
+            // A show following a command dialog can inherit its earlier focus origin.
+            // An explicit header opener owns final focus; commands keep the provider's caret restoration.
+            if (!returnFocus?.isConnected || currentRuntime() !== runtime || runtime.signal.aborted || dialog.active)
+              return
+            event.preventDefault()
+            returnFocus.focus({ preventScroll: true })
+          }}
+        >
           <DialogHeader closeLabel={language.t("common.close")}>
             <DialogTitle>{input.title()}</DialogTitle>
             <span class="truncate text-12-regular text-text-weak" title={title}>

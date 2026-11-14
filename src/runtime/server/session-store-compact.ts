@@ -7,6 +7,7 @@ import { translateSync } from "@/runtime/i18n/language"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import type { SessionStatus } from "@opencode/client/promise"
 import { createSessionRuntime, type SessionRuntime } from "./runtime"
+import { createLoadState, transitionLoad } from "./load-machine"
 import { readableError } from "@/shell/errors/readable"
 
 // Compact single-session UI store; prompt draft state lives in composer/state.ts.
@@ -42,7 +43,7 @@ export const [state, setState] = createStore<State>({
 let client: OpencodeClient | undefined
 const [runtime, setRuntime] = createSignal<SessionRuntime>()
 const [draft, setDraft] = createSignal<ReturnType<typeof createSessionDraft>>()
-let activation = 0
+let attachment = createLoadState()
 
 export const currentRuntime = runtime
 export const currentDraft = draft
@@ -56,13 +57,17 @@ export type ActiveSession = {
 }
 
 export function setSessionClient(next: OpencodeClient | undefined, session = state.session) {
-  const version = ++activation
+  attachment = transitionLoad(attachment, { type: "started" })
+  const attempt = attachment.attempt
   draft()?.dispose()
   setDraft(undefined)
   runtime()?.dispose()
   setRuntime(undefined)
   client = next
-  if (!next || !session) return
+  if (!next || !session) {
+    attachment = transitionLoad(attachment, { type: "disposed" })
+    return
+  }
   // A store setter merges object values. Clear the old view before attaching the new
   // shared object, otherwise the outgoing activation could be mutated in place.
   setState("session", undefined)
@@ -70,7 +75,7 @@ export function setSessionClient(next: OpencodeClient | undefined, session = sta
     client: next,
     session,
     changed(view) {
-      if (version !== activation || !runtime()?.alive()) return
+      if (attempt !== attachment.attempt || !runtime()?.alive()) return
       batch(() => {
         if (state.session !== view.session) {
           setState("session", undefined)
@@ -83,9 +88,10 @@ export function setSessionClient(next: OpencodeClient | undefined, session = sta
       })
     },
     error(error) {
-      if (version === activation && runtime()?.alive()) setState("error", readableError(error))
+      if (attempt === attachment.attempt && runtime()?.alive()) setState("error", readableError(error))
     },
   })
+  attachment = transitionLoad(attachment, { type: "succeeded", attempt })
   setRuntime(nextRuntime)
   nextRuntime.publish()
 }

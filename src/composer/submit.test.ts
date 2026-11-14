@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
 import type { SessionCommandInput, SessionInfo, SessionPromptInput } from "@opencode/client/promise"
 import { Skill } from "@opencode/schema/skill"
 import { prompt } from "./persistence-singleton"
@@ -69,6 +69,7 @@ browserSuite(import.meta.path, () => {
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     setSessionClient(undefined)
     setState({
       session: undefined,
@@ -574,6 +575,91 @@ browserSuite(import.meta.path, () => {
       })
       await pending
       expect(state.sessionPending).toEqual([])
+    })
+
+    test("a failed send cannot clear a newer server execution status", async () => {
+      const held = Promise.withResolvers<unknown>()
+      setSessionClient(client({ configure: () => held.promise, send: async () => {} }))
+      const pending = submitPrompt()
+      currentRuntime()!.apply({
+        id: "execution",
+        created: 1,
+        durable: { aggregateID: "session", seq: 1, version: 1 },
+        type: "session.execution.started",
+        data: { sessionID: "session" },
+      })
+      held.reject(new Error("configuration failed"))
+      await pending
+      expect(state.sessionStatus).toEqual({ type: "busy" })
+      expect(state.submitting).toBe(false)
+    })
+
+    test("configuration throws synchronously without leaving submission busy", async () => {
+      setSessionClient(
+        client({
+          configure: () => {
+            throw new Error("synchronous configuration")
+          },
+          send: async () => {},
+        }),
+      )
+      await submitPrompt()
+      expect(state.submitting).toBe(false)
+      expect(prompt.capture()).toEqual(draft())
+      expect(state.error).toBe("synchronous configuration")
+    })
+
+    test("a stalled admission settles without overwriting a new draft or recording late success", async () => {
+      jest.useFakeTimers()
+      const held = Promise.withResolvers<unknown>()
+      setSessionClient(client({ send: () => held.promise }))
+      const before = composerHistory.entries("normal")
+      const pending = submitPrompt({ delivery: "queue" })
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+      prompt.set("newer draft")
+      jest.advanceTimersByTime(60_000)
+      await pending
+      expect(state.submitting).toBe(false)
+      expect(prompt.current()).toBe("newer draft")
+      expect(state.error).toContain("timed out")
+      held.resolve(undefined)
+      await Promise.resolve()
+      expect(composerHistory.entries("normal")).toEqual(before)
+    })
+
+    test("an SSE admission confirms acceptance when HTTP stalls", async () => {
+      let sent: SessionPromptInput | undefined
+      setSessionClient(
+        client({
+          send: (value) => {
+            sent = value as SessionPromptInput
+            return new Promise(() => {})
+          },
+        }),
+      )
+      const pending = submitPrompt({ delivery: "queue" })
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+      expect(sent).toBeDefined()
+      currentRuntime()!.apply({
+        id: "event",
+        created: 1,
+        durable: { aggregateID: "session", seq: 1, version: 1 },
+        type: "session.inbox.enqueued",
+        data: {
+          sessionID: "session",
+          inboxID: sent!.id!,
+          item: { type: "user", delivery: "queue", payload: { text: "accepted" } },
+        },
+      })
+      await pending
+      expect(state.submitting).toBe(false)
+      expect(state.error).toBe("")
+      expect(composerHistory.entries("normal")[0].prompt).toContainEqual({
+        type: "text",
+        content: draft().prompt,
+        start: 0,
+        end: draft().prompt.length,
+      })
     })
 
     test("does not admit a second draft while the first request is pending", async () => {

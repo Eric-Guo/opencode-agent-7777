@@ -1,4 +1,5 @@
-import { Spinner } from "@opencode/ui/spinner"
+import { Loader } from "@opencode/ui/loader"
+import { readRetry } from "@/runtime/server/read-errors"
 import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import { ScrollView } from "@opencode/ui/scroll-view"
@@ -88,7 +89,7 @@ export function SessionPage() {
               when={state.status !== "loading" && timeline.ready()}
               fallback={
                 <div class={SESSION_LOADING_STATE_CLASS}>
-                  <Spinner class="h-6 w-6" />
+                  <Loader class="h-6 w-6" />
                   <span>{layout.language.t("session.loading", { agent: currentLocalAgent() })}</span>
                 </div>
               }
@@ -129,7 +130,7 @@ export function SessionPage() {
         </Show>
       </main>
 
-      <Show when={state.error}>{(error) => <ErrorBanner error={error()} />}</Show>
+      <Show when={state.error}>{(error) => <ErrorBanner error={error()} retry={readRetry()} />}</Show>
 
       <ActiveSessionComposerRegion model={region.active} suggestionBoundary={interaction.scroller} />
     </div>

@@ -341,6 +341,9 @@ presentation out of the rendering/lifecycle panel. `review/{machine,model,panel,
 the review plugin's boundaries in `packages/gui-plugins`; the compact-only `review/trigger-compact.tsx` supplies its
 header action. `shell/commands/session-dialog-compact.tsx` shares the review and context dialogs' fixed-size lazy
 loading, error boundary, dismissal and activation lifetime in place of the main app's plugin host.
+The context ring supplies its explicit focus-return target through this local adapter. Escape and Close return
+to that ring after pointer or keyboard activation, including after a command-opened dialog. Command opens keep
+the shared provider's editor/caret restoration; a replaced dialog or session cannot reclaim focus.
 Reads use the current activation and existing event stream, refresh after completion,
 revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
 Each read has a 30-second deadline. A timeout offers Retry for the same mode and base; a late reply cannot
@@ -434,7 +437,7 @@ See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary com
 Persistence follows the main app's `runtime/persistence/storage.ts` and `runtime/server/persistence.ts`
 boundaries with package-local implementations. The compact storage adapter is synchronous; drafts, history,
 settings, language, and model/session preferences share it while retaining their existing keys and formats.
-Model preferences, per-session choices, and accepted-prompt history use its local `persisted` store helper, following
+Model preferences and accepted-prompt history use its local `persisted` store helper, following
 the main app's storage boundary. Solid setters save synchronously without subscribing callers to serialized fields;
 initial reads do not rewrite storage. Consumer-owned readers and writers retain recovery, limits, and error handling.
 This compact helper stays in `storage.ts` because it has no separate asynchronous hydration or save scheduler.
@@ -702,6 +705,40 @@ when a later read fails. `composer/editor/interaction.ts` restores typing focus 
 following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
 for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
 Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
+
+The compact runtime now uses explicit lifecycle machines for startup, runtime attachment, active reads, session
+switching, catalog loading, and the New session action. Finite read admission shares the local
+`runtime/server/load-machine.ts`; this deliberately stays compact-specific rather than adopting the main app's
+multi-server registry and workspace cache. `server-sync-machine.ts` owns stream connection state, and
+`refresh-machine.ts` owns hydration, debounce scheduling and one coalesced follow-up pass. Promise resolvers,
+controllers and timers stay in their drivers. Machine snapshots use immutable values outside Solid stores;
+UI busy/loading fields are projections. Switching away and returning creates a distinct owner.
+
+`runtime/server/operation.ts` bounds complete API promises, including response decoding. `read-client.ts`
+applies that bound beneath shared `createData` synchronization, so a stalled read releases its pending cache
+entry and can be retried. Data-owner cancellation covers shared resources; retiring one observer does not abort
+another consumer's catalog read. `read-errors.ts` supplies the compact error banner's localized Retry action.
+Startup, activation, catalogs and each hydration pass have 60-second deadlines. Retry keeps the current target,
+loaded transcript and unsent draft. The initial 36-record hydration and latest-nine dialog window remain bounded.
+
+`composer/{machine,submit}.ts` follows the main app's submission machine/driver boundary locally. Each send
+claims its owner before asynchronous work and captures prompt content, attachments, selection and delivery.
+Creation, configuration and admission each have a 60-second deadline. A matching inbox admission event can
+confirm a send before HTTP completes; history records once, and late HTTP results cannot restore a newer draft.
+Existing-session sends retain their captured target across navigation; a departed draft cannot promote a late
+creation. Interrupt remains `resume: true` with a 60-second bound. Uncertain writes reconcile through reads,
+without automatic resubmission.
+
+`providers/models/selection-machine.ts` follows the main app's selection boundary while keeping 7777's scoped
+keys and persisted shape. Persistence is an output effect. Model acknowledgement expires after ten seconds,
+retaining the local choice. Old acknowledgements and cancellations cannot retire newer choices or commits.
+Optional agent-catalog timeouts leave the model catalog available and permit a later refresh.
+
+`session/requests/{reply-machine,list-machine}.ts` deliberately shares compact permission/question lifecycle
+rules rather than importing the main app's dock controllers. Permission replies have 15-second deadlines;
+question replies and dismissal have 30 seconds. Directory reads cannot clear reply ownership, overwrite newer
+SSE-created forms, or resurrect settled IDs. These ledgers belong to one runtime activation. Existing widgets,
+answer editing, child-session routing, notifications and the separate web-search protocol stay local.
 
 ## Recent Sessions
 

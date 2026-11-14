@@ -47,7 +47,7 @@ export function SessionContextUsage() {
           onClick={(event) => {
             // Capture the ring as the return target for pointer and keyboard activation.
             event.currentTarget.focus({ preventScroll: true })
-            openContext()
+            openContext(event.currentTarget)
           }}
         >
           <ProgressCircle

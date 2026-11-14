@@ -1,5 +1,6 @@
-import { createMemo } from "solid-js"
-import { createStore } from "solid-js/store"
+import { createMemo, createSignal, onCleanup } from "solid-js"
+import { createLoadState, transitionLoad } from "@/runtime/server/load-machine"
+import { readableError } from "@/shell/errors/readable"
 import { activateDraft } from "@/runtime/server/global-sync/bootstrap-session"
 import { translateSync } from "@/runtime/i18n/language"
 import { currentDirectory, setState, state } from "@/runtime/server/session-store-compact"
@@ -16,17 +17,26 @@ export function startNewSession() {
 }
 
 export function createNewSessionController() {
-  const [local, setLocal] = createStore({ pending: false })
+  const [machine, setMachine] = createSignal(createLoadState())
+  onCleanup(() => setMachine((value) => transitionLoad(value, { type: "disposed" })))
   const disabled = createMemo(() => state.status !== "ready")
 
   const create = () => {
-    if (local.pending || disabled()) return
-    setLocal("pending", true)
-    void startNewSession().finally(() => setLocal("pending", false))
+    if (machine().status === "loading" || machine().status === "disposed" || disabled()) return
+    setMachine((value) => transitionLoad(value, { type: "started" }))
+    const attempt = machine().attempt
+    void startNewSession().then(
+      () => setMachine((value) => transitionLoad(value, { type: "succeeded", attempt })),
+      (error) => {
+        if (machine().status !== "loading" || machine().attempt !== attempt) return
+        setMachine((value) => transitionLoad(value, { type: "failed", attempt, error }))
+        setState("error", readableError(error))
+      },
+    )
   }
 
   return {
-    pending: () => local.pending,
+    pending: () => machine().status === "loading",
     disabled,
     create,
   }
