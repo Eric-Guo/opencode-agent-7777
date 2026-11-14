@@ -3,9 +3,7 @@ import { createServer } from "node:http"
 export { nexusService, type ServiceConnection } from "./native"
 import { middleware, type BridgeConfig } from "./middleware"
 
-export async function createDesktopBridge(
-  config: () => BridgeConfig | Promise<BridgeConfig>,
-) {
+export async function createDesktopBridge(config: () => BridgeConfig | Promise<BridgeConfig>) {
   const authorization = `Bearer ${randomUUID()}`
   const handle = middleware(config)
   const server = createServer((request, response) => {
@@ -25,7 +23,7 @@ export async function createDesktopBridge(
   if (!address || typeof address === "string") throw new Error("Nexus bridge has no loopback address")
   const origin = `http://127.0.0.1:${address.port}`
 
-  return (request: Request) => {
+  const forward = (request: Request) => {
     const url = new URL(request.url)
     const headers = new Headers({ authorization, origin })
 
@@ -45,4 +43,13 @@ export async function createDesktopBridge(
     } satisfies RequestInit & { duplex: "half" }
     return fetch(origin + url.pathname + url.search, init)
   }
+  const disposal: { promise?: Promise<void> } = {}
+  return Object.assign(forward, {
+    dispose() {
+      return (disposal.promise ??= new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()))
+        server.closeAllConnections()
+      }))
+    },
+  })
 }
