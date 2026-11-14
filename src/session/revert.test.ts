@@ -1,11 +1,20 @@
-import { afterEach, beforeEach, expect, test } from "bun:test"
+import { afterEach, beforeEach, expect, jest, test } from "bun:test"
 import { OpenCode, type SessionInfo, type SessionMessageInfo } from "@opencode/client/promise"
 import { prompt } from "@/composer/persistence-singleton"
 import { currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
-import { createSessionRevert } from "./revert"
+import { createComputed, createRoot } from "solid-js"
+import { REVERT_TIMEOUT_MS } from "./revert-machine"
+import { createSessionRevert as createRevert } from "./revert"
 import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 
 browserSuite(import.meta.path, () => {
+  const disposers: VoidFunction[] = []
+  function createSessionRevert(input: Parameters<typeof createRevert>[0] = {}) {
+    return createRoot((dispose) => {
+      disposers.push(dispose)
+      return createRevert(input)
+    })
+  }
   const messages = (): SessionMessageInfo[] => [
     { id: "msg_1", type: "user", text: "first prompt", time: { created: 1 } },
     {
@@ -89,6 +98,8 @@ browserSuite(import.meta.path, () => {
   })
 
   afterEach(() => {
+    disposers.splice(0).forEach((dispose) => dispose())
+    jest.useRealTimers()
     setSessionClient(undefined)
     setState({ session: undefined, sessionMessages: [], error: "", messagesLoading: false, submitting: false })
     prompt.reset()
@@ -288,5 +299,109 @@ browserSuite(import.meta.path, () => {
     await revert.undo()
     setState("session", "revert", { messageID: "msg_1" })
     expect(original).toEqual({ messageID: "msg_3", files: [] })
+  })
+  test("the deadline settles a stalled mutation and rejects its late result during retry", async () => {
+    const responses = [Promise.withResolvers<Response>(), Promise.withResolvers<Response>()]
+    let calls = 0
+    const api = mockClient((request) =>
+      request.method === "POST" ? responses[calls++].promise : Promise.resolve(undefined),
+    )
+    await connect(api.client)
+    const revert = createSessionRevert()
+    prompt.set("keep")
+    jest.useFakeTimers()
+    const pending = revert.undo()
+    jest.advanceTimersByTime(REVERT_TIMEOUT_MS)
+    await pending
+    expect(revert.busy()).toBe(false)
+    expect(state.error).toContain("too long")
+    expect(prompt.current()).toBe("keep")
+    jest.useRealTimers()
+    // Reconciliation is a read, and a retry remains an explicit user action.
+    await Bun.sleep(0)
+    const retry = revert.undo()
+    expect(revert.busy()).toBe(true)
+    responses[0].resolve(Response.json({ data: { messageID: "msg_1" } }))
+    await Bun.sleep(0)
+    expect(revert.busy()).toBe(true)
+    expect(state.session?.revert).toBeUndefined()
+    expect(prompt.current()).toBe("keep")
+    responses[1].resolve(Response.json({ data: { messageID: "msg_3" } }))
+    await retry
+    expect(state.session?.revert).toEqual({ messageID: "msg_3" })
+    expect(revert.busy()).toBe(false)
+  })
+
+  test("a deadline during history refresh preserves the committed boundary and shared loading owner", async () => {
+    const response = Promise.withResolvers<Response>()
+    const api = mockClient((request) => (request.method === "GET" ? response.promise : Promise.resolve(undefined)))
+    await connect(api.client)
+    const revert = createSessionRevert()
+    jest.useFakeTimers()
+    const pending = revert.undo()
+    // Let the mutation finish and the shared refresh start before its deadline.
+    for (let i = 0; i < 30 && !state.session?.revert; i++) await Promise.resolve()
+    expect(state.session?.revert).toEqual({ messageID: "msg_3" })
+    expect(prompt.current()).toBe("second prompt")
+    expect(state.messagesLoading).toBe(true)
+    jest.advanceTimersByTime(REVERT_TIMEOUT_MS)
+    await pending
+    expect(revert.busy()).toBe(false)
+    expect(state.messagesLoading).toBe(true)
+    expect(state.session?.revert).toEqual({ messageID: "msg_3" })
+    expect(prompt.current()).toBe("second prompt")
+    jest.useRealTimers()
+    response.resolve(new Response("Unavailable", { status: 503 }))
+    await Bun.sleep(0)
+    expect(state.messagesLoading).toBe(false)
+    expect(state.session?.revert).toEqual({ messageID: "msg_3" })
+  })
+
+  test.each(["switch", "dispose"] as const)(
+    "%s settles the old caller before its transport finishes",
+    async (reason) => {
+      const response = Promise.withResolvers<Response>()
+      await connect(mockClient(() => response.promise).client)
+      const revert = createSessionRevert()
+      const pending = revert.undo()
+      if (reason === "dispose") disposers.at(-1)!()
+      else await connect(mockClient().client)
+      await pending
+      expect(revert.busy()).toBe(false)
+      prompt.set("new draft")
+      const next = reason === "switch" ? revert.undo() : undefined
+      await next
+      const boundary = state.session?.revert?.messageID
+      response.resolve(Response.json({ data: { messageID: "msg_1" } }))
+      await Bun.sleep(0)
+      expect(state.session?.revert?.messageID).toBe(boundary)
+      expect(state.error).toBe("")
+    },
+  )
+  test("disposal while clearing an error prevents a history mutation from being sent", async () => {
+    let calls = 0
+    const client = mockClient().client
+    client.session.revert.stage = async () => {
+      calls++
+      return { messageID: "msg_3" }
+    }
+    await connect(client)
+    setState("error", "previous error")
+    const revert = createSessionRevert()
+    const disposeRevert = disposers.at(-1)!
+    const stop = createRoot((dispose) => {
+      createComputed(() => {
+        if (!state.error) disposeRevert()
+      })
+      return dispose
+    })
+    try {
+      await revert.undo()
+      expect(calls).toBe(0)
+      expect(revert.busy()).toBe(false)
+      expect(state.session?.revert).toBeUndefined()
+    } finally {
+      stop()
+    }
   })
 })

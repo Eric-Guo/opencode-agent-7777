@@ -547,12 +547,25 @@ The editor owns caret reveal, popup sizing and focus restoration. The attachment
 nested scroll ownership. Only the timeline keeps
 `ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 
-Queued-prompt undo follows the main app's `session/composer/{queue,queue-panel,controller}` boundaries.
+Queued-prompt undo follows the main app's `session/composer/{queue,queue-machine,queue-panel,controller}` boundaries.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
 boundary; the queue controller retains cancellation, draft merging, and activation guards. This shared local
 restoration helper intentionally replaces the main app's separate queue conversion. Hidden context without a
 mention and malformed queued mention ranges stay queued because the compact draft cannot preserve them.
+The local queue machine owns the operation and attempt; its driver listens to the originating runtime's events.
+Undo restores once after HTTP success or an explicit cancellation event. A delivered event settles without restoring,
+and a missing inbox row alone cannot confirm cancellation. Queue writes retain the transport's 60-second header
+limit. Failures schedule the existing runtime refresh without replaying mutations. Session changes or disposal
+settle the old caller and detach its listener; late responses cannot modify another activation or its draft.
+
+History actions follow `session/{revert,revert-machine}.ts`. One signal holds the local machine's immutable snapshot,
+including whether the mutation is awaiting confirmation or has committed and is refreshing history. Its 30-second
+bound settles callers even if a transport ignores cancellation. Timeout or failure before confirmation reconciles
+through existing session and history reads; neither automatically repeats the write. A confirmed boundary and
+restored draft survive refresh failure or timeout. Shared history loading keeps its own ownership and guards.
+Switching sessions, including reactivating the same ID, releases action-owned controls and rejects stale effects.
+The compact loaded-history navigation and draft-change checks remain local; no routed prompt cache is introduced.
 
 `composer/prompt.ts` also owns conversion between the compact persisted draft and editor parts, following the main
 app's prompt-conversion boundary. Draft restoration and attachment insertion share one attachment conversion;
@@ -600,7 +613,7 @@ Attachment IDs now use the public `@opencode/util/uuid` helper, including its in
 The duplicate local helper and unit tests are removed; `packages/util/src/uuid.test.ts` owns UUID behavior,
 and `composer/attachments/attachments.test.ts` retains coverage of attachment insertion without `randomUUID`.
 
-Session JSON export follows `session/commands/{export,use-session-commands}` and
+Session JSON export follows `session/commands/{export,export-machine,export-session,use-session-commands}` and
 `composer/client-slash-command.ts`. The public client's `session.export` transfer API supplies the complete saved
 transcript, independently of the compact timeline's nine-dialog window. The browser download uses the native
 `{ info, messages }` transfer shape with pretty JSON and a safe title-based filename (falling back to the session ID).
@@ -608,6 +621,12 @@ The shared UI toast reports preparation, download initiation or failure; concurr
 until the current one finishes. Local `/export` takes precedence over a same-named server command and never submits
 a prompt or changes model/session settings. Inline execution preserves attachments; choosing it from the Add menu
 preserves the existing draft and mentions. It needs no app imports, host command provider or native save dialog.
+The local exporter captures its session and continues across navigation. Its machine bounds fetch and response
+decoding to 60 seconds, then reports failure and allows another export. Timeout or owner disposal dismisses the
+loading toast, aborts the read and rejects late download effects; disposal is silent. The command hook only delegates
+to this driver. Notifications use the active language provider, including hosts without preference storage;
+missing locale keys retain the existing English fallback. Disposal during synchronous state or notification updates
+settles the caller, prevents unsent requests and suppresses completion notifications.
 
 `composer/request.ts` derives transport fields from the public client's `SessionPromptInput`; prompt and slash-command
 submission pass through that single payload builder. `composer/adapter.ts` reuses `SessionInboxDelivery` for queue/steer.

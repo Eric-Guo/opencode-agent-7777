@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test } from "bun:test"
-import { OpenCode, type SessionInfo } from "@opencode/client/promise"
+import { OpenCode, type OpenCodeEvent, type SessionInfo } from "@opencode/client/promise"
+import { createComputed, createRoot } from "solid-js"
 import { Skill } from "@opencode/schema/skill"
 import { Schema } from "effect"
 import { currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
@@ -10,18 +11,23 @@ import { createSessionQueue, queuedPromptUndoDraft, type QueuedPrompt } from "./
 import { browserSuite } from "@/runtime/server/runtime.test-fixture"
 
 browserSuite(import.meta.path, () => {
+  const disposers: VoidFunction[] = []
+
   function connect(client: Parameters<typeof setSessionClient>[0]) {
     setSessionClient(client)
     if (client) currentRuntime()!.updatePending(() => [item()])
   }
 
   function makeQueue(input: Partial<Parameters<typeof createSessionQueue>[0]> = {}) {
-    return createSessionQueue({
-      draft: createPromptState(),
-      restoreFocus: () => {},
-      working: () => true,
-      disabled: () => false,
-      ...input,
+    return createRoot((dispose) => {
+      disposers.push(dispose)
+      return createSessionQueue({
+        draft: createPromptState(),
+        restoreFocus: () => {},
+        working: () => true,
+        disabled: () => false,
+        ...input,
+      })
     })
   }
 
@@ -46,6 +52,7 @@ browserSuite(import.meta.path, () => {
   })
 
   afterEach(() => {
+    disposers.splice(0).forEach((dispose) => dispose())
     connect(undefined)
     setState({ session: undefined, error: "" })
   })
@@ -449,5 +456,111 @@ browserSuite(import.meta.path, () => {
     expect(draft.capture()).toEqual({ prompt: "new activation draft", attachments: [] })
     expect(queue.count()).toBe(1)
     expect(queue.undoing()).toBe(false)
+  })
+  test.each(["cancelled", "delivered"] as const)("Undo settles on an inbox %s event before HTTP", async (outcome) => {
+    const response = Promise.withResolvers<Response>()
+    connect(
+      OpenCode.make({
+        baseUrl: "http://fixture.local",
+        fetch: (async (_input, _init) => response.promise) as typeof fetch,
+      }),
+    )
+    const draft = createPromptState({ prompt: "keep", attachments: [] })
+    const queue = makeQueue({ draft })
+    const pending = queue.undo("queued")
+    // An absent row is not confirmation of cancellation.
+    currentRuntime()!.updatePending(() => [])
+    expect(queue.undoing()).toBe(true)
+    expect(draft.current()).toBe("keep")
+    const event = {
+      id: "evt_cancel",
+      created: 1,
+      type: `session.inbox.${outcome}`,
+      data: { sessionID: "session", inboxID: "queued" },
+      location: { directory: "/repo" },
+      durable: { aggregateID: "session", seq: 1, version: 1 },
+    } as OpenCodeEvent
+    currentRuntime()!.apply(event)
+    await pending
+    expect(queue.busy()).toBe(false)
+    expect(draft.current()).toBe(outcome === "cancelled" ? "keep\n\nlater" : "keep")
+    response.resolve(new Response(null, { status: 204 }))
+    await Bun.sleep(0)
+    expect(draft.current()).toBe(outcome === "cancelled" ? "keep\n\nlater" : "keep")
+  })
+
+  test.each([false, true])(
+    "an old completion cannot release the next activation's action (failure: %s)",
+    async (failed) => {
+      const old = Promise.withResolvers<Response>()
+      const next = Promise.withResolvers<Response>()
+      const client = (response: typeof old) =>
+        OpenCode.make({
+          baseUrl: "http://fixture.local",
+          fetch: (async (_input, _init) => response.promise) as typeof fetch,
+        })
+      connect(client(old))
+      const queue = makeQueue()
+      const first = queue.remove("queued")
+      connect(client(next))
+      await first
+      expect(queue.busy()).toBe(false)
+      const second = queue.remove("queued")
+      old.resolve(new Response(null, { status: failed ? 503 : 204 }))
+      await Bun.sleep(0)
+      expect(queue.busy()).toBe(true)
+      expect(queue.count()).toBe(1)
+      expect(state.error).toBe("")
+      next.resolve(new Response(null, { status: 204 }))
+      await second
+      expect(queue.busy()).toBe(false)
+      expect(queue.count()).toBe(0)
+    },
+  )
+
+  test("disposal settles Undo without restoring a late cancellation", async () => {
+    const response = Promise.withResolvers<Response>()
+    connect(
+      OpenCode.make({
+        baseUrl: "http://fixture.local",
+        fetch: (async (_input, _init) => response.promise) as typeof fetch,
+      }),
+    )
+    const draft = createPromptState({ prompt: "keep", attachments: [] })
+    const queue = makeQueue({ draft })
+    const pending = queue.undo("queued")
+    disposers.at(-1)!()
+    await pending
+    response.resolve(new Response(null, { status: 204 }))
+    await Bun.sleep(0)
+    expect(draft.current()).toBe("keep")
+    expect(queue.busy()).toBe(false)
+    await queue.remove("queued")
+    expect(queue.count()).toBe(1)
+  })
+  test("disposal while clearing an error prevents the cancellation from being sent", async () => {
+    let calls = 0
+    const client = OpenCode.make({ baseUrl: "http://fixture.local" })
+    client.session.inbox.cancel = async () => {
+      calls++
+    }
+    connect(client)
+    setState("error", "previous error")
+    const queue = makeQueue()
+    const disposeQueue = disposers.at(-1)!
+    const stop = createRoot((dispose) => {
+      createComputed(() => {
+        if (!state.error) disposeQueue()
+      })
+      return dispose
+    })
+    try {
+      await queue.undo("queued")
+      expect(calls).toBe(0)
+      expect(queue.busy()).toBe(false)
+      expect(queue.count()).toBe(1)
+    } finally {
+      stop()
+    }
   })
 })

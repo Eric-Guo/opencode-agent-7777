@@ -5,9 +5,10 @@ export type SessionExportData = SessionExportOutput
 export function fetchSessionExport(input: {
   sessionID: string
   api: { session: Pick<OpenCodeClient["session"], "export"> }
+  signal?: AbortSignal
 }) {
   // The public transfer API owns the complete transcript, independent of the visible dialog window.
-  return input.api.session.export({ sessionID: input.sessionID })
+  return input.api.session.export({ sessionID: input.sessionID }, input.signal ? { signal: input.signal } : undefined)
 }
 
 export function sessionExportFilename(session: { id: string; title?: string; slug?: string }) {

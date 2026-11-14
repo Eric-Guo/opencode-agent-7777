@@ -67,6 +67,19 @@ search, 12-row paging, exact-ID lookup and retry behavior. No shared query cache
 Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
 30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
 results after a timeout, source change or close. The model still uses the existing activation and event stream.
+Queue actions and history undo/redo now follow local `session/composer/queue-machine.ts` and
+`session/revert-machine.ts` boundaries. Their drivers own requests and subscriptions; one immutable signal snapshot
+owns each lifecycle and attempt. Switching or reactivating a session settles the old caller and releases its UI
+ownership. Queue Undo requires HTTP success or an explicit cancellation event before merging the latest draft;
+delivery and missing rows cannot restore it. Queue writes keep the existing transport deadline. History actions have
+a 30-second bound; confirmed boundaries and restored drafts survive stalled or failed history refreshes, whose
+shared loading state remains independently owned. Uncertain outcomes trigger existing reads, without write retries.
+JSON export follows local `session/commands/{export-machine,export-session}` boundaries. The exporter keeps
+its original target across navigation and serializes requests. A 60-second deadline covers fetch and decoding;
+timeout or disposal dismisses loading, aborts the read and rejects late downloads. Notifications follow the active
+language provider. Synchronous disposal prevents unsent requests and suppresses remaining completion effects.
+No shared exports or app-source dependencies are added. Machine tests and the existing queue/revert/transfer suites
+cover these contracts alongside the local export-driver suite.
 
 ## Remaining compact responsibilities
 

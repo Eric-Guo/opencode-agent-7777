@@ -1,4 +1,7 @@
 export const dict = {
+  "session.revert.timeout":
+    "The server took too long to finish the history action. Check the current history before trying again.",
+  "toast.session.export.timeout": "The server took too long to prepare the export. Try again.",
   "review.title": "Review turn changes",
   "review.description": "File changes recorded for the latest turn in this session.",
   "review.refresh": "Refresh changes",
