@@ -68,3 +68,19 @@ test("a prepared Human reply cannot change delivery, target, model intent or app
     expect(() => openReply("member", "scope", chat, { ...input, ...change }, ticket)).toThrow()
   }
 })
+
+test("a sealed reply keeps the accepted Preset declaration after configuration changes", () => {
+  const input = { ...submission, model: null }
+  const declaration = { default_model: "provider/original", system_prompt: { content: "Original instructions" }, fallback_models: [] }
+  const ticket = sealReply("member", "scope", chat, input, {
+    ...modelFields(null, "provider/original", []), agent_configuration: declaration,
+  })
+
+  declaration.system_prompt.content = "Changed instructions"
+  declaration.default_model = "provider/changed"
+  const restored = openReply("member", "scope", chat, input, ticket)
+
+  expect(restored.agent_configuration).toMatchObject({ default_model: "provider/original", system_prompt: { content: "Original instructions" } })
+  expect(restored.model).toEqual({ model: "provider/original" })
+  expect(restored.fallback_models).toEqual([])
+})

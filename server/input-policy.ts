@@ -25,7 +25,12 @@ export async function updateModes(b: Backend, id: string, patch: Partial<ModeVal
 }
 export async function inputPolicy(b: Backend, id: string) {
   const policy = await b.native.policy({ workspace: b.workspaceID, conversation: id })
-  if (!policy.runner || !policy.directory) return { tool_names: [...policy.tools] }
+  const execution = {
+    ...(policy.agent_configuration ? { agent_configuration: policy.agent_configuration } : {}),
+    ...(policy.model ? { model: { model: policy.model } } : {}),
+    ...(policy.fallback_models ? { fallback_models: [...policy.fallback_models] } : {}),
+  }
+  if (!policy.runner || !policy.directory) return { ...execution, tool_names: [...policy.tools] }
   const context: JsonObject =
     policy.runner === b.localRunner
       ? { "opencode.directory": policy.directory }
@@ -33,5 +38,5 @@ export async function inputPolicy(b: Backend, id: string) {
           "rho.environment": { root: policy.directory, directories: [], anchor: id },
           "opencode.directory": policy.directory,
         }
-  return { tool_names: [...policy.tools], executor_contexts: { [policy.runner]: context } }
+  return { ...execution, tool_names: [...policy.tools], executor_contexts: { [policy.runner]: context } }
 }

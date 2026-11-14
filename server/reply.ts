@@ -5,7 +5,7 @@ import { BridgeError } from "./nexus"
 type RunnerChat = Pick<Conversation, "public_id" | "default_runner">
 type ReplyContext = Pick<
   CreateInput,
-  "tool_names" | "executor_contexts" | "inline" | "model" | "model_selection" | "fallback_models"
+  "tool_names" | "executor_contexts" | "inline" | "model" | "model_selection" | "fallback_models" | "agent_configuration"
 >
 export function modelFields(explicit: string | null, configured: string, fallbacks: string[]): ReplyContext {
   const model = explicit || configured
