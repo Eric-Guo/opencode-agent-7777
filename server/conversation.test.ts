@@ -6,7 +6,13 @@ import type { Backend } from "./nexus"
 
 async function bridge(b: Backend) {
   const handle = middleware(
-    () => ({ token: "test" }),
+    () => ({
+      token: "test",
+      native: {
+        origin: "https://nexus.example",
+        connection: async () => ({ url: "http://127.0.0.1", password: "test" }),
+      },
+    }),
     async () => b,
   )
   const server = createServer((req, res) => void handle(req, res, () => res.end()))
@@ -130,16 +136,11 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
   }
 })
 
-test("only the paired service’s prepared tools and contexts reach the Human SDK, including on receipt replay", async () => {
+test("the bridge prepares and submits through runtime admission with Human authority and no client tool policy", async () => {
   let access = "full",
     owned = false
-  let policy = {
-    tools: [] as string[],
-    directory: "/original" as string | null, runner: "runner" as string | null,
-  }
-  const preparations: unknown[] = [],
-    patches: unknown[] = [],
-    inputs: { fields: any; key: string }[] = []
+  const commands: unknown[] = [],
+    patches: unknown[] = []
   const info = (id: string) => ({
     public_id: id,
     workspace_public_id: "w",
@@ -159,17 +160,17 @@ test("only the paired service’s prepared tools and contexts reach the Human SD
     workspace: {
       conversation: (id: string) => ({
         fetch: async () => info(id),
-        inputs: {
-          create: (fields: unknown, options: { idempotencyKey: string }) => {
-            inputs.push({ fields, key: options.idempotencyKey })
-            return { input: { public_id: "receipt" } }
-          },
-        },
       }),
     },
     native: {
-      policy(input: unknown) { preparations.push(input); return policy },
-      modes(input: unknown) { patches.push(input); return { code_mode: false, subagent: true } },
+      manage: async (input: { payload: { action: string } }) => {
+        commands.push(input)
+        return input.payload.action === "application.prepare" ? null : { input: { public_id: "receipt" } }
+      },
+      modes(input: unknown) {
+        patches.push(input)
+        return { code_mode: false, subagent: true }
+      },
     },
   } as unknown as Backend
   const { send, close } = await bridge(backend)
@@ -180,27 +181,42 @@ test("only the paired service’s prepared tools and contexts reach the Human SD
     const { ticket } = await r.json()
     expect((await send("/chats/a/modes", { subagent: true })).status).toBe(200)
     expect(patches).toEqual([{ conversation: "a", workspace: "w", patch: { subagent: true } }])
-    policy = { tools: ["code", "spawn"], directory: null, runner: null }
     for (let i = 0; i < 2; i++) expect((await send("/chats/a/inputs", { ...body, ticket })).status).toBe(202)
-    expect(inputs).toHaveLength(2)
-    expect(inputs[0]).toEqual(inputs[1])
-    expect(inputs[0]).toMatchObject({
-      key: "one",
-      fields: {
-        kind: "direct_reply",
+    expect(commands).toHaveLength(3)
+    expect(commands[1]).toEqual(commands[2])
+    expect(commands[0]).toEqual({
+      "x-nexus-origin": "https://nexus.example",
+      "x-nexus-member-token": "test",
+      payload: {
+        action: "application.prepare",
+        key: "one",
+        workspace: "w",
+        conversation: "a",
         text: "hello",
-        tool_names: [],
-        executor_contexts: { runner: { "opencode.directory": "/original" } },
+        model: undefined,
+        approval: "ask",
+        delivery: undefined,
+        target: undefined,
       },
     })
-    expect(inputs[0].fields).not.toHaveProperty("speaker_public_id")
-    expect(preparations).toEqual([{ conversation: "a", workspace: "w" }])
+    expect(commands[1]).toEqual({
+      ...(commands[0] as object),
+      payload: {
+        action: "application.submit",
+        key: "one",
+        workspace: "w",
+        conversation: "a",
+        text: "hello",
+        model: undefined,
+        approval: "ask",
+        delivery: undefined,
+        target: undefined,
+      },
+    })
     expect((await send("/chats/b/inputs", { ...body, ticket })).status).toBe(409)
     const next = { ...body, key: "two" }
     const nextTicket = await (await send("/chats/a/prepare", next)).json()
     expect((await send("/chats/a/inputs", { ...next, ...nextTicket })).status).toBe(202)
-    expect(inputs[2].fields.tool_names).toEqual(["code", "spawn"])
-    expect(inputs[2].fields).not.toHaveProperty("executor_contexts")
     expect((await send("/chats/a/modes", { tool_names: [] })).status).toBe(400)
     for (const level of ["read", "none", "full"]) {
       access = level
@@ -209,7 +225,7 @@ test("only the paired service’s prepared tools and contexts reach the Human SD
       expect((await send("/chats/a/prepare", body)).status).toBe(403)
     }
     expect(patches).toHaveLength(1)
-    expect(inputs).toHaveLength(3)
+    expect(commands).toHaveLength(5)
   } finally {
     await close()
   }
