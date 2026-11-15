@@ -168,7 +168,9 @@ export function Bots(props: {
                 </Button>
               </Show>
               <Button
-                disabled={c.state.busy}
+                disabled={
+                  c.state.busy || !s.workspaces.some((row) => row.public_id === bot.settings.home_workspace_public_id)
+                }
                 onClick={() =>
                   void c.perform(async () => {
                     const result = await c.command<{ selected: { public_id: string; workspace_public_id: string } }>({
@@ -363,7 +365,11 @@ export function Bots(props: {
             <textarea required value={s.description} onInput={(e) => set("description", e.currentTarget.value)} />
           </FieldRow>
           <FieldRow label="Audience">
-            <select value={s.audience} onChange={(e) => set("audience", e.currentTarget.value as typeof s.audience)}>
+            <select
+              disabled={s.rows.find((row) => row.public_id === s.id)?.settings.audience === "external"}
+              value={s.audience}
+              onChange={(e) => set("audience", e.currentTarget.value as typeof s.audience)}
+            >
               <option value="owner">Personal</option>
               <option value="external">External</option>
             </select>
@@ -382,6 +388,11 @@ export function Bots(props: {
           <FieldRow label="Home Workspace">
             <select value={s.home} onChange={(e) => set("home", e.currentTarget.value)}>
               <option value="">No home; disable new conversations</option>
+              <Show when={s.home && !s.workspaces.some((row) => row.public_id === s.home)}>
+                <option value={s.home} selected>
+                  {s.home} (unavailable)
+                </option>
+              </Show>
               <For each={s.workspaces}>
                 {(space) => (
                   <option value={space.public_id} selected={s.home === space.public_id}>

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test"
-import { createChatController, type request } from "./controller"
+import { createChatController, RequestError, type request } from "./controller"
 import type { Connection, Snapshot } from "./chat"
 import { timeline } from "./timeline"
 
@@ -288,3 +288,97 @@ for (const changed of [false, true]) {
     },
   )
 }
+
+test("conversation write access gates sends and Stop while archived and owned views retain their own controls", async () => {
+  const access = { writable: false, archived: false, owned: false }
+  const writes: string[] = []
+
+  const { controller: c } = fixture(async (path, body) => {
+    if (body !== undefined) writes.push(path)
+
+    return {
+      ...empty(),
+      detail: { title: "Shared", runner: "runner", version: 0, active: null, ...access },
+    }
+  })
+
+  try {
+    await c.connect()
+    c.select("shared")
+    await c.refresh()
+    c.edit("Retained draft")
+    expect(c.writable()).toBe(false)
+    expect(c.manageable()).toBe(false)
+    expect(c.stoppable()).toBe(false)
+    await c.send()
+    await c.stop()
+    expect(writes).toEqual([])
+    expect(c.s.draft).toBe("Retained draft")
+
+    access.writable = true
+    access.archived = true
+    await c.refresh()
+    expect(c.writable()).toBe(false)
+    expect(c.manageable()).toBe(true)
+    expect(c.stoppable()).toBe(true)
+
+    access.archived = false
+    access.owned = true
+    await c.refresh()
+    expect(c.writable()).toBe(false)
+    expect(c.manageable()).toBe(false)
+    expect(c.stoppable()).toBe(true)
+
+    access.owned = false
+    await c.refresh()
+    expect(c.writable()).toBe(true)
+  } finally {
+    c.close()
+  }
+})
+
+test.each([401, 403, 404])(
+  "an authoritative %i closes the feed and prevents an uncertain send from bypassing lost access",
+  async (status) => {
+    const state: { refusal?: RequestError } = {}
+    const writes: string[] = []
+
+    const { controller: c, sources } = fixture(async (path, body) => {
+      if (body !== undefined) {
+        writes.push(path)
+        throw new Error("Preparation unavailable")
+      }
+
+      if (state.refusal) throw state.refusal
+
+      return { ...empty(), detail: { writable: true } }
+    })
+
+    try {
+      await c.connect()
+      c.select("shared")
+      await c.refresh()
+      c.edit("Retained uncertain send")
+      await c.send()
+      expect(c.s.prepared).toBe(true)
+      expect(writes).toEqual(["/chats/shared/prepare"])
+      state.refusal = new RequestError(status, "Access ended")
+      sources[0].onerror?.()
+      await c.refresh()
+      expect(c.writable()).toBe(false)
+      expect(c.manageable()).toBe(false)
+      expect(c.stoppable()).toBe(false)
+      expect(sources[0].closed).toBe(true)
+      await c.send()
+      await c.command("rename", { title: "Blocked" })
+      await c.stop()
+      expect(writes).toEqual(["/chats/shared/prepare"])
+      expect(c.s.draft).toBe("Retained uncertain send")
+      state.refusal = undefined
+      await c.refresh()
+      expect(c.writable()).toBe(true)
+    } finally {
+      c.close()
+    }
+  },
+)

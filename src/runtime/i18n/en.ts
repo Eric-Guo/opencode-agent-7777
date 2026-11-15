@@ -29,6 +29,7 @@ export const dict = {
   "chat.prepared": "Retry to use the original send settings. Edit the draft to start a different request.",
   "chat.active": "Active",
   "chat.archived": "Archived",
+  "chat.readOnly": "This conversation is read-only.",
   "chat.archive": "Archive",
   "chat.restore": "Restore",
   "chat.rename": "Rename",

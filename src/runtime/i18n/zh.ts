@@ -32,6 +32,7 @@ export const dict = {
   "chat.prepared": "重试将使用原始发送设置。编辑草稿可发起不同的请求。",
   "chat.active": "活跃",
   "chat.archived": "已归档",
+  "chat.readOnly": "此会话为只读。",
   "chat.archive": "归档",
   "chat.restore": "恢复",
   "chat.rename": "重命名",

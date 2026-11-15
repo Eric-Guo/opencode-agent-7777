@@ -52,17 +52,21 @@ export function ConversationActions(p: { chat: ChatController }) {
                     <input
                       class="chat-field"
                       maxlength={512}
+                      disabled={!c.manageable() || c.s.sending}
                       value={name()}
                       onInput={(e) => set(e.currentTarget.value)}
                     />
                   </label>
                   <div class="chat-row">
-                    <Button type="submit" disabled={!name().trim() || name() === original || c.s.sending}>
+                    <Button
+                      type="submit"
+                      disabled={!c.manageable() || !name().trim() || name() === original || c.s.sending}
+                    >
                       {lang.t("chat.rename")}
                     </Button>
                     <Button
                       type="button"
-                      disabled={c.s.sending}
+                      disabled={!c.manageable() || c.s.sending}
                       onClick={async () => {
                         if (await c.command(c.s.snapshot.detail?.archived ? "restore" : "archive", {})) dialog.close()
                       }}

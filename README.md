@@ -71,6 +71,7 @@ service does not provide newer management commands; use a matching development b
 
 - Workspace, conversation, Bot, plugin and management links are kept in the URL fragment. Reload, Back and Forward restore that view; the embedding host's path and query stay intact. The current workspace is remembered in this browser. A new workspace opens immediately without changing the service default. Leaving the page closes its streams; returning from the back/forward cache reconnects the same conversation.
 - **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
+- Human read-only access disables sending, conversation edits and execution controls. Losing access closes the live stream and disables further writes while retaining the unsent draft. Restoring an archived conversation remains available to a Human with full access.
 - The new-chat draft and each conversation’s draft, send choices and uncertain submission receipt are stored separately under the Nexus origin, Human, workspace and answering agent. Switching chats or reloading never resubmits a message. A deliberate retry uses the original input and mutation keys.
 - **Run settings** selects a runner for a new chat, the configured answering model or an explicit model, and a permission policy. During a reply, Enter steers by default; choose **Queue after reply** for separate work. Ctrl/Cmd+Enter sends an immediate steer, or promotes the latest waiting steer when the editor is empty. The pending label follows the delivery mode Nexus accepted.
 - The timeline initially shows the latest **nine** user dialogs. **Load earlier messages** expands that window; a refresh preserves the loaded pages. Streamed text and reasoning follow their answer variant. A background receipt or context summary is a disclosure, not another user dialog. Reconnecting reads the durable history and pending work again.
@@ -279,7 +280,9 @@ conversations and scheduled executions keep their original placement.
 
 - **Bots** manages audience, Preset, home workspace, welcome message and current/history
   conversations. Personal current conversations accept input through the shared Bot
-  admission owner. External Bots remain controlled by their owning ingress.
+  admission owner. External Bots remain controlled by their owning ingress and keep
+  their saved audience. New conversations require an available Home Workspace;
+  unavailable saved Home Workspace selections remain visible in the editor.
 - **Presets** preserves inherited versus explicitly empty model/tool selections, imports
   and exports Markdown or JSON, chooses defaults and publishes subagent roles.
 - **Schedules** supports once, interval and daily rules, time zones, Ask/Rules/Bypass,
@@ -290,12 +293,15 @@ conversations and scheduled executions keep their original placement.
 - **Integrations** provides Telegram Connections, Bot routing/access/delivery controls,
   MCP catalogs and OAuth, and T3 service, provider-login and project setup.
 - **Settings & account** owns Human login, pairing, persona, conversation defaults and
-  memory review. **Providers** uses Nexus administrator authority for definitions,
+  memory review. Member-token connections can read defaults without a platform login;
+  persona editing requires the linked Human's platform account. Refresh connection
+  preserves the selected workspace and conversation. **Providers** uses Nexus administrator authority for definitions,
   credentials, discovery, visibility, availability and explicit model tests.
 - **Updates** checks Nexus deployment requirements and submits a checked candidate using
   an idempotency key. Progress reads never resubmit the upgrade. Host updates use OpenCode's
   existing updater. **Terminals** creates approved runner tasks and attaches to existing
-  shells, including terminal tasks in conversation activity.
+  shells, including terminal tasks in conversation activity. Conversation terminals
+  require Human write access for signaling; a viewer detaches when that access is lost.
 
 `manageModels` remains host-controlled source configuration. `BridgeConfig.allowBypass`
 can prohibit Bypass while leaving Ask and Rules available. Optional `iceServers` in the

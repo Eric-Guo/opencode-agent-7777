@@ -32,7 +32,9 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
               {data().kind} · {data().status}
             </p>
             <Show when={modules && data().name === "terminal"}>
-              <Button onClick={() => modules!.terminal({ run: p.run, task: p.task })}>Open terminal</Button>
+              <Button disabled={!p.chat.writable()} onClick={() => modules!.terminal({ run: p.run, task: p.task })}>
+                Open terminal
+              </Button>
             </Show>
             <Show when={modules}>
               <SlotView
@@ -221,7 +223,7 @@ export function Activity(p: { chat: ChatController }) {
         {(runs) => (
           <>
             <Show when={c.s.snapshot.busy || runs().length}>
-              <Button disabled={c.s.sending || !c.s.hydrated} onClick={() => void c.stop()}>
+              <Button disabled={c.s.sending || !c.stoppable()} onClick={() => void c.stop()}>
                 {lang.t("chat.stopAll")}
               </Button>
             </Show>

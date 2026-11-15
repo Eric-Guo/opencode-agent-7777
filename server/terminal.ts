@@ -1,5 +1,5 @@
 import { Schema } from "effect"
-import { BridgeError, readChat, type Backend } from "./nexus"
+import { BridgeError, canWrite, channelOwned, readChat, type Backend } from "./nexus"
 
 const Action = Schema.Union([
   Schema.Struct({ action: Schema.Literal("create"), runner: Schema.NonEmptyString, key: Schema.NonEmptyString }),
@@ -56,19 +56,26 @@ export async function terminal(b: Backend, value?: unknown, after?: string) {
   if (info.workspace_public_id != null && info.workspace_public_id !== b.workspaceID)
     throw new BridgeError(404, "Unknown terminal workspace.")
 
-  if (info.turn?.conversation_public_id) await readChat(b, info.turn.conversation_public_id)
+  const conversation = info.turn?.conversation_public_id
+    ? (await readChat(b, info.turn.conversation_public_id)).info
+    : undefined
+
+  const writable =
+    b.workspaceActive && (!conversation || (canWrite(b, conversation) && !(await channelOwned(b, conversation))))
 
   if (!info.tasks.some((task) => task.key === command.task && task.tool_name === "terminal"))
     throw new BridgeError(404, "Unknown terminal task.")
   const task = run.task(command.task)
 
-  if (command.action === "read") return task.fetch()
+  if (command.action === "read") return { ...(await task.fetch()), writable }
 
   if (command.action === "approve") return task.approve()
 
   if (command.action === "stop") return info.turn?.conversation_public_id ? task.cancel() : run.stop(true)
 
   // Nexus binds signaling to the application owner's member credential.
+  if (!writable) throw new BridgeError(403, "Write access is required to control this terminal.")
+
   return b.native.manage({
     payload: {
       action: "application.operation",

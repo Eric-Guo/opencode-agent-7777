@@ -85,6 +85,7 @@ export function createChatController(
     approval: "ask" as Approval,
     revision: 0,
     hydrated: false,
+    accessDenied: false,
     id: "",
     draft: "",
     snapshot: empty(),
@@ -179,11 +180,19 @@ export function createChatController(
             data.expanded = true
           }
           set("snapshot", reconcile(data, { key: "id" }))
-          set("hydrated", true)
+          set({ hydrated: true, accessDenied: false })
           set("revision", (n) => n + 1)
         } while (dirty)
       } catch (err) {
-        if (owner === version) fail(err)
+        if (owner === version) {
+          if (err instanceof RequestError && [401, 403, 404].includes(err.status)) {
+            set({ hydrated: false, accessDenied: true, connected: false })
+            source?.close()
+            source = undefined
+          }
+
+          fail(err)
+        }
       } finally {
         if (owner === version) refreshJob = undefined
       }
@@ -199,6 +208,7 @@ export function createChatController(
       savedModes: undefined,
       id,
       hydrated: !id,
+      accessDenied: false,
       snapshot: empty(),
       connected: false,
       streamError: "",
@@ -238,7 +248,10 @@ export function createChatController(
       }, 45)
     })
     events.onerror = () => {
-      if (owner === version) set({ connected: false, streamError: "Live connection interrupted. Reconnecting…" })
+      if (owner === version) {
+        set({ connected: false, streamError: "Live connection interrupted. Reconnecting…" })
+        void refresh()
+      }
     }
     void refresh()
   }
@@ -310,8 +323,18 @@ export function createChatController(
     set({ draft: text, prepared: false })
     persist()
   }
-  const writable = () =>
-    !!s.connection && (!s.id || s.hydrated) && !s.snapshot.detail?.archived && !s.snapshot.detail?.owned
+
+  const manageable = () =>
+    !!s.connection &&
+    !s.accessDenied &&
+    (!s.id || s.hydrated) &&
+    !s.snapshot.detail?.owned &&
+    s.snapshot.detail?.writable !== false
+
+  const writable = () => manageable() && !s.snapshot.detail?.archived
+
+  const stoppable = () =>
+    !!s.connection && !s.accessDenied && !!s.id && s.hydrated && s.snapshot.detail?.writable !== false
   const modes = () => {
     const defaults = s.choices?.modes
     if (!defaults?.available) return null
@@ -358,7 +381,8 @@ export function createChatController(
       .at(-1)
   async function send(now = false, preference = readFollowUpBehavior()) {
     const c = s.connection
-    if (!c || s.sending || (!writable() && !(attempt && !s.hydrated && s.id))) return
+
+    if (!c || s.sending || s.accessDenied || (!writable() && !(attempt && !s.hydrated && s.id))) return
     if (!s.draft.trim()) {
       const pending = latestSteer()
       if (now && pending) await command("promote", { id: pending.id, version: pending.version })
@@ -488,7 +512,7 @@ export function createChatController(
     }
   }
   async function command(action: string, body: unknown) {
-    if (!s.connection || !s.id || s.sending) return
+    if (!s.connection || !s.id || s.sending || s.accessDenied) return
     set({ sending: true, error: "" })
     try {
       const result = await api<{ notice?: string }>(path() + "/" + action, s.connection.scope, body)
@@ -514,12 +538,14 @@ export function createChatController(
     changeMode,
     loadModes,
     writable,
+    manageable,
+    stoppable,
     latestSteer,
     command,
     refresh,
     earlier,
     close: clearStream,
-    stop: () => command("stop", {}),
+    stop: () => (stoppable() ? command("stop", {}) : Promise.resolve(false)),
     decide: (run: string, key: string, response: Resolution) => command("decisions", { run, key, response }),
   }
 }
