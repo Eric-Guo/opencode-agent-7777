@@ -32,11 +32,7 @@ function nexusPlugin(): Plugin {
   return {
     name: "nexus-bridge",
     configResolved(config) {
-      env = loadEnv(config.mode, config.envDir, [
-        "NEXUS_MEMBER_TOKEN",
-        "NEXUS_URL",
-        "OPENCODE_SERVICE_FILE",
-      ])
+      env = loadEnv(config.mode, config.envDir, ["NEXUS_MEMBER_TOKEN", "NEXUS_URL", "OPENCODE_SERVICE_FILE"])
     },
     configureServer: serve,
     configurePreviewServer: serve,
@@ -49,6 +45,10 @@ export default defineConfig({
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
+  },
+  optimizeDeps: {
+    entries: ["index.html", "component-tests/*.html", "../{ui,session-ui}/src/**/*.worker.ts"],
+    include: ["@xterm/xterm"],
   },
   worker: {
     format: "es",

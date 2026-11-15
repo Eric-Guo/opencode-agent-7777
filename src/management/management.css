@@ -1,0 +1,128 @@
+.nexus-management-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 22px;
+  border-bottom: 1px solid var(--border-base);
+}
+.nexus-management {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--v2-background-bg-deep);
+  color: var(--v2-text-text-base);
+}
+.nexus-management > header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-base);
+}
+.nexus-management-body {
+  overflow: auto;
+  padding: 24px;
+  display: block;
+}
+.nexus-management-body > section {
+  max-width: 1100px;
+  margin: auto;
+}
+.nexus-management h2 {
+  font-size: 22px;
+  font-weight: 650;
+  margin-bottom: 16px;
+}
+.nexus-management h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.nexus-card {
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+  background: var(--v2-background-bg-base);
+}
+.nexus-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+.nexus-field {
+  display: grid;
+  gap: 6px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.nexus-field > span {
+  font-weight: 550;
+}
+.nexus-field small,
+.nexus-card small {
+  color: var(--v2-text-text-faint);
+}
+.nexus-management input:not([type="checkbox"]),
+.nexus-management textarea,
+.nexus-management select,
+.nexus-management-bar select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-base);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--v2-background-bg-deep);
+  color: inherit;
+}
+.nexus-management textarea {
+  resize: vertical;
+}
+.nexus-management-bar select {
+  width: auto;
+  max-width: 200px;
+}
+.nexus-management fieldset {
+  border: 1px solid var(--border-base);
+  padding: 12px;
+  margin: 12px 0;
+}
+.nexus-management legend {
+  padding: 0 5px;
+}
+.nexus-management pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  max-height: 360px;
+  overflow: auto;
+}
+.nexus-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+}
+.nexus-error {
+  color: var(--text-danger);
+  padding: 10px;
+}
+.nexus-management [hidden] {
+  display: none !important;
+}
+
+.nexus-module-dock:empty {
+  display: none;
+}
+.nexus-module-dock:not(:empty) {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 20;
+  max-width: 100%;
+  background: var(--v2-background-bg-base);
+}

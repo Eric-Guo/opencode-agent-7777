@@ -11,6 +11,7 @@ import { createComposerEditor } from "@/composer/editor/interaction"
 import { promptText, replacePromptText } from "@/composer/prompt-parts"
 import type { ComposerPersistedState } from "@/composer/types"
 import { SET_DOCUMENT_TITLE } from "@/constants/session"
+import { Management } from "@/management/shell"
 import { createChatController } from "@/nexus/controller"
 import { timeline } from "@/nexus/timeline"
 import { DecisionDock } from "@/nexus/decision"
@@ -81,102 +82,109 @@ export default function SessionPage() {
     return d ? d.run + "/" + d.key : undefined
   }
   return (
-    <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
-      <SessionHeader chat={chat} dialogCount={doc().messages.filter((message) => message.type === "user").length} />
-      <main
-        class="relative min-h-0"
-        on:pointerdown={{ capture: true, handleEvent: interaction.view.markInput }}
-        on:keydown={{ capture: true, handleEvent: interaction.view.markInput }}
-        on:click={{ capture: true, handleEvent: interaction.view.markInput }}
-        on:wheel={{ passive: true, handleEvent: interaction.view.markInput }}
-        on:focusin={interaction.view.markInput}
-      >
-        <ScrollView
-          data-slot="session-message-scroller"
-          class="h-full [&>.scroll-view__viewport]:px-6 [&>.scroll-view__viewport]:py-5"
-          viewportRef={interaction.view.setScrollRef}
-          onScroll={interaction.view.onScroll}
-          onKeyDown={interaction.view.onKeyDown}
+    <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
+      <Management chat={chat}>
+        <SessionHeader chat={chat} dialogCount={doc().messages.filter((message) => message.type === "user").length} />
+        <main
+          class="relative min-h-0"
+          on:pointerdown={{ capture: true, handleEvent: interaction.view.markInput }}
+          on:keydown={{ capture: true, handleEvent: interaction.view.markInput }}
+          on:click={{ capture: true, handleEvent: interaction.view.markInput }}
+          on:wheel={{ passive: true, handleEvent: interaction.view.markInput }}
+          on:focusin={interaction.view.markInput}
         >
-          <div ref={interaction.view.setContentRef} class="grid min-h-full">
-            <Show
-              when={doc().messages.length}
-              fallback={
-                <div class="grid place-items-center">
-                  <AgentWelcome agent={agent()} onPrompt={chat.edit} />
-                </div>
-              }
-            >
-              <SessionUIProvider
-                directory=""
-                data={{ session: [], session_status: { [s.id]: doc().status }, session_diff: {} }}
-              >
-                <ChatTranscript chat={chat} document={doc()} onPointerGesture={interaction.view.markUserScroll} />
-              </SessionUIProvider>
-            </Show>
-          </div>
-        </ScrollView>
-        <Show when={interaction.scroll.jump}>
-          <Button class="absolute bottom-2 left-1/2" onClick={interaction.actions.resume}>
-            <Icon name="arrow-down-to-line" />
-          </Button>
-        </Show>
-      </main>
-      <div>
-        <Show when={problem()}>{(message) => <ErrorBanner error={message()} />}</Show>
-        <Show when={problem() || s.connecting}>
-          <div class="mx-[22px] mb-3">
-            <Button disabled={s.sending || s.connecting} aria-busy={s.connecting} onClick={() => void reconnect()}>
-              <Show when={s.connecting}>
-                <Loader />
+          <ScrollView
+            data-slot="session-message-scroller"
+            class="h-full [&>.scroll-view__viewport]:px-6 [&>.scroll-view__viewport]:py-5"
+            viewportRef={interaction.view.setScrollRef}
+            onScroll={interaction.view.onScroll}
+            onKeyDown={interaction.view.onKeyDown}
+          >
+            <div ref={interaction.view.setContentRef} class="grid min-h-full">
+              <Show when={s.id && s.snapshot.turns.length && s.hasOlder}>
+                <Button class="justify-self-center" disabled={s.loadingHistory} onClick={() => void chat.earlier()}>
+                  Load earlier messages
+                </Button>
               </Show>
-              {language.t(s.connecting ? "nexus.connecting" : "nexus.reconnect")}
+              <Show
+                when={doc().messages.length}
+                fallback={
+                  <div class="grid place-items-center">
+                    <AgentWelcome agent={agent()} onPrompt={chat.edit} />
+                  </div>
+                }
+              >
+                <SessionUIProvider
+                  directory=""
+                  data={{ session: [], session_status: { [s.id]: doc().status }, session_diff: {} }}
+                >
+                  <ChatTranscript chat={chat} document={doc()} onPointerGesture={interaction.view.markUserScroll} />
+                </SessionUIProvider>
+              </Show>
+            </div>
+          </ScrollView>
+          <Show when={interaction.scroll.jump}>
+            <Button class="absolute bottom-2 left-1/2" onClick={interaction.actions.resume}>
+              <Icon name="arrow-down-to-line" />
             </Button>
-          </div>
-        </Show>
-      </div>
-      <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
-        <Show when={s.snapshot.detail?.owned || s.snapshot.detail?.archived}>
-          <p class="chat-hint">{language.t(s.snapshot.detail?.archived ? "chat.archivedHint" : "chat.channel")}</p>
-        </Show>
-        <Show when={s.prepared && !s.sending && chat.writable()}>
-          <p class="chat-hint">{language.t("chat.prepared")}</p>
-        </Show>
-        <Show when={s.snapshot.decisions.length > 1}>
-          <small>{language.t("chat.position", { current: 1, total: s.snapshot.decisions.length })}</small>
-        </Show>
-        <Show when={decisionID()} keyed>
-          {(_id) => {
-            const { run, key } = s.snapshot.decisions[0]
-            return (
-              <DecisionDock
-                decision={s.snapshot.decisions[0]}
-                sending={s.sending || !chat.writable()}
-                reply={(response) => void chat.decide(run, key, response)}
-              />
-            )
-          }}
-        </Show>
-        <ComposerEditor
-          controller={editor}
-          disabled={!chat.writable() || s.sending}
-          readOnly={!chat.writable() || s.sending}
-          addMenuVisible={false}
-          modelControlsVisible={false}
-          agentControl={<SendControls chat={chat} />}
-          labels={{
-            prompt: language.t("prompt.message.aria"),
-            send: language.t(
-              s.snapshot.detail?.active
-                ? settings.general.followUpBehavior() === "queue"
-                  ? "chat.queue"
-                  : "chat.steer"
-                : "prompt.send",
-            ),
-            stop: language.t("prompt.stop"),
-          }}
-        />
-      </div>
+          </Show>
+        </main>
+        <div>
+          <Show when={problem()}>{(message) => <ErrorBanner error={message()} />}</Show>
+          <Show when={problem() || s.connecting}>
+            <div class="mx-[22px] mb-3">
+              <Button disabled={s.sending || s.connecting} aria-busy={s.connecting} onClick={() => void reconnect()}>
+                <Show when={s.connecting}>
+                  <Loader />
+                </Show>
+                {language.t(s.connecting ? "nexus.connecting" : "nexus.reconnect")}
+              </Button>
+            </div>
+          </Show>
+        </div>
+        <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
+          <Show when={s.snapshot.detail?.owned || s.snapshot.detail?.archived}>
+            <p class="chat-hint">{language.t(s.snapshot.detail?.archived ? "chat.archivedHint" : "chat.channel")}</p>
+          </Show>
+          <Show when={s.prepared && !s.sending && chat.writable()}>
+            <p class="chat-hint">{language.t("chat.prepared")}</p>
+          </Show>
+          <Show when={s.snapshot.decisions.length > 1}>
+            <small>{language.t("chat.position", { current: 1, total: s.snapshot.decisions.length })}</small>
+          </Show>
+          <Show when={decisionID()} keyed>
+            {(_id) => {
+              const { run, key } = s.snapshot.decisions[0]
+              return (
+                <DecisionDock
+                  decision={s.snapshot.decisions[0]}
+                  sending={s.sending || !chat.writable()}
+                  reply={(response) => void chat.decide(run, key, response)}
+                />
+              )
+            }}
+          </Show>
+          <ComposerEditor
+            controller={editor}
+            disabled={!chat.writable() || s.sending}
+            readOnly={!chat.writable() || s.sending}
+            addMenuVisible={false}
+            modelControlsVisible={false}
+            agentControl={<SendControls chat={chat} />}
+            labels={{
+              prompt: language.t("prompt.message.aria"),
+              send: language.t(
+                s.snapshot.detail?.active
+                  ? settings.general.followUpBehavior() === "queue"
+                    ? "chat.queue"
+                    : "chat.steer"
+                  : "prompt.send",
+              ),
+              stop: language.t("prompt.stop"),
+            }}
+          />
+        </div>
+      </Management>
     </div>
   )
 }

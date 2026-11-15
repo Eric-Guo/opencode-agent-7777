@@ -4,6 +4,9 @@ import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
 import { fileBytes, outputs, outputTurn, review, restoreReview } from "./outputs"
 import type { ServiceConnection } from "./native"
+import { manage } from "./management"
+import { setup } from "./setup"
+import { terminal } from "./terminal"
 import { isIP } from "node:net"
 import type { Connect } from "vite"
 import { APIError } from "@cybros/agent"
@@ -14,6 +17,7 @@ import {
   canWrite,
   grantSite,
   ownership,
+  channelOwned,
   readChat,
   resolveDecision,
   snapshot,
@@ -95,6 +99,8 @@ async function stream(backend: Backend, id: string, res: ServerResponse) {
 
 export type BridgeConfig = {
   token?: string
+  allowBypass?: boolean
+  iceServers?: { urls: string | string[]; username?: string; credential?: string }[]
   native?: { origin: string; connection: () => Promise<ServiceConnection> }
 }
 
@@ -108,21 +114,58 @@ export function middleware(
     try {
       if (!localRequest(req)) throw new BridgeError(403, "Local same-origin requests only.")
       const config = await env()
-      const b = await connect(config.native, config.token)
       const route = url.pathname.slice(root.length)
+      if (route === "/setup")
+        return json(res, 200, await setup(config, req.method === "POST" ? await payload(req) : undefined))
+      const moduleScope = /^\/modules\/([^/]+)\//.exec(route)?.[1]
+      const scope = moduleScope
+        ? decodeURIComponent(moduleScope)
+        : req.headers["x-7777-scope"]
+          ? decodeURIComponent(String(req.headers["x-7777-scope"]))
+          : url.searchParams.get("scope")
+      const selected = scope?.startsWith("[")
+        ? Schema.decodeUnknownSync(
+            Schema.fromJsonString(Schema.Tuple([Schema.String, Schema.String, Schema.String, Schema.String])),
+          )(scope)[2]
+        : (url.searchParams.get("workspace") ?? undefined)
+      const b = await connect(config.native, config.token, selected)
       if (req.method === "GET" && route === "/connection") return json(res, 200, b.connection)
-      const scope = req.headers["x-7777-scope"]
-        ? decodeURIComponent(String(req.headers["x-7777-scope"]))
-        : url.searchParams.get("scope")
       if (scope !== b.connection.scope)
         throw new BridgeError(409, "The active Nexus identity or workspace changed. Reconnect.")
+      if (route === "/terminals/config" && req.method === "GET")
+        return json(res, 200, { iceServers: config.iceServers ?? [] })
       const body = req.method === "POST" ? await payload(req) : undefined
+      if (route === "/terminals" && ["GET", "POST"].includes(req.method ?? ""))
+        return json(res, 200, await terminal(b, body, url.searchParams.get("after") ?? undefined))
+      if (route === "/manage" && req.method === "POST") return json(res, 200, await manage(b, config, body))
+      const asset = /^\/modules\/[^/]+\/([^/]+)\/([^/]+)\/(.+)$/.exec(route)
+      if (asset && req.method === "GET") {
+        const file = Schema.decodeUnknownSync(Schema.Struct({ content: Schema.String, mime: Schema.String }))(
+          await b.native.manage({
+            payload: {
+              action: "extension.asset",
+              id: decodeURIComponent(asset[1]),
+              version: asset[2],
+              path: decodeURIComponent(asset[3]),
+            },
+          }),
+        )
+        res.writeHead(200, {
+          "Content-Type": file.mime,
+          "X-Content-Type-Options": "nosniff",
+          "Cache-Control": "no-store",
+        })
+        return res.end(Buffer.from(file.content, "base64"))
+      }
       if (route === "/choices" && req.method === "GET") {
-        const [models, runners] = await Promise.all([b.client.models.list({ workload: "text_generation" }), b.native.runners()])
+        const [models, runners] = await Promise.all([
+          b.client.models.list({ workload: "text_generation" }),
+          b.native.runners(),
+        ])
         return json(res, 200, {
           models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
           runners: [...runners],
-          approvals: ["ask", "rules"],
+          approvals: config.allowBypass === false ? ["ask", "rules"] : ["ask", "rules", "bypass"],
           modes: defaultModes,
         } satisfies Choices)
       }
@@ -171,7 +214,15 @@ export function middleware(
           throw new BridgeError(400, "Invalid conversation request.")
         if (body.runner !== null && !(await b.native.runners()).some((runner) => runner.id === body.runner))
           throw new BridgeError(400, "Unknown native runner.")
-        const receipt = await b.native.manage({ payload: { action: "application.open", key: body.key, title: body.title, runner: body.runner } }) as { conversation: { public_id: string } }
+        const receipt = (await b.native.manage({
+          payload: {
+            action: "application.open",
+            workspace: b.workspaceID,
+            key: body.key,
+            title: body.title,
+            runner: body.runner,
+          },
+        })) as { conversation: { public_id: string } }
         return json(res, 201, { id: receipt.conversation.public_id })
       }
       const match = /^\/chats\/([\w-]+)(?:\/([a-z-]+))?$/.exec(route)
@@ -181,6 +232,11 @@ export function middleware(
       const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
       if (req.method === "GET") {
+        if (action === "history") {
+          const before = Number(url.searchParams.get("before"))
+          if (!Number.isSafeInteger(before) || before < 0) throw new BridgeError(400, "Invalid history cursor.")
+          return json(res, 200, await chat.turns.list({ before_position: before, limit: 36 }))
+        }
         if (action === "modes") {
           if (!canWrite(b, info) || ownership(info)) return json(res, 200, null)
           return json(res, 200, await readModes(b, id!))
@@ -206,7 +262,7 @@ export function middleware(
       }
       if (req.method !== "POST") throw new BridgeError(405, "Expected POST.")
       if (action !== "stop") {
-        if (ownership(info)) throw new BridgeError(403, "Continue this conversation in its channel.")
+        if (await channelOwned(b, info)) throw new BridgeError(403, "Continue this conversation in its channel.")
         if (info.archived_at && !["restore", "rename"].includes(action!))
           throw new BridgeError(409, "Restore this conversation first.")
       }
@@ -248,14 +304,20 @@ export function middleware(
           approval: submission.approval ?? "ask",
           target: submission.target,
         }
-        const headers = { "x-nexus-origin": config.native!.origin, "x-nexus-member-token": config.token! }
+        const headers = {
+          "x-nexus-origin": config.native!.origin,
+          "x-nexus-member-token": (b.memberToken ?? config.token)!,
+        }
         if (action === "prepare") {
-          if (submission.approval === "bypass") throw new BridgeError(403, "This installation requires approval.")
+          if (submission.approval === "bypass" && config.allowBypass === false)
+            throw new BridgeError(403, "This installation requires approval.")
           await b.native.manage({ payload: { action: "application.prepare", ...command }, ...headers })
-          return json(res, 200, { ticket: sealReply(config.token!, b.connection.scope, info, submission) })
+          return json(res, 200, {
+            ticket: sealReply((b.memberToken ?? config.token)!, b.connection.scope, info, submission),
+          })
         }
         if (typeof body.ticket !== "string") throw new BridgeError(400, "Prepare the reply before sending.")
-        openReply(config.token!, b.connection.scope, info, submission, body.ticket)
+        openReply((b.memberToken ?? config.token)!, b.connection.scope, info, submission, body.ticket)
         const result = Schema.decodeUnknownSync(Schema.Struct({ input: Schema.Struct({ public_id: Schema.String }) }))(
           await b.native.manage({ payload: { action: "application.submit", ...command }, ...headers }),
         )
@@ -285,10 +347,18 @@ export function middleware(
         const { run } = await ownedRun(b, id!, body.run)
         if (body.response.action === "site") {
           const detail = await run.task(body.key).fetch()
-          if (!canWrite(b, info) || detail.task.target?.executor_public_id !== b.localRunner || !grantSite(detail)) throw new BridgeError(403, "This site grant is unavailable.")
+          if (!canWrite(b, info) || detail.task.target?.executor_public_id !== b.localRunner || !grantSite(detail))
+            throw new BridgeError(403, "This site grant is unavailable.")
           await run.task(body.key).approve()
-          const retained = await b.native.grant({ workspace: b.workspaceID, conversation: id!, run: body.run, task: body.key }).then(() => true, () => false)
-          return json(res, 200, { notice: retained ? undefined : "Approved this call. The site grant could not be saved for this session." })
+          const retained = await b.native
+            .grant({ workspace: b.workspaceID, conversation: id!, run: body.run, task: body.key })
+            .then(
+              () => true,
+              () => false,
+            )
+          return json(res, 200, {
+            notice: retained ? undefined : "Approved this call. The site grant could not be saved for this session.",
+          })
         }
         await resolveDecision(run.task(body.key), body.response as Resolution)
       } else throw new BridgeError(404, "Unknown chat action.")

@@ -40,6 +40,6 @@ export function timeline(
     sessionID: id,
     status: { type: snapshot.busy ? "busy" : "idle" },
     diffs: [],
-    messages: first ? messages.slice(messages.indexOf(first)) : messages,
+    messages: first && !snapshot.expanded ? messages.slice(messages.indexOf(first)) : messages,
   }
 }

@@ -1,6 +1,7 @@
 import { nexusService, type ServiceConnection } from "./native"
 import { APIError, Client, type Conversation, type ResolveTask, type TaskDetail } from "@cybros/agent"
 import { RealtimeClient } from "@cybros/agent/realtime"
+import { Schema } from "effect"
 import { loadTurns, type Connection, type Decision, type Resolution, type Snapshot } from "../src/nexus/chat"
 
 export class BridgeError extends Error {
@@ -20,6 +21,7 @@ export type Backend = {
   agentID: string
   connection: Connection
   native: ReturnType<typeof nexusService>
+  memberToken?: string
   humanID: string
   workspaceActive: boolean
   localRunner: string | null
@@ -29,16 +31,21 @@ export type Backend = {
 export async function discoverNative(
   config?: { origin: string; connection: () => Promise<ServiceConnection> },
   token?: string,
+  selectedWorkspace?: string,
 ) {
   if (!config) throw new BridgeError(503, "Configure a Nexus origin and pair the OpenCode service.")
-  if (!token) throw new BridgeError(503, "Save a Human member token for this Nexus origin.")
   const service = nexusService(await config.connection())
   const state = await service.status()
   if (state.origin !== config.origin || state.state !== "ready" || !state.identity)
     throw new BridgeError(503, state.error ?? "Pair OpenCode with this Nexus origin in Settings.")
+  const credential =
+    token ??
+    (await service.manage({ payload: { action: "extension.call", name: "editor.auth.credential", input: {} } }))
+  if (typeof credential !== "string" || !credential)
+    throw new BridgeError(503, "Sign in with Nexus or save a Human member token for this origin.")
   const identity = state.identity
-  return connectMember(state.origin, token, {
-    workspaceID: identity.workspace,
+  return connectMember(state.origin, credential, {
+    workspaceID: selectedWorkspace ?? identity.workspace,
     agentID: identity.agent,
     model: state.model,
     agent: identity.name,
@@ -73,6 +80,7 @@ async function connectMember(
   }
   return {
     client,
+    memberToken: token,
     ...runtime,
     humanID: profile.member.public_id,
     workspaceActive: ["active", "restoring"].includes(workspaceInfo.state),
@@ -87,16 +95,37 @@ export async function readChat(
 ): Promise<{ chat: ReturnType<Workspace["conversation"]>; info: Conversation }> {
   const chat = backend.workspace.conversation(id)
   const info = await chat.fetch()
-  if (
-    info.answering_user_public_id !== backend.agentID ||
-    info.side ||
-    info.workspace_public_id !== backend.workspaceID
-  )
+  if (info.workspace_public_id !== backend.workspaceID)
     throw new BridgeError(404, "This conversation is outside the selected Nexus workspace.")
   return { chat, info }
 }
 export function ownership(info: Conversation) {
-  return info.metadata["opencode.surface"] !== "desktop"
+  return (
+    !!info.metadata["opencode.bot"] ||
+    info.side ||
+    !!info.parent ||
+    (!!info.metadata["opencode.surface"] && info.metadata["opencode.surface"] !== "desktop")
+  )
+}
+export async function channelOwned(b: Backend, info: Conversation) {
+  const id = info.metadata["opencode.bot"]
+  if (typeof id !== "string") return ownership(info) || info.answering_user_public_id !== b.agentID
+  const bots = Schema.decodeUnknownSync(
+    Schema.Array(
+      Schema.Struct({
+        public_id: Schema.String,
+        settings: Schema.Struct({ audience: Schema.String }),
+        current: Schema.NullOr(Schema.Struct({ public_id: Schema.String, workspace_public_id: Schema.String })),
+      }),
+    ),
+  )(await b.native.manage({ payload: { action: "bot.list" } }))
+  return !bots.some(
+    (bot) =>
+      bot.public_id === id &&
+      bot.settings.audience === "owner" &&
+      bot.current?.public_id === info.public_id &&
+      bot.current.workspace_public_id === b.workspaceID,
+  )
 }
 export async function snapshot(backend: Backend, id: string): Promise<Snapshot> {
   const { chat, info } = await readChat(backend, id)
@@ -104,7 +133,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
   const [turns, inputs, owned] = await Promise.all([
     loadTurns((before_position) => chat.turns.list({ before_position: before_position ?? 2_147_483_647, limit: 36 })),
     chat.inputs.list(),
-    ownership(info),
+    channelOwned(backend, info),
   ])
   const pending = inputs.items.filter((item) => ["pending", "blocked", "held", "steering"].includes(item.state))
   const decisions: Decision[] = []
@@ -170,6 +199,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
       runner: info.default_runner?.display_name || info.default_runner?.executor_public_id || null,
       archived: !!info.archived_at,
       owned,
+      bot: typeof info.metadata["opencode.bot"] === "string" ? info.metadata["opencode.bot"] : undefined,
       active,
       version: info.lock_version,
       usage: info.usage_summary,

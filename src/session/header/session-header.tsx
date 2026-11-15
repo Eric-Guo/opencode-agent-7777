@@ -48,7 +48,8 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
         <span>{s.connection?.user}</span>
         <Icon name="speech-bubble" />
         <span>
-          {props.dialogCount}/{HISTORY_DIALOG_LIMIT}
+          {props.dialogCount}
+          {s.snapshot.expanded ? "" : "/" + HISTORY_DIALOG_LIMIT}
         </span>
         <Button
           disabled={!s.connection || s.sending}

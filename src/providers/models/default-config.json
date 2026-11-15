@@ -1,5 +1,5 @@
 {
-  "manageModels": false,
+  "manageModels": true,
   "defaultSelection": {
     "providerID": "kimi-code-plan-cn",
     "modelID": "kimi-for-coding"

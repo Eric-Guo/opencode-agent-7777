@@ -54,12 +54,14 @@ export type ChatTurn = {
   status: string
 }
 export type Snapshot = {
+  expanded?: boolean
   turns: ChatTurn[]
   detail?: {
     title: string
     runner: string | null
     archived: boolean
     owned: boolean
+    bot?: string
     active: string | null
     version: number
     usage: Conversation["usage_summary"]
