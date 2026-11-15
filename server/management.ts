@@ -103,6 +103,8 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
 
   if (command.action === "bot.submit") throw new BridgeError(403, "Use the scoped conversation controls.")
 
+  if (command.action === "extension.list") return b.native.extensions()
+
   if (command.action === "bot.resume" || command.action === "bot.fork") {
     const info = await b.client.workspace(command.workspace).conversation(command.conversation).fetch()
 

@@ -1,4 +1,3 @@
-import { Conflict, Steps } from "@cybros/agent"
 import { Schema } from "effect"
 import { BridgeError, readChat, type Backend } from "./nexus"
 
@@ -21,9 +20,10 @@ const Action = Schema.Union([
 export async function terminal(b: Backend, value?: unknown, after?: string) {
   if (value === undefined) {
     const page = await b.workspace.runs.list({ kind: "standalone", after, limit: 50 })
+    const runs = await Promise.all(page.items.map((run) => b.workspace.run(run.public_id).fetch()))
 
     return {
-      items: page.items.flatMap((run) =>
+      items: runs.flatMap((run) =>
         run.tasks
           .filter((task) => task.tool_name === "terminal")
           .map((task) => ({ run: run.public_id, task: task.key, status: task.status, created: run.created_at })),
@@ -40,37 +40,21 @@ export async function terminal(b: Backend, value?: unknown, after?: string) {
 
     if (!runners.some((row) => row.id === command.runner)) throw new BridgeError(404, "Unknown runner.")
 
-    const result = await b.workspace.runs.create(
-      {
-        steps: [
-          Steps.tool({
-            name: "terminal",
-            key: "terminal",
-            input: {},
-            route: { kind: "runner", runner_executor_public_id: command.runner },
-          }),
-        ],
-        approval_mode: "ask",
-        prompt_mechanism: "raw",
-        default_runner_executor_public_id: command.runner,
+    // Standalone runs use their creator's runner scope. The paired Agent owns the local runner.
+    return b.native.manage({
+      payload: {
+        action: "application.operation",
+        workspace: b.workspaceID,
+        operation: { action: "terminal.open", runner: command.runner, key: command.key },
       },
-      { idempotencyKey: command.key },
-    )
-
-    await b.workspace
-      .run(result.run.public_id)
-      .start()
-      .catch((error: unknown) => {
-        if (!(error instanceof Conflict) || error.code !== "not_startable") throw error
-      })
-
-    return { run: result.run.public_id, task: "terminal" }
+    })
   }
 
   const run = b.workspace.run(command.run)
   const info = await run.fetch()
 
-  if (info.workspace_public_id !== b.workspaceID) throw new BridgeError(404, "Unknown terminal workspace.")
+  if (info.workspace_public_id != null && info.workspace_public_id !== b.workspaceID)
+    throw new BridgeError(404, "Unknown terminal workspace.")
 
   if (info.turn?.conversation_public_id) await readChat(b, info.turn.conversation_public_id)
 
@@ -82,10 +66,19 @@ export async function terminal(b: Backend, value?: unknown, after?: string) {
 
   if (command.action === "approve") return task.approve()
 
-  if (command.action === "stop") return info.turn ? task.cancel() : run.stop(true)
+  if (command.action === "stop") return info.turn?.conversation_public_id ? task.cancel() : run.stop(true)
 
-  if (command.action === "realtime") return task.realtime()
-
-  if (command.action === "answer")
-    return task.answerRealtime({ connection_id: command.connection_id, sdp: command.sdp })
+  // Nexus binds signaling to the application owner's member credential.
+  return b.native.manage({
+    payload: {
+      action: "application.operation",
+      workspace: b.workspaceID,
+      operation: {
+        action: command.action === "realtime" ? "terminal.realtime" : "terminal.answer",
+        run: command.run,
+        task: command.task,
+        ...(command.action === "answer" ? { connection_id: command.connection_id, sdp: command.sdp } : {}),
+      },
+    },
+  })
 }
