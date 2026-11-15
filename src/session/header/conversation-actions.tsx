@@ -4,13 +4,15 @@ import { Dialog, DialogBody, DialogHeader, DialogTitleGroup } from "@opencode/ui
 import { useDialog } from "@opencode/ui/context/dialog"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { ChatController } from "@/nexus/controller"
+import { MemoryBindings } from "@/nexus/memory-bindings"
 import { Activity, Usage } from "@/nexus/activity"
 
 export function ConversationActions(p: { chat: ChatController }) {
   const c = p.chat,
     lang = useLanguage(),
     dialog = useDialog()
-  function open(kind: "activity" | "usage" | "actions") {
+
+  function open(kind: "activity" | "usage" | "actions" | "memory") {
     const id = c.s.id,
       scope = c.s.connection?.scope,
       detail = c.s.snapshot.detail
@@ -21,10 +23,16 @@ export function ConversationActions(p: { chat: ChatController }) {
       return (
         <Dialog size={kind === "activity" ? "large" : "normal"}>
           <DialogHeader>
-            <DialogTitleGroup title={lang.t(`chat.${kind}`)} description={original || undefined} />
+            <DialogTitleGroup
+              title={kind === "memory" ? "Memory bindings" : lang.t(`chat.${kind}`)}
+              description={original || undefined}
+            />
           </DialogHeader>
           <DialogBody>
             <Show when={c.s.id === id && c.s.connection?.scope === scope}>
+              <Show when={kind === "memory"}>
+                <MemoryBindings chat={c} saved={() => dialog.close()} />
+              </Show>
               <Show when={kind === "usage"}>
                 <Usage chat={c} />
               </Show>
@@ -77,6 +85,7 @@ export function ConversationActions(p: { chat: ChatController }) {
     <Show when={c.s.id && c.s.hydrated}>
       <Button onClick={() => open("activity")}>{lang.t("chat.activity")}</Button>
       <Button onClick={() => open("usage")}>{lang.t("chat.usage")}</Button>
+      <Button onClick={() => open("memory")}>Memory bindings</Button>
       <Show when={c.s.snapshot.detail && !c.s.snapshot.detail.owned}>
         <Button onClick={() => open("actions")}>{lang.t("chat.actions")}</Button>
       </Show>

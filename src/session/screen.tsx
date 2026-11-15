@@ -1,4 +1,4 @@
-import { createEffect, createMemo, onCleanup, onMount, on, Show } from "solid-js"
+import { createEffect, createMemo, onCleanup, on, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
@@ -13,6 +13,7 @@ import type { ComposerPersistedState } from "@/composer/types"
 import { SET_DOCUMENT_TITLE } from "@/constants/session"
 import { Management } from "@/management/shell"
 import { createChatController } from "@/nexus/controller"
+import { createNavigation } from "@/nexus/navigation"
 import { timeline } from "@/nexus/timeline"
 import { DecisionDock } from "@/nexus/decision"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -27,6 +28,7 @@ import { createSessionTimelineInteraction } from "./timeline/interaction"
 
 export default function SessionPage() {
   const chat = createChatController()
+  const navigation = createNavigation(chat)
   const settings = useSettings()
   const s = chat.s
   const language = useLanguage()
@@ -63,14 +65,11 @@ export default function SessionPage() {
   createEffect(() => {
     if (SET_DOCUMENT_TITLE) document.title = agent()
   })
-  onMount(() => {
-    void chat.connect()
-  })
   onCleanup(chat.close)
   const problem = () => s.error || s.streamError || s.snapshot.problem
   const reconnect = async () => {
     if (s.sending || s.connecting) return
-    await chat.connect()
+    await navigation.reconnect()
     showToast(
       s.connection
         ? { variant: "success", title: language.t("nexus.reconnected") }
@@ -83,7 +82,7 @@ export default function SessionPage() {
   }
   return (
     <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
-      <Management chat={chat}>
+      <Management chat={chat} navigation={navigation}>
         <SessionHeader chat={chat} dialogCount={doc().messages.filter((message) => message.type === "user").length} />
         <main
           class="relative min-h-0"

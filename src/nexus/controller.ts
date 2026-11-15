@@ -18,6 +18,16 @@ import {
 } from "./chat"
 
 const root = "/api/7777"
+
+export class RequestError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
 export async function request<T>(path: string, scope?: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   const res = await fetch(root + path, {
     signal,
@@ -28,10 +38,14 @@ export async function request<T>(path: string, scope?: string, body?: unknown, s
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   })
+
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || res.statusText)
+
+  if (!res.ok) throw new RequestError(res.status, data.error || res.statusText)
+
   return data
 }
+
 type Attempt = {
   text: string
   model: string | null
@@ -86,6 +100,7 @@ export function createChatController(
   })
   let choicesReady: Promise<void> | undefined
   let modeRead = 0
+  let choicesRead = 0
   let version = 0
   let source: EventSource | undefined
   let attempt: Attempt | undefined
@@ -227,6 +242,22 @@ export function createChatController(
     }
     void refresh()
   }
+
+  function loadChoices(c: Connection) {
+    const read = ++choicesRead
+    set("choices", undefined)
+    choicesReady = api<Choices>("/choices", c.scope)
+      .then((choices) => {
+        if (read !== choicesRead || s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
+        set("choices", choices)
+
+        if (!attempt && !choices.approvals.includes(s.approval)) set("approval", choices.approvals[0] ?? "rules")
+      })
+      .catch((err) => {
+        if (read === choicesRead && s.connection?.scope === c.scope) fail(err)
+      })
+  }
+
   async function connect(workspace?: string, conversation?: string) {
     if (s.sending) return
     clearStream()
@@ -254,15 +285,7 @@ export function createChatController(
       }
       set("choices", undefined)
       restore(conversation ?? saved.id ?? "", saved)
-      choicesReady = api<Choices>("/choices", c.scope)
-        .then((choices) => {
-          if (s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
-          set("choices", choices)
-          if (!attempt && !choices.approvals.includes(s.approval)) set("approval", choices.approvals[0] ?? "rules")
-        })
-        .catch((err) => {
-          if (s.connection?.scope === c.scope) fail(err)
-        })
+      loadChoices(c)
       follow(conversation ?? saved.id ?? "")
       set("connecting", false)
     } catch (err) {
@@ -276,6 +299,8 @@ export function createChatController(
     persist()
     set("error", "")
     restore(id)
+
+    if (!id && s.connection) loadChoices(s.connection)
     follow(id)
     persist()
   }

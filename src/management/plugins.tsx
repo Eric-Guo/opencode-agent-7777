@@ -1,4 +1,4 @@
-import { For, Show, onMount } from "solid-js"
+import { For, Show, onMount, createEffect, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { Schema } from "effect"
@@ -10,7 +10,12 @@ import { ConfigurationForm, FieldRow, JsonInput } from "./fields"
 
 type Package = { name: string; version: string; selected?: boolean; active?: boolean }
 
-export function Plugins(props: { client: ManagementClient; host: ModuleHost; select?: string }) {
+export function Plugins(props: {
+  client: ManagementClient
+  host: ModuleHost
+  select?: string
+  navigate?(id: string): void
+}) {
   const c = props.client
 
   const [s, set] = createStore({
@@ -24,6 +29,18 @@ export function Plugins(props: { client: ManagementClient; host: ModuleHost; sel
     output: "",
     valid: true,
   })
+
+  createEffect(
+    on(
+      () => props.select,
+      (id) => set("selected", id ?? ""),
+    ),
+  )
+
+  const select = (id: string) => {
+    set("selected", id)
+    props.navigate?.(id)
+  }
 
   const refresh = async () => {
     const scope = c.scope()
@@ -63,7 +80,7 @@ export function Plugins(props: { client: ManagementClient; host: ModuleHost; sel
           {(row) => (
             <div class="nexus-card">
               <h3>
-                <button onClick={() => set("selected", row.id)}>{row.name}</button>
+                <button onClick={() => select(row.id)}>{row.name}</button>
               </h3>
               <p>{row.description}</p>
               <small>
@@ -99,7 +116,7 @@ export function Plugins(props: { client: ManagementClient; host: ModuleHost; sel
                   . Disable those plugins first.
                 </small>
               </Show>
-              <Button onClick={() => set("selected", row.id)}>Settings</Button>
+              <Button onClick={() => select(row.id)}>Settings</Button>
             </div>
           )}
         </For>

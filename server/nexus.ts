@@ -107,28 +107,14 @@ export function ownership(info: Conversation) {
     (!!info.metadata["opencode.surface"] && info.metadata["opencode.surface"] !== "desktop")
   )
 }
+
 export async function channelOwned(b: Backend, info: Conversation) {
-  const id = info.metadata["opencode.bot"]
-  if (typeof id !== "string") return ownership(info) || info.answering_user_public_id !== b.agentID
-  const bots = Schema.decodeUnknownSync(
-    Schema.Array(
-      Schema.Struct({
-        public_id: Schema.String,
-        settings: Schema.Struct({ audience: Schema.String }),
-        current: Schema.NullOr(Schema.Struct({ public_id: Schema.String, workspace_public_id: Schema.String })),
-      }),
-    ),
-  )(await b.native.manage({ payload: { action: "bot.list" } }))
-  return !bots.some(
-    (bot) =>
-      bot.public_id === id &&
-      bot.settings.audience === "owner" &&
-      bot.current?.public_id === info.public_id &&
-      bot.current.workspace_public_id === b.workspaceID,
-  )
+  return ownership(info) || info.answering_user_public_id !== b.agentID
 }
+
 export async function snapshot(backend: Backend, id: string): Promise<Snapshot> {
   const { chat, info } = await readChat(backend, id)
+
   // Unbounded turns.list starts at the oldest turn. A before-position window reads newest first.
   const [turns, inputs, owned] = await Promise.all([
     loadTurns((before_position) => chat.turns.list({ before_position: before_position ?? 2_147_483_647, limit: 36 })),

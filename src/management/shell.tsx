@@ -2,6 +2,7 @@ import { For, Show, Switch, Match, createEffect, onCleanup, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import type { WorkspaceSummary } from "@cybros/agent"
+import type { Navigation } from "../nexus/navigation"
 import type { ChatController } from "../nexus/controller"
 import { createManagementClient } from "./client"
 import { createModuleHost } from "./modules"
@@ -21,18 +22,17 @@ import { FieldRow } from "./fields"
 import modelConfig from "../providers/models/default-config.json"
 import "./management.css"
 
-export function Management(props: { chat: ChatController; children: JSX.Element }) {
+export function Management(props: { chat: ChatController; navigation: Navigation; children: JSX.Element }) {
   const client = createManagementClient(props.chat)
 
   const [s, set] = createStore({
-    page: "",
     workspaces: [] as WorkspaceSummary[],
     name: "",
     key: crypto.randomUUID(),
     terminal: null as { run: string; task: string } | null,
   })
 
-  const host = createModuleHost(client, (page) => set("page", page))
+  const host = createModuleHost(client, props.navigation.openPage)
 
   const refresh = async () => {
     const scope = client.scope()
@@ -46,7 +46,7 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
   createEffect(
     on(client.scope, (scope) => {
       host.close()
-      set({ page: "", terminal: null })
+      set({ terminal: null })
 
       if (scope) void client.perform(refresh)
     }),
@@ -54,8 +54,7 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
   onCleanup(host.close)
 
   const open = (workspace: string, conversation: string) => {
-    set("page", "")
-    void props.chat.connect(workspace, conversation)
+    void props.navigation.open(workspace, conversation)
   }
 
   return (
@@ -63,7 +62,8 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
       value={{
         host,
         terminal: (target) => {
-          set({ page: "Terminals", terminal: target })
+          props.navigation.openPage("Terminals")
+          set({ terminal: target })
         },
       }}
     >
@@ -74,7 +74,7 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
             value={client.workspace()}
             disabled={props.chat.s.connecting || props.chat.s.sending}
             onChange={(event) => {
-              void props.chat.connect(event.currentTarget.value)
+              void props.navigation.open(event.currentTarget.value)
             }}
           >
             <For each={s.workspaces}>
@@ -99,14 +99,14 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
             ]}
           >
             {(label) => (
-              <Button size="small" onClick={() => set("page", label)}>
+              <Button size="small" onClick={() => props.navigation.openPage(label)}>
                 {label}
               </Button>
             )}
           </For>
           <For each={host.entries("sidebar.panellist")}>
             {(entry) => (
-              <Button size="small" onClick={() => set("page", entry.id)}>
+              <Button size="small" onClick={() => props.navigation.openPage(entry.id)}>
                 {entry.label}
               </Button>
             )}
@@ -114,26 +114,31 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
           <SlotView
             host={host}
             slot="conversation.header.utilities"
-            values={{ conversation: props.chat.s.id, workspace: client.workspace(), open }}
+            values={{
+              conversation: props.chat.s.id,
+              workspace: client.workspace(),
+              item: props.navigation.item(),
+              open,
+            }}
           />
         </Show>
-        <Button size="small" onClick={() => set("page", "Settings")}>
+        <Button size="small" onClick={() => props.navigation.openPage("Settings")}>
           Settings & account
         </Button>
       </nav>
-      <Show when={s.page}>
+      <Show when={props.navigation.page()}>
         <div
           class="nexus-management"
           role="dialog"
           aria-modal="true"
-          aria-label={s.page}
+          aria-label={props.navigation.page()}
           onKeyDown={(event) => {
-            if (event.key === "Escape") set("page", "")
+            if (event.key === "Escape") props.navigation.openPage("")
           }}
         >
           <header>
-            <h2>{s.page}</h2>
-            <Button class="ml-auto" onClick={() => set("page", "")}>
+            <h2>{props.navigation.page()}</h2>
+            <Button class="ml-auto" onClick={() => props.navigation.openPage("")}>
               Back to conversation
             </Button>
           </header>
@@ -146,101 +151,125 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
             <Show when={client.state.notice}>
               <p role="status">{client.state.notice}</p>
             </Show>
-            <Switch
-              fallback={
-                <SlotView
-                  host={host}
-                  slot="main"
-                  id={s.page}
-                  values={{ conversation: props.chat.s.id, workspace: client.workspace(), open }}
-                />
-              }
-            >
-              <Match when={s.page === "Settings"}>
-                <Settings client={client} host={host} />
-              </Match>
-              <Match when={s.page === "Bots"}>
-                <Bots client={client} host={host} open={open} />
-              </Match>
-              <Match when={s.page === "Presets"}>
-                <Presets client={client} />
-              </Match>
-              <Match when={s.page === "Schedules"}>
-                <Schedules client={client} open={open} />
-              </Match>
-              <Match when={s.page === "Plugins"}>
-                <Plugins client={client} host={host} />
-              </Match>
-              <Match when={s.page === "Integrations"}>
-                <Integrations client={client} />
-              </Match>
-              <Match when={s.page === "Providers"}>
-                <Providers client={client} />
-              </Match>
-              <Match when={s.page === "Terminals"}>
-                <Terminals client={client} target={s.terminal ?? undefined} />
-              </Match>
-              <Match when={s.page === "Updates"}>
-                <Updates client={client} />
-              </Match>
-              <Match when={s.page === "Workspaces"}>
-                <section>
-                  <h2>Workspaces</h2>
-                  <p>The default applies to new conversations. Existing conversations retain their workspace.</p>
-                  <For each={s.workspaces}>
-                    {(row) => (
-                      <div class="nexus-card">
-                        <h3>{row.name}</h3>
-                        <small>{row.dedicated ? "Dedicated to this agent" : "Shared workspace"}</small>
-                        <div class="nexus-actions">
-                          <Button
-                            onClick={() => {
-                              set("page", "")
-                              void props.chat.connect(row.public_id)
-                            }}
-                          >
-                            Open workspace
-                          </Button>
-                          <Button
-                            disabled={client.state.busy}
-                            onClick={() =>
-                              void client.perform(async () => {
-                                await client.command({ action: "workspace.use", workspace: row.public_id })
-                                client.notice("Default workspace saved.")
-                              })
-                            }
-                          >
-                            Use as default
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </For>
-                  <form
-                    class="nexus-card"
-                    onSubmit={(event) => {
-                      event.preventDefault()
-                      void client.perform(async () => {
-                        await client.command({ action: "workspace.create", name: s.name, key: s.key })
-                        set({ name: "", key: crypto.randomUUID() })
-                        await refresh()
-                      })
-                    }}
-                  >
-                    <FieldRow label="New dedicated workspace">
-                      <input
-                        required
-                        value={s.name}
-                        onInput={(e) => set({ name: e.currentTarget.value, key: crypto.randomUUID() })}
-                      />
-                    </FieldRow>
-                    <Button type="submit" disabled={client.state.busy}>
-                      Create workspace
-                    </Button>
-                  </form>
-                </section>
-              </Match>
-            </Switch>
+            <Show when={client.scope() ?? "unpaired"} keyed>
+              {(_scope) => (
+                <Switch
+                  fallback={
+                    <SlotView
+                      host={host}
+                      slot="main"
+                      id={props.navigation.page()}
+                      values={{
+                        conversation: props.chat.s.id,
+                        workspace: client.workspace(),
+                        item: props.navigation.item(),
+                        open,
+                      }}
+                    />
+                  }
+                >
+                  <Match when={props.navigation.page() === "Settings"}>
+                    <Settings client={client} host={host} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Bots"}>
+                    <Bots
+                      client={client}
+                      host={host}
+                      open={open}
+                      selected={props.navigation.item()}
+                      select={(id) => props.navigation.openPage("Bots", id)}
+                    />
+                  </Match>
+                  <Match when={props.navigation.page() === "Presets"}>
+                    <Presets client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Schedules"}>
+                    <Schedules client={client} open={open} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Plugins"}>
+                    <Plugins
+                      client={client}
+                      host={host}
+                      select={props.navigation.item()}
+                      navigate={(id) => props.navigation.openPage("Plugins", id)}
+                    />
+                  </Match>
+                  <Match when={props.navigation.page() === "Integrations"}>
+                    <Integrations client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Providers"}>
+                    <Providers client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Terminals"}>
+                    <Terminals client={client} target={s.terminal ?? undefined} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Updates"}>
+                    <Updates client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Workspaces"}>
+                    <section>
+                      <h2>Workspaces</h2>
+                      <p>The default applies to new conversations. Existing conversations retain their workspace.</p>
+                      <For each={s.workspaces}>
+                        {(row) => (
+                          <div class="nexus-card">
+                            <h3>{row.name}</h3>
+                            <small>{row.dedicated ? "Dedicated to this agent" : "Shared workspace"}</small>
+                            <div class="nexus-actions">
+                              <Button
+                                onClick={() => {
+                                  void props.navigation.open(row.public_id)
+                                }}
+                              >
+                                Open workspace
+                              </Button>
+                              <Button
+                                disabled={client.state.busy}
+                                onClick={() =>
+                                  void client.perform(async () => {
+                                    await client.command({ action: "workspace.use", workspace: row.public_id })
+                                    client.notice("Default workspace saved.")
+                                  })
+                                }
+                              >
+                                Use as default
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                      <form
+                        class="nexus-card"
+                        onSubmit={(event) => {
+                          event.preventDefault()
+                          void client.perform(async () => {
+                            const result = await client.command<{ workspace: WorkspaceSummary }>({
+                              action: "workspace.create",
+                              name: s.name,
+                              key: s.key,
+                            })
+
+                            set({ name: "", key: crypto.randomUUID() })
+                            await props.navigation.open(result.workspace.public_id)
+                          })
+                        }}
+                      >
+                        <FieldRow label="New dedicated workspace">
+                          <input
+                            required
+                            value={s.name}
+                            onInput={(e) => set({ name: e.currentTarget.value, key: crypto.randomUUID() })}
+                          />
+                        </FieldRow>
+                        <Button type="submit" disabled={client.state.busy}>
+                          Create workspace
+                        </Button>
+                      </form>
+                    </section>
+                  </Match>
+                </Switch>
+              )}
+            </Show>
           </div>
         </div>
       </Show>
@@ -249,7 +278,7 @@ export function Management(props: { chat: ChatController; children: JSX.Element 
         <SlotView
           host={host}
           slot="dock.tab"
-          values={{ conversation: props.chat.s.id, workspace: client.workspace(), open }}
+          values={{ conversation: props.chat.s.id, workspace: client.workspace(), item: props.navigation.item(), open }}
         />
       </div>
     </ModuleContext.Provider>

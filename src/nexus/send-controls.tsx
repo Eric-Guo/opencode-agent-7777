@@ -67,7 +67,13 @@ export function SendControls(p: { chat: ChatController }) {
             {lang.t("chat.model")}
             <select value={s.model} onChange={(e) => c.configure({ model: e.currentTarget.value })}>
               <option value="">{lang.t("chat.automatic")}</option>
-              <For each={choices()?.models}>{(model) => <option value={model}>{model}</option>}</For>
+              <For each={choices()?.models}>
+                {(model) => (
+                  <option value={model} selected={s.model === model}>
+                    {model}
+                  </option>
+                )}
+              </For>
             </select>
           </label>
           <Show when={!s.id}>
@@ -77,7 +83,13 @@ export function SendControls(p: { chat: ChatController }) {
                 <Show when={s.runner && !choices()?.runners.some((r) => r.id === s.runner)}>
                   <option value={s.runner!}>{s.runner}</option>
                 </Show>
-                <For each={choices()?.runners}>{(r) => <option value={r.id}>{r.name}</option>}</For>
+                <For each={choices()?.runners}>
+                  {(r) => (
+                    <option value={r.id} selected={s.runner === r.id}>
+                      {r.name}
+                    </option>
+                  )}
+                </For>
               </select>
             </label>
           </Show>

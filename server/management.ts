@@ -44,6 +44,24 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
   )
     throw new BridgeError(403, "This service control is not exposed to browser modules.")
 
+  if (
+    command.action === "extension.call" &&
+    ["memory-review.status", "memory-review.enable", "memory-review.disable", "memory-review.resume"].includes(
+      command.name,
+    )
+  ) {
+    const target = Schema.decodeUnknownSync(
+      Schema.Struct({ workspace: Schema.optional(Schema.String), conversation: Schema.String }),
+    )(command.input)
+
+    if (target.workspace && target.workspace !== b.workspaceID)
+      throw new BridgeError(403, "Select this workspace before changing it.")
+    const { info } = await readChat(b, target.conversation)
+
+    if (command.name !== "memory-review.status" && (ownership(info) || !canWrite(b, info)))
+      throw new BridgeError(403, "Use the owning channel or a writable conversation.")
+  }
+
   if (command.action === "application.operation") {
     const operation = Schema.decodeUnknownSync(
       Schema.Struct({
@@ -95,6 +113,43 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       throw new BridgeError(403, "Select a writable conversation belonging to this Bot.")
   }
 
+  if (command.action === "schedule.list") {
+    const schedules = command.conversation
+      ? (await readChat(b, command.conversation)).chat.schedules
+      : b.workspace.schedules
+
+    const page = await schedules.list({ after: command.after })
+
+    const access = new Map(
+      await Promise.all(
+        [...new Set(page.items.flatMap((row) => (row.conversation_public_id ? [row.conversation_public_id] : [])))].map(
+          async (id) => {
+            const { info } = await readChat(b, id)
+
+            return [id, canWrite(b, info) && !ownership(info)] as const
+          },
+        ),
+      ),
+    )
+
+    return {
+      ...page,
+      items: page.items.map((row) => ({ ...row, writable: access.get(row.conversation_public_id ?? "") ?? false })),
+    }
+  }
+
+  if (command.action === "schedule.read") {
+    const { chat } = await readChat(b, command.conversation)
+
+    return chat.schedules.fetch(command.id)
+  }
+
+  if (command.action === "schedule.executions") {
+    const { chat } = await readChat(b, command.conversation)
+
+    return chat.schedules.executions(command.id, { after: command.after })
+  }
+
   if (
     "conversation" in command &&
     typeof command.conversation === "string" &&
@@ -103,7 +158,7 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
   ) {
     const { info } = await readChat(b, command.conversation)
 
-    if (command.action !== "schedule.list" && (ownership(info) || !canWrite(b, info)))
+    if (ownership(info) || !canWrite(b, info))
       throw new BridgeError(403, "Use the owning channel or a writable conversation.")
   }
 

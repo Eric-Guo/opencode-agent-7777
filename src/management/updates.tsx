@@ -4,11 +4,27 @@ import { Button } from "@opencode/ui/button"
 import type { PlatformDeploymentState, PlatformDeploymentUpgrade, PlatformDeploymentLog } from "@cybros/agent"
 import type { ManagementClient } from "./client"
 import { FieldRow } from "./fields"
+import { Schema } from "effect"
+import { RequestError } from "../nexus/controller"
 
 const root = "/api/v1/admin/deployment"
 
+const Pending = Schema.Struct({
+  key: Schema.NonEmptyString,
+  body: Schema.Struct({
+    candidate: Schema.Struct({
+      release: Schema.NonEmptyString,
+      images: Schema.Array(Schema.Struct({ name: Schema.String, reference: Schema.String })),
+    }),
+    backup: Schema.Boolean,
+  }),
+})
+
+type Pending = typeof Pending.Type
+
 export function Updates(props: { client: ManagementClient }) {
   const c = props.client
+  const storageKey = "7777.nexus.deployment." + JSON.stringify((JSON.parse(c.scope() ?? "[]") as string[]).slice(0, 2))
 
   const [s, set] = createStore({
     deployment: null as PlatformDeploymentState | null,
@@ -19,6 +35,7 @@ export function Updates(props: { client: ManagementClient }) {
     log: "",
     cursor: null as string | null,
     progressError: "",
+    pending: readPending(storageKey),
   })
 
   const refresh = async () => {
@@ -27,7 +44,37 @@ export function Updates(props: { client: ManagementClient }) {
     if ((deployment.active_operation ?? deployment.last_operation)?.id !== s.operation?.id)
       set({ log: "", cursor: null })
     set("deployment", deployment)
-    set("operation", deployment.active_operation ?? deployment.last_operation)
+    adopt(deployment.active_operation ?? deployment.last_operation)
+  }
+
+  const adopt = (operation: PlatformDeploymentUpgrade | null | undefined) => {
+    set("operation", operation ?? null)
+
+    if (operation && operation.idempotency_key === s.pending?.key) {
+      savePending(storageKey, null)
+      set("pending", null)
+    }
+  }
+
+  const install = async (pending: Pending) => {
+    savePending(storageKey, pending)
+    set("pending", pending)
+
+    const result = await c
+      .platform<{ upgrade: PlatformDeploymentUpgrade }>(root + "/upgrades", "POST", pending.body, pending.key)
+      .catch((error: unknown) => {
+        if (error instanceof RequestError && error.status >= 400 && error.status < 500) {
+          savePending(storageKey, null)
+          set("pending", null)
+        }
+
+        throw error
+      })
+
+    adopt(result.upgrade)
+    set({ log: "", cursor: null })
+    await progress()
+    await refresh()
   }
 
   let reading = false
@@ -49,9 +96,9 @@ export function Updates(props: { client: ManagementClient }) {
       ).log
 
       if (s.operation?.id !== id) return
+      adopt(log.operation)
       set({
-        operation: log.operation,
-        log: s.log + log.entries.map((row) => row.text ?? "").join("\n"),
+        log: (s.log + log.entries.map((row) => row.text ?? "").join("\n")).slice(-131072),
         cursor: log.next_cursor,
         progressError: "",
       })
@@ -102,6 +149,19 @@ export function Updates(props: { client: ManagementClient }) {
         <Button disabled={c.state.busy} onClick={() => void c.perform(refresh)}>
           Refresh deployment
         </Button>
+        <Show when={s.pending}>
+          {(pending) => (
+            <div role="status">
+              <p>
+                The installation request is unconfirmed. Refresh to recover its receipt, or retry the same checked
+                request.
+              </p>
+              <Button disabled={c.state.busy} onClick={() => void c.perform(() => install(pending()))}>
+                Retry checked installation
+              </Button>
+            </div>
+          )}
+        </Show>
         <Show when={s.deployment}>
           {(deployment) => (
             <>
@@ -127,16 +187,21 @@ export function Updates(props: { client: ManagementClient }) {
                   }}
                 >
                   <FieldRow label="Release tag (optional)">
-                    <input value={s.tag} onInput={(e) => set("tag", e.currentTarget.value)} />
+                    <input
+                      disabled={!!s.pending || !!deployment().active_operation}
+                      value={s.tag}
+                      onInput={(e) => set("tag", e.currentTarget.value)}
+                    />
                   </FieldRow>
                   <FieldRow label="Back up the database">
                     <input
                       type="checkbox"
+                      disabled={!!s.pending || !!deployment().active_operation}
                       checked={s.backup}
                       onChange={(e) => set("backup", e.currentTarget.checked)}
                     />
                   </FieldRow>
-                  <Button type="submit" disabled={c.state.busy}>
+                  <Button type="submit" disabled={c.state.busy || !!s.pending || !!deployment().active_operation}>
                     Check release and requirements
                   </Button>
                 </form>
@@ -156,7 +221,8 @@ export function Updates(props: { client: ManagementClient }) {
                     deployment().candidate &&
                     deployment().preflight?.ready &&
                     deployment().preflight?.backup === s.backup &&
-                    !deployment().active_operation
+                    !deployment().active_operation &&
+                    !s.pending
                   }
                 >
                   <details>
@@ -171,10 +237,9 @@ export function Updates(props: { client: ManagementClient }) {
                         void c.perform(async () => {
                           const candidate = deployment().candidate!
 
-                          const result = await c.platform<{ upgrade: PlatformDeploymentUpgrade }>(
-                            root + "/upgrades",
-                            "POST",
-                            {
+                          await install({
+                            key: s.key,
+                            body: {
                               candidate: {
                                 release: candidate.release,
                                 images: candidate.images.map((image) => ({
@@ -184,12 +249,7 @@ export function Updates(props: { client: ManagementClient }) {
                               },
                               backup: s.backup,
                             },
-                            s.key,
-                          )
-
-                          set({ operation: result.upgrade, log: "", cursor: null })
-                          await progress()
-                          await refresh()
+                          })
                         })
                       }
                     >
@@ -227,4 +287,24 @@ export function Updates(props: { client: ManagementClient }) {
       </div>
     </section>
   )
+}
+
+function readPending(key: string): Pending | null {
+  try {
+    const decoded = Schema.decodeUnknownOption(Schema.fromJsonString(Pending))(sessionStorage.getItem(key) ?? "null")
+
+    return decoded._tag === "Some" ? decoded.value : null
+  } catch {
+    return null
+  }
+}
+
+function savePending(key: string, pending: Pending | null) {
+  try {
+    if (pending) sessionStorage.setItem(key, JSON.stringify(pending))
+
+    if (!pending) sessionStorage.removeItem(key)
+  } catch {
+    // The request remains available in memory when tab storage is unavailable.
+  }
 }

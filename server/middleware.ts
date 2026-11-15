@@ -4,6 +4,7 @@ import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
 import { fileBytes, outputs, outputTurn, review, restoreReview } from "./outputs"
 import type { ServiceConnection } from "./native"
+import { MemoryChange, MemoryConfiguration } from "./memory"
 import { manage } from "./management"
 import { setup } from "./setup"
 import { terminal } from "./terminal"
@@ -157,18 +158,22 @@ export function middleware(
         })
         return res.end(Buffer.from(file.content, "base64"))
       }
+
       if (route === "/choices" && req.method === "GET") {
-        const [models, runners] = await Promise.all([
+        const [models, runners, modes] = await Promise.all([
           b.client.models.list({ workload: "text_generation" }),
           b.native.runners(),
+          defaultModes(b),
         ])
+
         return json(res, 200, {
           models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
           runners: [...runners],
           approvals: config.allowBypass === false ? ["ask", "rules"] : ["ask", "rules", "bypass"],
-          modes: defaultModes,
+          modes,
         } satisfies Choices)
       }
+
       if (route === "/chats" && req.method === "GET") {
         const archived = url.searchParams.get("archived") === "1"
         const list = b.workspace.conversations
@@ -231,9 +236,25 @@ export function middleware(
       if (!action && req.method === "GET") return json(res, 200, await snapshot(b, id!))
       const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
+
       if (req.method === "GET") {
+        if (action === "memory")
+          return json(res, 200, {
+            selection: Schema.decodeUnknownSync(MemoryConfiguration)(info.memory_context ?? null),
+            effective: await chat.memory().bindings(),
+            writable: canWrite(b, info) && !ownership(info),
+          })
+
+        if (action === "memory-collections")
+          return json(
+            res,
+            200,
+            await b.client.memoryCollections.list({ after: url.searchParams.get("after") ?? undefined }),
+          )
+
         if (action === "history") {
           const before = Number(url.searchParams.get("before"))
+
           if (!Number.isSafeInteger(before) || before < 0) throw new BridgeError(400, "Invalid history cursor.")
           return json(res, 200, await chat.turns.list({ before_position: before, limit: 36 }))
         }
@@ -266,6 +287,21 @@ export function middleware(
         if (info.archived_at && !["restore", "rename"].includes(action!))
           throw new BridgeError(409, "Restore this conversation first.")
       }
+
+      if (action === "memory") {
+        if (!canWrite(b, info)) throw new BridgeError(403, "Write access is required to change memory bindings.")
+        const decoded = Schema.decodeUnknownOption(MemoryChange, { onExcessProperty: "error" })(body)
+
+        if (decoded._tag === "None") throw new BridgeError(400, "Invalid memory selection.")
+        const change = decoded.value
+        const names = change.selection?.bindings.map((binding) => binding.name) ?? []
+
+        if (new Set(names).size !== names.length) throw new BridgeError(400, "Memory binding names must be unique.")
+        await chat.setMemoryContext(change.selection ? { bindings: [...change.selection.bindings] } : null)
+
+        return json(res, 200, {})
+      }
+
       if (action === "restore-files") {
         if (!canWrite(b, info)) throw new BridgeError(403, "Write access is required to restore files.")
         const turn = await outputTurn(b, info, url.searchParams)
