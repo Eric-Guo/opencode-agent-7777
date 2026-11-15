@@ -81,14 +81,16 @@ export function SendControls(p: { chat: ChatController }) {
               </select>
             </label>
           </Show>
-          <label>
-            {lang.t("chat.permissions")}
-            <select value={s.approval} onChange={(e) => c.configure({ approval: e.currentTarget.value as Approval })}>
-              <For each={choices()?.approvals ?? (["ask", "rules"] as const)}>
-                {(mode) => <option value={mode}>{lang.t(`chat.${mode}`)}</option>}
-              </For>
-            </select>
-          </label>
+          <Show when={!s.snapshot.detail?.bot} fallback={<p>Permissions and tools follow this Bot's Preset.</p>}>
+            <label>
+              {lang.t("chat.permissions")}
+              <select value={s.approval} onChange={(e) => c.configure({ approval: e.currentTarget.value as Approval })}>
+                <For each={choices()?.approvals ?? (["ask", "rules"] as const)}>
+                  {(mode) => <option value={mode}>{lang.t(`chat.${mode}`)}</option>}
+                </For>
+              </select>
+            </label>
+          </Show>
           <ModeControls chat={c} />
           <Show when={choices()?.modes === null}>
             <small>{lang.t("chat.modesUnavailable")}</small>

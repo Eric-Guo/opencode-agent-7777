@@ -1,9 +1,11 @@
 import { createStore, reconcile } from "solid-js/store"
 import { storageGet, storageSet } from "../runtime/persistence/storage"
+import type { TurnPage } from "@cybros/agent"
 import { uuid } from "@opencode/util/uuid"
 import { readFollowUpBehavior } from "../runtime/persistence/settings-storage-compact"
 import {
   updateLive,
+  projectTurn,
   type Choices,
   type ModeValues,
   type ConversationModes,
@@ -77,6 +79,8 @@ export function createChatController(
     connecting: true,
     sending: false,
     prepared: false,
+    loadingHistory: false,
+    hasOlder: true,
     error: "",
     streamError: "",
   })
@@ -152,6 +156,13 @@ export function createChatController(
           dirty = false
           const data = await api<Snapshot>(path(), s.connection!.scope)
           if (owner !== version) return
+          if (s.snapshot.expanded) {
+            data.turns = [
+              ...s.snapshot.turns.filter((turn) => turn.position < (data.turns[0]?.position ?? Infinity)),
+              ...data.turns,
+            ]
+            data.expanded = true
+          }
           set("snapshot", reconcile(data, { key: "id" }))
           set("hydrated", true)
           set("revision", (n) => n + 1)
@@ -167,7 +178,17 @@ export function createChatController(
   function follow(id: string) {
     clearStream()
     const owner = version
-    set({ savedModes: undefined, id, hydrated: !id, snapshot: empty(), connected: false, streamError: "", live: {} })
+    set({
+      hasOlder: true,
+      loadingHistory: false,
+      savedModes: undefined,
+      id,
+      hydrated: !id,
+      snapshot: empty(),
+      connected: false,
+      streamError: "",
+      live: {},
+    })
     if (!id) return
     const events = openEvents(root + path() + "/stream?scope=" + encodeURIComponent(s.connection!.scope))
     source = events
@@ -206,7 +227,7 @@ export function createChatController(
     }
     void refresh()
   }
-  async function connect() {
+  async function connect(workspace?: string, conversation?: string) {
     if (s.sending) return
     clearStream()
     const owner = version
@@ -222,7 +243,7 @@ export function createChatController(
       live: {},
     })
     try {
-      const c = await api<Connection>("/connection")
+      const c = await api<Connection>("/connection" + (workspace ? "?workspace=" + encodeURIComponent(workspace) : ""))
       if (owner !== version) return
       set("connection", c)
       let saved: Partial<Saved> = {}
@@ -232,7 +253,7 @@ export function createChatController(
         /* Empty draft after invalid local storage. */
       }
       set("choices", undefined)
-      restore(saved.id ?? "", saved)
+      restore(conversation ?? saved.id ?? "", saved)
       choicesReady = api<Choices>("/choices", c.scope)
         .then((choices) => {
           if (s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
@@ -242,7 +263,7 @@ export function createChatController(
         .catch((err) => {
           if (s.connection?.scope === c.scope) fail(err)
         })
-      follow(saved.id ?? "")
+      follow(conversation ?? saved.id ?? "")
       set("connecting", false)
     } catch (err) {
       if (owner === version) fail(err)
@@ -324,7 +345,8 @@ export function createChatController(
     try {
       if (!s.id && !attempt) {
         await choicesReady
-        if (!s.choices?.modes?.available) throw new Error("Cannot prepare a reply until OpenCode provides its input policy.")
+        if (!s.choices?.modes?.available)
+          throw new Error("Cannot prepare a reply until OpenCode provides its input policy.")
       }
       const initial = !s.id ? modes() : null
       attempt ??= {
@@ -419,6 +441,27 @@ export function createChatController(
       set("sending", false)
     }
   }
+  async function earlier() {
+    if (!s.id || !s.connection || s.loadingHistory || !s.hasOlder) return
+    const owner = version
+    set("loadingHistory", true)
+    try {
+      const page = await api<TurnPage>(
+        path() + "/history?before=" + (s.snapshot.turns[0]?.position ?? 2147483647),
+        s.connection.scope,
+      )
+      if (owner !== version) return
+      const turns = [
+        ...new Map([...page.items.map(projectTurn), ...s.snapshot.turns].map((turn) => [turn.id, turn])).values(),
+      ].sort((a, b) => a.position - b.position)
+      set("snapshot", reconcile({ ...s.snapshot, turns, expanded: true }))
+      set("hasOlder", page.before_position !== null && page.items.length > 0)
+    } catch (error) {
+      if (owner === version) fail(error)
+    } finally {
+      if (owner === version) set("loadingHistory", false)
+    }
+  }
   async function command(action: string, body: unknown) {
     if (!s.connection || !s.id || s.sending) return
     set({ sending: true, error: "" })
@@ -449,6 +492,7 @@ export function createChatController(
     latestSteer,
     command,
     refresh,
+    earlier,
     close: clearStream,
     stop: () => command("stop", {}),
     decide: (run: string, key: string, response: Resolution) => command("decisions", { run, key, response }),

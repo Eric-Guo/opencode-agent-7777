@@ -13,7 +13,8 @@
     "build": "bun --bun vite build",
     "build:shared": "bun scripts/build-shared.ts",
     "serve": "bun --bun vite preview",
-    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts"
+    "models:apply-localstorage": "bun run scripts/apply-model-config-dump.ts",
+    "test": "bun test --only-failures"
   },
   "dependencies": {
     "@cybros/agent": "file:../nexus-runtime/vendor/cybros-agent-0.1.0.tgz",
@@ -27,7 +28,9 @@
     "effect": "catalog:",
     "solid-js": "catalog:",
     "solid-presence": "0.2.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@opencode/protocol": "workspace:*",
+    "@xterm/xterm": "5.5.0"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

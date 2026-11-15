@@ -1,4 +1,6 @@
-import { For, Show, createSignal, type JSX } from "solid-js"
+import { For, Show, createSignal, useContext, type JSX } from "solid-js"
+import { ModuleContext } from "../management/context"
+import { SlotView } from "../management/slot"
 import { Button } from "@opencode/ui/button"
 import { Markdown } from "@opencode/session-ui/markdown"
 import { useLanguage } from "../runtime/i18n/language"
@@ -18,6 +20,7 @@ export function Disclosure(p: { title: JSX.Element; children: JSX.Element }) {
   )
 }
 function Task(p: { chat: ChatController; run: string; task: string; name: string }) {
+  const modules = useContext(ModuleContext)
   const lang = useLanguage(),
     q = { run: p.run, key: p.task }
   return (
@@ -28,6 +31,16 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
             <p>
               {data().kind} · {data().status}
             </p>
+            <Show when={modules && data().name === "terminal"}>
+              <Button onClick={() => modules!.terminal({ run: p.run, task: p.task })}>Open terminal</Button>
+            </Show>
+            <Show when={modules}>
+              <SlotView
+                host={modules!.host}
+                slot="task.detail"
+                values={{ task: data(), target: { run: p.run, task: p.task }, conversation: p.chat.s.id }}
+              />
+            </Show>
             <Show when={data().prompt}>
               <Markdown text={data().prompt!} />
             </Show>

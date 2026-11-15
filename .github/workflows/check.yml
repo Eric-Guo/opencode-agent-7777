@@ -1,0 +1,43 @@
+name: Nexus UI checks
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+    inputs:
+      opencode_ref:
+        description: Matching OpenCode revision
+        default: dev
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  nexus-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          repository: Eric-Guo/opencode
+          ref: ${{ inputs.opencode_ref || vars.OPENCODE_REF || 'dev' }}
+          path: opencode
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          path: opencode/packages/nexus-ui
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version-file: opencode/package.json
+      # This package is a separate repository; reconcile its manifest with the host workspace lockfile.
+      - run: bun install --ignore-scripts
+        working-directory: opencode
+      - run: bun run typecheck && bun run test && bun run build
+        working-directory: opencode/packages/nexus-ui
+      - run: bunx --no-install playwright install --with-deps chromium
+        working-directory: opencode/packages/nexus-ui
+      - run: bun run test:components
+        working-directory: opencode/packages/nexus-ui
+        timeout-minutes: 10

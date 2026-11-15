@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import { createChatController, type request } from "./controller"
 import type { Connection, Snapshot } from "./chat"
+import { timeline } from "./timeline"
 
 const connection: Connection = {
   scope: "scope",
@@ -48,6 +49,59 @@ function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved =
   )
   return { controller, sources }
 }
+test("earlier history expands the dialog window, survives refresh, and is fenced on conversation switch", async () => {
+  const page = Promise.withResolvers<unknown>()
+  const later = Array.from({ length: 9 }, (_, index) => ({
+    id: String(index + 10),
+    input: "input" + index,
+    variant: null,
+    run: null,
+    position: index + 10,
+    created: 0,
+    prompt: "Prompt " + index,
+    text: "Answer",
+    status: "completed",
+  }))
+  const { controller: c } = fixture(async (path) => {
+    if (path.includes("/history?before=10"))
+      return {
+        items: [
+          {
+            public_id: "older",
+            position: 9,
+            kind: "direct_reply",
+            role: "assistant",
+            status: "completed",
+            created_at: "2026-01-01T00:00:00Z",
+            active_variant: { public_id: "variant", prompt_text: "Earlier prompt", content: "Earlier answer" },
+          },
+        ],
+        before_position: 9,
+      }
+    if (path.includes("/history?before=9")) return page.promise
+    return { ...empty(), turns: path === "/chats/current" ? later : [] }
+  })
+  try {
+    await c.connect()
+    c.select("current")
+    await c.refresh()
+    await c.earlier()
+    expect(c.s.snapshot.expanded).toBe(true)
+    expect(timeline("current", c.s.snapshot, {}).messages.filter((row) => row.type === "user")).toHaveLength(10)
+    await c.refresh()
+    expect(c.s.snapshot.turns[0].id).toBe("older")
+    const pending = c.earlier()
+    c.select("other")
+    page.resolve({ items: [], before_position: null })
+    await pending
+    await c.refresh()
+    expect(c.s.snapshot.expanded).toBeUndefined()
+    expect(c.s.snapshot.turns).toEqual([])
+    expect(c.s.loadingHistory).toBe(false)
+  } finally {
+    c.close()
+  }
+})
 test("retry after a lost creation receipt and a lost input receipt reuses the original keys across reload", async () => {
   const creates: string[] = [],
     inputs: string[] = []
