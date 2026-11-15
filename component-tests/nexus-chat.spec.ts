@@ -526,7 +526,12 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
     if (path.endsWith("/connection"))
       return json({ scope: "modes", user: "Human", agent: "rho", workspace: "Workspace", model: "m", runner: "local" })
     if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"], modes: defaults })
-    if (path.endsWith("/chats")) return json({ id: "new" })
+
+    if (path.endsWith("/chats")) {
+      expect(req.postDataJSON()).toMatchObject({ title: "", runner: "local" })
+
+      return json({ id: "new" })
+    }
     if (path.endsWith("/modes")) {
       if (req.method() === "POST") {
         const change = req.postDataJSON()
@@ -658,4 +663,57 @@ test("read-only access disables conversation edits and updates when write access
   await expect(editor).toHaveAttribute("contenteditable", "false")
   await expect(actions).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Reconnect", exact: true })).toBeVisible()
+})
+
+test("HTTP recovery updates idle metadata and access without stream events and stops after access loss", async ({
+  page,
+}) => {
+  await page.clock.install()
+  await mockEvents(page)
+  const state = { title: "Waiting for title", writable: true, unavailable: false, reads: 0 }
+
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+
+    if (path.endsWith("/connection"))
+      return json({ scope: "poll", user: "Human", agent: "OpenCode", workspace: "Shared", model: "m", runner: "r" })
+
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+
+    if (route.request().method() === "POST")
+      return json(route.request().postDataJSON()?.action === "extension.list" ? [] : { items: [] })
+
+    state.reads++
+
+    if (state.unavailable) return route.fulfill({ status: 403, json: { error: "Access ended" } })
+
+    return json({
+      turns: [],
+      pending: [],
+      busy: false,
+      decisions: [],
+      problem: null,
+      detail: { title: state.title, writable: state.writable, owned: false, archived: false },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+
+  await expect(page.getByRole("heading", { name: state.title, exact: true })).toBeVisible()
+  await editor.fill("Unsent draft")
+  state.title = "Generated title"
+  state.writable = false
+  await page.clock.fastForward(3000)
+  await expect(page.getByRole("heading", { name: state.title, exact: true })).toBeVisible()
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await expect(editor).toHaveText("Unsent draft")
+  state.unavailable = true
+  await page.clock.fastForward(3000)
+  await expect(page.getByRole("button", { name: "Conversation actions", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Reconnect", exact: true })).toBeVisible()
+  const reads = state.reads
+
+  await page.clock.fastForward(9000)
+  expect(state.reads).toBe(reads)
 })

@@ -27,8 +27,9 @@ The small supporting Protocol change adds schedule models, execution cursors and
 default read. Clients were regenerated through `packages/client`; generated files were not edited manually.
 Nexus API clients own memory selection, schedule reads and permissions. OpenCode Code Mode remains the executor.
 
-Latest validation passed: 362 UI unit tests, 52 browser component tests, the UI type check/build,
-and root `bun run check`. Earlier runtime conformance coverage remains unchanged.
+Latest validation passed: 362 UI unit tests, 53 browser component tests, 301 runtime conformance tests
+with real Chromium and WebRTC, the UI type check/build, the runtime's official TypeScript check/build,
+and root `bun run check`.
 Root lint retains 227 existing advisory warnings and zero errors. The UI build retains its existing chunk-size advisory.
 
 Latest live testing used development Nexus at `http://localhost:3000`, the rebuilt managed OpenCode service,
@@ -39,4 +40,20 @@ WebRTC; reload reattached to the same shell with output history and a preserved 
 the durable task and terminated the shell process; another reload showed the stopped task without opening
 a shell. These checks used the existing runtime and native terminal facilities without restarting either
 managed service. Temporary workspaces, conversations, Bots and terminal tasks were cleaned up, and the runtime
-default workspace and Agent were unchanged. No scheduled occurrence or deployment upgrade was started.
+default workspace and Agent were unchanged. No deployment upgrade was started.
+
+The joint runtime/UI review also found that seeding a title from the first prompt suppressed the runtime's
+automatic title attempt, and that an idle metadata update could remain invisible without a transcript event.
+New chats now leave the title empty; the selected conversation rereads HTTP state every three seconds,
+with cleanup on navigation, teardown and authoritative access denial. A clock-driven browser regression
+checks metadata and access changes without stream events and verifies that access loss stops the reads.
+
+Joint live checks generated a runtime title and observed it before and after reload; drove native OpenCode
+Code Mode through nested bash calls, Human approvals, file publication and a scoped download with matching
+bytes; created, edited, paused, resumed and explicitly ran a scheduled job, then opened its execution; and
+persisted disabled, custom and automatic memory selections. Terminal connection, reload/reattachment and
+Stop were rerun successfully. Code Mode's declaration now explicitly explains that returned JSON is UI-only
+and that results needed by the model must be printed rather than obtaining text by repeating effects.
+Temporary workspaces, schedules and terminal tasks were removed, with the managed services and defaults intact.
+The runtime declaration wording is verified from source; the live managed service publishes that change
+after its next rebuild/restart.

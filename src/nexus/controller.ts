@@ -104,6 +104,7 @@ export function createChatController(
   let choicesRead = 0
   let version = 0
   let source: EventSource | undefined
+  let poll: ReturnType<typeof setInterval> | undefined
   let attempt: Attempt | undefined
   let streamReady: Promise<void> | undefined
   let invalidate: ReturnType<typeof setTimeout> | undefined
@@ -153,6 +154,8 @@ export function createChatController(
   const path = () => "/chats/" + encodeURIComponent(s.id)
   function clearStream() {
     version++
+    clearInterval(poll)
+    poll = undefined
     clearTimeout(invalidate)
     invalidate = undefined
     source?.close()
@@ -187,6 +190,8 @@ export function createChatController(
         if (owner === version) {
           if (err instanceof RequestError && [401, 403, 404].includes(err.status)) {
             set({ hydrated: false, accessDenied: true, connected: false })
+            clearInterval(poll)
+            poll = undefined
             source?.close()
             source = undefined
           }
@@ -253,6 +258,9 @@ export function createChatController(
         void refresh()
       }
     }
+
+    // Metadata edits and missed realtime events still recover from authoritative HTTP reads.
+    poll = setInterval(() => void refresh(), 3000)
     void refresh()
   }
 
@@ -422,7 +430,7 @@ export function createChatController(
       persist()
       if (!s.id) {
         const created = await api<{ id: string }>("/chats", c.scope, {
-          title: submission.text.trim().slice(0, 80),
+          title: "",
           runner: submission.runner,
           key: submission.createKey,
         })

@@ -1,7 +1,8 @@
 import { Markdown } from "@opencode/session-ui/markdown"
 import { For, Show } from "solid-js"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
-export function AgentWelcome(props: { agent: string; onPrompt: (value: string) => void }) {
+
+export function AgentWelcome(props: { agent: string; disabled: boolean; onPrompt: (value: string) => void }) {
   const welcomeText = () => AGENT_DEFAULT_CONFIG.welcomeText
   const suggestedQuestions = () => AGENT_DEFAULT_CONFIG.suggestedQuestions
 
@@ -18,7 +19,8 @@ export function AgentWelcome(props: { agent: string; onPrompt: (value: string) =
             {(question) => (
               <button
                 type="button"
-                class="rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 px-4 py-2.5 text-left text-[13px] text-v2-text-text-base transition-colors hover:border-v2-border-border-strong hover:bg-v2-overlay-simple-overlay-hover"
+                disabled={props.disabled}
+                class="rounded-lg border border-v2-border-border-base bg-v2-background-bg-layer-01 px-4 py-2.5 text-left text-[13px] text-v2-text-text-base transition-colors hover:enabled:border-v2-border-border-strong hover:enabled:bg-v2-overlay-simple-overlay-hover disabled:opacity-55"
                 onClick={() => props.onPrompt(question)}
               >
                 {question}

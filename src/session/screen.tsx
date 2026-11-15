@@ -109,7 +109,7 @@ export default function SessionPage() {
                 when={doc().messages.length}
                 fallback={
                   <div class="grid place-items-center">
-                    <AgentWelcome agent={agent()} onPrompt={chat.edit} />
+                    <AgentWelcome agent={agent()} disabled={!chat.writable()} onPrompt={chat.edit} />
                   </div>
                 }
               >
