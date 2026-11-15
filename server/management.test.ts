@@ -54,12 +54,15 @@ test("management binds Human platform calls and workspace reads without exposing
           return Response.json({ run: { public_id: "terminal-run", status: "stopped", turn: { status: "stopped" } } })
         }
 
-        if (url.pathname.endsWith("/runs/conversation-run"))
+        if (url.pathname.endsWith("/runs/conversation-run") || url.pathname.endsWith("/runs/read-only-run"))
           return Response.json({
             run: {
-              public_id: "conversation-run",
+              public_id: url.pathname.split("/").at(-1),
               status: "running",
-              turn: { status: "running", conversation_public_id: "conversation" },
+              turn: {
+                status: "running",
+                conversation_public_id: url.pathname.endsWith("/read-only-run") ? "read-only" : "conversation",
+              },
               tasks: [terminalTask],
             },
           })
@@ -77,19 +80,19 @@ test("management binds Human platform calls and workspace reads without exposing
 
         if (url.pathname.endsWith("/tasks/terminal")) return Response.json({ task: terminalTask })
 
-        if (url.pathname.endsWith("/conversations/conversation"))
+        if (url.pathname.endsWith("/conversations/conversation") || url.pathname.endsWith("/conversations/read-only"))
           return Response.json({
             conversation: {
-              public_id: "conversation",
+              public_id: url.pathname.split("/").at(-1),
               workspace_public_id: "workspace",
-              answering_user_public_id: "other",
-              archived_at: "now",
+              answering_user_public_id: url.pathname.endsWith("/read-only") ? "agent" : "other",
+              archived_at: url.pathname.endsWith("/read-only") ? null : "now",
               side: false,
               lock_version: 0,
               context_revision: 0,
               created_at: "now",
               updated_at: "now",
-              metadata: { "opencode.bot": "private" },
+              metadata: url.pathname.endsWith("/read-only") ? {} : { "opencode.bot": "private" },
               input_queue: { limit: 100, held: 0 },
               usage_summary: {
                 request_count: 0,
@@ -252,6 +255,7 @@ test("management binds Human platform calls and workspace reads without exposing
   expect(reads.at(-1)).toBe("/agent_api/v1/workspaces/workspace/runs/terminal-run")
   expect(await terminal(b, { action: "read", run: "terminal-run", task: "terminal" })).toMatchObject({
     task: { key: "terminal", status: "running" },
+    writable: true,
   })
   await expect(terminal(b, { action: "read", run: "foreign", task: "terminal" })).rejects.toThrow(
     "Unknown terminal workspace",
@@ -282,6 +286,33 @@ test("management binds Human platform calls and workspace reads without exposing
       sdp: "answer",
     },
   })
+  const signals = calls.length
+
+  expect(await terminal(b, { action: "read", run: "conversation-run", task: "terminal" })).toMatchObject({
+    writable: false,
+  })
+  expect(await terminal(b, { action: "read", run: "read-only-run", task: "terminal" })).toMatchObject({
+    writable: false,
+  })
+  await expect(terminal(b, { action: "realtime", run: "conversation-run", task: "terminal" })).rejects.toThrow(
+    "Write access",
+  )
+  await expect(terminal(b, { action: "realtime", run: "read-only-run", task: "terminal" })).rejects.toThrow(
+    "Write access",
+  )
+  await expect(
+    terminal(b, {
+      action: "answer",
+      run: "read-only-run",
+      task: "terminal",
+      connection_id: "connection",
+      sdp: "answer",
+    }),
+  ).rejects.toThrow("Write access")
+  await expect(
+    terminal({ ...b, workspaceActive: false }, { action: "realtime", run: "terminal-run", task: "terminal" }),
+  ).rejects.toThrow("Write access")
+  expect(calls).toHaveLength(signals)
   expect(await terminal(b, { action: "stop", run: "terminal-run", task: "terminal" })).toMatchObject({
     public_id: "terminal-run",
     status: "stopped",

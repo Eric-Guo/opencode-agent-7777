@@ -35,8 +35,15 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
 
     if (!c.scope()) return
     set("values", await c.command<NexusSettings.Values>({ action: "settings.read" }))
-    set("persona", (await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "")
+    set(
+      "persona",
+      editablePersona()
+        ? ((await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "")
+        : "",
+    )
   }
+
+  const editablePersona = () => !!s.setup?.account && s.setup.account.id === c.human()
 
   const account = async (action: "login" | "device" | "logout" | "disconnect") => {
     const result = await request<{ url?: string; code?: string } | string | null>("/setup", undefined, { action })
@@ -62,7 +69,7 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
         <p>
           {s.setup?.account
             ? `Signed in: ${s.setup.account.id} (${s.setup.account.role})`
-            : "Sign in to use your Nexus workspaces. The host retains your credentials."}
+            : "Sign in to manage your Nexus account and persona. The host retains your credentials."}
         </p>
         <div class="nexus-actions">
           <Show
@@ -85,7 +92,7 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
             onClick={() =>
               void c.perform(async () => {
                 await refresh()
-                await c.chat.connect()
+                await c.chat.connect(c.workspace(), c.chat.s.id)
               })
             }
           >
@@ -220,43 +227,48 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
         )}
       </Show>
       <Show when={c.scope()}>
-        <form
-          class="nexus-card"
-          onSubmit={(event) => {
-            event.preventDefault()
-            void c.perform(async () => {
-              await c.command({ action: "persona.write", content: s.persona })
-              c.notice("Persona saved.")
-            })
-          }}
+        <Show
+          when={editablePersona()}
+          fallback={<p>Sign in with the Human linked to this connection to edit persona.</p>}
         >
-          <h3>Persona</h3>
-          <textarea
-            aria-label="Persona instructions"
-            rows={10}
-            value={s.persona}
-            onInput={(e) => set("persona", e.currentTarget.value)}
-          />
-          <div class="nexus-actions">
-            <Button type="submit" disabled={c.state.busy}>
-              Save persona
-            </Button>
-            <Button
-              disabled={c.state.busy}
-              onClick={() =>
-                void c.perform(async () => {
-                  await c.command({ action: "persona.reset" })
-                  set(
-                    "persona",
-                    (await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "",
-                  )
-                })
-              }
-            >
-              Reset persona
-            </Button>
-          </div>
-        </form>
+          <form
+            class="nexus-card"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void c.perform(async () => {
+                await c.command({ action: "persona.write", content: s.persona })
+                c.notice("Persona saved.")
+              })
+            }}
+          >
+            <h3>Persona</h3>
+            <textarea
+              aria-label="Persona instructions"
+              rows={10}
+              value={s.persona}
+              onInput={(e) => set("persona", e.currentTarget.value)}
+            />
+            <div class="nexus-actions">
+              <Button type="submit" disabled={c.state.busy}>
+                Save persona
+              </Button>
+              <Button
+                disabled={c.state.busy}
+                onClick={() =>
+                  void c.perform(async () => {
+                    await c.command({ action: "persona.reset" })
+                    set(
+                      "persona",
+                      (await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "",
+                    )
+                  })
+                }
+              >
+                Reset persona
+              </Button>
+            </div>
+          </form>
+        </Show>
         <Show when={c.chat.s.id}>
           <div class="nexus-card">
             <h3>Memory review for this conversation</h3>

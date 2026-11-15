@@ -644,3 +644,171 @@ test("memory bindings preserve a conflicting draft, page collections and disting
   await expect(dialog).not.toBeVisible()
   expect(posts.at(-1)).toEqual({ selection: null })
 })
+
+test("member-token settings skip unavailable persona controls and reconnect the selected conversation", async ({
+  page,
+}) => {
+  const state: { account: { id: string; role: string } | null } = { account: null }
+  const commands: string[] = []
+  const connections: string[] = []
+  page.on("request", (request) => {
+    if (request.url().includes("/api/7777/connection")) connections.push(new URL(request.url()).search)
+  })
+  await fixture(
+    page,
+    (input) => {
+      commands.push(input.action)
+
+      if (input.action === "extension.list") return []
+
+      if (input.action === "settings.read")
+        return {
+          default_model: null,
+          fallback_models: [],
+          kernel_tools: [],
+          subagent_default: true,
+          adaptations: "auto",
+          adaptations_dir: null,
+          conversation_title_model: null,
+        }
+
+      if (input.action === "persona.read") return { content: "Saved persona" }
+
+      return {}
+    },
+    "/component-tests/nexus-chat.html#/workspaces/two/conversations/conversation",
+    "two",
+  )
+  await page.route("**/api/7777/setup", (route) =>
+    route.fulfill({
+      json: { status: { state: "ready", origin: "https://nexus.example" }, account: state.account },
+    }),
+  )
+  await page.getByRole("button", { name: "Settings & account", exact: true }).click()
+  const refresh = page.getByRole("button", { name: "Refresh connection", exact: true })
+
+  await expect(refresh).toBeEnabled()
+  await expect(page.getByRole("button", { name: "Save defaults", exact: true })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Persona instructions", exact: true })).toHaveCount(0)
+  expect(commands).not.toContain("persona.read")
+  await refresh.click()
+  await expect.poll(() => connections.length).toBe(2)
+  expect(connections.at(-1)).toBe("?workspace=two")
+  await page.getByRole("button", { name: "Back to conversation", exact: true }).click()
+  await expect(page).toHaveURL(/\/workspaces\/two\/conversations\/conversation$/)
+  await expect(page.getByRole("heading", { name: "Navigation chat", exact: true })).toBeVisible()
+
+  await page.getByRole("button", { name: "Settings & account", exact: true }).click()
+  state.account = { id: "other-human", role: "admin" }
+  await refresh.click()
+  await expect(refresh).toBeEnabled()
+  await expect(page.getByRole("textbox", { name: "Persona instructions", exact: true })).toHaveCount(0)
+  expect(commands).not.toContain("persona.read")
+  state.account = { id: "human", role: "member" }
+  await refresh.click()
+  await expect(page.getByRole("textbox", { name: "Persona instructions", exact: true })).toHaveValue("Saved persona")
+})
+
+test("Bot editors retain unavailable Home Workspaces and respect fixed external audiences", async ({ page }) => {
+  const bot = {
+    public_id: "external",
+    name: "bot-external",
+    display_name: "External Bot",
+    description: "Saved Bot",
+    settings: {
+      audience: "external",
+      preset_public_id: "preset",
+      home_workspace_public_id: "unavailable-home",
+      subagent: false,
+      welcome_message: "",
+    },
+    current: null,
+  }
+
+  const writes: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "extension.list") return []
+
+      if (input.action === "bot.list") return [bot]
+
+      if (input.action === "preset.list")
+        return {
+          presets: [{ public_id: "preset", name: "Preset", description: "", configuration: {} }],
+          default_bot_preset_public_id: "preset",
+          main_preset_public_id: "preset",
+        }
+
+      if (input.action === "bot.configure") {
+        writes.push(input)
+        Object.assign(bot.settings, input.settings)
+
+        return bot
+      }
+
+      return {}
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/bots/external",
+  )
+  const home = page.getByRole("combobox", { name: "Home Workspace", exact: true })
+  const audience = page.getByRole("combobox", { name: "Audience", exact: true })
+  const start = page.getByRole("button", { name: "New conversation", exact: true })
+
+  await expect(home).toHaveValue("unavailable-home")
+  await expect(home.locator("option:checked")).toHaveText("unavailable-home (unavailable)")
+  await expect(audience).toBeDisabled()
+  await expect(start).toBeDisabled()
+  await home.selectOption("two")
+  await page.getByRole("button", { name: "Save Bot", exact: true }).click()
+  await expect(start).toBeEnabled()
+  expect(writes[0].settings).toMatchObject({ audience: "external", home_workspace_public_id: "two" })
+  await home.selectOption("")
+  await page.getByRole("button", { name: "Save Bot", exact: true }).click()
+  await expect(start).toBeDisabled()
+  await page.getByRole("button", { name: "New Bot", exact: true }).click()
+  await expect(audience).toBeEnabled()
+})
+
+test("terminal viewers follow write access and disable controls when access is revoked", async ({ page }) => {
+  const state = { writable: false, unavailable: false }
+  const signals: string[] = []
+
+  await fixture(page, () => [])
+  await page.route("**/api/7777/terminals", async (route) => {
+    if (route.request().method() === "GET")
+      return route.fulfill({ json: { items: [{ run: "run", task: "terminal", status: "running" }], next: null } })
+    const input = route.request().postDataJSON() as Command
+
+    if (input.action !== "read") {
+      signals.push(input.action)
+
+      return route.fulfill({ json: {} })
+    }
+
+    if (state.unavailable) return route.fulfill({ status: 403, json: { error: "Terminal access ended" } })
+
+    return route.fulfill({
+      json: { task: { status: state.writable ? "needs_approval" : "dispatched" }, writable: state.writable },
+    })
+  })
+  await page.getByRole("button", { name: "Terminals", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Terminals", exact: true })
+
+  await dialog.getByRole("button", { name: "Attach", exact: true }).click()
+  await expect(dialog.getByRole("status")).toHaveText("Read-only terminal")
+  await expect(dialog.getByRole("button", { name: "Stop terminal", exact: true })).toBeDisabled()
+  await expect(dialog.locator(".xterm-helper-textarea")).toHaveCount(0)
+  state.writable = true
+  await expect(dialog.getByRole("status")).toHaveText("Terminal requires approval")
+  await expect(dialog.getByRole("button", { name: "Approve terminal", exact: true })).toBeEnabled()
+  state.unavailable = true
+  await expect(dialog.getByRole("status")).toHaveText("Terminal unavailable")
+  await expect(dialog.getByRole("alert")).toHaveText("Terminal access ended")
+  await expect(dialog.getByRole("button", { name: "Stop terminal", exact: true })).toBeDisabled()
+  await expect(dialog.getByRole("button", { name: "Approve terminal", exact: true })).toBeDisabled()
+  await dialog.getByRole("button", { name: "Attach", exact: true }).click()
+  await expect(dialog.getByRole("status")).toHaveText("Terminal unavailable")
+  await expect(dialog.getByRole("button", { name: "Stop terminal", exact: true })).toBeDisabled()
+  expect(signals).toEqual([])
+})

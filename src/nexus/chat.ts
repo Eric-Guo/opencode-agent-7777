@@ -61,6 +61,7 @@ export type Snapshot = {
     runner: string | null
     archived: boolean
     owned: boolean
+    writable?: boolean
     bot?: string
     active: string | null
     version: number

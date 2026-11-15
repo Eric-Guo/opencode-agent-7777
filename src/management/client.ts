@@ -49,6 +49,7 @@ export function createManagementClient(chat: ChatController) {
     platform,
     perform,
     workspace: () => identity()[2],
+    human: () => identity()[1],
     notice: (text: string) => set("notice", text),
     chat,
   }

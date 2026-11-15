@@ -48,7 +48,7 @@ export default function SessionPage() {
       placeholder: () => language.t("prompt.message.aria"),
       submit: {
         enabled: () => chat.writable() && !s.sending,
-        stopping: () => s.snapshot.busy && !s.sending && (!s.draft.trim() || !chat.writable()),
+        stopping: () => chat.stoppable() && s.snapshot.busy && !s.sending && (!s.draft.trim() || !chat.writable()),
         onSubmit: (options) => void chat.send(options?.alternate, settings.general.followUpBehavior()),
         onStop: () => void chat.stop(),
       },
@@ -144,6 +144,9 @@ export default function SessionPage() {
         <div class="mx-auto w-full max-w-[1120px] px-6 pb-5">
           <Show when={s.snapshot.detail?.owned || s.snapshot.detail?.archived}>
             <p class="chat-hint">{language.t(s.snapshot.detail?.archived ? "chat.archivedHint" : "chat.channel")}</p>
+          </Show>
+          <Show when={s.snapshot.detail?.writable === false}>
+            <p class="chat-hint">{language.t("chat.readOnly")}</p>
           </Show>
           <Show when={s.prepared && !s.sending && chat.writable()}>
             <p class="chat-hint">{language.t("chat.prepared")}</p>

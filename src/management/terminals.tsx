@@ -4,7 +4,7 @@ import { Button } from "@opencode/ui/button"
 import type { Terminal } from "@xterm/xterm"
 import type { TaskDetail } from "@cybros/agent"
 import type { ManagementClient } from "./client"
-import { request } from "../nexus/controller"
+import { request, RequestError } from "../nexus/controller"
 import { FieldRow } from "./fields"
 import { terminalConnection } from "./terminal-connection"
 import "@xterm/xterm/css/xterm.css"
@@ -12,6 +12,8 @@ import "@xterm/xterm/css/xterm.css"
 type Target = { run: string; task: string }
 
 type Row = Target & { status: string; created: string | null }
+
+type TerminalDetail = TaskDetail & { writable?: boolean }
 
 export function Terminals(props: { client: ManagementClient; target?: Target }) {
   const c = props.client
@@ -88,7 +90,11 @@ export function Terminals(props: { client: ManagementClient; target?: Target }) 
 }
 
 function TerminalSession(props: { client: ManagementClient; target: Target }) {
-  const [s, set] = createStore({ detail: null as TaskDetail | null, status: "Connecting", error: "" })
+  const [s, set] = createStore({
+    detail: null as TerminalDetail | null,
+    status: "Connecting",
+    error: "",
+  })
   const abort = new AbortController()
   const scope = props.client.scope()
 
@@ -101,9 +107,18 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
   let timer: ReturnType<typeof setTimeout> | undefined
   let observer: ResizeObserver | undefined
 
+  const detach = () => {
+    connection?.close()
+    connection = undefined
+    observer?.disconnect()
+    observer = undefined
+    screen?.dispose()
+    screen = undefined
+  }
+
   const poll = async () => {
     try {
-      const detail = await call<TaskDetail>("read")
+      const detail = await call<TerminalDetail>("read")
 
       if (abort.signal.aborted) return
       set("detail", detail)
@@ -115,7 +130,12 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
         return
       }
 
-      if (["running", "dispatched"].includes(detail.task.status) && !connection) {
+      if (detail.writable === false) {
+        detach()
+        set("status", "Read-only terminal")
+      }
+
+      if (detail.writable !== false && ["running", "dispatched"].includes(detail.task.status) && !connection) {
         const { Terminal } = await import("@xterm/xterm")
 
         const settings = await request<{ iceServers: RTCIceServer[] }>(
@@ -147,7 +167,19 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
         observer.observe(element)
       }
     } catch (error) {
-      if (!abort.signal.aborted) set("error", error instanceof Error ? error.message : String(error))
+      if (!abort.signal.aborted) {
+        if (error instanceof RequestError && [401, 403, 404].includes(error.status)) {
+          detach()
+
+          if (s.detail) set("detail", { ...s.detail, writable: false })
+          set("status", "Terminal unavailable")
+          set("error", error.message)
+
+          return
+        }
+
+        set("error", error instanceof Error ? error.message : String(error))
+      }
     }
 
     if (!abort.signal.aborted) timer = setTimeout(() => void poll(), 1000)
@@ -157,14 +189,16 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
   onCleanup(() => {
     abort.abort()
     clearTimeout(timer)
-    observer?.disconnect()
-    connection?.close()
-    screen?.dispose()
+    detach()
   })
 
   return (
     <div class="nexus-card">
-      <p role="status">{s.detail?.task.status === "needs_approval" ? "Terminal requires approval" : s.status}</p>
+      <p role="status">
+        {s.detail?.writable !== false && s.detail?.task.status === "needs_approval"
+          ? "Terminal requires approval"
+          : s.status}
+      </p>
       <Show when={s.error}>
         <p role="alert" class="nexus-error">
           {s.error}
@@ -172,12 +206,15 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
       </Show>
       <div class="nexus-actions">
         <Show when={s.detail?.task.status === "needs_approval"}>
-          <Button disabled={props.client.state.busy} onClick={() => void props.client.perform(() => call("approve"))}>
+          <Button
+            disabled={props.client.state.busy || s.detail?.writable === false}
+            onClick={() => void props.client.perform(() => call("approve"))}
+          >
             Approve terminal
           </Button>
         </Show>
         <Button
-          disabled={props.client.state.busy}
+          disabled={props.client.state.busy || !s.detail || s.detail.writable === false}
           onClick={() =>
             void props.client.perform(async () => {
               await call("stop")

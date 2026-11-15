@@ -185,6 +185,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
       runner: info.default_runner?.display_name || info.default_runner?.executor_public_id || null,
       archived: !!info.archived_at,
       owned,
+      writable: canManage(backend, info),
       bot: typeof info.metadata["opencode.bot"] === "string" ? info.metadata["opencode.bot"] : undefined,
       active,
       version: info.lock_version,
@@ -228,8 +229,13 @@ export function grantSite(detail: {
 }
 // Check the Human’s standing before using the agent credential for conversation policy or a site grant.
 export function canWrite(b: Backend, info: Conversation) {
+  return !info.archived_at && canManage(b, info)
+}
+
+export function canManage(b: Backend, info: Conversation) {
   const level = info.access?.entries?.find((e) => e.user_public_id === b.humanID)?.level ?? info.access?.default
-  return b.workspaceActive && !info.archived_at && level === "full"
+
+  return b.workspaceActive && level === "full"
 }
 export function resolveDecision(
   task: { approve(): Promise<unknown>; deny(): Promise<unknown>; resolve(input: ResolveTask): Promise<unknown> },

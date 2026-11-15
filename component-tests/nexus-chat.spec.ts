@@ -587,3 +587,75 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
   await expect(code).not.toBeChecked()
   expect(patches[1]).toEqual({ code_mode: false })
 })
+
+test("read-only access disables conversation edits and updates when write access returns", async ({ page }) => {
+  await mockEvents(page)
+  const state = { writable: false, archived: false, unavailable: false }
+  const writes: string[] = []
+
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+
+    if (state.unavailable && path === "/api/7777/chats/chat")
+      return route.fulfill({ status: 403, json: { error: "Access ended" } })
+
+    if (path.endsWith("/connection"))
+      return json({
+        scope: "read-only",
+        user: "Human",
+        workspace: "Shared",
+        agent: "OpenCode",
+        model: "m",
+        runner: "r",
+      })
+
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+
+    if (path.endsWith("/restore")) {
+      writes.push(path)
+      state.archived = false
+
+      return json({})
+    }
+
+    if (route.request().method() === "POST")
+      return json(route.request().postDataJSON()?.action === "extension.list" ? [] : { items: [] })
+
+    return json({
+      turns: [],
+      pending: [],
+      busy: false,
+      decisions: [],
+      problem: null,
+      detail: { title: "Shared", owned: false, runner: "r", version: 0, active: null, ...state },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const actions = page.getByRole("button", { name: "Conversation actions", exact: true })
+
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await expect(page.getByText("This conversation is read-only.", { exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Run settings", exact: true })).toBeDisabled()
+  await actions.click()
+  await expect(page.getByRole("textbox", { name: "Conversation title", exact: true })).toBeDisabled()
+  await expect(page.getByRole("button", { name: "Archive", exact: true })).toBeDisabled()
+  await page.keyboard.press("Escape")
+  state.writable = true
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(editor).toHaveAttribute("contenteditable", "true")
+  await expect(page.getByText("This conversation is read-only.", { exact: true })).toHaveCount(0)
+  state.archived = true
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await actions.click()
+  await page.getByRole("button", { name: "Restore", exact: true }).click()
+  await expect(editor).toHaveAttribute("contenteditable", "true")
+  expect(writes).toEqual(["/api/7777/chats/chat/restore"])
+  state.unavailable = true
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await expect(actions).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Reconnect", exact: true })).toBeVisible()
+})
