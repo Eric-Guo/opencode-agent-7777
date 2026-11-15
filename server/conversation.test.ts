@@ -35,6 +35,7 @@ async function bridge(b: Backend) {
 
 test("scoped bridge enforces channel ownership, archive state, run and file ownership", async () => {
   let bound = true,
+    bot = false,
     archived = false,
     approvals = 0,
     executionReads = 0
@@ -44,13 +45,14 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     public_id: "a",
     workspace_public_id: "w",
     answering_user_public_id: "agent",
-    metadata: { "opencode.surface": bound ? "channel" : "desktop" },
+    metadata: { "opencode.surface": bound ? "channel" : "desktop", ...(bot ? { "opencode.bot": "private-bot" } : {}) },
     archived_at: archived ? "now" : null,
     side: false,
     access: { entries: [], default: "full" },
   })
   const chat = {
     fetch: async () => info(),
+    memory: () => ({ bindings: async () => ({ bindings: [] }) }),
     archive: async () => {
       archived = true
     },
@@ -78,6 +80,8 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
   }
   const b = {
     workspaceID: "w",
+    workspaceActive: true,
+    humanID: "human",
     agentID: "agent",
     connection: { scope: "scope" },
     client: {
@@ -111,6 +115,12 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     expect(pages).toEqual(["archived/cursor/agent", "active//agent"])
     expect((await send("/chats/a/archive", {})).status).toBe(403)
     bound = false
+    bot = true
+    expect((await send("/chats/a/memory", { selection: { bindings: [] } })).status).toBe(403)
+    expect(await (await send("/chats/a/memory")).json()).toMatchObject({ writable: false })
+    expect((await send("/chats/a/archive", {})).status).toBe(403)
+    expect(await (await send("/chats/a/modes")).json()).toBeNull()
+    bot = false
     expect((await send("/chats/a/archive", {})).status).toBe(200)
     expect((await send("/chats/a/prepare", { text: "hello" })).status).toBe(409)
     expect((await send("/chats/a/restore", {})).status).toBe(200)

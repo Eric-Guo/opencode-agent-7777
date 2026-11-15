@@ -273,7 +273,7 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
               <For each={["status", "enable", "disable", "resume"]}>
                 {(action) => (
                   <Button
-                    disabled={c.state.busy}
+                    disabled={c.state.busy || (action !== "status" && !c.chat.writable())}
                     onClick={() =>
                       void c.perform(async () => {
                         set(

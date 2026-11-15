@@ -1,7 +1,18 @@
 import type { ModeValues } from "../src/nexus/chat"
+import { Schema } from "effect"
 import { BridgeError, type Backend } from "./nexus"
 
-export const defaultModes = { code_mode: true, subagent: true, available: true, code_mode_available: true }
+export async function defaultModes(b: Backend) {
+  return Schema.decodeUnknownSync(
+    Schema.Struct({
+      code_mode: Schema.Boolean,
+      subagent: Schema.Boolean,
+      available: Schema.Boolean,
+      code_mode_available: Schema.Boolean,
+    }),
+  )(await b.native.manage({ payload: { action: "application.defaults" } }))
+}
+
 export async function readModes(b: Backend, id: string) {
   return {
     ...(await b.native.modes({ workspace: b.workspaceID, conversation: id })),

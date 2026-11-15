@@ -1,0 +1,40 @@
+# Rho WebUI behavioral review
+
+Reference: `agents/rho/rho-webui` in Cybros revision
+`31b82029d75d1ed9626b80739e4caca16671b344`. The reference checkout and its Ruby/JavaScript
+runtime are development references, not dependencies of this UI.
+
+| Reference behavior                                                                                                      | Nexus UI owner and evidence                                                                                                                                                                                                                                             |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace selection, new workspace, browser history, remembered selection, conversation and panel links                 | `nexus/navigation.ts`, `management/shell.tsx`; browser regressions cover reload, Back/Forward, cache restoration, workspace changes and Bot/plugin item links. A new workspace opens without changing the runtime default.                                              |
+| Persistent history, drafts, message admission, uncertain sends, queue/steer delivery, modes and approvals               | `nexus/controller.ts`, `server/middleware.ts`, `server/input-policy.ts`, `server/reply.ts`; controller, bridge and browser regressions preserve captured retries. Fresh drafts reread the runtime's mode defaults and availability.                                     |
+| Read-only Bot/channel/Side views, archive state, Stop and artifact access                                               | `server/nexus.ts`, scoped bridge checks and `conversation.test.ts`; private Bots retain the same read-only boundary as channel Bots. Memory review mutations use the same conversation boundary.                                                                        |
+| Parent snapshots, background receipts, retained/pruned turns, execution inspection, branches, typed questions and usage | `nexus/chat.ts`, `transcript.tsx`, `activity.tsx`, `decision.tsx`; existing projection, controller, request-prompt and browser suites exercise these production components.                                                                                             |
+| Published files, text paths, image/Markdown previews and recorded Git review                                            | `nexus/output-files.tsx`, `server/outputs.ts`, `server/activity.ts`; output ownership and slow-variant browser regressions retain each capture with its answer.                                                                                                         |
+| Conversation memory bindings                                                                                            | `nexus/memory-bindings.tsx`, `server/memory.ts`; automatic/custom/disabled selections, scope and collection sources, optional subjects, access, collection pagination and effective-state display. Conflicts preserve the draft; read-only views expose no save action. |
+| Workspace and conversation schedules, models, rules, executions and lifecycle controls                                  | `management/schedules.tsx`, scoped Human reads in `server/management.ts`, and the runtime schedule commands; active rows sort by next run, finished/read-only rows keep history, executions page, and model edits preserve unchanged captured controls.                 |
+| Bots, Home Workspace, Presets, roles, welcome messages, history and shared policy                                       | `management/bots.tsx`, `presets.tsx`; item-link regressions preserve saved selections while catalogs arrive. New Bot restores its own default Preset, Subagent setting and empty history.                                                                               |
+| Plugin configuration, secret retention, packages and dynamic browser contributions                                      | `management/plugins.tsx`, `fields.tsx`, `modules.ts`, `slot.tsx`; browser regressions cover failed drafts, retained secrets, relative imports, replacement, disable and item restoration.                                                                               |
+| Settings, account actions, integrations, providers, terminals and deployment updates                                    | `management/settings.tsx`, `integrations.tsx`, `providers.tsx`, `terminals.tsx`, `updates.tsx`; server tests retain credential boundaries. Upgrade recovery keeps the exact checked request across reload and never resubmits from a read.                              |
+
+The compact interface continues to use public OpenCode UI/session components. Its management pages and
+fragment addresses preserve the embedding host's path, query and relative assets. OpenCode owns host updates,
+local bridge authentication and Human sign-in; the browser receives no Nexus or service credential. Rho's
+separate web password gate and installer are not duplicated. The source-controlled model-management policy,
+host document-title control and existing nine-dialog history behavior are retained.
+
+The small supporting Protocol change adds schedule models, execution cursors and the runtime's conversation
+default read. Clients were regenerated through `packages/client`; generated files were not edited manually.
+Nexus API clients own memory selection, schedule reads and permissions. OpenCode Code Mode remains the executor.
+
+Validation passed: 358 UI unit tests, 48 browser component tests, 300 runtime conformance tests with isolated
+Chromium/WebRTC, the UI type check/build, the runtime's official TypeScript check, and root `bun run check`.
+Root lint retains 227 existing advisory warnings and zero errors. The UI build retains its existing chunk-size advisory.
+
+Live testing used development Nexus at `http://localhost:3000`. The installed managed service exposed an older
+management API, so an isolated source runtime and development UI exercised the changed code without restarting
+or changing that service. Real browser checks covered workspace/conversation links, reload and history,
+responsive schedules, archived read-only execution history, runtime mode defaults, model-bound future schedule
+creation, and disabling/restoring automatic memory bindings. No scheduled occurrence or deployment upgrade was
+started. Temporary workspaces, conversations, schedules and the Agent were removed; both temporary credential
+planes were verified rejected with HTTP 401. Test servers and private artifacts were removed.

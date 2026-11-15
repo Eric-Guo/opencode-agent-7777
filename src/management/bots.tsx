@@ -1,4 +1,4 @@
-import { For, Show, onMount } from "solid-js"
+import { For, Show, onMount, createEffect, untrack } from "solid-js"
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import type { NamedAgent, Conversation, WorkspaceSummary, Turn, TurnPage } from "@cybros/agent"
@@ -17,6 +17,8 @@ type Bot = NamedAgent & {
 export function Bots(props: {
   client: ManagementClient
   host: ModuleHost
+  selected?: string
+  select?(id: string): void
   open(workspace: string, conversation: string): void
 }) {
   const c = props.client
@@ -31,6 +33,7 @@ export function Bots(props: {
     description: "",
     audience: "owner" as "owner" | "external",
     preset: "",
+    defaultPreset: "",
     home: "",
     subagent: true,
     welcome: "default",
@@ -82,11 +85,16 @@ export function Bots(props: {
           c.command<{ items: WorkspaceSummary[] }>({ action: "workspace.list" }),
         ])
 
-        set({ presets: [...presets.presets], workspaces: spaces.items, preset: presets.default_bot_preset_public_id })
+        set({
+          presets: [...presets.presets],
+          workspaces: spaces.items,
+          ...(!s.id ? { preset: presets.default_bot_preset_public_id } : {}),
+          defaultPreset: presets.default_bot_preset_public_id,
+        })
       }),
   )
 
-  const edit = (bot: Bot) =>
+  const edit = (bot: Bot) => {
     set({
       id: bot.public_id,
       name: bot.name.replace(/^bot-/, ""),
@@ -103,29 +111,48 @@ export function Bots(props: {
       fork: null,
       key: crypto.randomUUID(),
     })
+    props.select?.(bot.public_id)
+  }
+
+  const fresh = (navigate = true) => {
+    set({
+      id: "",
+      name: "",
+      display: "",
+      description: "",
+      home: "",
+      subagent: true,
+      audience: "owner",
+      welcome: "default",
+      message: "",
+      preset: s.defaultPreset,
+      history: [],
+      historyVisible: false,
+      fork: null,
+      turns: [],
+      before: null,
+      key: crypto.randomUUID(),
+    })
+
+    if (navigate) props.select?.("new")
+  }
+
+  const selection = { id: undefined as string | undefined }
+  createEffect(() => {
+    const id = props.selected ?? ""
+    const bot = s.rows.find((row) => row.public_id === id)
+
+    if (id === selection.id || (id && id !== "new" && !bot)) return
+    selection.id = id
+    untrack(() => (bot ? edit(bot) : fresh(false)))
+  })
 
   return (
     <section>
       <h2>Bots</h2>
       <div class="nexus-actions">
         <Button onClick={() => void c.perform(refresh)}>Refresh</Button>
-        <Button
-          onClick={() =>
-            set({
-              id: "",
-              name: "",
-              display: "",
-              description: "",
-              home: "",
-              subagent: true,
-              audience: "owner",
-              welcome: "default",
-              message: "",
-            })
-          }
-        >
-          New Bot
-        </Button>
+        <Button onClick={() => fresh()}>New Bot</Button>
       </div>
       <For each={s.rows}>
         {(bot) => (
@@ -314,7 +341,12 @@ export function Bots(props: {
         }}
       >
         <h3>{s.id ? "Edit Bot" : "Create Bot"}</h3>
-        <fieldset disabled={c.state.busy}>
+        <fieldset
+          disabled={
+            c.state.busy ||
+            !!(props.selected && props.selected !== "new" && !s.rows.some((row) => row.public_id === props.selected))
+          }
+        >
           <FieldRow label="Stable name">
             <input
               required
@@ -338,13 +370,25 @@ export function Bots(props: {
           </FieldRow>
           <FieldRow label="Preset">
             <select value={s.preset} onChange={(e) => set("preset", e.currentTarget.value)}>
-              <For each={s.presets}>{(preset) => <option value={preset.public_id}>{preset.name}</option>}</For>
+              <For each={s.presets}>
+                {(preset) => (
+                  <option value={preset.public_id} selected={s.preset === preset.public_id}>
+                    {preset.name}
+                  </option>
+                )}
+              </For>
             </select>
           </FieldRow>
           <FieldRow label="Home Workspace">
             <select value={s.home} onChange={(e) => set("home", e.currentTarget.value)}>
               <option value="">No home; disable new conversations</option>
-              <For each={s.workspaces}>{(space) => <option value={space.public_id}>{space.name}</option>}</For>
+              <For each={s.workspaces}>
+                {(space) => (
+                  <option value={space.public_id} selected={s.home === space.public_id}>
+                    {space.name}
+                  </option>
+                )}
+              </For>
             </select>
           </FieldRow>
           <FieldRow label="Subagent">

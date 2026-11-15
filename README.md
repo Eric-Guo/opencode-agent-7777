@@ -64,8 +64,12 @@ When reusing a service paired in SigmaAgents, set `NEXUS_URL` to that service’
 build. The standalone bridge defaults to `service.json`; a healthy pairing in the desktop does not configure the
 standalone bridge automatically.
 
+The UI and managed service must use a matching API revision. A ready connection from an older
+service does not provide newer management commands; use a matching development build when testing changes.
+
 ## Conversation behavior
 
+- Workspace, conversation, Bot, plugin and management links are kept in the URL fragment. Reload, Back and Forward restore that view; the embedding host's path and query stay intact. The current workspace is remembered in this browser. A new workspace opens immediately without changing the service default. Leaving the page closes its streams; returning from the back/forward cache reconnects the same conversation.
 - **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
 - The new-chat draft and each conversation’s draft, send choices and uncertain submission receipt are stored separately under the Nexus origin, Human, workspace and answering agent. Switching chats or reloading never resubmits a message. A deliberate retry uses the original input and mutation keys.
 - **Run settings** selects a runner for a new chat, the configured answering model or an explicit model, and a permission policy. During a reply, Enter steers by default; choose **Queue after reply** for separate work. Ctrl/Cmd+Enter sends an immediate steer, or promotes the latest waiting steer when the editor is empty. The pending label follows the delivery mode Nexus accepted.
@@ -74,11 +78,27 @@ standalone bridge automatically.
 - The decision dock accepts typed answers or one-time approvals. For a held native `web_fetch` call, a Human with verified write access can also allow that site until the OpenCode service restarts. The service derives the site rule from the held call.
 - **Usage** separates the cumulative request, token and cost totals from the latest reported context window and actual model. When some requests have no price, the amount is a **known subtotal**.
 - Files belong to a particular answer variant or task. Download published files, preview Markdown and images, or open a recorded Git patch and add a line comment to the current draft. Explicit file paths in an answer are resolved on its conversation runner within the bound output directory; a bare filename in prose does not create a file card.
-- **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft starts with the runtime’s defaults; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. The native runner uses the isolated QuickJS binding to preserve the Rho Code Mode contract.
+- **Memory bindings** shows resolved sources and edits the sources for future replies. Automatic restores the default selection; Disabled selects no memory; Custom chooses up to sixteen named scope or collection bindings with read or read/write access and optional conversation or speaker subjects. Collections page without losing the draft. The server retains authority over access, and channel-owned, archived and read-only conversations keep a read-only view.
+- **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft rereads the runtime’s defaults and Code Mode availability; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. The runner uses OpenCode Code Mode’s supported JavaScript subset and native results. Nexus owns child tool calls and their approvals; old Rho JavaScript bindings require new work after upgrading.
 - After verifying Human write access, the bridge asks the selected runtime for its tool list and executor contexts, then seals them into the send ticket. An empty list means no tools; omitted contexts stay inherited. If the runtime cannot prepare a policy, no new input is sent.
 - Browser file uploads, queue reordering, undo and export remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
 
+Scheduled jobs show their rule, next run, latest execution and paged execution history. Finished jobs and
+read-only conversations retain history without mutation controls. The model selector preserves a saved model
+as options arrive, and editing another field leaves its captured model controls alone.
+
+An unconfirmed Nexus deployment upgrade retains its checked images, backup choice and request key in this tab's
+session storage, scoped to the Nexus origin and Human. Reload and progress reads recover receipts without
+submitting an upgrade. A deliberate retry sends the original payload and key. Confirmed receipts clear that
+pending intent; a changed backup choice requires a new check.
+
+The [Rho WebUI review](docs/rho-webui-parity.md) maps the reference behaviors, regression coverage and live checks.
+
 ## Code Layout Parity Review
+
+`src/nexus/navigation.ts` owns fragment navigation and page lifecycle for the embedded Nexus interface.
+`src/nexus/memory-bindings.tsx` owns the conversation memory editor; `server/memory.ts` validates its scoped writes.
+Management pages and their drafts are recreated when the authenticated workspace scope changes.
 
 7777 owns the Nexus integration. Its compact header menus, result disclosures and decision dock provide the compact desktop interface.
 
