@@ -427,6 +427,149 @@ test("keeps slow answer files with their variant and loads recorded changes and 
   await expect(page.getByText("A captured request", { exact: false })).toBeVisible()
 })
 
+test("Code Mode printed output and its sealed request survive approval and reload without resubmitting", async ({
+  page,
+}) => {
+  await mockEvents(page)
+  const prompt = "Run the Code Mode output check once."
+  const token = "VISIBLE_" + crypto.randomUUID()
+  const printed = JSON.stringify({ status: "completed", is_error: false, content: [{ type: "text", text: token }] })
+  const writes: { path: string; body: unknown }[] = []
+  const state = { accepted: false, held: false }
+
+  await page.route("**/api/7777/**", async (route) => {
+    const req = route.request()
+    const url = new URL(req.url())
+    const path = url.pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+
+    if (path.endsWith("/connection"))
+      return json({
+        scope: "code-output",
+        user: "Human",
+        agent: "OpenCode",
+        workspace: "Workspace",
+        runner: "runner",
+        model: "model",
+      })
+
+    if (path.endsWith("/choices"))
+      return json({
+        models: ["model"],
+        runners: [{ id: "runner", name: "Local" }],
+        approvals: ["ask"],
+        modes: { code_mode: true, subagent: false, available: true, code_mode_available: true },
+      })
+
+    if (path.endsWith("/manage")) return json(req.postDataJSON().action === "extension.list" ? [] : { items: [] })
+
+    if (path.endsWith("/chats")) return json({ id: "chat" })
+
+    if (path.endsWith("/modes"))
+      return json({ code_mode: true, subagent: false, available: true, code_mode_available: true })
+
+    if (path.endsWith("/prepare")) return json({ ticket: "captured-policy" })
+
+    if (path.endsWith("/inputs")) {
+      writes.push({ path, body: req.postDataJSON() })
+      state.accepted = true
+      state.held = true
+
+      return json({ id: "input" })
+    }
+
+    if (path.endsWith("/decisions")) {
+      writes.push({ path, body: req.postDataJSON() })
+      state.held = false
+
+      return json({})
+    }
+
+    if (path.endsWith("/rounds"))
+      return json({
+        rounds: [
+          {
+            task_key: "r1",
+            status: "completed",
+            calls: { items: [{ task_key: "code", name: "code", status: "completed" }] },
+          },
+        ],
+        has_older: false,
+      })
+
+    if (path.endsWith("/task"))
+      return json({
+        key: url.searchParams.get("key"),
+        name: url.searchParams.get("key") === "code" ? "code" : "Round one",
+        kind: url.searchParams.get("key") === "code" ? "tool_task" : "model_task",
+        status: "completed",
+        output: url.searchParams.get("key") === "code" ? printed : token,
+        captures: [],
+        sealed: url.searchParams.get("key") !== "code",
+      })
+
+    if (path.endsWith("/request"))
+      return json({
+        entries: [
+          { type: "tool_result_item", payload: { call_id: "code", content: [{ type: "text", text: printed }] } },
+        ],
+        request_options: {},
+      })
+
+    return json({
+      turns: state.accepted
+        ? [
+            {
+              id: "turn",
+              variant: "variant",
+              input: "input",
+              run: "run",
+              position: 1,
+              created: 1,
+              prompt,
+              text: state.held ? "" : token,
+              status: state.held ? "running" : "completed",
+            },
+          ]
+        : [],
+      pending: [],
+      busy: state.held,
+      problem: null,
+      decisions: state.held
+        ? [{ kind: "approval", run: "run", key: "bash", tool: "bash", tool_input: { command: "uuidgen" } }]
+        : [],
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const answer = page.locator('[data-component="markdown"]').getByText(token, { exact: true })
+
+  await editor.fill(prompt)
+  await page.getByRole("button", { name: "Send", exact: true }).click()
+  await expect(page.getByText("uuidgen", { exact: true })).toBeVisible()
+  await expect(answer).toHaveCount(0)
+  await page.getByRole("button", { name: "Allow once", exact: true }).click()
+  await expect(answer).toBeVisible()
+  await expect(editor).toHaveText("")
+  expect(writes.map((row) => row.path)).toEqual(["/api/7777/chats/chat/inputs", "/api/7777/chats/chat/decisions"])
+  expect(writes[0].body).toMatchObject({ text: prompt, ticket: "captured-policy" })
+  expect(writes[1].body).toEqual({ run: "run", key: "bash", response: { action: "approve" } })
+  await page.getByText("Tools and activity", { exact: true }).click()
+  await page.getByText("code · completed", { exact: true }).click()
+  await expect(page.getByText(printed, { exact: true })).toBeVisible()
+  await page.getByText("Round r1 · completed", { exact: true }).click()
+  await page.getByText("Read sealed model request", { exact: true }).click()
+  await expect(page.locator("pre").filter({ hasText: '"type": "tool_result_item"' })).toContainText(token)
+  await page.reload()
+  await expect(answer).toBeVisible()
+  await expect(editor).toHaveText("")
+  await expect(page.getByRole("button", { name: "Allow once", exact: true })).toHaveCount(0)
+  await page.getByText("Tools and activity", { exact: true }).click()
+  await page.getByText("code · completed", { exact: true }).click()
+  await expect(page.getByText(printed, { exact: true })).toBeVisible()
+  expect(writes.map((row) => row.path)).toEqual(["/api/7777/chats/chat/inputs", "/api/7777/chats/chat/decisions"])
+})
+
 test("renames, archives, reopens from a later archived page and restores the conversation draft", async ({ page }) => {
   await mockEvents(page)
   let archived = false,

@@ -27,7 +27,7 @@ The small supporting Protocol change adds schedule models, execution cursors and
 default read. Clients were regenerated through `packages/client`; generated files were not edited manually.
 Nexus API clients own memory selection, schedule reads and permissions. OpenCode Code Mode remains the executor.
 
-Latest validation passed: 362 UI unit tests, 53 browser component tests, 301 runtime conformance tests
+Latest validation passed: 362 UI unit tests, 54 browser component tests, 304 runtime conformance tests
 with real Chromium and WebRTC, the UI type check/build, the runtime's official TypeScript check/build,
 and root `bun run check`.
 Root lint retains 227 existing advisory warnings and zero errors. The UI build retains its existing chunk-size advisory.
@@ -55,5 +55,14 @@ persisted disabled, custom and automatic memory selections. Terminal connection,
 Stop were rerun successfully. Code Mode's declaration now explicitly explains that returned JSON is UI-only
 and that results needed by the model must be printed rather than obtaining text by repeating effects.
 Temporary workspaces, schedules and terminal tasks were removed, with the managed services and defaults intact.
-The runtime declaration wording is verified from source; the live managed service publishes that change
-after its next rebuild/restart.
+After rebuilding and restarting the managed service, a live UI request verified that the model received
+the updated Code Mode declaration. One approved native bash call printed an unpredictable token; Code Mode
+printed the observed result and retained literal `false` as structured output. The next sealed model request
+contained the token, and the UI answer returned it and survived reload. The scratch execution counter and
+durable task records both confirmed exactly one bash execution. The temporary workspace and scratch files
+were cleaned up, with service pairing, the Agent and the default workspace preserved.
+
+`component-tests/nexus-chat.spec.ts` now covers the same UI workflow with deterministic bridge records:
+one input and approval, printed Code Mode output, the next sealed model request, and reload without
+resubmission. Runtime regressions verify the published output instructions, one native child operation
+under duplicate notifications, and printed observations alongside structured false, zero and null.
