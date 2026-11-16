@@ -54,6 +54,12 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
               <strong>{lang.t("chat.output")}</strong>
               <pre>{data().output}</pre>
             </Show>
+            <Show when={data().structured !== undefined}>
+              <section aria-label={lang.t("chat.structured")}>
+                <strong>{lang.t("chat.structured")}</strong>
+                <pre>{JSON.stringify(data().structured, null, 2)}</pre>
+              </section>
+            </Show>
             <Show when={data().error}>
               <pre>{JSON.stringify(data().error, null, 2)}</pre>
             </Show>

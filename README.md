@@ -101,6 +101,8 @@ The [Rho WebUI review](docs/rho-webui-parity.md) maps the reference behaviors, r
 `src/nexus/navigation.ts` owns fragment navigation and page lifecycle for the embedded Nexus interface.
 `src/nexus/memory-bindings.tsx` owns the conversation memory editor; `server/memory.ts` validates its scoped writes.
 Management pages and their drafts are recreated when the authenticated workspace scope changes.
+`server/activity.ts` retains structured task output for the local `src/nexus/activity.tsx` disclosure,
+including Code Mode's false, zero and null selections alongside ordered printed output.
 
 7777 owns the Nexus integration. Its compact header menus, result disclosures and decision dock provide the compact desktop interface.
 
