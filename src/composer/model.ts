@@ -42,6 +42,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       ? { client: createDirectorySdk(active.server, active.directory).client, directory: active.directory }
       : undefined
   })
+  const searchSource = createMemo(() => ({ location: location(), data: currentData() }))
   createEffect(() => {
     const active = location()
     const data = currentData()
@@ -86,10 +87,14 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
       return localCommands.select(item.id)
     },
     context,
-    searchContextFiles: async (query) => {
+    searchSource,
+    searchContextFiles: async (query, signal) => {
       const active = location()
       if (!active) return []
-      return fileSuggestions(await files.searchFilesAndDirectories(query), active.directory)
+      const paths = await files.searchFilesAndDirectories(query, signal)
+      signal?.throwIfAborted()
+      if (files.state.status === "failed") throw new Error("File search failed")
+      return fileSuggestions(paths, active.directory)
     },
     openAttachment: (attachment) => {
       // Compact attachments include PDFs/text under the same part type; only images have a preview.
@@ -175,11 +180,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     suggestionStatus: () => {
       const popover = controller.state.popover
       if (popover.type !== "context") return catalog.state.commandStatus
-      const statuses = [
-        catalog.state.skillStatus,
-        catalog.state.agentStatus,
-        ...(popover.query.trim() ? [files.state.status] : []),
-      ]
+      const statuses = [catalog.state.skillStatus, catalog.state.agentStatus, controller.fileSearchStatus()]
       if (statuses.includes("loading")) return "loading"
       return statuses.includes("failed") ? "failed" : "ready"
     },

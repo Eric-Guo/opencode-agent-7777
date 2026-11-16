@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { getEventListeners } from "node:events"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
 import { createFileSearch } from "./model"
 
@@ -74,6 +75,47 @@ test("recovers after a failed search without rejecting the skill suggestion list
   expect(await recovered).toEqual([])
   expect(files.state.status).toBe("ready")
   expect(await createFileSearch(() => undefined).searchFilesAndDirectories("src")).toEqual([])
+})
+
+test("caller cancellation settles an abort-ignoring read and leaves the next search owned", async () => {
+  const { client, calls } = fixture()
+  const files = createFileSearch(() => ({ client, directory: "/workspace" }))
+  const owner = new AbortController()
+  const pending = files.searchFilesAndDirectories("old", owner.signal)
+  owner.abort()
+  expect(calls[0].signal?.aborted).toBe(true)
+  expect(await pending).toEqual([])
+  expect(files.state.status).toBe("ready")
+  expect(getEventListeners(owner.signal, "abort")).toHaveLength(0)
+
+  const nextOwner = new AbortController()
+  const next = files.searchFilesAndDirectories("new", nextOwner.signal)
+  calls[0].result.resolve({ data: [{ path: "late.ts", type: "file" }] })
+  await Promise.resolve()
+  expect(files.state.status).toBe("loading")
+  expect(calls[1].signal?.aborted).toBe(false)
+  nextOwner.abort()
+  expect(await next).toEqual([])
+  expect(calls[1].signal?.aborted).toBe(true)
+})
+
+test("already cancelled callers start no request and settled reads release their listener", async () => {
+  const { client, calls } = fixture()
+  const files = createFileSearch(() => ({ client, directory: "/workspace" }))
+  const owner = new AbortController()
+  owner.abort()
+  expect(await files.searchFilesAndDirectories("src", owner.signal)).toEqual([])
+  expect(calls).toHaveLength(0)
+
+  const settled = new AbortController()
+  const result = files.searchFilesAndDirectories("src", settled.signal)
+  expect(getEventListeners(settled.signal, "abort")).toHaveLength(1)
+  calls[0].result.resolve({ data: [] })
+  expect(await result).toEqual([])
+  expect(getEventListeners(settled.signal, "abort")).toHaveLength(0)
+  settled.abort()
+  expect(calls[0].signal?.aborted).toBe(false)
+  expect(files.state.status).toBe("ready")
 })
 
 test.each(["success", "failure"])("keeps a newer search pending after a superseded %s", async (outcome) => {

@@ -8,6 +8,7 @@ export type FileSearchEvent =
   | { readonly type: "search.cleared" }
   | { readonly type: "search.succeeded"; readonly attempt: number }
   | { readonly type: "search.failed"; readonly attempt: number }
+  | { readonly type: "search.cancelled"; readonly attempt: number }
 
 export const INITIAL_FILE_SEARCH_STATE: FileSearchState = Object.freeze({ status: "ready", attempt: 0 })
 
@@ -18,5 +19,5 @@ export function transitionFileSearch(state: FileSearchState, event: FileSearchEv
     return state.status === "ready" ? state : { status: "ready", attempt: state.attempt }
   }
   if (state.status !== "loading" || event.attempt !== state.attempt) return state
-  return { status: event.type === "search.succeeded" ? "ready" : "failed", attempt: state.attempt }
+  return { status: event.type === "search.failed" ? "failed" : "ready", attempt: state.attempt }
 }

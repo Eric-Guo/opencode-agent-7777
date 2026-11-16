@@ -11,8 +11,10 @@ import { createPromptState } from "../src/composer/state"
 import { ComposerEditor } from "../src/composer/editor/editor"
 import { ComposerDropzone } from "../src/composer/dropzone"
 import { createComposerEditor } from "../src/composer/editor/interaction"
+import { useLanguage } from "../src/runtime/i18n/language"
 
 function ComposerFixture() {
+  const language = useLanguage()
   const draft = createPromptState()
   const attachmentFixture = new URLSearchParams(location.search).has("attachments")
   const historyFixture = new URLSearchParams(location.search).has("history")
@@ -67,9 +69,9 @@ function ComposerFixture() {
         catalog?.state.skills ?? state.commands.map(({ name }) => ({ id: name, name, path: `/skills/${name}` })),
         catalog?.state.agents ?? [],
       ),
-    searchContextFiles: async (query) => {
+    searchContextFiles: async (query, signal) => {
       if (!suggestions) return []
-      const paths: string[] = await fetch(`/component-tests/files?query=${encodeURIComponent(query)}`).then(
+      const paths: string[] = await fetch(`/component-tests/files?query=${encodeURIComponent(query)}`, { signal }).then(
         (response) => response.json(),
       )
       return fileSuggestions(paths, "/fixture")
@@ -91,7 +93,19 @@ function ComposerFixture() {
       <Show when={new URLSearchParams(location.search).has("presence")}>
         <ComposerDropzone active={controller.state.drag === "active"} identity={() => state.identity} />
       </Show>
-      <ComposerEditor controller={controller} labels={{ prompt: "Message", commands: "Commands" }} />
+      <ComposerEditor
+        controller={controller}
+        labels={{
+          prompt: "Message",
+          commands: "Commands",
+          empty:
+            controller.fileSearchStatus() === "loading"
+              ? language.t("common.loading")
+              : controller.fileSearchStatus() === "failed"
+                ? language.t("prompt.suggestions.loadFailed")
+                : language.t("ui.promptInput.noMatchingItems"),
+        }}
+      />
       <div class="flex gap-4" onMouseDown={(event) => event.preventDefault()}>
         <button
           onClick={() =>

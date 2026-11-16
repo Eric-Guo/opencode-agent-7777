@@ -140,6 +140,84 @@ test("command search preserves the draft and dismisses before stopping a run", a
   await expect(page.getByLabel("Submissions")).toHaveText("0")
 })
 
+test("local mentions filter immediately while a replacement file search is pending", async ({ page }) => {
+  const pending = Promise.withResolvers<void>()
+  await page.route("**/component-tests/files?*", async (route) => {
+    if (route.request().url().includes("beta")) await pending.promise
+    await route.fulfill({ json: [] })
+  })
+  await page.goto("/component-tests/composer.html?suggestions")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  const first = page.waitForResponse("**/component-tests/files?query=alpha")
+  await editor.fill("@alpha")
+  await first
+  await expect(page.getByRole("button", { name: "@alpha", exact: true })).toBeVisible()
+  await editor.fill("@beta")
+  await expect(page.getByRole("button", { name: "@beta", exact: true })).toBeVisible()
+  await expect(page.getByRole("button", { name: "@alpha", exact: true })).toHaveCount(0)
+  await editor.press("Tab")
+  await expect(editor.locator('[data-mention="skill"]')).toHaveText("@beta")
+  await expect(editor).toBeFocused()
+  await expect(page.getByLabel("Submissions")).toHaveText("0")
+  pending.resolve()
+})
+
+test("Escape cancels file search and reopening the same query requests fresh results", async ({ page }) => {
+  let attempts = 0
+  const pending = Promise.withResolvers<void>()
+  await page.route("**/component-tests/files?*", async (route) => {
+    if (++attempts === 1) await pending.promise
+    await route.fulfill({ json: [attempts === 1 ? "old.ts" : "fresh.ts"] }).catch(() => {})
+  })
+  await page.goto("/component-tests/composer.html?suggestions")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  await editor.fill("@path")
+  await expect.poll(() => attempts).toBe(1)
+  const cancelled = page.waitForEvent("requestfailed", (request) => request.url().includes("/component-tests/files?"))
+  await editor.press("Escape")
+  await cancelled
+  await expect(page.locator('[data-component="composer-suggestions"]')).toHaveCount(0)
+  await expect(editor).toBeFocused()
+  await expect(editor).toHaveText("@path")
+  await editor.fill("@path")
+  await expect.poll(() => attempts).toBe(2)
+  await expect(page.getByRole("button", { name: "fresh.ts", exact: true })).toBeVisible()
+  pending.resolve()
+  await editor.press("Tab")
+  await expect(editor.locator('[data-mention="file"]')).toHaveText("@fresh.ts")
+})
+
+test("a file search deadline clears loading and another query recovers without changing the draft", async ({
+  page,
+}) => {
+  const pending = Promise.withResolvers<void>()
+  await page.route("**/component-tests/files?*", async (route) => {
+    if (route.request().url().includes("stalled")) await pending.promise
+    await route.fulfill({ json: ["recovered.ts"] }).catch(() => {})
+  })
+  await page.goto("/component-tests/composer.html?suggestions")
+  await page.clock.install()
+  const editor = page.getByRole("textbox", { name: "Message" })
+  const menu = page.locator('[data-component="composer-suggestions"]')
+  await editor.fill("@stalled")
+  const started = page.waitForRequest("**/component-tests/files?query=stalled")
+  await page.clock.runFor(150)
+  await started
+  await expect(menu).toHaveText("Loading")
+  await page.clock.runFor(10_000)
+  await expect(menu).toHaveText("Could not load suggestions.")
+  await expect(editor).toHaveText("@stalled")
+  await expect(editor).toBeFocused()
+  await editor.fill("@recover")
+  await page.clock.runFor(150)
+  await expect(page.getByRole("button", { name: "recovered.ts", exact: true })).toBeVisible()
+  pending.resolve()
+  await editor.press("Tab")
+  await page.clock.runFor(20)
+  await expect(editor.locator('[data-mention="file"]')).toHaveText("@recovered.ts")
+  await expect(page.getByLabel("Submissions")).toHaveText("0")
+})
+
 test("keyboard completion excludes previous file results while the next search is pending", async ({ page }) => {
   const search = Promise.withResolvers<void>()
   await page.route("**/component-tests/files?*", async (route) => {

@@ -48,6 +48,13 @@ Composer suggestions and the recent-session picker use shared `createTypeahead`.
 selectable rows and retains its compact shortcut mapping, IME handling, query resets, focus and draft effects.
 Its local suggestion machine no longer duplicates active-row state or wrapping; rendered keyboard, catalog-refresh
 and command-menu contracts live in `component-tests/composer.spec.ts`.
+Mention search follows local `composer/editor/mention-search-machine.ts` and `interaction.ts`, matching the main
+app's machine/driver boundary without session search. File reads debounce for 150 ms and have a ten-second deadline
+covering decoding. Query, menu, draft/session and server/directory/data-source changes cancel prior work; closing
+and reopening the same query starts fresh. Attempt and owner checks reject late responses. The shared filtered
+list receives synchronous rows, so skills, agents and recent entries filter immediately while stale file results
+stay hidden. Failures retain local rows and the existing empty-list error copy. The local file adapter forwards
+caller cancellation and settles abort-ignoring reads, preserving its status API, result limit and deduplication.
 Composer mode and history recall follow local `composer/suggestions/machine.ts` and
 `composer/editor/interaction.ts` boundaries. The persisted draft is the sole mode owner. Pure transitions own
 idle/browsing history, entry selection and restoration; one immutable signal snapshot replaces store merges.
@@ -164,6 +171,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Mention-search validation (2026-11-17): 670 Bun tests, typecheck, the production build and all 51 component tests
+passed. New regressions failed against the original code for delayed local filtering and caller cancellation.
+Machine/driver coverage checks debounce replacement, all completion paths, owner/source changes, same-query
+reopening, ignored aborts and cleanup. Browser fixtures cover immediate local rows, stale-file exclusion, Escape
+cancellation, fresh reopening and timeout recovery with retained draft/focus. Live Playwright against the existing
+dev server verified skill/file completion, Escape, same-query search and session switching, retaining `1/9`, with
+no page errors, failed API responses or API writes. An initial `README` search returned no matches; a `.` search
+returned one file and completed successfully. IAB selection timed out; neither app nor backend was restarted.
+Logs, baseline failures, browser screenshots and live results are in ignored `node_modules/.cache/mention-parity/`.
 
 Presence/menu lifecycle validation (2026-11-16): 663 Bun tests, typecheck, the production build and all 48 component
 tests passed. Isolated original-driver checks reproduced an exit stuck in `hiding` without its completion event

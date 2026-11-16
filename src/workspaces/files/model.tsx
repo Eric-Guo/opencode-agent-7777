@@ -1,6 +1,7 @@
 import { abort } from "@opencode/util/abort"
 import { createSignal, untrack } from "solid-js"
 import type { OpencodeClient } from "@/runtime/server/client-compact"
+import { bounded } from "@/runtime/server/operation"
 import { INITIAL_FILE_SEARCH_STATE, transitionFileSearch, type FileSearchEvent } from "./search-machine"
 
 type FileSearchScope = { client: Pick<OpencodeClient, "file">; directory: string }
@@ -30,7 +31,8 @@ export function createFileSearch(scope: () => FileSearchScope | undefined) {
       },
     },
     clear,
-    async searchFilesAndDirectories(query: string): Promise<string[]> {
+    async searchFilesAndDirectories(query: string, signal?: AbortSignal): Promise<string[]> {
+      if (signal?.aborted) return []
       clear()
       const active = scope()
       if (!active || !query.trim()) return []
@@ -38,9 +40,15 @@ export function createFileSearch(scope: () => FileSearchScope | undefined) {
       pending = controller
       dispatch({ type: "search.requested" })
       const attempt = untrack(search).attempt
+      const cancel = () => {
+        dispatch({ type: "search.cancelled", attempt })
+        abort(controller)
+      }
+      signal?.addEventListener("abort", cancel, { once: true })
       try {
-        const result = await active.client.file.find(
-          { location: { directory: active.directory }, query, limit: 50 },
+        const result = await bounded(
+          (signal) =>
+            active.client.file.find({ location: { directory: active.directory }, query, limit: 50 }, { signal }),
           { signal: controller.signal },
         )
         const paths = [...new Set(result.data.map((entry) => entry.path))]
@@ -49,6 +57,7 @@ export function createFileSearch(scope: () => FileSearchScope | undefined) {
         dispatch({ type: "search.failed", attempt })
         return []
       } finally {
+        signal?.removeEventListener("abort", cancel)
         if (pending === controller) pending = undefined
       }
     },

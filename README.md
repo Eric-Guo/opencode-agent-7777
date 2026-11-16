@@ -542,6 +542,22 @@ no app source or new shared exports are needed. `component-tests/composer.spec.t
 contract through rendered controls, plus hover/refresh behavior, context completion and command-menu draft/focus
 preservation.
 
+`composer/editor/mention-search-machine.ts` follows the main app's mention-search boundary with a local file-only
+machine; `interaction.ts` runs its timers and requests. File searches debounce for 150 ms and settle within ten
+seconds, including response decoding. Closing the menu, changing its query, replacing the draft/session/search
+source, or disposing the composer retires the attempt and aborts its request. Source ownership includes server,
+directory and runtime/draft data identity, so reactivating the same session also rejects earlier results. Reopening
+the same query starts a fresh search. Immutable machine snapshots stay outside Solid stores.
+The public `useFilteredList` now receives synchronous context rows: skills, agents and recent entries filter
+immediately while file search runs. Previous query/source file results remain hidden. Compact grouping, mention
+offsets, shortcuts and focus behavior stay local. Failure or timeout keeps local suggestions usable and uses the
+existing failure copy when there are no rows; editing or reopening retries without an automatic retry loop.
+`workspaces/files/model.tsx` forwards the caller's abort signal and settles cancelled reads even if the transport
+ignores cancellation, while retaining its status API, 50-result limit and path deduplication. Machine/driver tests
+cover attempt ownership and cleanup; the composer browser suite covers local filtering during a delayed search,
+Escape cancellation, same-query reopening, timeout recovery and stale-file exclusion. No session mentions, shared
+exports or app-source imports are introduced.
+
 Composer DOM synchronization follows the main app's `composer/editor/{dom,machine}.ts` boundaries with local
 implementations. The editor compares inline text and mention targets before rendering instead of skipping the next
 store update after input. Attachment-only changes preserve the DOM, caret and native undo/redo, while in-place store

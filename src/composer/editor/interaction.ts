@@ -1,6 +1,7 @@
-import { createEffect, createMemo, createSignal, on, onCleanup, type Accessor } from "solid-js"
+import { createComputed, createEffect, createMemo, createSignal, on, onCleanup, untrack, type Accessor } from "solid-js"
 import { useFilteredList } from "@opencode/ui/hooks"
 import { createTypeahead } from "@opencode/ui/typeahead"
+import { abort } from "@opencode/util/abort"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "../attachments/attachments"
 import { createComposerEditorActions, type ComposerStateStoreInput } from "./actions"
 import { getCursorPosition, pasteComposerText, setCursorPosition } from "./dom"
@@ -25,6 +26,16 @@ import {
 } from "../suggestions/machine"
 import { clonePrompt, isAttachment, promptLength, promptText } from "../prompt-parts"
 import type { ComposerQueue } from "../adapter"
+import {
+  INITIAL_MENTION_SEARCH_STATE,
+  MENTION_FILE_DEBOUNCE_MS,
+  MENTION_SEARCH_TIMEOUT_MS,
+  selectMentionFiles,
+  selectMentionSearchStatus,
+  transitionMentionSearch,
+  type MentionSearchEffect,
+  type MentionSearchEvent,
+} from "./mention-search-machine"
 
 export type ComposerSelectControl = {
   options: Accessor<ComposerOption[]>
@@ -62,7 +73,8 @@ export function createComposerEditor(input: {
   history?: ComposerHistory
   commands: Accessor<ComposerSuggestion[]>
   context: Accessor<ComposerSuggestion[]>
-  searchContextFiles: (query: string) => ComposerSuggestion[] | Promise<ComposerSuggestion[]>
+  searchContextFiles: (query: string, signal?: AbortSignal) => ComposerSuggestion[] | Promise<ComposerSuggestion[]>
+  searchSource?: Accessor<unknown>
   openAttachment?: (attachment: ComposerAttachment) => void
   openContext?: (key: string) => void
   onContextRemove?: (item: ComposerComment) => void
@@ -195,13 +207,57 @@ export function createComposerEditor(input: {
       fileInput?.click()
     }, done)
   }
+  const searchOwner = createMemo(() => ({
+    identity: input.identity?.(),
+    scope: scope(),
+    store: draft.state,
+    source: input.searchSource?.(),
+  }))
+  const [mentionSearch, setMentionSearch] = createSignal(INITIAL_MENTION_SEARCH_STATE)
+  // Only timers and controllers live here; the machine owns admission, attempts and completion.
+  const searchRuns = new Map<number, { timer: ReturnType<typeof setTimeout>; controller?: AbortController }>()
+  const dispatchSearch = (event: MentionSearchEvent) => {
+    const previous = untrack(mentionSearch)
+    const next = transitionMentionSearch(previous, event)
+    if (next.state !== previous) setMentionSearch(next.state)
+    next.effects.forEach(runSearch)
+  }
+  const runSearch = (effect: MentionSearchEffect) => {
+    const attempt = effect.attempt
+    clearTimeout(searchRuns.get(attempt)?.timer)
+    if (effect.type === "cancel") {
+      const controller = searchRuns.get(attempt)?.controller
+      searchRuns.delete(attempt)
+      abort(controller)
+      return
+    }
+    const owner = effect.owner
+    if (effect.type === "debounce") {
+      searchRuns.set(attempt, {
+        timer: setTimeout(() => dispatchSearch({ type: "debounce.fired", attempt, owner }), MENTION_FILE_DEBOUNCE_MS),
+      })
+      return
+    }
+    const controller = new AbortController()
+    searchRuns.set(attempt, {
+      controller,
+      timer: setTimeout(() => dispatchSearch({ type: "timed-out", attempt, owner }), MENTION_SEARCH_TIMEOUT_MS),
+    })
+    void Promise.try(() => input.searchContextFiles(effect.query, controller.signal)).then(
+      (items) => dispatchSearch({ type: "resolved", attempt, owner, items }),
+      () => dispatchSearch({ type: "failed", attempt, owner }),
+    )
+  }
   const contextList = useFilteredList<ComposerSuggestion>({
-    items: async (query) => {
+    get filter() {
+      return state.popover.type === "context" ? state.popover.query : ""
+    },
+    items: (query) => {
+      if (state.popover.type !== "context") return []
       const fixed = input.context().filter((item) => item.kind !== "file")
       const recent = input.context().filter((item) => item.kind === "file" && item.recent)
-      if (!query.trim()) return [...fixed, ...recent]
       const seen = new Set(recent.map((item) => item.id))
-      const files = (await input.searchContextFiles(query)).filter((item) => !seen.has(item.id))
+      const files = selectMentionFiles(mentionSearch(), searchOwner(), query).filter((item) => !seen.has(item.id))
       return [...fixed, ...recent, ...files]
     },
     key: (item) => item.id,
@@ -226,12 +282,7 @@ export function createComposerEditor(input: {
     filterKeys: ["trigger", "title"],
   })
   const list = () => (state.popover.type === "context" ? contextList : commandList)
-  // The shared list retains its previous results while fetching. Do not offer stale file paths
-  // for a different query/directory, including through keyboard selection, during that fetch.
-  const suggestions = () =>
-    list()
-      .flat()
-      .filter((item) => item.kind !== "file" || !list().grouped.loading)
+  const suggestions = () => list().flat()
   const navigation = createTypeahead({
     items: () => (state.popover.type === "closed" ? [] : suggestions()),
     key: (item) => item.id,
@@ -411,6 +462,19 @@ export function createComposerEditor(input: {
     })
   }
 
+  createComputed(() => {
+    const popover = state.popover
+    const owner = searchOwner()
+    untrack(() =>
+      dispatchSearch(
+        popover.type === "context"
+          ? { type: "context.changed", query: popover.query, owner }
+          : { type: "context.closed" },
+      ),
+    )
+  })
+  onCleanup(() => dispatchSearch({ type: "disposed" }))
+
   return {
     capabilities,
     owner: createMemo(() => ({ identity: input.identity?.(), scope: scope(), store: draft.state })),
@@ -418,6 +482,10 @@ export function createComposerEditor(input: {
     mode,
     view: input.view,
     suggestions,
+    fileSearchStatus: () =>
+      state.popover.type === "context"
+        ? selectMentionSearchStatus(mentionSearch(), searchOwner(), state.popover.query)
+        : "ready",
     activeSuggestionID: () => navigation.activeItem()?.id,
     setActiveSuggestion(id: string) {
       if (state.popover.type !== "closed") navigation.setActive(id)
