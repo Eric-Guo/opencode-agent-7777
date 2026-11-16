@@ -48,6 +48,14 @@ Composer suggestions and the recent-session picker use shared `createTypeahead`.
 selectable rows and retains its compact shortcut mapping, IME handling, query resets, focus and draft effects.
 Its local suggestion machine no longer duplicates active-row state or wrapping; rendered keyboard, catalog-refresh
 and command-menu contracts live in `component-tests/composer.spec.ts`.
+Composer mode and history recall follow local `composer/suggestions/machine.ts` and
+`composer/editor/interaction.ts` boundaries. The persisted draft is the sole mode owner. Pure transitions own
+idle/browsing history, entry selection and restoration; one immutable signal snapshot replaces store merges.
+The driver retains DOM checks, metadata, cloning and caret placement. Compact history remains separate from
+popovers and permits continued browsing after an edit. Session and draft-scope changes retire recall, including
+same-session replacements without attachment configuration. Commands, history, model dismissal and attachments
+share one cancellable focus frame with editor/session/scope checks; typing and disposal retire pending callbacks.
+Existing shortcuts, attachment restoration, shell gates and persisted formats are preserved.
 The model picker uses public `@opencode/ui/search-list` for provider sections, combobox navigation and scrolling,
 matching the main app's desktop picker. Its non-modal `@opencode/ui/popover` keeps the compact layout and focus
 behavior. **Manage models** is a separate, source-controlled button below the results. Arrow keys select only model
@@ -144,6 +152,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Composer ownership validation (2026-11-16): 640 Bun tests, typecheck, the production build and all 43 component
+tests passed. Isolated focus regressions fail against the original controller and pass against the refactor.
+Browser fixtures cover edited history recall, attachment restoration, same-session replacement, switching away and
+back, persisted mode and stale focus. Live Playwright checks against the existing dev server passed history recall,
+model-picker focus/draft retention, command dismissal and session navigation, returning to `1/9`, with no page
+errors, failed API responses or API writes. IAB tab selection timed out twice. Neither app nor backend was restarted.
+Logs, the isolated baseline loader and screenshots are in ignored `node_modules/.cache/composer-parity/` artifacts.
 
 Attachment lifecycle validation (2026-11-15): 627 Bun tests, typecheck, the browser-enabled production build and
 all 40 component tests passed. An isolated late-read regression failed against the original attachment controller

@@ -72,6 +72,7 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
   const controller = createComposerEditor({
     store: adapter.state.store,
     identity: adapter.identity,
+    scope: adapter.state.scope,
     onChange: adapter.state.persist,
     history: composerHistory,
     capabilities: {

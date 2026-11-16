@@ -23,6 +23,7 @@ import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import type { ComposerAttachment, ComposerComment, ComposerOption, ComposerSuggestion } from "../types"
 import type { ComposerEditorModel, ComposerSelectControl } from "./interaction"
+import type { ComposerMode } from "../suggestions/machine"
 import { isAttachment, promptText } from "../prompt-parts"
 import {
   editorMatchesPrompt,
@@ -51,7 +52,7 @@ export type {
   ComposerSuggestion,
 } from "../types"
 
-export type ComposerMode = "normal" | "shell"
+export type { ComposerMode } from "../suggestions/machine"
 
 const COMPOSER_SUGGESTION_MAX_HEIGHT = 320
 const COMPOSER_SUGGESTION_ROW_HEIGHT = 28
@@ -144,7 +145,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
     if (!editor || !window.getSelection()?.isCollapsed) return
     props.controller.onCursor(getCursorPosition(editor))
   }
-  const mode = createMemo(() => state.mode)
+  const mode = props.controller.mode
   const buttons = createMemo(() => ({
     opacity: mode() === "normal" ? 1 : 0,
     "pointer-events": mode() === "normal" ? ("auto" as const) : ("none" as const),
@@ -247,7 +248,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
           </div>
         </Show>
 
-        <Show when={state.mode === "normal"}>
+        <Show when={mode() === "normal"}>
           <ComposerAttachments
             attachments={props.controller.attachments()}
             comments={props.controller.comments()}
@@ -281,17 +282,17 @@ export function ComposerEditor(props: ComposerEditorProps) {
             role="textbox"
             aria-multiline="true"
             aria-label={labels().prompt}
-            dir={state.mode === "normal" ? "auto" : "ltr"}
+            dir={mode() === "normal" ? "auto" : "ltr"}
             contenteditable={!props.disabled && !props.readOnly}
-            autocapitalize={state.mode === "normal" ? "sentences" : "off"}
-            autocorrect={state.mode === "normal" ? "on" : "off"}
-            spellcheck={state.mode === "normal"}
+            autocapitalize={mode() === "normal" ? "sentences" : "off"}
+            autocorrect={mode() === "normal" ? "on" : "off"}
+            spellcheck={mode() === "normal"}
             // @ts-expect-error
             autocomplete="off"
             class="relative z-10 block min-h-[60px] w-full whitespace-pre-wrap bg-transparent ps-4 pe-[var(--composer-scroll-end)] pt-4 pb-2 text-[13px] font-[440] leading-5 text-v2-text-text-base focus:outline-none [&_[data-mention=file]]:text-syntax-property [&_[data-mention=agent]]:text-syntax-type [&_[data-mention=reference]]:text-syntax-keyword"
-            classList={{ "font-mono!": state.mode === "shell", "opacity-50": props.disabled }}
+            classList={{ "font-mono!": mode() === "shell", "opacity-50": props.disabled }}
             style={{
-              "unicode-bidi": state.mode === "normal" ? "plaintext" : undefined,
+              "unicode-bidi": mode() === "normal" ? "plaintext" : undefined,
               "text-align": "start",
             }}
             onInput={(event) => {
@@ -327,13 +328,12 @@ export function ComposerEditor(props: ComposerEditorProps) {
           />
           <Show when={!props.controller.value()}>
             <div
-              dir={state.mode === "normal" ? "auto" : "ltr"}
+              dir={mode() === "normal" ? "auto" : "ltr"}
               class="pointer-events-none absolute inset-x-0 top-0 ps-4 pe-[var(--composer-scroll-end)] pt-4 text-[13px] font-[440] leading-5 text-v2-text-text-faint"
-              classList={{ "font-mono!": state.mode === "shell" }}
-              style={{ "unicode-bidi": state.mode === "normal" ? "plaintext" : undefined, "text-align": "start" }}
+              classList={{ "font-mono!": mode() === "shell" }}
+              style={{ "unicode-bidi": mode() === "normal" ? "plaintext" : undefined, "text-align": "start" }}
             >
-              {view.placeholder?.() ??
-                (state.mode === "shell" ? labels().shellPlaceholder : labels().normalPlaceholder)}
+              {view.placeholder?.() ?? (mode() === "shell" ? labels().shellPlaceholder : labels().normalPlaceholder)}
             </div>
           </Show>
         </div>
@@ -341,12 +341,12 @@ export function ComposerEditor(props: ComposerEditorProps) {
         <div class="flex h-11 items-center px-2">
           <div
             class="flex shrink-0 items-center"
-            aria-hidden={state.mode === "shell"}
-            inert={state.mode === "shell" ? true : undefined}
+            aria-hidden={mode() === "shell"}
+            inert={mode() === "shell" ? true : undefined}
             style={buttons()}
           >
             <ComposerEditorAddMenu
-              disabled={view.draftOnly || props.disabled || state.mode === "shell"}
+              disabled={view.draftOnly || props.disabled || mode() === "shell"}
               title={labels().add}
               keybind={props.attachKeybind ?? ["Mod", "U"]}
               attachLabel={labels().attach}
@@ -368,8 +368,8 @@ export function ComposerEditor(props: ComposerEditorProps) {
             data-overflow-end={overflow.end}
             class="ms-1 me-3 h-full min-w-0 flex-1 overflow-x-auto overscroll-x-contain no-scrollbar"
             onScroll={updateOverflow}
-            aria-hidden={state.mode === "shell"}
-            inert={state.mode === "shell" ? true : undefined}
+            aria-hidden={mode() === "shell"}
+            inert={mode() === "shell" ? true : undefined}
             style={buttons()}
           >
             <div ref={controlsContent} class="flex h-full w-max min-w-full items-center gap-1">
@@ -408,13 +408,13 @@ export function ComposerEditor(props: ComposerEditorProps) {
             </div>
           </div>
           <div data-slot="composer-actions" class="flex shrink-0 items-center">
-            <Show when={state.mode === "normal"}>
+            <Show when={mode() === "normal"}>
               <ComposerEditorAlternateDelivery
                 controller={props.controller}
                 keybind={props.alternateKeybind ?? ["Mod", "Enter"]}
               />
             </Show>
-            <Show when={state.mode === "shell"}>
+            <Show when={mode() === "shell"}>
               <Button
                 data-action="composer-exit-shell"
                 type="button"
@@ -433,7 +433,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
               </Button>
             </Show>
             <ComposerEditorSubmitButton
-              mode={state.mode}
+              mode={mode()}
               stopping={view.submit.stopping()}
               disabled={props.disabled || !props.controller.canSubmit()}
               sendLabel={labels().send}

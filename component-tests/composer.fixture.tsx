@@ -14,12 +14,14 @@ import { createComposerEditor } from "../src/composer/editor/interaction"
 function ComposerFixture() {
   const draft = createPromptState()
   const attachmentFixture = new URLSearchParams(location.search).has("attachments")
+  const historyFixture = new URLSearchParams(location.search).has("history")
   const suggestions = new URLSearchParams(location.search).has("suggestions")
   const [state, setState] = createStore({
     commands: suggestions ? ["alpha", "beta", "gamma"].map((name) => ({ name })) : [],
     submissions: 0,
     stops: 0,
     error: "",
+    identity: "first",
   })
   const source = new URLSearchParams(location.search).has("catalog")
     ? createSessionDraft(OpenCode.make({ baseUrl: location.origin + "/component-tests" }), "/fixture")
@@ -30,6 +32,17 @@ function ComposerFixture() {
   onCleanup(() => source?.dispose())
   const controller = createComposerEditor({
     store: draft.store,
+    identity: () => state.identity,
+    scope: draft.scope,
+    history: historyFixture
+      ? {
+          entries: (mode) =>
+            (mode === "normal" ? ["newer", "older"] : ["shell entry"]).map((content) => ({
+              prompt: [{ type: "text" as const, content, start: 0, end: content.length }],
+            })),
+          add() {},
+        }
+      : undefined,
     attachments: attachmentFixture
       ? {
           scope: draft.scope,
@@ -60,7 +73,7 @@ function ComposerFixture() {
       )
       return fileSuggestions(paths, "/fixture")
     },
-    capabilities: { shell: false },
+    capabilities: { shell: historyFixture },
     view: {
       submit: {
         stopping: () => attachmentFixture && !draft.dirty(),
@@ -100,6 +113,29 @@ function ComposerFixture() {
           </button>
         </Show>
       </div>
+      <Show when={historyFixture}>
+        <div class="flex flex-wrap gap-2" onMouseDown={(event) => event.preventDefault()}>
+          <button onClick={() => draft.restore({ prompt: "replacement", attachments: [] })}>Replace draft</button>
+          <button onClick={() => setState("identity", state.identity === "first" ? "second" : "first")}>
+            Switch owner
+          </button>
+          <button onClick={() => draft.store[1]("mode", controller.mode() === "normal" ? "shell" : "normal")}>
+            Change mode externally
+          </button>
+          <button
+            onClick={() => {
+              controller.restoreFocus(0)
+              draft.reset()
+              document.getElementById("fixture-focus-target")?.focus()
+            }}
+          >
+            Schedule focus then reset
+          </button>
+        </div>
+        <input id="fixture-focus-target" aria-label="Outside editor" />
+        <output aria-label="History state">{controller.state.history.type}</output>
+        <output aria-label="Composer mode">{controller.mode()}</output>
+      </Show>
       <output aria-label="Draft text">{draft.current()}</output>
       <output aria-label="Attachments">{draft.attachments().length}</output>
       <Show when={suggestions || attachmentFixture}>

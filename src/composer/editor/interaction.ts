@@ -1,5 +1,4 @@
-import { createEffect, on, onCleanup, type Accessor } from "solid-js"
-import { createStore, reconcile } from "solid-js/store"
+import { createEffect, createSignal, on, onCleanup, type Accessor } from "solid-js"
 import { useFilteredList } from "@opencode/ui/hooks"
 import { createTypeahead } from "@opencode/ui/typeahead"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "../attachments/attachments"
@@ -16,10 +15,13 @@ import type {
   ComposerSuggestion,
 } from "../types"
 import {
+  canStartHistory,
   createComposerInteractionState,
+  selectComposerMode,
   transitionComposer,
   type ComposerInteractionCommand,
   type ComposerInteractionEvent,
+  type ComposerInteractionState,
 } from "../suggestions/machine"
 import { clonePrompt, isAttachment, promptLength, promptText } from "../prompt-parts"
 import type { ComposerQueue } from "../adapter"
@@ -55,13 +57,8 @@ export type ComposerEditorView = {
   }
 }
 
-export function createComposerEditorState(mode: "normal" | "shell" = "normal") {
-  return createStore({ ...createComposerInteractionState(), mode })
-}
-
 export function createComposerEditor(input: {
   store: ComposerStateStoreInput
-  state?: ReturnType<typeof createComposerEditorState>
   history?: ComposerHistory
   commands: Accessor<ComposerSuggestion[]>
   context: Accessor<ComposerSuggestion[]>
@@ -76,10 +73,12 @@ export function createComposerEditor(input: {
   capabilities?: ComposerCapabilities
   onChange?: () => void
   identity?: Accessor<unknown>
+  scope?: Accessor<unknown>
 }) {
   let editor: HTMLElement | undefined
   let fileInput: HTMLInputElement | undefined
   onCleanup(() => {
+    cancelFocus()
     editor = undefined
     fileInput = undefined
   })
@@ -89,15 +88,78 @@ export function createComposerEditor(input: {
     context: input.capabilities?.context !== false,
     shell: input.capabilities?.shell !== false,
   }
-  const [state, setState] = input.state ?? createComposerEditorState(draft.state.mode)
-  if (input.identity) {
-    createEffect(
-      on(
-        input.identity,
-        () => setState(reconcile({ ...createComposerInteractionState(), mode: draft.state.mode ?? "normal" })),
-        { defer: true },
-      ),
-    )
+  // Whole snapshots stay outside mutable Solid stores, including the saved history draft.
+  const [readState, writeState] = createSignal(createComposerInteractionState())
+  const state: ComposerInteractionState = {
+    get popover() {
+      return readState().popover
+    },
+    get drag() {
+      return readState().drag
+    },
+    get focus() {
+      return readState().focus
+    },
+    get activeContextID() {
+      return readState().activeContextID
+    },
+    get history() {
+      return readState().history
+    },
+  }
+  const mode = () => selectComposerMode(draft.state)
+  const scope = () => input.scope?.() ?? input.attachments?.scope?.() ?? draft.state
+  createEffect(
+    on(
+      [() => input.identity?.(), scope, () => draft.state],
+      () => {
+        cancelFocus()
+        dispatch({ type: "owner.changed" })
+      },
+      { defer: true },
+    ),
+  )
+  createEffect(
+    on(
+      mode,
+      (mode) => {
+        cancelFocus()
+        dispatch({ type: "mode.synced", mode })
+      },
+      { defer: true },
+    ),
+  )
+
+  let focusFrame: { id: number } | undefined
+  const cancelFocus = () => {
+    const frame = focusFrame
+    focusFrame = undefined
+    if (frame) globalThis.cancelAnimationFrame?.(frame.id)
+  }
+  const captureFocusOwner = () => {
+    const target = editor
+    const identity = input.identity?.()
+    const ownerScope = scope()
+    const store = draft.state
+    return () =>
+      editor === target &&
+      !!target?.isConnected &&
+      input.identity?.() === identity &&
+      scope() === ownerScope &&
+      draft.state === store
+  }
+  const scheduleFocus = (cursor: () => number, current = captureFocusOwner()) => {
+    cancelFocus()
+    if (!current()) return
+    const frame = { id: 0 }
+    focusFrame = frame
+    frame.id = requestAnimationFrame(() => {
+      if (focusFrame !== frame) return
+      focusFrame = undefined
+      if (!current()) return
+      editor!.focus()
+      setCursorPosition(editor, cursor())
+    })
   }
   function addPart(part: ComposerPersistedState["prompt"][number]) {
     if (isAttachment(part)) return false
@@ -177,6 +239,14 @@ export function createComposerEditor(input: {
   })
 
   const execute = (command: ComposerInteractionCommand) => {
+    if (command.type === "draft.setMode") {
+      draft.setMode(command.mode)
+      return
+    }
+    if (command.type === "history.apply") {
+      applyHistory(command.entry, command.position)
+      return
+    }
     if (command.type === "draft.setText") {
       draft.setText(command.value)
       return
@@ -199,16 +269,12 @@ export function createComposerEditor(input: {
       ;(command.popover === "command" ? commandList : contextList).onInput(command.query)
       return
     }
-    if (command.type === "focus.editor")
-      requestAnimationFrame(() => {
-        editor?.focus()
-        setCursorPosition(editor, draft.state.cursor ?? promptLength(draft.state.prompt))
-      })
+    if (command.type === "focus.editor") restoreFocus()
   }
 
   function dispatch(event: ComposerInteractionEvent) {
-    const mode = state.mode
-    const result = transitionComposer(state, event, draft.state, capabilities)
+    const previousMode = mode()
+    const result = transitionComposer(readState(), event, draft.state, capabilities)
     const action = event.type === "popover.select" ? input.onSuggestionSelect?.(event.item) : undefined
     if (event.type === "popover.select") {
       if (!action || state.popover.type !== "command-menu") result.commands.forEach(execute)
@@ -216,12 +282,11 @@ export function createComposerEditor(input: {
         draft.setPrompt(draft.state.prompt.filter(isAttachment), 0)
       }
     }
-    setState(reconcile(result.state))
-    if (mode !== result.state.mode) draft.setMode(result.state.mode)
+    writeState(result.state)
     if (event.type !== "popover.select") result.commands.forEach(execute)
-    if (mode !== result.state.mode) {
-      if (result.state.mode === "shell") input.view.shell?.onOpen()
-      if (result.state.mode === "normal") input.view.shell?.onClose()
+    if (previousMode !== mode()) {
+      if (mode() === "shell") input.view.shell?.onOpen()
+      else input.view.shell?.onClose()
     }
     if (event.type === "popover.select") {
       if (!action) return result.handled
@@ -232,7 +297,7 @@ export function createComposerEditor(input: {
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (
-      state.mode === "normal" &&
+      mode() === "normal" &&
       (event.metaKey || event.ctrlKey) &&
       !event.altKey &&
       !event.shiftKey &&
@@ -302,31 +367,17 @@ export function createComposerEditor(input: {
   }
 
   const restoreFocus = (cursor = draft.state.cursor ?? promptLength(draft.state.prompt)) => {
-    requestAnimationFrame(() => {
-      editor?.focus()
-      setCursorPosition(editor, cursor)
-    })
+    scheduleFocus(() => cursor)
   }
 
   const attachmentFocus = (afterClose = (callback: () => void) => callback()) => {
-    const target = editor
-    const identity = input.identity?.()
-    const scope = input.attachments?.scope?.()
-    const current = () =>
-      editor === target &&
-      target?.isConnected &&
-      input.identity?.() === identity &&
-      input.attachments?.scope?.() === scope &&
-      !input.attachments?.isDialogActive()
+    const owned = captureFocusOwner()
+    const current = () => owned() && !input.attachments?.isDialogActive()
     return () =>
       afterClose(() => {
-        // Check again at the frame: menu teardown or disposal may retire the captured editor.
+        // The menu may have retired this draft before its close-focus teardown finishes.
         if (!current()) return
-        requestAnimationFrame(() => {
-          if (!current()) return
-          target!.focus()
-          setCursorPosition(target, draft.state.cursor ?? promptLength(draft.state.prompt))
-        })
+        scheduleFocus(() => draft.state.cursor ?? promptLength(draft.state.prompt), current)
       })
   }
 
@@ -340,38 +391,30 @@ export function createComposerEditor(input: {
     if (!input.history || !editor) return false
     const selection = window.getSelection()
     if (!selection?.isCollapsed || !editor.contains(selection.anchorNode)) return false
-    const text = promptText(draft.state.prompt)
-    if (!canNavigateHistory(direction, text, getCursorPosition(editor), state.historyIndex >= 0)) return false
-    const entries = input.history.entries(state.mode)
-    if (direction === "up") {
-      if (entries.length === 0 || state.historyIndex >= entries.length - 1) return false
-      if (state.historyIndex === -1) {
-        setState("savedHistory", {
-          prompt: clonePrompt(draft.state.prompt),
-          metadata: input.history.capture?.(),
-        })
-      }
-      const index = state.historyIndex + 1
-      setState("historyIndex", index)
-      applyHistory(entries[index]!, "start")
-      return true
+    const step = {
+      direction,
+      text: promptText(draft.state.prompt),
+      cursor: getCursorPosition(editor),
+      entries: input.history.entries(mode()),
     }
-    if (state.historyIndex < 0) return false
-    if (state.historyIndex > 0) {
-      const index = state.historyIndex - 1
-      setState("historyIndex", index)
-      applyHistory(entries[index]!, "end")
-      return true
-    }
-    const saved = state.savedHistory ?? { prompt: [{ type: "text", content: "", start: 0, end: 0 }] }
-    setState({ historyIndex: -1, savedHistory: undefined })
-    applyHistory(saved, "end")
-    return true
+    if (state.history.type === "idle" && !canStartHistory(readState(), step)) return false
+    return dispatch({
+      type: "history.step",
+      ...step,
+      saved:
+        state.history.type === "browsing"
+          ? state.history.saved
+          : {
+              prompt: clonePrompt(draft.state.prompt),
+              metadata: input.history.capture?.(),
+            },
+    })
   }
 
   return {
     capabilities,
     state,
+    mode,
     view: input.view,
     suggestions,
     activeSuggestionID: () => navigation.activeItem()?.id,
@@ -422,7 +465,7 @@ export function createComposerEditor(input: {
       if (input.view.submit.available?.() === false) return false
       if (input.view.draftOnly || input.view.submit.enabled?.() === false) return false
       const persisted = draft.state
-      if (state.mode === "shell") {
+      if (mode() === "shell") {
         return persisted.prompt.some((part) => "content" in part && !!part.content.trim())
       }
       if (persisted.prompt.some(isAttachment)) return true
@@ -435,6 +478,7 @@ export function createComposerEditor(input: {
     },
     restoreFocus,
     onInput(value: string, prompt?: ComposerPersistedState["prompt"], cursor?: number) {
+      cancelFocus()
       if (prompt) draft.setPrompt(prompt, cursor)
       if (input.view.draftOnly) return
       dispatch({ type: "input.changed", value, persist: !prompt })
@@ -467,10 +511,10 @@ export function createComposerEditor(input: {
     },
     addHistory(prompt: ComposerPersistedState["prompt"], mode: "normal" | "shell") {
       input.history?.add(prompt, mode)
-      setState({ historyIndex: -1, savedHistory: undefined })
+      dispatch({ type: "history.reset" })
     },
     resetHistory() {
-      setState({ historyIndex: -1, savedHistory: undefined })
+      dispatch({ type: "history.reset" })
     },
     onPaste(event: ClipboardEvent) {
       const clipboard = event.clipboardData
@@ -527,11 +571,4 @@ export function shouldHandlePasteAsAttachment(clipboard: DataTransfer | null, re
   if (Array.from(clipboard?.items ?? []).some((item) => item.kind === "file")) return true
   if (Array.from(clipboard?.types ?? []).some((type) => type.startsWith("text/"))) return false
   return readClipboardImage
-}
-
-function canNavigateHistory(direction: "up" | "down", text: string, cursor: number, inHistory: boolean) {
-  const position = Math.max(0, Math.min(cursor, text.length))
-  if (inHistory) return position === 0 || position === text.length
-  if (direction === "up") return position === 0 && text.length === 0
-  return position === text.length
 }

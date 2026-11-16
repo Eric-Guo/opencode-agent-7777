@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test"
+import { createRoot } from "solid-js"
 import { createStore } from "solid-js/store"
 import { renderToString } from "solid-js/web"
 import { Skill } from "@opencode/schema/skill"
@@ -326,7 +327,9 @@ describe("composer history navigation", () => {
     const previousFrame = Object.getOwnPropertyDescriptor(globalThis, "requestAnimationFrame")
     try {
       renderToString(() => {
-        const history = createComposerHistory()
+        const capture = mock(() => ({ model: "original" }))
+        const restore = mock(() => {})
+        const history = { ...createComposerHistory(), capture, restore }
         history.add([{ type: "text", content: "older", start: 0, end: 5 }], "normal")
         history.add([{ type: "text", content: "newer", start: 0, end: 5 }], "normal")
         const original: ComposerPersistedState["prompt"] = [
@@ -363,8 +366,11 @@ describe("composer history navigation", () => {
         expect(key("ArrowUp", { shiftKey: true }).preventDefault).not.toHaveBeenCalled()
         expect(key("ArrowUp", { isComposing: true }).preventDefault).not.toHaveBeenCalled()
         expect(editor.value()).toBe("")
+        expect(capture).not.toHaveBeenCalled()
         expect(key("ArrowUp").preventDefault).toHaveBeenCalledTimes(1)
         expect(editor.value()).toBe("newer")
+        const snapshot = editor.state.history
+        expect(snapshot.type).toBe("browsing")
         expect(key("ArrowUp").preventDefault).toHaveBeenCalledTimes(1)
         expect(editor.value()).toBe("older")
         expect(key("ArrowDown").preventDefault).toHaveBeenCalledTimes(1)
@@ -385,6 +391,25 @@ describe("composer history navigation", () => {
             blob: { id: "draft", url: "data:image/png;base64,YQ==" },
           },
         ])
+        store[1]("prompt", 0, (part) => (part.type === "image" ? { ...part, filename: "changed.png" } : part))
+        expect(snapshot).toEqual({
+          type: "browsing",
+          index: 0,
+          saved: {
+            prompt: [
+              {
+                type: "image",
+                id: "draft",
+                filename: "draft.png",
+                mime: "image/png",
+                blob: { id: "draft", url: "data:image/png;base64,YQ==" },
+              },
+            ],
+            metadata: { model: "original" },
+          },
+        })
+        expect(capture).toHaveBeenCalledTimes(1)
+        expect(restore).toHaveBeenLastCalledWith({ model: "original" })
         expect(history.entries("normal")[0].prompt).toEqual([{ type: "text", content: "newer", start: 0, end: 5 }])
         editor.onInput("unsent text")
         editor.onCursor(0)
@@ -398,5 +423,108 @@ describe("composer history navigation", () => {
       else
         delete (globalThis as { requestAnimationFrame?: typeof globalThis.requestAnimationFrame }).requestAnimationFrame
     }
+  })
+})
+
+describe("scheduled editor focus", () => {
+  test.each(["current", "superseded", "typing", "scope", "session", "editor", "unmounted", "dispose"] as const)(
+    "checks ownership and cancels obsolete frames after %s",
+    (change) => {
+      const cleanup = installDOM()
+      const globals = ["requestAnimationFrame", "cancelAnimationFrame"] as const
+      const previous = globals.map((name) => Object.getOwnPropertyDescriptor(globalThis, name))
+      const frames: FrameRequestCallback[] = []
+      const cancel = mock(() => {})
+      Object.defineProperties(globalThis, {
+        requestAnimationFrame: { configurable: true, value: (callback: FrameRequestCallback) => frames.push(callback) },
+        cancelAnimationFrame: { configurable: true, value: cancel },
+      })
+      let identity = "first"
+      let scope = {}
+      const target = document.createElement("div")
+      target.textContent = "draft"
+      target.focus = mock(() => {})
+      document.body.append(target)
+      let dispose!: () => void
+      try {
+        let editor!: ReturnType<typeof createComposerEditor>
+        renderToString(() => {
+          editor = createRoot((stop) => {
+            dispose = stop
+            return createComposerEditor({
+              store: createStore<ComposerPersistedState>({
+                prompt: [{ type: "text", content: "draft", start: 0, end: 5 }],
+                cursor: 5,
+                context: { items: [] },
+              }),
+              identity: () => identity,
+              scope: () => scope,
+              commands: () => [],
+              context: () => [],
+              searchContextFiles: () => [],
+              view: { submit: { stopping: () => false, onSubmit() {}, onStop() {} } },
+            })
+          })
+          return ""
+        })
+        editor.setEditor(target)
+        editor.restoreFocus(1)
+        if (change === "superseded") editor.restoreFocus(4)
+        if (change === "typing") editor.onInput("draft!")
+        if (change === "scope") scope = {}
+        if (change === "session") identity = "second"
+        if (change === "editor") editor.setEditor(document.createElement("div"))
+        if (change === "unmounted") target.remove()
+        if (change === "dispose") dispose()
+        // Even a callback delivered despite cancellation must be harmless.
+        frames.forEach((callback) => callback(0))
+        expect(target.focus).toHaveBeenCalledTimes(["current", "superseded"].includes(change) ? 1 : 0)
+        if (change === "current" || change === "superseded")
+          expect(window.getSelection()?.anchorOffset).toBe(change === "current" ? 1 : 4)
+        if (["superseded", "typing", "dispose"].includes(change)) expect(cancel).toHaveBeenCalledTimes(1)
+      } finally {
+        dispose?.()
+        cleanup()
+        globals.forEach((name, index) => {
+          const descriptor = previous[index]
+          if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+          else delete (globalThis as Partial<typeof globalThis>)[name]
+        })
+      }
+    },
+  )
+})
+
+test("persisted mode is current and shell callbacks observe the completed draft change", () => {
+  renderToString(() => {
+    const store = createStore<ComposerPersistedState>({
+      mode: "shell",
+      prompt: [{ type: "text", content: "draft", start: 0, end: 5 }],
+      context: { items: [] },
+    })
+    const opened = mock(() => controller.value())
+    const closed = mock(() => controller.value())
+    const controller = createComposerEditor({
+      store,
+      commands: () => [],
+      context: () => [],
+      searchContextFiles: () => [],
+      view: {
+        shell: { onOpen: opened, onClose: closed },
+        submit: { stopping: () => false, onSubmit() {}, onStop() {} },
+      },
+    })
+    expect(controller.mode()).toBe("shell")
+    controller.openShell()
+    expect(opened).not.toHaveBeenCalled()
+    controller.dispatch({ type: "mode.normal" })
+    expect(controller.mode()).toBe("normal")
+    expect(closed).toHaveBeenCalledTimes(1)
+    controller.onInput("!")
+    expect(controller.mode()).toBe("shell")
+    expect(opened.mock.results[0]?.value).toBe("")
+    store[1]("mode", "normal")
+    expect(controller.mode()).toBe("normal")
+    return ""
   })
 })

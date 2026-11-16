@@ -671,6 +671,22 @@ History retains its normalization, deduplication, byte budget and stored format.
 the existing prompt-part boundary without app imports or new shared-package exports. Regression coverage includes
 recalling and editing Unicode text beside file/agent mentions without changing the saved history or file metadata.
 
+Composer mode and history recall now follow the main app's `composer/suggestions/machine.ts` and
+`composer/editor/interaction.ts` boundaries. The persisted draft owns mode; machine commands request changes,
+and the controller's `mode()` accessor supplies rendering, keyboard handling and history selection. One immutable
+signal snapshot owns interactions. Its explicit idle/browsing history state replaces separate index and saved-draft
+fields; pure transitions decide eligibility, entry changes and restoration. The driver retains DOM selection checks,
+metadata capture/restoration, prompt cloning and caret placement. Saved drafts stay outside mutable Solid stores.
+
+7777 intentionally keeps history separate from suggestion popovers and continues browsing after editing a recalled
+entry. Plain-arrow boundaries, start/end caret placement, original attachment restoration, shortcuts and persisted
+history formats remain unchanged. Draft-scope or session replacement retires recall without restoring an old draft;
+the scope accessor works independently of attachment configuration. Delayed editor focus shares one cancellable
+frame across commands, history, model dismissal and attachments. New requests replace older frames; typing,
+owner changes and disposal cancel them. Callbacks recheck the captured editor, session, draft scope and store;
+attachment completion also retains its menu-teardown and dialog guards. Rendered contracts live in
+`component-tests/composer.spec.ts`; transition and driver suites cover snapshot isolation and ignored stale frames.
+
 Suggestion sizing now follows the main app's `composer/editor/editor.tsx` boundary. The session screen passes its
 timeline viewport through `session/composer/region.tsx` and `composer/composer.tsx`; the editor observes its height
 only while a menu is open. Menus reserve visible conversation space, keep fixed-height rows and a partial next-row
