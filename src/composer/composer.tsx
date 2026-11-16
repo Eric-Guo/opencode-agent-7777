@@ -58,6 +58,7 @@ export function Composer(props: { model: ComposerModel; suggestionBoundary?: () 
       modelControl={
         <Show when={props.model.model.status !== "loading"}>
           <ModelSelectorPopover
+            owner={props.model.owner}
             model={props.model.model.selection}
             onClose={props.model.restoreFocus}
             trigger={(triggerProps) => (

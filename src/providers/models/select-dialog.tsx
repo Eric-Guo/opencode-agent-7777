@@ -6,7 +6,7 @@ import { SearchList, type SearchListHandle } from "@opencode/ui/search-list"
 import { TextInput } from "@opencode/ui/text-input"
 import { Tooltip } from "@opencode/ui/tooltip"
 import { useDialog } from "@opencode/ui/context/dialog"
-import { batch, type ComponentProps, createEffect, createMemo, type JSX, onCleanup, Show } from "solid-js"
+import { batch, type ComponentProps, createEffect, createMemo, type JSX, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { createEventListener } from "@solid-primitives/event-listener"
 import "./select-dialog.css"
@@ -20,7 +20,7 @@ import { ExternalLink } from "@/runtime/platform/external-link"
 import { currentData, currentDirectory } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { handleDocumentSearchKeydown } from "@/shell/commands/search-keydown"
-import { afterMenuClose } from "@/shell/commands/menu-dismiss"
+import { createMenuDismissController } from "@/shell/commands/menu-dismiss"
 import { matchesModelSearch } from "./search"
 import { isFreeModel } from "./models"
 import { ModelTooltip } from "./tooltip"
@@ -33,6 +33,7 @@ const modelKey = (model: ModelItem) => `${model.provider.id}:${model.id}`
 type ModelSelectorTrigger = (props: ComponentProps<"button">) => JSX.Element
 
 export function ModelSelectorPopover(props: {
+  owner?: () => unknown
   provider?: string
   model: ModelSelectorState
   trigger: ModelSelectorTrigger
@@ -46,6 +47,7 @@ export function ModelSelectorPopover(props: {
   }
   return (
     <ModelSelectorPopoverView
+      owner={props.owner}
       trigger={props.trigger}
       all={() => props.model.list().filter((item) => !props.provider || item.provider.id === props.provider)}
       visible={props.model.visible}
@@ -57,8 +59,9 @@ export function ModelSelectorPopover(props: {
       }}
       onManage={
         DEFAULT_MODEL_CONFIG.manageModels
-          ? () => {
+          ? (current) => {
               void import("./manage").then((module) => {
+                if (!current()) return
                 void dialog.show(() => <module.DialogManageModels model={props.model} />)
               })
             }
@@ -70,13 +73,14 @@ export function ModelSelectorPopover(props: {
 }
 
 export function ModelSelectorPopoverView(props: {
+  owner?: () => unknown
   trigger: ModelSelectorTrigger
   all: () => ModelItem[]
   visible: (model: ModelItem) => boolean
   current: ModelItem | undefined
   integrationSource?: IntegrationSource
   select: (item: ModelItem) => void
-  onManage?: () => void
+  onManage?: (current: () => boolean) => void
   onClose: () => void
 }) {
   const language = useLanguage()
@@ -101,12 +105,27 @@ export function ModelSelectorPopoverView(props: {
   const rows = createMemo(() => models().toSorted((a, b) => compareProviders(a.provider, b.provider)))
   let list: SearchListHandle<ModelItem> | undefined
   let searchRef: HTMLInputElement | undefined
-  const setOpen = (open: boolean) => setStore({ open, search: "" })
-  const closeWith = (action: () => void) => {
+  const dismiss = createMenuDismissController(
+    () => searchRef,
+    () => props.owner?.(),
+  )
+  const setOpen = (open: boolean) => {
+    if (open && !store.open) dismiss.opened()
+    setStore({ open, search: "" })
+  }
+  const closeWith = (action: (current: () => boolean) => void) => {
     if (!store.open) return
-    afterMenuClose(searchRef, action)
+    const close = dismiss.capture()
+    close.afterClose(() => action(close.current))
     setOpen(false)
   }
+  createEffect(
+    on(
+      () => props.owner?.(),
+      () => setOpen(false),
+      { defer: true },
+    ),
+  )
   const setSearch = (value: string) =>
     batch(() => {
       setStore("search", value)

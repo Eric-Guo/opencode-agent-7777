@@ -240,3 +240,33 @@ test("model search stays usable while plan usage loads and skips Console OpenAI"
   await expect(usage).toHaveCount(0)
   expect(reads).toHaveLength(1)
 })
+
+for (const change of ["reopen", "owner", "unmount"] as const) {
+  test(`a model action cannot complete after ${change}`, async ({ page }) => {
+    await page.goto("/component-tests/pickers.html?picker=models&lifecycle")
+    await page.getByRole("button", { name: "Models", exact: true }).click()
+    await expect(page.getByRole("combobox", { name: "Search models" })).toBeFocused()
+    await page.clock.install()
+    await page.clock.pauseAt(new Date())
+    await page
+      .getByRole("option", { name: "Alpha", exact: true })
+      .evaluate((element) => (element as HTMLElement).click())
+    await page
+      .getByRole("button", {
+        name: change === "owner" ? "Replace picker owner" : change === "unmount" ? "Unmount picker" : "Models",
+        exact: true,
+      })
+      .evaluate((element) => (element as HTMLElement).click())
+    await page.clock.runFor(700)
+    await expect(page.getByLabel("Selected model")).toHaveText("openai:beta")
+    await expect(page.getByLabel("Model closes")).toHaveText("0")
+    await expect(page.getByLabel("Draft")).toHaveValue("Keep this draft")
+    if (change === "reopen") {
+      await expect(page.getByRole("combobox", { name: "Search models" })).toBeFocused()
+      await page.getByRole("combobox", { name: "Search models" }).press("Escape")
+      await page.clock.runFor(700)
+      await expect(page.getByLabel("Model closes")).toHaveText("1")
+      await expect(page.getByLabel("Draft")).toBeFocused()
+    }
+  })
+}

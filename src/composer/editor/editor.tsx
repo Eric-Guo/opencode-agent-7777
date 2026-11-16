@@ -346,6 +346,7 @@ export function ComposerEditor(props: ComposerEditorProps) {
             style={buttons()}
           >
             <ComposerEditorAddMenu
+              owner={props.controller.owner}
               disabled={view.draftOnly || props.disabled || mode() === "shell"}
               title={labels().add}
               keybind={props.attachKeybind ?? ["Mod", "U"]}
@@ -556,6 +557,7 @@ function ComposerAttachmentRemoveButton(props: { label: string; disabled?: boole
 }
 
 export function ComposerEditorAddMenu(props: {
+  owner?: () => unknown
   disabled?: boolean
   title: string
   keybind?: string[]
@@ -570,7 +572,10 @@ export function ComposerEditorAddMenu(props: {
   onShell?: () => void
 }) {
   let content: HTMLDivElement | undefined
-  const dismiss = createMenuDismissController(() => content)
+  const dismiss = createMenuDismissController(
+    () => content,
+    () => props.owner?.(),
+  )
   return (
     <Tooltip
       placement="top"
@@ -586,7 +591,7 @@ export function ComposerEditorAddMenu(props: {
         modal={false}
         placement="top-start"
         onOpenChange={(open) => {
-          if (open) dismiss.allowTriggerRestore()
+          if (open) dismiss.opened()
         }}
       >
         <Menu.Trigger
@@ -610,7 +615,7 @@ export function ComposerEditorAddMenu(props: {
               onSelect={() => {
                 // File selection restores the editor; menu teardown must not steal that focus.
                 dismiss.preventTriggerRestore()
-                props.onAttach(dismiss.afterClose)
+                props.onAttach(dismiss.capture().afterClose)
               }}
               shortcut={props.attachShortcut}
             >

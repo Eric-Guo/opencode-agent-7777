@@ -134,6 +134,18 @@ picker tokens are released once, even for late selections, and cleanup does not 
 filtering, duplicate detection, RPC schemas and persistence stay local and unchanged. Tests cover stale results,
 partial failures, cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
 
+Animated presence follows local `runtime/{presence-machine,presence,animated-presence}.ts`, matching the main
+app's machine/driver boundary. Visibility, retained values and minimum-duration attempts are pure transitions;
+DOM listeners, reduced-motion observation and timers stay in the driver. CSS animation and transition exits have
+computed deadlines with 50 ms grace, including a 250 ms base for animations with no duration. Reappearance,
+identity/element changes and disposal retire old exits. Existing component styles and accessor contracts remain.
+The compact-only `shell/commands/menu-dismiss{,-machine}.ts` shares close ownership between the model picker
+and attachment menu: detach, retain the existing two-frame focus delay, then act once, with a 600 ms deadline.
+Gesture-time captures prevent late attachment completion from acquiring a newer opening. Reopening, draft/session
+replacement and disposal cancel stale callbacks; lazy model-manager completion checks the same ownership.
+Native/browser pickers still open in the user gesture. These implementations use existing public UI motion and
+control APIs, with no parent-package edits, app-source imports or new shared exports.
+
 ## Remaining compact responsibilities
 
 - Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
@@ -152,6 +164,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Presence/menu lifecycle validation (2026-11-16): 663 Bun tests, typecheck, the production build and all 48 component
+tests passed. Isolated original-driver checks reproduced an exit stuck in `hiding` without its completion event
+and a deferred model selection committing after the picker reopened. Machine/driver coverage checks deadlines,
+stale attempts, owner changes, cancellation and disposal. Browser fixtures cover the existing CSS dropzone exit,
+reduced motion, picker ownership changes and synchronous file-chooser admission; a delayed file completion retains
+a reopened attachment menu's focus. Live IAB model search/navigation, Escape focus return and attachment-menu
+dismissal passed with no page errors, retaining the original conversation and `1/9`. IAB needed one page refresh
+after hot reload; neither app nor backend process was restarted. Evidence is in ignored
+`node_modules/.cache/lifecycle-parity/` artifacts.
 
 Composer ownership validation (2026-11-16): 640 Bun tests, typecheck, the production build and all 43 component
 tests passed. Isolated focus regressions fail against the original controller and pass against the refactor.

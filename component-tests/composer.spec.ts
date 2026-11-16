@@ -385,3 +385,63 @@ test("a scheduled focus cannot return after same-session draft reset", async ({ 
   await expect(page.getByRole("textbox", { name: "Outside editor" })).toBeFocused()
   await expect(editor).toHaveText("")
 })
+
+test("drop feedback finishes its CSS exit and respects reduced motion", async ({ page }) => {
+  await page.goto("/component-tests/composer.html?attachments&presence")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  const overlay = page.locator('[data-component="session-dropzone"]')
+  const drag = () =>
+    editor.evaluate((element) => {
+      const dataTransfer = new DataTransfer()
+      dataTransfer.items.add(new File(["notes"], "notes.txt", { type: "text/plain" }))
+      element.dispatchEvent(new DragEvent("dragover", { bubbles: true, cancelable: true, dataTransfer }))
+    })
+  await editor.fill("keep this draft")
+  await drag()
+  await expect(overlay).toHaveAttribute("data-visible", "true")
+  await expect(overlay).toHaveCSS("opacity", "1")
+  await editor.press("Escape")
+  await expect(overlay).toHaveAttribute("data-visible", "false")
+  await expect(overlay).toHaveCount(0)
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await drag()
+  await expect(overlay).toHaveAttribute("data-visible", "true")
+  await editor.press("Escape")
+  await expect(overlay).toHaveCount(0)
+  await expect(editor).toBeFocused()
+  await expect(editor).toHaveText("keep this draft")
+})
+
+test("attachment menu opens the picker in the gesture and a later completion cannot take a reopened menu's focus", async ({
+  page,
+}) => {
+  const pending = Promise.withResolvers<void>()
+  await page.route("**/component-tests/attachment?*", async (route) => {
+    if (route.request().url().includes("late.txt")) await pending.promise
+    await route.fulfill({ body: "ready" })
+  })
+  await page.goto("/component-tests/composer.html?attachments")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  const trigger = page.getByRole("button", { name: "Add images and files" })
+  const item = page.getByRole("menuitem", { name: /Images and files/ })
+  const choose = async (name: string) => {
+    await trigger.click()
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), item.click()])
+    await chooser.setFiles({ name, mimeType: "text/plain", buffer: Buffer.from(name) })
+  }
+  await editor.fill("keep this draft")
+  await choose("ready.txt")
+  await expect(page.getByLabel("Attachments")).toHaveText("1")
+  await expect(editor).toBeFocused()
+  await choose("late.txt")
+  await expect(page.getByRole("button", { name: "Cancel pending files" })).toBeVisible()
+  await trigger.press("ArrowDown")
+  await expect(item).toBeFocused()
+  pending.resolve()
+  await expect(page.getByLabel("Attachments")).toHaveText("2")
+  await expect(item).toBeFocused()
+  await expect(editor).toHaveText("keep this draft")
+  await item.press("Escape")
+  await expect(item).toHaveCount(0)
+  await expect(trigger).toBeFocused()
+})

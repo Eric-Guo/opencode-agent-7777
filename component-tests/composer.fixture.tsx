@@ -9,6 +9,7 @@ import { commandSuggestions, contextSuggestions, fileSuggestions } from "../src/
 import { createBlobReference } from "../src/runtime/persistence/drafts"
 import { createPromptState } from "../src/composer/state"
 import { ComposerEditor } from "../src/composer/editor/editor"
+import { ComposerDropzone } from "../src/composer/dropzone"
 import { createComposerEditor } from "../src/composer/editor/interaction"
 
 function ComposerFixture() {
@@ -86,7 +87,10 @@ function ComposerFixture() {
   })
 
   return (
-    <main class="mx-auto flex max-w-[680px] flex-col gap-4 p-8" style={{ "padding-top": "192px" }}>
+    <main class="relative mx-auto flex max-w-[680px] flex-col gap-4 p-8" style={{ "padding-top": "192px" }}>
+      <Show when={new URLSearchParams(location.search).has("presence")}>
+        <ComposerDropzone active={controller.state.drag === "active"} identity={() => state.identity} />
+      </Show>
       <ComposerEditor controller={controller} labels={{ prompt: "Message", commands: "Commands" }} />
       <div class="flex gap-4" onMouseDown={(event) => event.preventDefault()}>
         <button

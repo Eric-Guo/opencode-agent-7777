@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on, onCleanup, type Accessor } from "solid-js"
+import { createEffect, createMemo, createSignal, on, onCleanup, type Accessor } from "solid-js"
 import { useFilteredList } from "@opencode/ui/hooks"
 import { createTypeahead } from "@opencode/ui/typeahead"
 import { createComposerAttachments, type ComposerAttachmentConfig } from "../attachments/attachments"
@@ -413,6 +413,7 @@ export function createComposerEditor(input: {
 
   return {
     capabilities,
+    owner: createMemo(() => ({ identity: input.identity?.(), scope: scope(), store: draft.state })),
     state,
     mode,
     view: input.view,

@@ -1,5 +1,5 @@
 import { OpenCode, type SessionInfo } from "@opencode/client/promise"
-import { onCleanup, onMount, type ComponentProps } from "solid-js"
+import { onCleanup, onMount, Show, type ComponentProps } from "solid-js"
 import { createStore } from "solid-js/store"
 import { render } from "solid-js/web"
 import { AppBaseProviders } from "../src/app"
@@ -82,7 +82,14 @@ type ModelItem = ReturnType<ComponentProps<typeof ModelSelectorPopoverView>["all
 
 function Models() {
   const params = new URLSearchParams(location.search)
-  const [state, setState] = createStore({ selected: "openai:beta", managed: 0, closed: 0, removed: "" })
+  const [state, setState] = createStore({
+    selected: "openai:beta",
+    managed: 0,
+    closed: 0,
+    removed: "",
+    owner: 0,
+    mounted: true,
+  })
   let editor!: HTMLInputElement
   const model = (id: string, name: string, providerID: string): ModelItem => ({
     id,
@@ -128,22 +135,29 @@ function Models() {
   return (
     <section aria-label="Model picker fixture" class="p-2 pt-80">
       <input ref={editor} aria-label="Draft" value="Keep this draft" />
-      <ModelSelectorPopoverView
-        all={all}
-        visible={() => true}
-        current={catalog.find((item) => `${item.providerID}:${item.id}` === state.selected)}
-        integrationSource={source}
-        trigger={(props) => <button {...props}>Models</button>}
-        select={(item) => {
-          setState("selected", `${item.provider.id}:${item.id}`)
-          editor.focus()
-        }}
-        onManage={manage ? () => setState("managed", (value) => value + 1) : undefined}
-        onClose={() => {
-          setState("closed", (value) => value + 1)
-          editor.focus()
-        }}
-      />
+      <Show when={state.mounted}>
+        <ModelSelectorPopoverView
+          owner={() => state.owner}
+          all={all}
+          visible={() => true}
+          current={catalog.find((item) => `${item.providerID}:${item.id}` === state.selected)}
+          integrationSource={source}
+          trigger={(props) => <button {...props}>Models</button>}
+          select={(item) => {
+            setState("selected", `${item.provider.id}:${item.id}`)
+            editor.focus()
+          }}
+          onManage={manage ? () => setState("managed", (value) => value + 1) : undefined}
+          onClose={() => {
+            setState("closed", (value) => value + 1)
+            editor.focus()
+          }}
+        />
+      </Show>
+      <Show when={params.has("lifecycle")}>
+        <button onClick={() => setState("owner", (value) => value + 1)}>Replace picker owner</button>
+        <button onClick={() => setState("mounted", false)}>Unmount picker</button>
+      </Show>
       <output aria-label="Selected model">{state.selected}</output>
       <output aria-label="Managed">{state.managed}</output>
       <output aria-label="Model closes">{state.closed}</output>

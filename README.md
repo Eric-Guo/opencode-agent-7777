@@ -722,6 +722,22 @@ following the main app's attachment/editor boundaries. The Add menu reuses `shel
 for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
 Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
 
+Animated presence follows the main app's `runtime/{presence-machine,presence,animated-presence}.ts` boundaries
+with local implementations. The pure machine owns visibility, retained values and minimum-duration attempts;
+the driver owns DOM listeners, reduced-motion observation and bounded exit timers. Completed or cancelled CSS
+animations/transitions release their element; missing events fall back to the computed duration plus 50 ms
+(250 ms base when an animation has no duration). Reappearance, replacement elements, identity changes and disposal
+retire previous exit work. Immutable snapshots stay outside Solid stores. Existing drop feedback and alternate
+delivery styles remain owned by their components; no app-source imports or shared exports are introduced.
+
+The compact-only `shell/commands/menu-dismiss{,-machine}.ts` adapter shares deferred close work between the model
+picker and attachment menu. Like the main app's model drawer it bounds close-before-action work, here at 600 ms,
+while retaining the compact two-frame focus-settlement delay after detachment. Each gesture captures its original
+element and opening attempt. Reopening, draft/session replacement and disposal cancel old callbacks and scheduled
+work; a late model-manager import also checks that captured ownership. Attachment pickers still open synchronously
+within the user gesture, and only their focus restoration waits for menu teardown. Outside-click focus, keyboard
+navigation and search behavior remain owned by the existing public Menu/Popover/SearchList controls.
+
 Attachment preparation now follows local `composer/attachments/{preparation-machine,preparation}.ts` boundaries.
 The main app's upload lifecycle is the structural reference; 7777 deliberately keeps inline files and has no server
 upload destination or global upload service. One machine owns each gesture's attempt, picker/preparation phase and
