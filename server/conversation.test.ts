@@ -101,6 +101,12 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
           return { rounds: [] }
         },
         task: () => ({
+          fetch: async () => ({
+            task: { key: "code", kind: "tool_task", tool_name: "code", status: "completed" },
+            structured_content: false,
+            content: [],
+            output: "first\nsecond\nthird",
+          }),
           approve: async () => {
             approvals++
           },
@@ -133,6 +139,10 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     }
     expect(approvals).toBe(1)
     expect(executionReads).toBe(1)
+    expect(await (await send("/chats/a/task?run=mine&key=code")).json()).toMatchObject({
+      output: "first\nsecond\nthird",
+      structured: false,
+    })
     expect((await send("/chats/a/promote", { id: "old", version: 4 })).status).toBe(409)
     expect((await send("/chats/a/promote", { id: "new", version: 4 })).status).toBe(200)
     expect(promoted).toEqual(["new"])

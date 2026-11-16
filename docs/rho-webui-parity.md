@@ -1,8 +1,15 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`31b82029d75d1ed9626b80739e4caca16671b344`. The reference checkout and its Ruby/JavaScript
+`ef798b1d6828b984a4a02b6dfc8aba34003d7d69`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+The reference production source and tests are unchanged from the previous baseline;
+the intervening changes only update Ruby dependencies. Task inspection now also
+shows the runtime's structured output, preserving false, zero and null separately
+from ordered printed output. The existing approval/reload browser regression covers
+all three values without another submission or decision. The scoped bridge test
+verifies that task projection retains structured false.
 
 | Reference behavior                                                                                                      | Nexus UI owner and evidence                                                                                                                                                                                                                                                                                                                                        |
 | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -27,10 +34,12 @@ The small supporting Protocol change adds schedule models, execution cursors and
 default read. Clients were regenerated through `packages/client`; generated files were not edited manually.
 Nexus API clients own memory selection, schedule reads and permissions. OpenCode Code Mode remains the executor.
 
-Latest validation passed: 362 UI unit tests, 54 browser component tests, 304 runtime conformance tests
+Latest validation passed: 403 UI unit tests, 64 browser component tests, 309 runtime conformance tests
 with real Chromium and WebRTC, the UI type check/build, the runtime's official TypeScript check/build,
 and root `bun run check`.
-Root lint retains 227 existing advisory warnings and zero errors. The UI build retains its existing chunk-size advisory.
+Root lint retains 227 existing advisory warnings and zero errors. The UI build retains existing CSS and chunk-size advisories.
+An unchanged attachment-menu focus test failed in the first browser run, then passed three isolated repeats
+and the complete browser rerun. This alignment check used local fixtures and did not change live account state.
 
 Latest live testing used development Nexus at `http://localhost:3000`, the rebuilt managed OpenCode service,
 and an isolated development UI. Real browser checks covered Human read-only and revoked access, draft

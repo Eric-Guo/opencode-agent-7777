@@ -1,4 +1,4 @@
-import type { RunTranscript } from "@cybros/agent"
+import type { JsonValue, RunTranscript } from "@cybros/agent"
 
 export type OutputFile = { id: string; name: string; path?: boolean }
 export type Review = {
@@ -38,6 +38,7 @@ export type TaskView = {
   prompt: string | null
   input: unknown
   output: string | null
+  structured?: JsonValue
   error: unknown
   sealed: boolean
   captures: OutputFile[]

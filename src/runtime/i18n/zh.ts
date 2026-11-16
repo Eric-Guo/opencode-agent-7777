@@ -1,4 +1,4 @@
-import { dict as en } from "./en"
+import type { dict as en } from "./en"
 
 type Keys = keyof typeof en
 
@@ -66,6 +66,7 @@ export const dict = {
   "chat.sealed": "查看已封存的模型请求",
   "chat.input": "输入",
   "chat.output": "输出",
+  "chat.structured": "结构化输出",
   "chat.usageTotal": "已记录用量",
   "chat.requests": "请求数",
   "chat.tokens": "总 Token 数",
@@ -369,4 +370,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Partial<Record<Keys, string>>
+} satisfies Record<Keys, string>

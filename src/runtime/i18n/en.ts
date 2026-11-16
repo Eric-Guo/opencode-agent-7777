@@ -63,6 +63,7 @@ export const dict = {
   "chat.sealed": "Read sealed model request",
   "chat.input": "Input",
   "chat.output": "Output",
+  "chat.structured": "Structured output",
   "chat.usageTotal": "Recorded usage",
   "chat.requests": "Requests",
   "chat.tokens": "Total tokens",

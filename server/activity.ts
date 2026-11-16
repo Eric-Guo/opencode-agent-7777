@@ -57,6 +57,9 @@ export function taskView(detail: TaskDetail, runner: string | null | undefined) 
     prompt: detail.prompt,
     input: detail.tool_input,
     output: detail.output ?? detail.output_preview,
+    ...(detail.structured_content !== null || detail.task.tool_name === "code"
+      ? { structured: detail.structured_content }
+      : {}),
     error: detail.task.error,
     captures: taskFiles(detail, runner),
     sealed: detail.task.kind === "model_task",
