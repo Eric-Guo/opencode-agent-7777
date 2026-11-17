@@ -131,6 +131,12 @@ survive older snapshots, and settled IDs cannot be resurrected. Attempt IDs reje
 SSE acknowledgement and a subsequent reply. Child routing, notification delivery, answer state and web-search
 behavior retain their existing owners. No app-source imports, parent edits or shared-package exports are added.
 
+Permission notification delivery follows the main app's separate notification machine and driver boundaries.
+The local `shell/notifications/machine.ts` owns deduplication, attempt IDs and retirement. The driver retains
+translated copy, desktop-first delivery and the browser fallback. The permission adapter scopes the controller
+to a runtime activation and verifies that the request still belongs to its active tree. Refresh can notify again
+for the first pending request, while older permission grants cannot deliver after a refresh, reply or navigation.
+
 Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
 app's upload machine/driver separation without adopting server uploads or a global upload service. Picker, paste,
 drop and input gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal
@@ -171,6 +177,15 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Permission notification validation (2026-11-18). Eight delayed-delivery regressions reproduced against the original
+implementation and pass with the refactor. All 683 Bun tests, typecheck and the production build passed. The component
+suite passed 50 of 51 tests. The attachment menu focus case failed at the same assertion in the original checkout.
+Three-run production medians before and after were 185/186 ms for entry, 66/71 ms for session switching and
+169/126 ms for streaming. After in-app browser access timed out, live Playwright verified that activating a recent
+session returned HTTP 200 for its permission list, showed `1/9`, and let the recent-session picker dismiss with Escape.
+The smoke check recorded no page errors, failed API responses or API writes. Both live processes stayed running.
+Logs and screenshots are in ignored `node_modules/.cache/permission-notifications/`.
 
 Mention-search validation (2026-11-17): 670 Bun tests, typecheck, the production build and all 51 component tests
 passed. New regressions failed against the original code for delayed local filtering and caller cancellation.

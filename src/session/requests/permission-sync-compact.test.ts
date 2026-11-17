@@ -10,6 +10,9 @@ const request = {
   action: "read",
   resources: ["/repo/file.txt"],
 } satisfies PermissionRequest
+const parent = { id: "session_parent", location: { directory: "/repo" } } as SessionInfo
+const child = { id: request.sessionID, parentID: parent.id, location: parent.location } as SessionInfo
+const other = { id: "session_other", location: parent.location } as SessionInfo
 
 afterEach(() => {
   setSessionClient(undefined)
@@ -27,7 +30,19 @@ describe("permission notifications", () => {
   const browser: { title: string; body?: string }[] = []
   let permission: NotificationPermission
   let permissionReads: number
+  let deliveryError: Error | undefined
   let requestPermission: () => Promise<NotificationPermission>
+  let listed: PermissionRequest[]
+  let client: ReturnType<typeof OpenCode.make>
+  const delayGrant = () => {
+    permission = "default"
+    const pending = Promise.withResolvers<NotificationPermission>()
+    requestPermission = () => pending.promise
+    return async () => {
+      pending.resolve("granted")
+      await Bun.sleep(0)
+    }
+  }
   const asked = (value: PermissionRequest = request) =>
     handlePermissionEvent({ id: "event_asked", created: 0, type: "permission.asked", data: value })
   const replied = () =>
@@ -43,7 +58,17 @@ describe("permission notifications", () => {
     browser.length = 0
     permission = "granted"
     permissionReads = 0
+    deliveryError = undefined
     requestPermission = async () => "granted"
+    listed = [request]
+    client = OpenCode.make({
+      baseUrl: "http://localhost",
+      fetch: (async (input, init) => {
+        const sent = new Request(input, init)
+        if (sent.method === "POST") return new Response(null, { status: 204 })
+        return Response.json({ data: listed })
+      }) as typeof fetch,
+    })
     class BrowserNotification {
       static get permission() {
         permissionReads++
@@ -53,6 +78,7 @@ describe("permission notifications", () => {
         return requestPermission()
       }
       constructor(title: string, options?: NotificationOptions) {
+        if (deliveryError) throw deliveryError
         browser.push({ title, body: options?.body })
       }
     }
@@ -61,10 +87,8 @@ describe("permission notifications", () => {
       Notification: { configurable: true, value: BrowserNotification },
       localStorage: { configurable: true, value: { getItem: () => "en" } },
     })
-    setState("session", { id: "session_parent", location: { directory: "/repo" } } as SessionInfo)
-    setState("recentSessions", [
-      { id: request.sessionID, parentID: "session_parent", location: { directory: "/repo" } } as SessionInfo,
-    ])
+    setSessionClient(client, parent)
+    setState("recentSessions", [child])
   })
 
   afterEach(() => {
@@ -89,7 +113,7 @@ describe("permission notifications", () => {
     expect(permissionReads).toBe(0)
   })
 
-  test("notifies only the active tree, suppresses repeated events, and forgets replied IDs", () => {
+  test("notifies only the active tree and suppresses repeated or settled events", () => {
     asked({ ...request, sessionID: "unrelated" })
     expect(browser).toEqual([])
     asked()
@@ -97,16 +121,12 @@ describe("permission notifications", () => {
     expect(browser).toEqual([{ title: "Permission required", body: "Reading a file (matches the file path)" }])
     replied()
     asked()
+    expect(browser).toHaveLength(1)
+    asked({ ...request, id: "next_permission" })
     expect(browser).toHaveLength(2)
   })
 
   test("refresh resets deduplication and notifies the first pending request", async () => {
-    setSessionClient(
-      OpenCode.make({
-        baseUrl: "http://localhost",
-        fetch: (async (_input, _init) => Response.json({ data: [request] })) as typeof fetch,
-      }),
-    )
     asked()
     await refreshPermissions()
     asked()
@@ -116,6 +136,85 @@ describe("permission notifications", () => {
       { title: "Permission required", body: "Reading a file (matches the file path)" },
     ])
     expect(state.permission[request.sessionID]?.map((item) => item.id)).toEqual([request.id])
+  })
+
+  test("keeps delivery attempts separate for requests with the same ID in different sessions", async () => {
+    const grant = delayGrant()
+    asked()
+    asked({ ...request, sessionID: parent.id, action: "unknown_tool" })
+    replied()
+    await grant()
+    expect(browser).toEqual([{ title: "Permission required", body: "Permission required" }])
+  })
+
+  test.each([
+    ["SSE reply", () => replied()],
+    [
+      "HTTP success",
+      async () => {
+        decidePermission(request, "once")
+        await Bun.sleep(0)
+        expect(state.permission[request.sessionID]).toEqual([])
+      },
+    ],
+    [
+      "refresh removes the request",
+      async () => {
+        listed = []
+        await refreshPermissions()
+        expect(state.permission[request.sessionID]).toBeUndefined()
+      },
+    ],
+    [
+      "selection changes before the new activation",
+      () => {
+        setState("session", undefined)
+        setState("session", other)
+      },
+    ],
+    ["child leaves the active tree", () => setState("recentSessions", [])],
+    [
+      "same session is reactivated",
+      () => {
+        setSessionClient(client, other)
+        setSessionClient(client, parent)
+      },
+    ],
+    ["runtime disposal", () => setSessionClient(undefined)],
+  ] as const)("ignores a delayed browser grant after %s", async (_reason, retire) => {
+    const grant = delayGrant()
+    asked()
+    expect(permissionReads).toBeGreaterThan(0)
+    await retire()
+    await grant()
+    expect(browser).toEqual([])
+  })
+
+  test("refresh admits a fresh attempt and retires an older grant for the same request", async () => {
+    const oldGrant = delayGrant()
+    asked()
+    const newGrant = delayGrant()
+    await refreshPermissions()
+    await oldGrant()
+    const oldDeliveries = browser.length
+    await newGrant()
+    asked()
+    expect(oldDeliveries).toBe(0)
+    expect(browser).toEqual([{ title: "Permission required", body: "Reading a file (matches the file path)" }])
+  })
+
+  test("contains delivery errors and leaves the request available for the next refresh", async () => {
+    const grant = delayGrant()
+    deliveryError = new Error("Notification constructor failed")
+    asked()
+    await grant()
+    deliveryError = undefined
+    permission = "granted"
+    asked()
+    expect(browser).toEqual([])
+    expect(state.permission[request.sessionID]?.map((item) => item.id)).toEqual([request.id])
+    await refreshPermissions()
+    expect(browser).toHaveLength(1)
   })
 
   test.each(["granted", "denied", "rejected"])("handles a browser permission result of %s", async (result) => {
@@ -148,7 +247,7 @@ describe("permission notifications", () => {
     expect(browser).toEqual([])
     replied()
     Reflect.deleteProperty(window, "Notification")
-    expect(() => asked()).not.toThrow()
+    expect(() => asked({ ...request, id: "next_permission" })).not.toThrow()
     expect(browser).toEqual([])
   })
 })

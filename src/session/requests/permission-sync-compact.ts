@@ -1,7 +1,7 @@
 // Imperative directory request sync and replies for the compact session tree.
 import type { OpenCodeEvent, PermissionRequest } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { sessionPermissionRequest } from "@/session/requests/session-request-tree"
@@ -15,11 +15,28 @@ import {
   filterSettledRequests,
 } from "./sync-compact"
 
-const notifications = createPermissionNotifications()
+type Owner = NonNullable<ReturnType<typeof captureSessionOwnership>>
+const notificationControllers = new WeakMap<Owner["runtime"], ReturnType<typeof createPermissionNotifications>>()
 
-function currentPermission(requests: Record<string, PermissionRequest[] | undefined>) {
+function currentPermission(
+  requests: Record<string, PermissionRequest[] | undefined>,
+  include?: (request: PermissionRequest) => boolean,
+) {
   const sessions = state.session ? [state.session, ...state.recentSessions] : state.recentSessions
-  return sessionPermissionRequest(sessions, requests, state.session?.id)
+  return sessionPermissionRequest(sessions, requests, state.session?.id, include)
+}
+
+function notificationsFor(active: Owner) {
+  const existing = notificationControllers.get(active.runtime)
+  if (existing) return existing
+  const notifications = createPermissionNotifications({
+    signal: active.runtime.signal,
+    eligible: (request) =>
+      active.current() &&
+      !!currentPermission(state.permission, (item) => item.sessionID === request.sessionID && item.id === request.id),
+  })
+  notificationControllers.set(active.runtime, notifications)
+  return notifications
 }
 
 export function refreshPermissions() {
@@ -37,9 +54,9 @@ export function refreshPermissions() {
       if (!active.current() || !result) return
       const requests = groupSessionRequests(result)
       setState("permission", reconcile(requests))
-      notifications.clear()
+      notificationControllers.get(active.runtime)?.clear()
       const request = currentPermission(requests)
-      if (request) notifications.notify(request)
+      if (request) notificationsFor(active).notify(request)
     })
 
     .catch((error) => {
@@ -56,14 +73,20 @@ export function handlePermissionEvent(event: OpenCodeEvent) {
       request,
       ...current.filter((item) => item.id !== request.id),
     ])
-    if (currentPermission(state.permission)?.id === request.id) notifications.notify(request)
+    const selected = currentPermission(state.permission)
+    if (selected?.id === request.id && selected.sessionID === request.sessionID) {
+      const active = captureSessionOwnership()
+      if (active) notificationsFor(active).notify(request)
+    }
     return true
   }
 
   if (event.type === "permission.replied") {
     const replied = event.data
-    settleRequest("permission", { sessionID: replied.sessionID, id: replied.requestID })
-    notifications.forget(replied.requestID)
+    const request = { sessionID: replied.sessionID, id: replied.requestID }
+    settleRequest("permission", request)
+    const runtime = currentRuntime()
+    if (runtime) notificationControllers.get(runtime)?.forget(request)
     setState("permission", replied.sessionID, (current = []) => current.filter((item) => item.id !== replied.requestID))
     return true
   }

@@ -424,12 +424,12 @@ If the chosen provider disappears, the dock asks the user to confirm a replaceme
 form never arrives. Provider-list reads and replies have 15-second deadlines. The compact dock keeps its
 existing shell, translations and composer placement.
 
-Permission notification delivery follows the main app's `shell/notifications/notification.tsx` boundary with a
-package-local controller. It owns translated copy, request-ID deduplication, desktop delivery and the browser fallback;
-the request adapter selects the active tree's request and resets or retires notification IDs on refresh or reply.
-Existing permission prompts, denial handling and refresh notifications are preserved. The compact shell has no
-notification inbox, sound preferences or unread-session tracking. Integration coverage stays in
-`session/requests/permission-sync-compact.test.ts` to verify delivery through the real request lifecycle.
+Permission notifications follow the main app's `shell/notifications/{machine.ts,notification.tsx}` boundary. The
+local machine scopes deduplication to the runtime activation and keys attempts by session and request ID. The
+driver translates the alert, tries the desktop host first and falls back to browser permission. Before delivering
+a delayed alert, it checks that the attempt is current and the request is still pending in the active tree. A refresh
+retires earlier attempts and may notify again for the first pending request. Replies and runtime disposal prevent
+stale delivery. Integration coverage stays in `session/requests/permission-sync-compact.test.ts`.
 
 See [Code Layout Parity Review](docs/code_parity.md) for the module-boundary comparison with
 `<repo-root>/packages/app` and the intentional compact-app differences.
