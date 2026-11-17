@@ -1,5 +1,11 @@
 import { expect, test, type Page } from "@playwright/test"
 
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { executionExtensions } from "../../nexus-runtime/src/execution-settings"
+import { Configuration } from "../../nexus-runtime/src/configuration"
+
 type Command = { action: string; [key: string]: unknown }
 
 async function fixture(
@@ -150,6 +156,137 @@ test("switches workspaces and retains plugin secrets until explicitly changed", 
   await expect(page.getByRole("dialog", { name: "Plugins", exact: true })).toHaveCount(0)
 })
 
+test("clearing a nullable plugin field restores its default rather than saving null", async ({ page }) => {
+  const writes: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "extension.list")
+        return [
+          {
+            id: "fixture",
+            name: "Fixture plugin",
+            active: true,
+            enabled: true,
+            ready: true,
+            configuration_version: 1,
+            configuration_schema: {
+              type: "object",
+              properties: {
+                endpoint: { type: ["string", "null"], default: "inherited" },
+              },
+            },
+            configuration: { endpoint: "custom" },
+            diagnostics: [],
+            tools: [],
+            commands: [],
+            restart_required: false,
+          },
+        ]
+      if (input.action === "extension.configure") writes.push(input)
+      return { packages: [], saved: true, applied: true }
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/plugins/fixture",
+  )
+  await page.getByRole("textbox", { name: "endpoint", exact: true }).fill("")
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  expect(writes[0]).toEqual({
+    action: "extension.configure",
+    change: { id: "fixture", operations: [{ op: "unset", path: ["endpoint"] }] },
+  })
+})
+
+test("switching plugins replaces configuration fields and discards the previous plugin's draft", async ({ page }) => {
+  const writes: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "extension.list")
+        return [
+          { id: "first", name: "First plugin", key: "endpoint", value: "original" },
+          { id: "second", name: "Second plugin", key: "directory", value: "saved" },
+        ].map((row) => ({
+          id: row.id,
+          name: row.name,
+          active: true,
+          enabled: true,
+          ready: true,
+          configuration_version: 1,
+          configuration_schema: { type: "object", properties: { [row.key]: { type: "string" } } },
+          configuration: { [row.key]: row.value },
+          diagnostics: [],
+          tools: [],
+          commands: [],
+          restart_required: false,
+        }))
+      if (input.action === "extension.configure") writes.push(input)
+      return { packages: [], saved: true, applied: true }
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/plugins/first",
+  )
+  await page.getByRole("textbox", { name: "endpoint", exact: true }).fill("unsaved")
+  await page.getByRole("button", { name: "Second plugin", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "endpoint", exact: true })).toHaveCount(0)
+  await page.getByRole("textbox", { name: "directory", exact: true }).fill("updated")
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  expect(writes[0]).toEqual({
+    action: "extension.configure",
+    change: { id: "second", operations: [{ op: "set", path: ["directory"], value: "updated" }] },
+  })
+  await page.getByRole("button", { name: "First plugin", exact: true }).click()
+  await expect(page.getByRole("textbox", { name: "endpoint", exact: true })).toHaveValue("original")
+  await expect(page.getByRole("textbox", { name: "directory", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled()
+})
+
+test("plugin maps expose saved entries alongside declared properties", async ({ page }) => {
+  const writes: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "extension.list")
+        return [
+          {
+            id: "fixture",
+            name: "Fixture plugin",
+            active: true,
+            enabled: true,
+            ready: true,
+            configuration_version: 1,
+            configuration_schema: {
+              type: "object",
+              properties: {
+                servers: {
+                  type: "object",
+                  properties: { primary: { type: "string" } },
+                  additionalProperties: { type: "string" },
+                },
+              },
+            },
+            configuration: { servers: { primary: "first", extra: "saved" } },
+            diagnostics: [],
+            tools: [],
+            commands: [],
+            restart_required: false,
+          },
+        ]
+      if (input.action === "extension.configure") writes.push(input)
+      return { packages: [], saved: true, applied: true }
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/plugins/fixture",
+  )
+  await expect(page.getByRole("textbox", { name: "primary", exact: true })).toHaveValue("first")
+  await page.getByRole("textbox", { name: "extra", exact: true }).fill("updated")
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect.poll(() => writes.length).toBe(1)
+  expect(writes[0]).toEqual({
+    action: "extension.configure",
+    change: { id: "fixture", operations: [{ op: "set", path: ["servers", "extra"], value: "updated" }] },
+  })
+})
+
 test("rejects invalid configuration JSON and distinguishes inherited fallback from an empty list", async ({ page }) => {
   const writes: Command[] = []
   await fixture(page, (input) => {
@@ -261,6 +398,69 @@ test("loads extension modules with relative imports and replaces and disables th
   await page.getByRole("button", { name: "Back to conversation" }).click()
   await page.getByRole("button", { name: "Settings & account" }).click()
   await expect(page.getByText("Module v2 ready", { exact: true })).toHaveCount(0)
+})
+
+test("failed browser modules stay failed until their version changes or they are re-enabled", async ({ page }) => {
+  let version = "v1"
+  let enabled = true
+  let reads = 0
+  await page.route("**/api/7777/modules/**", (route) =>
+    route.fulfill({
+      contentType: "text/javascript",
+      body: `export function register(ui) {
+      document.documentElement.dataset.moduleRegistrations = String(Number(document.documentElement.dataset.moduleRegistrations ?? 0) + 1);
+      ui.slots.register('sidebar.panellist', { id: 'fixture', label: 'Recovered module' }, () => ({element: document.createElement('p')}));
+      ${version === "v1" ? "throw new Error('registration failed');" : ""}
+    }`,
+    }),
+  )
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "extension.list") {
+        reads++
+        return [
+          {
+            id: "fixture",
+            name: "Fixture plugin",
+            active: enabled,
+            enabled,
+            ready: true,
+            configuration_version: 1,
+            configuration_schema: { type: "object", properties: {} },
+            configuration: {},
+            diagnostics: [],
+            tools: [],
+            commands: [],
+            restart_required: false,
+            webui: { version, entry: "index.js" },
+          },
+        ]
+      }
+      return { packages: [] }
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/plugins/fixture",
+  )
+  const registrations = () => page.evaluate(() => Number(document.documentElement.dataset.moduleRegistrations))
+  await expect(page.getByText("registration failed", { exact: true })).toBeVisible()
+  await expect.poll(registrations).toBe(1)
+  await expect(page.getByRole("button", { name: "Recovered module", exact: true })).toHaveCount(0)
+  const before = reads
+  await page.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect.poll(() => reads).toBeGreaterThan(before)
+  await expect.poll(registrations).toBe(1)
+  enabled = false
+  await page.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect(page.getByText("registration failed", { exact: true })).toHaveCount(0)
+  enabled = true
+  await page.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect.poll(registrations).toBe(2)
+  await expect(page.getByText("registration failed", { exact: true })).toBeVisible()
+  version = "v2"
+  await page.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Recovered module", exact: true })).toBeVisible()
+  await expect(page.getByText("registration failed", { exact: true })).toHaveCount(0)
+  await expect.poll(registrations).toBe(3)
 })
 
 test("workspace, conversation and panel links survive reload and browser history while preserving the host URL", async ({
@@ -539,6 +739,42 @@ test("Bot and plugin item links restore the selected editor and New Bot restores
   await expect(page.getByRole("spinbutton", { name: "count", exact: true })).toHaveValue("2")
 })
 
+test("Bot creation and duplicate names fit Nexus handles", async ({ page }) => {
+  const writes: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "bot.list")
+        return [
+          {
+            public_id: "existing",
+            name: "bot-abcdefghijklmnopqrstuvwxyz12",
+            display_name: "Long named Bot",
+            description: "Saved Bot",
+            current: null,
+            settings: { audience: "owner", preset_public_id: "default", subagent: true, welcome_message: null },
+          },
+        ]
+      if (input.action === "preset.list")
+        return {
+          presets: [{ public_id: "default", name: "Default", description: "", configuration: {} }],
+          default_bot_preset_public_id: "default",
+        }
+      writes.push(input)
+      return {}
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/bots",
+  )
+  await page.getByRole("button", { name: "Duplicate as personal Bot", exact: true }).click()
+  await expect
+    .poll(() => writes.find((input) => input.action === "bot.duplicate")?.name)
+    .toBe("abcdefghijklmnopqrstuvw-copy")
+  await page.getByRole("button", { name: "New Bot", exact: true }).click()
+  const name = page.getByRole("textbox", { name: "Stable name", exact: true })
+  await name.pressSequentially("abcdefghijklmnopqrstuvwxyz123")
+  await expect(name).toHaveValue("abcdefghijklmnopqrstuvwxyz12")
+})
+
 test("new chat mode controls follow runtime defaults and availability", async ({ page }) => {
   let enabled = false
   await fixture(page, (input) => (input.action === "extension.list" ? [] : {}))
@@ -811,4 +1047,60 @@ test("terminal viewers follow write access and disable controls when access is r
   await expect(dialog.getByRole("status")).toHaveText("Terminal unavailable")
   await expect(dialog.getByRole("button", { name: "Stop terminal", exact: true })).toBeDisabled()
   expect(signals).toEqual([])
+})
+
+
+test("built-in settings save defaults and atomic hook groups without carrying drafts across plugins", async ({ page }) => {
+  const directory = await mkdtemp(join(tmpdir(), "nexus-ui-settings-"))
+  const configuration = new Configuration(join(directory, "configuration.json"))
+  const descriptors = executionExtensions().map((module) => module.descriptor)
+  try {
+    await fixture(page, async (input) => {
+      if (input.action === "extension.list") return descriptors.map((descriptor) => ({
+        ...descriptor,
+        ...configuration.selection(descriptor),
+        active: configuration.selection(descriptor).enabled,
+        ready: true,
+        restart_required: false,
+        tools: [], commands: [], diagnostics: [],
+      }))
+      if (input.action === "extension.configure") {
+        const change = input.change as Parameters<Configuration["change"]>[1]
+        await configuration.change(descriptors.find((row) => row.id === change.id)!, change)
+        return { applied: true }
+      }
+      return { packages: [] }
+    }, "/component-tests/nexus-chat.html#/workspaces/one/panels/plugins/nexus.coding")
+    const timeout = page.getByRole("spinbutton", { name: "bash_timeout_seconds", exact: true })
+    await expect(timeout).toHaveValue("120")
+    await timeout.fill("42")
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect.poll(() => configuration.saved("nexus.coding")?.configuration).toEqual({ bash_timeout_seconds: 42 })
+    await timeout.fill("48")
+    await page.getByRole("button", { name: "Checkpoints", exact: true }).click()
+    await expect(page.getByRole("spinbutton", { name: "retention_days", exact: true })).toHaveValue("7")
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled()
+    await page.getByRole("spinbutton", { name: "max_tree_bytes", exact: true }).fill("4096")
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect.poll(() => configuration.saved("nexus.checkpoints")?.configuration).toEqual({ max_tree_bytes: 4096 })
+    await page.getByRole("button", { name: "Lifecycle hooks", exact: true }).click()
+    const stop = page.getByRole("textbox", { name: /^stop Value/ })
+    await stop.fill("{")
+    await expect(stop).toHaveAttribute("aria-invalid", "true")
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled()
+    expect(configuration.saved("nexus.lifecycle-hooks")).toBeUndefined()
+    const hook = { tool: "verify", timeout_ms: 30000, max_continuations: 2 }
+    await stop.fill(JSON.stringify(hook))
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect.poll(() => configuration.saved("nexus.lifecycle-hooks")?.configuration).toEqual({ stop: hook })
+    await page.reload()
+    await expect(page.getByRole("textbox", { name: /^stop Value/ })).toHaveValue(JSON.stringify(hook, null, 2))
+    await page.getByRole("button", { name: "Coding", exact: true }).click()
+    await expect(timeout).toHaveValue("42")
+    await page.getByRole("button", { name: "Restore default", exact: true }).click()
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect(timeout).toHaveValue("120")
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })

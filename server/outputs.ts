@@ -1,7 +1,6 @@
 import { FileDiff } from "@opencode/schema/file-diff"
 import { Schema } from "effect"
 import { randomUUID } from "node:crypto"
-import { win32, posix } from "node:path"
 import type { Conversation, Turn } from "@cybros/agent"
 import { BridgeError, type Backend } from "./nexus"
 import { captures, field, ownedRun, taskFiles } from "./activity"
@@ -133,22 +132,12 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
 
   const runner = info.default_runner?.executor_public_id
   if (!runner) throw new BridgeError(409, "This conversation has no bound runner.")
-  const root =
-    runner === b.localRunner
-      ? (await b.native.status()).directory
-      : (await b.client.executors.fetch(runner)).services.runner?.environment.root
-  if (typeof root !== "string" || !root) throw new BridgeError(409, "Runner file binding is unavailable.")
-  const paths = /^[a-z]:[\\/]|^\\\\/i.test(root) ? win32 : posix
-  const path = paths.resolve(root, id.slice(5))
-  const rel = paths.relative(root, path)
-  if (!rel || paths.isAbsolute(rel) || rel.split(paths.sep).some((part) => part.startsWith(".")))
-    throw new BridgeError(403, "File is outside the conversation’s output directory.")
   const result = await b.native.operator({
     workspace: b.workspaceID,
     conversation: info.public_id,
     runner,
     receipt: randomUUID(),
-    operation: { tool: "files_bytes", path },
+    operation: { tool: "files_bytes", path: id.slice(5) },
   })
   if (!result.upload) throw new BridgeError(404, "Runner file unavailable.")
   return { name: file.name, body: (await b.client.uploads.bytes(result.upload)).body }

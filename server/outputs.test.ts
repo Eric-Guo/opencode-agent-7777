@@ -1,26 +1,30 @@
 import { expect, test } from "bun:test"
-import { join } from "node:path"
 import type { Conversation } from "@cybros/agent"
 import { fileBytes } from "./outputs"
 import type { Backend } from "./nexus"
 
 test("runner downloads follow the recorded conversation binding and never fall back to the bridge machine", async () => {
-  const root = "/project"
   const chat = { public_id: "chat", default_runner: { executor_public_id: "runner" } } as Conversation
   const actions: string[] = []
   const b = {
     localRunner: "runner",
     native: {
-      status: async () => ({ directory: root }),
+      status: async () => {
+        throw new Error("Downloads must use the conversation binding, not the global directory.")
+      },
       operator: async (input: { runner: string; operation: { tool: string; path: string } }) => {
         actions.push(input.runner + "/" + input.operation.tool)
-        expect(input.operation.path).toBe(join(root, "notes.md"))
+        expect(input.operation.path).toBe("./notes.md")
         return { upload: "from-runner" }
       },
     },
     client: {
       uploads: { bytes: async (id: string) => new Response(id) },
-      executors: { fetch: async () => ({ services: { runner: { environment: { root } } } }) },
+      executors: {
+        fetch: async () => {
+          throw new Error("The runtime owns runner path resolution.")
+        },
+      },
     },
     workspace: {
       conversation: () => ({

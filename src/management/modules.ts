@@ -53,6 +53,7 @@ export function createModuleHost(
     modules.get(id)?.abort.abort()
     modules.delete(id)
     setEntries((rows) => rows.filter((row) => row.owner !== id))
+    setErrors((errors) => Object.fromEntries(Object.entries(errors).filter(([owner]) => owner !== id)))
   }
 
   const refresh = async () => {
@@ -116,6 +117,8 @@ export function createModuleHost(
         } catch (error) {
           if (modules.get(row.id)?.abort !== abort) return
           dispose(row.id)
+          // Retain the failed version so refreshing inventory cannot repeat partial registration effects.
+          modules.set(row.id, { version, abort })
           setErrors((errors) => ({ ...errors, [row.id]: error instanceof Error ? error.message : String(error) }))
         }
       }),
