@@ -502,16 +502,18 @@ test("attachment menu opens the picker in the gesture and a later completion can
   const editor = page.getByRole("textbox", { name: "Message" })
   const trigger = page.getByRole("button", { name: "Add images and files" })
   const item = page.getByRole("menuitem", { name: /Images and files/ })
-  const choose = async (name: string) => {
-    await trigger.click()
-    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), item.click()])
+  const choose = async (name: string, select: () => Promise<void>) => {
+    const [chooser] = await Promise.all([page.waitForEvent("filechooser"), select()])
     await chooser.setFiles({ name, mimeType: "text/plain", buffer: Buffer.from(name) })
   }
   await editor.fill("keep this draft")
-  await choose("ready.txt")
+  await trigger.press("ArrowDown")
+  await expect(item).toBeFocused()
+  await choose("ready.txt", () => item.press("Enter"))
   await expect(page.getByLabel("Attachments")).toHaveText("1")
   await expect(editor).toBeFocused()
-  await choose("late.txt")
+  await trigger.click()
+  await choose("late.txt", () => item.click())
   await expect(page.getByRole("button", { name: "Cancel pending files" })).toBeVisible()
   await trigger.press("ArrowDown")
   await expect(item).toBeFocused()

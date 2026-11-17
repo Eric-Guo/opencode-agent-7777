@@ -753,6 +753,7 @@ element and opening attempt. Reopening, draft/session replacement and disposal c
 work; a late model-manager import also checks that captured ownership. Attachment pickers still open synchronously
 within the user gesture, and only their focus restoration waits for menu teardown. Outside-click focus, keyboard
 navigation and search behavior remain owned by the existing public Menu/Popover/SearchList controls.
+The Add menu closes during the attachment selection gesture so an immediate keyboard reopen gets a fresh opening.
 
 Attachment preparation now follows local `composer/attachments/{preparation-machine,preparation}.ts` boundaries.
 The main app's upload lifecycle is the structural reference; 7777 deliberately keeps inline files and has no server

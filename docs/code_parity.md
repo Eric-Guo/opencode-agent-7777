@@ -178,6 +178,11 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
 
+Attachment menu focus validation (2026-11-18). The original menu closed on a timer and dropped an immediate Arrow
+Down reopen. Closing in the picker gesture restored keyboard reopening and preserved menu focus after a late read.
+The regression passed five focused runs and the full 51-test component suite passed. The live app and backend stayed
+running. Evidence is in ignored `node_modules/.cache/attachment-menu-focus/`.
+
 Permission notification validation (2026-11-18). Eight delayed-delivery regressions reproduced against the original
 implementation and pass with the refactor. All 683 Bun tests, typecheck and the production build passed. The component
 suite passed 50 of 51 tests. The attachment menu focus case failed at the same assertion in the original checkout.

@@ -572,6 +572,7 @@ export function ComposerEditorAddMenu(props: {
   onShell?: () => void
 }) {
   let content: HTMLDivElement | undefined
+  const [open, setOpen] = createSignal(false)
   const dismiss = createMenuDismissController(
     () => content,
     () => props.owner?.(),
@@ -587,11 +588,13 @@ export function ComposerEditorAddMenu(props: {
       }
     >
       <Menu
+        open={open()}
         gutter={6}
         modal={false}
         placement="top-start"
-        onOpenChange={(open) => {
-          if (open) dismiss.opened()
+        onOpenChange={(next) => {
+          if (next) dismiss.opened()
+          setOpen(next)
         }}
       >
         <Menu.Trigger
@@ -612,10 +615,13 @@ export function ComposerEditorAddMenu(props: {
             style={{ "min-width": "180px" }}
           >
             <Menu.Item
+              closeOnSelect={false}
               onSelect={() => {
                 // File selection restores the editor; menu teardown must not steal that focus.
                 dismiss.preventTriggerRestore()
                 props.onAttach(dismiss.capture().afterClose)
+                // Finish closing in the picker gesture so a fast keyboard reopen starts a new menu.
+                setOpen(false)
               }}
               shortcut={props.attachShortcut}
             >
