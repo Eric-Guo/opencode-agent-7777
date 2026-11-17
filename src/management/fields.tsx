@@ -110,15 +110,18 @@ export function ConfigurationForm(props: {
     const type = Array.isArray(definition.type) ? definition.type.find((type) => type !== "null") : definition.type
 
     if (
-      definition.properties ||
-      (definition.additionalProperties && typeof definition.additionalProperties === "object")
+      !definition["x-nexus-atomic"] &&
+      (definition.properties ||
+        (definition.additionalProperties && typeof definition.additionalProperties === "object"))
     ) {
       const [group, setGroup] = createStore({ name: "", added: [] as string[] })
 
       const members =
         current && typeof current === "object" && !Array.isArray(current) ? (current as Schema.JsonObject) : {}
 
-      const entries = () => [...new Set([...Object.keys(definition.properties ?? members), ...group.added])]
+      const entries = () => [
+        ...new Set([...Object.keys(definition.properties ?? {}), ...Object.keys(members), ...group.added]),
+      ]
 
       return (
         <fieldset>
@@ -126,7 +129,8 @@ export function ConfigurationForm(props: {
           <For each={entries()}>
             {(name) =>
               field(
-                definition.properties?.[name] ?? (definition.additionalProperties as Field),
+                definition.properties?.[name] ??
+                  (typeof definition.additionalProperties === "object" ? definition.additionalProperties : {}),
                 [...path, name],
                 members[name],
               )
@@ -177,12 +181,17 @@ export function ConfigurationForm(props: {
                   <input
                     value={typeof value() === "string" ? String(value()) : ""}
                     list={definition["x-nexus-choices"] ? "nexus-model-choices" : undefined}
-                    onInput={(e) =>
-                      update(
-                        e.currentTarget.value ||
-                          (Array.isArray(definition.type) && definition.type.includes("null") ? null : ""),
-                      )
-                    }
+                    onInput={(e) => {
+                      if (
+                        !e.currentTarget.value &&
+                        Array.isArray(definition.type) &&
+                        definition.type.includes("null")
+                      ) {
+                        change(path, { op: "unset", path })
+                        return
+                      }
+                      update(e.currentTarget.value)
+                    }}
                   />
                 ) : type === "number" || type === "integer" ? (
                   <input

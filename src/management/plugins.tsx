@@ -140,13 +140,17 @@ export function Plugins(props: {
                 <pre>{JSON.stringify(selected().source, null, 2)}</pre>
               </details>
             </Show>
-            <ConfigurationForm
-              schema={selected().configuration_schema}
-              values={selected().configuration}
-              busy={c.state.busy}
-              models={c.chat.s.choices?.models}
-              save={(operations) => configure(selected(), operations)}
-            />
+            <Show when={selected().id} keyed>
+              {(_id) => (
+                <ConfigurationForm
+                  schema={selected().configuration_schema}
+                  values={selected().configuration}
+                  busy={c.state.busy}
+                  models={c.chat.s.choices?.models}
+                  save={(operations) => configure(selected(), operations)}
+                />
+              )}
+            </Show>
             <SlotView
               host={props.host}
               slot="plugins.item.config"

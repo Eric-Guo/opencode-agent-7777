@@ -351,7 +351,9 @@ Management pages and extension lifecycle are owned by `src/management`; their
 service bridge boundaries live in `server/management.ts`, `server/setup.ts` and
 `server/terminal.ts`. These Nexus-specific surfaces stay in this package instead of
 promoting adapters to the main app. Shared controls, session rendering and theme
-primitives continue to come from the existing public UI packages.
+primitives continue to come from the existing public UI packages. Built-in Coding,
+Checkpoints and Lifecycle hook settings use the same Plugins form; atomic hook
+groups are edited as complete JSON objects, following the runtime descriptors.
 
 Run `bun run test`, `bun run typecheck`, `bun run build` and `bun run test:components`
 from this package. The nested repository's CI checks out a matching OpenCode workspace

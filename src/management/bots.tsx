@@ -203,7 +203,7 @@ export function Bots(props: {
                     await c.command({
                       action: "bot.duplicate",
                       id: bot.public_id,
-                      name: bot.name.replace(/^bot-/, "") + "-copy",
+                      name: bot.name.replace(/^bot-/, "").slice(0, 23) + "-copy",
                       audience: "owner",
                     })
                     await refresh()
@@ -355,6 +355,7 @@ export function Bots(props: {
               disabled={!!s.id}
               value={s.name}
               pattern="[a-z0-9][a-z0-9_-]*"
+              maxLength={28}
               onInput={(e) => set("name", e.currentTarget.value)}
             />
           </FieldRow>
