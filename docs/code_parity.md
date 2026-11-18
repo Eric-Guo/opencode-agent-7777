@@ -80,10 +80,11 @@ File-mention search follows the main app's separate file-lifecycle machine patte
 `workspaces/files/search-machine.ts`. It owns request attempts and status transitions; `model.tsx` drives HTTP reads
 and cancellation through public `@opencode/util/abort`. Replaced or cleared requests cannot publish paths or change
 the current status. Query limits, deduplication, error recovery and the existing reactive status API are preserved.
-Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts`: cursor retrieval stays in the index,
-the local query driver owns HTTP cancellation and debounce timers, and a pure machine owns results, cursors and
-request attempts. This replaces parallel loading/error flags and a generation counter while preserving server-side
-search, 12-row paging, exact-ID lookup and retry behavior. No shared query cache or app source dependency is added.
+Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts` and the main app's 30-second fetch
+deadline. The local page loader bounds the entire 12-row batch, including exact-ID lookup and cursor backfill.
+Cancelling a search settles the caller even if a read ignores abort. The query driver owns debounce and cancellation,
+and the load machine retains rows, query and cursor for Retry. Background child-session discovery uses the same
+loader and the active runtime or draft's client. Only the latest refresh can publish results or offer a banner retry.
 Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
 30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
 results after a timeout, source change or close. The model still uses the existing activation and event stream.
@@ -182,6 +183,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Recent-session validation (2026-11-18). The original picker stayed on Loading after a simulated deadline, and an
+older background response could replace a newer child-session list. All 689 Bun tests and 52 component tests pass
+with the fix, along with typecheck and the default and browser-enabled builds. The picker fixture verified that
+Retry appended the next page and kept the highlighted row. Live Playwright verified search, Escape and reopening
+against the running app after in-app tab selection timed out. All three list reads returned HTTP 200.
+Three-run production medians before and after were 156/169 ms for entry, 62/58 ms for session switching and
+173/178 ms for streaming. Request counts matched. Evidence is in `node_modules/.cache/recent-sessions-parity/`.
 
 Nine-dialog history validation (2026-11-18). The runtime regression reproduced `3/9` before the change and
 verified `9/9` after one older-page read. All 684 Bun tests, typecheck and both production builds passed.

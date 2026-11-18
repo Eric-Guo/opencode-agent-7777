@@ -1,7 +1,9 @@
-import { expect, test } from "bun:test"
+import { afterEach, expect, jest, test } from "bun:test"
 import type { SessionInfo, SessionListInput, SessionsResponse } from "@opencode/client/promise"
 import { loadHomeSessionPage, type HomeSessionSource } from "./index"
 import { createHomeSessionIndex } from "./queries"
+
+afterEach(() => jest.useRealTimers())
 
 function session(id: string, directory = "/repo"): SessionInfo {
   return {
@@ -158,6 +160,85 @@ test("failed next-page requests preserve loaded rows and retry the same cursor",
   expect(cursors).toEqual([undefined, "next", "next"])
 })
 
+test("a stalled exact-ID lookup times out and a retry ignores the late match", async () => {
+  jest.useFakeTimers()
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const held = Promise.withResolvers<SessionInfo>()
+  const signals: AbortSignal[] = []
+  const api = source(
+    async () => page([]),
+    async (input, options) => {
+      expect(input.sessionID).toBe(id)
+      signals.push(options!.signal!)
+      return signals.length === 1 ? held.promise : session(id)
+    },
+  )
+  const index = createHomeSessionIndex({ source: () => api })
+  const first = index.refresh(id)
+  jest.advanceTimersByTime(30_000)
+  expect(signals[0].aborted).toBe(true)
+  await first
+  expect(index.failed()).toBe(true)
+  expect(index.loading()).toBe(false)
+  await index.more()
+  held.resolve(session("late-match"))
+  await held.promise
+  expect(index.list().map((item) => item.id)).toEqual([id])
+})
+
+test.each(["list", "lookup"])("a failed %s cancels the other read in an exact-ID search", async (failed) => {
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const error = new Error("offline")
+  const signals: AbortSignal[] = []
+  function read<T>(kind: string, signal: AbortSignal) {
+    signals.push(signal)
+    return kind === failed ? Promise.reject<T>(error) : new Promise<T>(() => {})
+  }
+  const api = source(
+    (_, options) => read<SessionsResponse>("list", options!.signal!),
+    (_, options) => read<SessionInfo>("lookup", options!.signal!),
+  )
+  await expect(loadHomeSessionPage(api, { search: id })).rejects.toThrow("offline")
+  expect(signals).toHaveLength(2)
+  expect(signals.every((signal) => signal.aborted)).toBe(true)
+})
+
+test("one deadline spans cursor backfill and retry starts at the last published cursor", async () => {
+  jest.useFakeTimers()
+  const partial = Promise.withResolvers<SessionsResponse>()
+  const backfill = Promise.withResolvers<AbortSignal>()
+  const stalled = Promise.withResolvers<SessionsResponse>()
+  const cursors: (string | undefined)[] = []
+  const api = source(async (input, options) => {
+    expect(input.search).toBe("old")
+    cursors.push(input.cursor)
+    if (!input.cursor) return page(rows(0, 12), "next")
+    if (input.cursor === "overlap") {
+      backfill.resolve(options!.signal!)
+      return stalled.promise
+    }
+    return cursors.length === 2 ? partial.promise : page([session("retried")])
+  })
+  const index = createHomeSessionIndex({ source: () => api })
+  await index.refresh("old")
+  const loading = index.more()
+  jest.advanceTimersByTime(25_000)
+  partial.resolve(page([session("partial")], "overlap"))
+  const signal = await backfill.promise
+  jest.advanceTimersByTime(5_000)
+  expect(signal.aborted).toBe(true)
+  await loading
+  expect(index.failed()).toBe(true)
+  expect(index.list().map((item) => item.id)).toEqual(rows(0, 12).map((item) => item.id))
+  await index.more()
+  stalled.resolve(page([session("stale")]))
+  await stalled.promise
+  expect(cursors).toEqual([undefined, "next", "overlap", "next"])
+  expect(index.list().at(-1)?.id).toBe("retried")
+  expect(index.list()).toHaveLength(13)
+  expect(index.failed()).toBe(false)
+})
+
 test("ignores stale responses, aborts replaced searches, and prevents duplicate page loads", async () => {
   const old = Promise.withResolvers<SessionsResponse>()
   const signals: AbortSignal[] = []
@@ -173,8 +254,8 @@ test("ignores stale responses, aborts replaced searches, and prevents duplicate 
   expect(calls).toBe(1)
   await index.refresh("new")
   expect(signals[0].aborted).toBe(true)
-  old.resolve(page([session("stale")]))
   await first
+  old.resolve(page([session("stale")]))
   expect(index.list().map((item) => item.id)).toEqual(["new-search"])
   expect(index.failed()).toBe(false)
   expect(index.loading()).toBe(false)
@@ -186,10 +267,11 @@ test("closing or changing the source prevents an in-flight result from populatin
   const index = createHomeSessionIndex({ source: () => api })
   const pending = index.refresh()
   index.clear()
+  await pending
   api = source(async () => page([session("other-server")]))
   await index.refresh()
   response.resolve(page([session("old-server")]))
-  await pending
+  await response.promise
   expect(index.list().map((item) => item.id)).toEqual(["other-server"])
 })
 

@@ -12,6 +12,7 @@ import { ModelSelectorPopoverView } from "../src/providers/models/select-dialog"
 
 function RecentSessions() {
   const [state, setState] = createStore({ opened: "", closed: 0, query: "", switching: false, removed: "" })
+  let stallNextPage = new URLSearchParams(location.search).has("stall-next-page")
   const records: SessionInfo[] = Array.from({ length: 13 }, (_, index) => ({
     id: `session-${index + 1}`,
     title: `Session ${index + 1}`,
@@ -27,6 +28,10 @@ function RecentSessions() {
     get: async () => records[0],
     list: async (input: { cursor?: string; search?: string; limit?: number }) => {
       setState("query", input.search ?? "")
+      if (input.cursor && stallNextPage) {
+        stallNextPage = false
+        await new Promise<void>(() => {})
+      }
       const matches = records.filter((item) => item.id !== state.removed && item.title?.includes(input.search ?? ""))
       const start = Number(input.cursor ?? 0)
       const end = start + (input.limit ?? 12)

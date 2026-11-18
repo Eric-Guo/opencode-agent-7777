@@ -1,5 +1,28 @@
 import { expect, test, type Route } from "@playwright/test"
 
+test("a timed-out next page keeps the keyboard selection through Retry", async ({ page }) => {
+  await page.clock.install()
+  await page.goto("/component-tests/pickers.html?stall-next-page")
+  const input = page.getByRole("combobox")
+  const options = page.getByRole("option")
+  const active = page.getByRole("option", { selected: true })
+  await expect(options).toHaveCount(12)
+  await input.press("ArrowDown")
+  await expect(active).toContainText("Session 2")
+  await page.getByRole("button", { name: "Load more" }).click()
+  await expect(page.getByRole("listbox")).toHaveAttribute("aria-busy", "true")
+  await page.clock.fastForward(30_000)
+  const retry = page.getByRole("button", { name: "Retry" })
+  await expect(retry).toBeVisible()
+  await expect(options).toHaveCount(12)
+  await expect(active).toContainText("Session 2")
+  await retry.click()
+  await expect(options).toHaveCount(13)
+  await expect(active).toContainText("Session 2")
+  await expect(input).toBeFocused()
+  await expect(retry).toHaveCount(0)
+})
+
 test("recent sessions keep keyboard selection, paging, query resets and switching guards", async ({ page }) => {
   await page.goto("/component-tests/pickers.html")
   const input = page.getByRole("combobox")

@@ -1,6 +1,8 @@
 import type { SessionInfo, SessionListInput, SessionsResponse } from "@opencode/client/promise"
+import { abort } from "@opencode/util/abort"
 import { RECENT_SESSION_PAGE_SIZE } from "@/constants/session"
 import { isSessionNotFoundError } from "@/runtime/server/errors"
+import { bounded } from "@/runtime/server/operation"
 
 export type HomeSessionSource = {
   directory: string
@@ -9,12 +11,40 @@ export type HomeSessionSource = {
   get: (input: { sessionID: string }, options?: { signal?: AbortSignal }) => Promise<SessionInfo>
 }
 
+type PageQuery = { cursor?: string; search?: string; knownIDs?: string[] }
+const PAGE_TIMEOUT_MS = 30_000
+
+export function loadHomeSessionPage(source: HomeSessionSource, input: PageQuery & { signal?: AbortSignal } = {}) {
+  // One deadline covers the whole visible page, including an exact lookup and any cursor backfill.
+  return bounded((signal) => readPage(source, input, signal), { signal: input.signal, timeoutMs: PAGE_TIMEOUT_MS })
+}
+
+async function fetchPage(source: HomeSessionSource, input: SessionListInput, signal: AbortSignal) {
+  const id = input.search
+  if (input.cursor || !id?.startsWith("ses_") || id.length <= 20) return { page: await source.list(input, { signal }) }
+
+  // The server searches titles. Look up a full ID alongside the first page and cancel the sibling if either fails.
+  const pair = new AbortController()
+  const options = { signal: AbortSignal.any([signal, pair.signal]) }
+  const lookup = async () => {
+    try {
+      return await source.get({ sessionID: id }, options)
+    } catch (error) {
+      if (!isSessionNotFoundError(error, id)) throw error
+    }
+  }
+  try {
+    const [page, matched] = await Promise.all([source.list(input, options), lookup()])
+    return { page, matched }
+  } catch (error) {
+    abort(pair)
+    throw error
+  }
+}
+
 // Keep the server cursor at the last consumed row, including when the active
 // session or a duplicate overlaps a page. Never slice away an unfetched cursor row.
-export async function loadHomeSessionPage(
-  source: HomeSessionSource,
-  input: { cursor?: string; search?: string; knownIDs?: string[]; signal?: AbortSignal } = {},
-) {
+async function readPage(source: HomeSessionSource, input: PageQuery, signal: AbortSignal) {
   const seen = new Set(input.knownIDs)
   const cursors = new Set<string>()
   const items: SessionInfo[] = []
@@ -30,34 +60,20 @@ export async function loadHomeSessionPage(
     items.push(session)
   }
   const query = input.search?.trim()
-  const exact =
-    !cursor && query?.startsWith("ses_") && query.length > 20
-      ? source.get({ sessionID: query }, { signal: input.signal }).catch((error) => {
-          if (!isSessionNotFoundError(error, query)) throw error
-          return undefined
-        })
-      : Promise.resolve(undefined)
-
-  // Title search runs on the server across all history. A full ID also gets an
-  // exact lookup because the server's list search only matches session titles.
-  let first = true
   do {
-    input.signal?.throwIfAborted()
+    signal.throwIfAborted()
     if (cursor) cursors.add(cursor)
-    const [page, matched] = await Promise.all([
-      source.list(
-        {
-          directory: source.directory,
-          limit: RECENT_SESSION_PAGE_SIZE - items.length,
-          order: "desc",
-          ...(query ? { search: query } : {}),
-          ...(cursor ? { cursor } : {}),
-        },
-        { signal: input.signal },
-      ),
-      first ? exact : Promise.resolve(undefined),
-    ])
-    first = false
+    const { page, matched } = await fetchPage(
+      source,
+      {
+        directory: source.directory,
+        limit: RECENT_SESSION_PAGE_SIZE - items.length,
+        order: "desc",
+        ...(query ? { search: query } : {}),
+        ...(cursor ? { cursor } : {}),
+      },
+      signal,
+    )
     // Exact IDs usually have no title matches. If there are both, retain the
     // exact match as well instead of discarding a row covered by the cursor.
     if (matched) include(matched)

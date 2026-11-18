@@ -510,17 +510,16 @@ directly. It retains plain-arrow navigation, IME and repeated-Enter guards, and 
 rendered coverage in `component-tests/pickers.spec.ts`.
 
 Recent-session loading follows the main app's `home/sessions/{index,queries,load-machine}.ts` boundaries.
-`index.ts` keeps cursor-page retrieval, exact-ID lookup, directory filtering and deduplication. The local query driver
-in `queries.ts` owns HTTP cancellation and search debounce timers; `load-machine.ts` owns query results, cursor,
-request attempts and loading/error transitions instead of separate flags and a generation counter. Whole-state
-replacement keeps transition snapshots independent of Solid store merging. Closing, clearing or replacing a query
-invalidates late successes and failures, including reopening the same query. The header region still clears work on
-source changes and disposal. The compact query stays local because it uses server-side search and 12-row cursor
-pages instead of the main app's shared query cache. Existing contracts moved from `home/sessions/index.test.ts` to
-`home/sessions/queries.test.ts`; the picker browser suite retains keyboard, paging and query-reset coverage.
+The local page loader gives each 12-row batch one 30-second deadline, covering title search, parallel exact-ID lookup,
+response decoding and any extra cursor reads needed after directory filtering and deduplication. The query driver
+owns the 200 ms search debounce and cancels reads when the picker closes or its source or query changes. The load
+machine retains the last published cursor and rows for Retry. Whole-state replacement keeps its snapshots independent
+of Solid store merging.
 
-Recent-session search stays server-backed, with its combobox semantics, keyboard navigation and pagination;
-its header popover intentionally differs from the main app's routed Home view.
+The compact-only `home/sessions/directory-sync-recent-compact.ts` uses the same page loader to discover child sessions
+for permission and question routing. Each refresh uses the active session or draft's client and supersedes the previous
+read. A failure keeps the last successful list and gives the error banner a retry for that directory read. Switching
+sessions or drafts retires the outstanding read and its retry action.
 
 Recent-session ordering, calendar-day grouping and display labels now live in `home/sessions/records.ts`, following
 the main app's record boundary. Controllers and views no longer import the directory-sync adapter for presentation
@@ -824,7 +823,8 @@ day and sorted by most recent activity. The list starts with 12 sessions; **Load
 until the history is exhausted. Type a title to search the full server history in this directory, or paste a full
 session ID to find it directly. Search results also support **Load more** and are not limited to sessions already
 loaded. **Arrow Up** and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover.
-Clearing the search or reopening the popover starts again with the first batch.
+If a page takes longer than 30 seconds, choose **Retry** to load it again. Your search, previously loaded rows,
+and highlighted session stay in place. Clearing the search or reopening the popover starts again with the first batch.
 
 ## Undo and Redo
 

@@ -1,35 +1,51 @@
-import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
+import { abort } from "@opencode/util/abort"
+import { clearReadError, reportReadError } from "@/runtime/server/read-errors"
 import { currentDirectory, currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
-import { readableError } from "@/shell/errors/readable"
 import { loadHomeSessionPage } from "./index"
 
-// Recent-session loading only; 7777 does not expose the main app's directory sync context.
+// The compact store has one directory list for child-session request routing.
+let latest: AbortController | undefined
 
-export function refreshRecentSessions() {
-  const runtime = currentRuntime() ?? currentDraft()
-  const server = state.server
+export async function refreshRecentSessions(): Promise<void> {
+  const owner = currentRuntime() ?? currentDraft()
   const directory = currentDirectory()
-  if (!server || !directory) {
+  if (!state.server || !directory || !owner || owner.signal.aborted) {
+    abort(latest)
     setState("recentSessions", [])
-    return Promise.resolve()
+    return
   }
 
-  const client = createDirectorySdk(server, directory).client
+  const previous = latest
+  const request = new AbortController()
+  latest = request
+  const signal = AbortSignal.any([owner.signal, request.signal])
+  const current = () => latest === request && !signal.aborted && currentDirectory() === directory
+  // Retire the retry action with the request, even if navigation happens after it failed.
+  signal.addEventListener(
+    "abort",
+    () => {
+      clearReadError(request)
+      if (latest !== request) return
+      latest = undefined
+      setState("recentSessionsLoading", false)
+    },
+    { once: true },
+  )
+  abort(previous)
+  if (!current()) return
+  const { list, get } = owner.api.session
+  const source = { directory, sessionID: state.session?.id ?? "", list, get }
   setState("recentSessionsLoading", true)
-  return loadHomeSessionPage({
-    directory,
-    sessionID: state.session?.id ?? "",
-    list: client.session.list,
-    get: client.session.get,
-  })
-    .then((result) => {
-      if ((currentRuntime() ?? currentDraft()) !== runtime || currentDirectory() !== directory) return
-      setState("recentSessions", result.items)
-    })
-    .catch((error) => {
-      if ((currentRuntime() ?? currentDraft()) === runtime) setState("error", readableError(error))
-    })
-    .finally(() => {
-      if ((currentRuntime() ?? currentDraft()) === runtime) setState("recentSessionsLoading", false)
-    })
+  try {
+    const page = await loadHomeSessionPage(source, { signal })
+    if (current()) setState("recentSessions", page.items)
+  } catch (error) {
+    if (current()) {
+      reportReadError(request, error, () => {
+        if (current()) void refreshRecentSessions()
+      })
+    }
+  } finally {
+    if (latest === request) setState("recentSessionsLoading", false)
+  }
 }
