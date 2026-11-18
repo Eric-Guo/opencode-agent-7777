@@ -1,16 +1,7 @@
 import type { SessionDocument } from "@opencode/session-ui/document"
 import type { SessionMessageInfo, SessionStatus } from "@opencode/client/promise"
 import { createMemo, type Accessor } from "solid-js"
-import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import { isSessionDialogRoot, selectSessionUserMessages, selectVisibleSessionUserMessages } from "../session-domain"
-
-function recentDialogMessages(messages: SessionMessageInfo[]) {
-  const roots = messages.filter(isSessionDialogRoot)
-  if (roots.length <= HISTORY_DIALOG_LIMIT) return messages
-  const firstVisible = roots[roots.length - HISTORY_DIALOG_LIMIT]
-  const index = messages.findIndex((message) => message.id === firstVisible.id)
-  return index < 0 ? messages : messages.slice(index)
-}
+import { projectTimelineHistory } from "./controller-projection"
 
 export function createCompactTimelineModel(input: {
   sessionID: Accessor<string>
@@ -19,21 +10,10 @@ export function createCompactTimelineModel(input: {
   revertMessageID?: Accessor<string | undefined>
   status?: Accessor<SessionStatus>
 }) {
-  const userMessages = createMemo(() => selectSessionUserMessages(input.messages()))
-  const revertedUserMessages = createMemo(() =>
-    selectVisibleSessionUserMessages(userMessages(), input.revertMessageID?.()),
-  )
-  const visibleMessages = createMemo(() => {
-    const revertMessageID = input.revertMessageID?.()
-    const messages = revertMessageID
-      ? input.messages().filter((message) => message.id < revertMessageID)
-      : input.messages()
-    return recentDialogMessages(messages)
-  })
-  const visibleUserMessages = createMemo(() => {
-    const visible = new Set(visibleMessages().map((message) => message.id))
-    return revertedUserMessages().filter((message) => visible.has(message.id))
-  })
+  const history = createMemo(() => projectTimelineHistory(input.messages(), input.revertMessageID?.()))
+  const visibleMessages = createMemo(() => history().messages)
+  const userDialogCount = createMemo(() => history().dialogCount)
+  const ready = createMemo(() => userDialogCount() > 0 || !input.loading())
   const document = createMemo(
     (): SessionDocument => ({
       sessionID: input.sessionID(),
@@ -42,19 +22,5 @@ export function createCompactTimelineModel(input: {
       diffs: [],
     }),
   )
-  const ready = createMemo(() => isTimelineReady(input.messages(), input.loading()))
-  const userDialogCount = createMemo(() => visibleMessages().filter(isSessionDialogRoot).length)
-
-  return {
-    document,
-    ready,
-    userMessages,
-    visibleMessages,
-    visibleUserMessages,
-    userDialogCount,
-  }
-}
-
-export function isTimelineReady(messages: SessionMessageInfo[] | undefined, loading: boolean) {
-  return messages !== undefined && (messages.some(isSessionDialogRoot) || !loading)
+  return { document, ready, visibleMessages, userDialogCount }
 }

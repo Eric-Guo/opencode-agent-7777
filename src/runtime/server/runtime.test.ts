@@ -42,10 +42,9 @@ browserSuite(import.meta.path, () => {
     payload: { text: "pending prompt" },
     time: { created: 100 },
   })
-  function fixture() {
+  function fixture(initial = session()) {
     const requests: URL[] = []
     const failures: unknown[] = []
-    const initial = session()
     let messages: SessionMessageInfo[] = []
     let pending: SessionInboxInfo[] = []
     let read: ((url: URL) => Promise<unknown> | unknown) | undefined
@@ -110,6 +109,14 @@ browserSuite(import.meta.path, () => {
     }
   }
 
+  const longHistory = Array.from({ length: 60 }, (_, index) => user(60 - index))
+  function historyPage(url: URL) {
+    const offset = Number(url.searchParams.get("cursor") ?? 0)
+    const limit = Number(url.searchParams.get("limit"))
+    const next = offset + limit
+    return { data: longHistory.slice(offset, next), cursor: next < longHistory.length ? { next: String(next) } : {} }
+  }
+
   test("a stalled hydration releases loading and its shared sync entry before retry", async () => {
     jest.useFakeTimers()
     const f = fixture()
@@ -160,6 +167,110 @@ browserSuite(import.meta.path, () => {
     expect(timeline.visibleMessages().map((row) => row.id)).toEqual(
       Array.from({ length: 9 }, (_, index) => user(index + 3).id),
     )
+  })
+
+  test.each([
+    { boundary: 28, first: 19, count: 9, cursors: [null, "36"] },
+    { boundary: 3, first: 1, count: 2, cursors: [null, "36", "56"] },
+  ])(
+    "hydrates up to nine visible dialogs when reopening at turn $boundary",
+    async ({ boundary, first, count, cursors }) => {
+      const f = fixture({ ...session(), revert: { messageID: user(boundary).id } })
+      f.read((url) => (url.pathname.endsWith("/message") ? historyPage(url) : undefined))
+      const timeline = createCompactTimelineModel({
+        sessionID: () => "session",
+        messages: () => f.runtime.view().sessionMessages,
+        loading: () => f.runtime.view().messagesLoading,
+        revertMessageID: () => f.runtime.view().session.revert?.messageID,
+      })
+
+      await f.runtime.refreshMessages()
+
+      expect(timeline.userDialogCount()).toBe(count)
+      expect(timeline.visibleMessages().map((row) => row.id)).toEqual(
+        Array.from({ length: count }, (_, index) => user(first + index).id),
+      )
+      expect(
+        f.requests.filter((url) => url.pathname.endsWith("/message")).map((url) => url.searchParams.get("cursor")),
+      ).toEqual([...cursors])
+      expect(f.rows()).toContainEqual(user(boundary))
+    },
+  )
+
+  test("uses the current revert boundary when an older page resolves", async () => {
+    const f = fixture({ ...session(), revert: { messageID: user(13).id } })
+    const requested = Promise.withResolvers<URL>()
+    const held = Promise.withResolvers<ReturnType<typeof historyPage>>()
+    f.read((url) => {
+      if (!url.pathname.endsWith("/message")) return
+      if (url.searchParams.get("cursor") !== "36") return historyPage(url)
+      requested.resolve(url)
+      return held.promise
+    })
+    const refreshing = f.runtime.refreshMessages()
+    void refreshing.then(
+      () => requested.reject(new Error("Hydration stopped before asking for older messages")),
+      requested.reject,
+    )
+    const page = await requested.promise
+    f.emit("session.revert.cleared", {})
+    held.resolve(historyPage(page))
+    await refreshing
+
+    expect(f.runtime.view().session.revert).toBeUndefined()
+    expect(f.rows()).toContainEqual(user(60))
+    expect(f.requests.filter((url) => url.pathname.endsWith("/message"))).toHaveLength(2)
+  })
+
+  test("a committed revert discards older in-flight pages and restarts from the head", async () => {
+    const f = fixture({ ...session(), revert: { messageID: user(3).id } })
+    const requested = Promise.withResolvers<URL>()
+    const held = Promise.withResolvers<ReturnType<typeof historyPage>>()
+    f.read((url) => {
+      if (!url.pathname.endsWith("/message")) return
+      if (url.searchParams.get("cursor") !== "36") return historyPage(url)
+      requested.resolve(url)
+      return held.promise
+    })
+    const refreshing = f.runtime.refreshMessages()
+    void refreshing.then(
+      () => requested.reject(new Error("Hydration stopped before asking for older messages")),
+      requested.reject,
+    )
+    const stalePage = historyPage(await requested.promise)
+    f.read(undefined)
+    f.snapshot([user(1), user(2)])
+    f.emit("session.revert.committed", { to: user(3).id })
+    const afterCommit = f.views.length
+    held.resolve(stalePage)
+    await refreshing
+
+    expect(f.rows()).toEqual([user(1), user(2)])
+    expect(
+      f.views
+        .slice(afterCommit)
+        .flatMap((view) => view.sessionMessages)
+        .every((row) => row.id < user(3).id),
+    ).toBe(true)
+    expect(
+      f.requests.filter((url) => url.pathname.endsWith("/message")).map((url) => url.searchParams.get("cursor")),
+    ).toEqual([null, "36", null])
+  })
+
+  test("a server revert schedules hydration when the visible window is short", async () => {
+    const f = fixture()
+    f.read((url) => (url.pathname.endsWith("/message") ? historyPage(url) : undefined))
+    await f.runtime.refreshMessages()
+
+    f.emit("session.revert.staged", { revert: { messageID: user(28).id } })
+    await Bun.sleep(150)
+
+    expect(f.runtime.view().session.revert?.messageID).toBe(user(28).id)
+    expect(f.rows()).toContainEqual(user(19))
+    expect(
+      f.requests.filter((url) => url.pathname.endsWith("/message")).map((url) => url.searchParams.get("cursor")),
+    ).toEqual([null, null, "36"])
+    expect(f.runtime.view().messagesLoading).toBe(false)
   })
 
   test.each(["empty", "repeat", "duplicate"])("stops %s cursor pages without looping", async (mode) => {

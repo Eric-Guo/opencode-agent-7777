@@ -5,6 +5,7 @@ import type { AudioStatus } from "@opencode/client/promise"
 import { join, resolve } from "node:path"
 
 const count = Number(process.env.BENCH_RUNS ?? 10)
+const verifyHistory = process.env.BENCH_VERIFY_HISTORY === "true"
 const output = process.env.BENCH_OUTPUT ?? "node_modules/.cache/runtime-benchmark.json"
 const dist = resolve(process.env.BENCH_DIST ?? join(import.meta.dir, "../dist"))
 const directory = "/fixture/agent7777"
@@ -19,6 +20,16 @@ const sessions = ["a", "b"].map((id) => ({
   cost: 0,
   tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
 }))
+const historySession = { ...sessions[0], id: "ses_benchmark_history", title: "Benchmark history" }
+const historyPath = `/api/session/${historySession.id}`
+const historyID = (turn: number) => `msg_history_${String(turn).padStart(3, "0")}`
+const historyMessages = Array.from({ length: 60 }, (_, index) => ({
+  id: historyID(index + 1),
+  type: "user",
+  text: `History turn ${index + 1}`,
+  time: { created: index + 1 },
+}))
+let historyRevert = { messageID: historyID(28) }
 const model = {
   id: "fixture",
   modelID: "fixture",
@@ -121,12 +132,22 @@ const server = Bun.serve({
         errorMessage: null,
         guidance: null,
       } satisfies AudioStatus)
-    if (path === "/api/session") return json({ data: sessions, cursor: {} })
+    if (path === "/api/session")
+      return json({
+        data: verifyHistory ? [...sessions, { ...historySession, revert: historyRevert }] : sessions,
+        cursor: {},
+      })
+    if (path === historyPath) return json({ data: { ...historySession, revert: historyRevert } })
+    if (path === `${historyPath}/revert/stage` && request.method === "POST") {
+      const { messageID } = await request.json()
+      historyRevert = { messageID }
+      return json({ data: historyRevert })
+    }
     const session = sessions.find((item) => path === `/api/session/${item.id}`)
     if (session) return json({ data: session })
     if (path.endsWith("/message") && path.startsWith("/api/session/")) {
       const id = path.split("/")[3]
-      const list = messages(id).toReversed()
+      const list = (id === historySession.id ? historyMessages : messages(id)).toReversed()
       const offset = Number(url.searchParams.get("cursor") ?? 0)
       const limit = Number(url.searchParams.get("limit") ?? 36)
       return json({
@@ -685,6 +706,28 @@ try {
       await expect(page.getByText(`${target.id} answer 39`, { exact: true })).toBeVisible()
       await expect(page.locator('[data-slot="session-header"]')).toContainText("9/9")
       await page.unroute(pattern)
+    }
+    if (iteration === 0 && verifyHistory) {
+      await page.getByRole("button", { name: "Recent sessions", exact: true }).click()
+      await page.getByRole("option", { name: /Benchmark history/ }).click()
+      const header = page.locator('[data-slot="session-header"]')
+      const turns = page.locator('[data-slot="session-message-timeline"] [data-slot="user-message-text"]')
+      const editor = page.getByRole("textbox", { name: "Message", exact: true })
+      const undo = page.getByRole("button", { name: "Undo", exact: true })
+      const redo = page.getByRole("button", { name: "Redo", exact: true })
+      const expectWindow = async (first: number) => {
+        await expect(turns).toHaveText(Array.from({ length: 9 }, (_, index) => `History turn ${first + index}`))
+        await expect(header).toContainText("9/9")
+        await expect(undo).toBeEnabled()
+      }
+      await expectWindow(19)
+      await undo.click()
+      await expectWindow(18)
+      await expect(editor).toHaveText("History turn 27")
+      await page.screenshot({ path: output.replace(/\.json$/, "-history-undo.png") })
+      await redo.click()
+      await expectWindow(19)
+      await expect(editor).toHaveText("History turn 28")
     }
     await context.close()
     streams.clear()

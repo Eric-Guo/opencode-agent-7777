@@ -12,7 +12,7 @@ import { bounded } from "./operation"
 import { clearReadError, reportReadError } from "./read-errors"
 import { createRefreshState, transitionRefresh, refreshLoading, type RefreshEvent } from "./refresh-machine"
 import { FETCH_MESSAGE_LIMIT, HISTORY_DIALOG_LIMIT } from "@/constants/session"
-import { isSessionDialogRoot } from "@/session/session-domain"
+import { projectTimelineHistory } from "@/session/timeline/controller-projection"
 import { createSessionData, type SessionDataView } from "./data"
 
 export type SessionView = SessionDataView & { messagesLoading: boolean }
@@ -66,6 +66,11 @@ export function createSessionRuntime(input: {
       error: input.error,
     })
     const data = sessionData.data
+    const needsOlderDialogs = () => {
+      if (!data.session.message.more(id)) return false
+      const revertMessageID = data.session.get(id)?.revert?.messageID
+      return projectTimelineHistory(sessionData.messages(), revertMessageID).dialogCount < HISTORY_DIALOG_LIMIT
+    }
     const view = (): SessionView => ({ ...sessionData.view(), messagesLoading: loading() })
     const publish = () => {
       const value = view()
@@ -93,10 +98,7 @@ export function createSessionRuntime(input: {
             await Promise.all([data.session.pending.sync(id), data.session.message.sync(id)])
             signal.throwIfAborted()
             sessionData.acknowledgePending(started)
-            while (
-              sessionData.messages().filter(isSessionDialogRoot).length < HISTORY_DIALOG_LIMIT &&
-              data.session.message.more(id)
-            ) {
+            while (needsOlderDialogs()) {
               await data.session.message.loadMore(id, { signal })
               signal.throwIfAborted()
             }
@@ -144,6 +146,12 @@ export function createSessionRuntime(input: {
       alive: () => !abort.signal.aborted,
       refreshMessages,
       schedule,
+      apply(event) {
+        if (!sessionData.mutations.apply(event)) return false
+        if (event.type === "session.revert.staged" && !loading() && needsOlderDialogs()) schedule()
+        if (event.type === "session.revert.committed" && (loading() || needsOlderDialogs())) schedule()
+        return true
+      },
     }
   })
 }

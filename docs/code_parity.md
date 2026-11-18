@@ -25,6 +25,11 @@ reactive; local blank-line echoes and later explicit clears are separate transit
 refreshes without replacing matching nodes. The rendered contract lives in `component-tests/composer.spec.ts`.
 The shared `createAutoScroll` hook owns timeline pinning on content and viewport resize. The local interaction adapter
 distinguishes an initial layout adjustment from reader input and tracks jump-button visibility while paused.
+The local `session/timeline/controller-projection.ts` follows the main app's projection boundary. The timeline
+and loader use the same revert filter and nine-dialog count. The runtime pages through the public client until the
+visible window is full or the cursor stops advancing, and retains staged rows for Redo. A server revert can
+schedule a refill through the existing refresh lifecycle. A commit invalidates any in-flight message page and
+restarts the read from the latest messages.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
@@ -178,6 +183,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
 
+Nine-dialog history validation (2026-11-18). The runtime regression reproduced `3/9` before the change and
+verified `9/9` after one older-page read. All 684 Bun tests, typecheck and both production builds passed.
+The production fixture passed Undo, Redo and recovery after a stalled read. The open browser still showed `1/9`
+with both live processes running. The component suite passed 50 of 51 tests. The chart source Copy click failed
+at the same assertion in an isolated checkout of the original code. Three-run production medians before and after
+were 185/181 ms for entry, 66/67 ms for switching and 172/179 ms for streaming. Evidence is in
+`node_modules/.cache/nine-dialog-history/`.
+
 Attachment menu focus validation (2026-11-18). The original menu closed on a timer and dropped an immediate Arrow
 Down reopen. Closing in the picker gesture restored keyboard reopening and preserved menu focus after a late read.
 The regression passed five focused runs and the full 51-test component suite passed. The live app and backend stayed
@@ -253,8 +266,11 @@ sessions and review without page errors or API writes. After browser access was 
 Escape dismissal passed on the existing chart/table conversation, retaining `1/9` and composer focus. Neither
 app nor backend was restarted. Evidence is in ignored `node_modules/.cache/parity-*` artifacts.
 
-Optional checks: `BENCH_VERIFY_RUNTIME=true`, `BENCH_VERIFY_CONTEXT=true`, `BENCH_VERIFY_REVIEW=true` or `BENCH_VERIFY_UI=true`;
-overrides: `BENCH_BROWSER`, `BENCH_DIST`, `BENCH_OUTPUT`.
+Optional checks include `BENCH_VERIFY_HISTORY=true`, `BENCH_VERIFY_RUNTIME=true`, `BENCH_VERIFY_CONTEXT=true`,
+`BENCH_VERIFY_REVIEW=true` and `BENCH_VERIFY_UI=true`. Use `BENCH_BROWSER`, `BENCH_DIST` and `BENCH_OUTPUT` to
+override the defaults.
+`BENCH_VERIFY_HISTORY=true` reopens a staged history, checks the exact nine visible turns, and exercises
+Undo and Redo through the header while checking the composer draft.
 `BENCH_VERIFY_REVIEW=true` checks that a stalled branch comparison times out and can be retried with the same base.
 `BENCH_VERIFY_UI=true` also checks the 38 px initial-follow gap. The fixture briefly enlarges the viewport,
 reads its clamped offset and restores its height before the scroll event arrives. It checks following on activation,

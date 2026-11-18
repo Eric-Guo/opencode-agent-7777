@@ -352,11 +352,15 @@ comments, arbitrary history ranges, and docked extension panels remain outside t
 
 `runtime/server/runtime.ts` and `runtime/server/data.ts` follow the main app's separate orchestration and data-adapter
 boundaries. The runtime owns the activation's disposable Solid root, cancellation, publication, refresh scheduling
-and nine-dialog hydration. Hydration starts at 36 records and follows nonempty cursors until nine user/shell roots or
-the end, excluding queued prompts. Hydration and the visible timeline share `session/session-domain.ts`'s dialog-root
-predicate. The data adapter creates one `createData` instance from `@opencode/client/solid` inside that root, guards
-session snapshots and owns the private pending-inbox receipt ledger. Shared data still owns durable session records,
-messages, pending inbox snapshots and location catalogs.
+and nine-dialog hydration. The loader and timeline share the local `session/timeline/controller-projection.ts`
+selector, following the main app's projection boundary. Hydration starts at 36 records and pages until nine visible
+user or shell dialogs or no cursor can advance. The loader checks the current revert boundary after each page.
+The cache excludes queued prompts and retains staged messages for Redo. A server revert that leaves the window
+short can schedule another refresh through the same runtime. If a server commit overtakes a read, the cache
+discards the stale page and the runtime starts again at the latest messages. The data adapter creates one
+`createData` instance from `@opencode/client/solid` inside that root, guards session snapshots and owns the private
+pending-inbox receipt ledger.
+Shared data owns durable session records, messages, pending inbox snapshots and location catalogs.
 
 `runtime/server/global-sync/session-cache-messages.ts` now owns the activation's message cache: cursor termination,
 live-row reconciliation, optimistic echoes, cancellation tombstones and skill/selection compatibility. It receives
@@ -832,9 +836,10 @@ Use **Redo** to restore one undone turn; redoing the final turn clears the rever
 **Revert message** action uses the same controller, so a message-level revert can also be stepped forward with Redo.
 
 These actions operate on the loaded history and are available when the session is idle, messages have finished
-loading, and no follow-ups or requests are pending. Send or remove pending follow-ups before rewinding. The visible
-history remains bounded to nine dialogs. Failed requests preserve the current draft and boundary; responses from a
-previous session activation cannot overwrite the current session or its draft.
+loading, and no follow-ups or requests are pending. Send or remove pending follow-ups before rewinding. Undo and
+reopening a reverted session load older messages as needed to fill the latest nine visible dialogs. Failed requests
+preserve the current draft and boundary; responses from a previous session activation cannot overwrite the current
+session or its draft.
 
 ## Composer History and Follow-ups
 

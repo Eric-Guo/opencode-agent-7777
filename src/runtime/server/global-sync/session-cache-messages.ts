@@ -31,6 +31,7 @@ export function createSessionMessageCache(input: {
   const touched = new Map<string, number>()
   const removed = new Set<string>()
   const cursors = new Set<string>()
+  let committedRevertRevision = 0
   const [local, setLocal] = createStore({
     echoes: {} as Record<string, SessionMessageInfo | undefined>,
     extra: {} as Record<string, SessionMessageInfo | undefined>,
@@ -61,6 +62,10 @@ export function createSessionMessageCache(input: {
       for (const item of before) if (!retained.has(item.id)) removed.add(item.id)
     },
     snapshot(request: { cursor?: string }, response: MessagePage, started: number): MessagePage {
+      if (started < committedRevertRevision) {
+        // A commit can delete the cursor anchor and rows the cache has never seen.
+        return { data: request.cursor ? [] : copy(input.messages()).reverse(), cursor: {} }
+      }
       const rows = copy(response.data)
       let next = response.cursor.next
       if (!request.cursor) cursors.clear()
@@ -139,6 +144,7 @@ export function createSessionMessageCache(input: {
           time: { created: event.created },
         })
       if (event.type === "session.revert.committed") {
+        committedRevertRevision = revision
         for (const row of messages()) if (row.id >= event.data.to) removed.add(row.id)
         setLocal("extra", reconcile({}))
       }

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { SessionMessageInfo, SessionMessageUser, SessionStatus } from "@opencode/client/promise"
-import { createCompactTimelineModel, isTimelineReady } from "./model-compact"
+import { createCompactTimelineModel } from "./model-compact"
 
 const sessionUser = (id: string, created: number): SessionMessageUser => ({
   id,
@@ -20,11 +20,16 @@ const sessionAssistant = (id: string, created: number) =>
 
 const idle = { type: "idle" } as SessionStatus
 
-function model(input: { messages: SessionMessageInfo[]; status?: SessionStatus; revertMessageID?: string }) {
+function model(input: {
+  messages: SessionMessageInfo[]
+  status?: SessionStatus
+  revertMessageID?: string
+  loading?: boolean
+}) {
   return createCompactTimelineModel({
     sessionID: () => "session",
     messages: () => input.messages,
-    loading: () => false,
+    loading: () => input.loading ?? false,
     revertMessageID: () => input.revertMessageID,
     status: () => input.status ?? idle,
   })
@@ -32,9 +37,15 @@ function model(input: { messages: SessionMessageInfo[]; status?: SessionStatus; 
 
 describe("compact timeline model", () => {
   test("waits for an assistant-only load to hydrate its dialog root", () => {
-    expect(isTimelineReady([sessionAssistant("msg_2", 2)], true)).toBe(false)
-    expect(isTimelineReady([sessionUser("msg_1", 1), sessionAssistant("msg_2", 2)], true)).toBe(true)
-    expect(isTimelineReady([], false)).toBe(true)
+    const assistant = sessionAssistant("msg_2", 2)
+    expect(model({ messages: [assistant], loading: true }).ready()).toBe(false)
+    expect(model({ messages: [sessionUser("msg_1", 1), assistant], loading: true }).ready()).toBe(true)
+  })
+
+  test("shows loading while all loaded dialogs are hidden by a revert", () => {
+    const input = { messages: [sessionUser("msg_2", 2)], revertMessageID: "msg_1", loading: true }
+    expect(model(input).ready()).toBe(false)
+    expect(model({ ...input, loading: false }).ready()).toBe(true)
   })
 
   test("limits the timeline to the latest nine dialogs", () => {
@@ -76,6 +87,7 @@ describe("compact timeline model", () => {
 
   test("hides messages at and beyond the revert boundary", () => {
     const messages = [
+      { id: "msg_0", type: "system", text: "Leading notice", time: { created: 0 } } satisfies SessionMessageInfo,
       sessionUser("msg_1", 1),
       sessionAssistant("msg_1:a", 1),
       sessionUser("msg_2", 2),
@@ -84,7 +96,12 @@ describe("compact timeline model", () => {
       sessionAssistant("msg_3:a", 3),
     ]
     const timeline = model({ messages, revertMessageID: "msg_3" })
-    const users = timeline.document().messages.filter((message) => message.type === "user")
-    expect(users.map((message) => message.id)).toEqual(["msg_1", "msg_2"])
+    expect(timeline.document().messages.map((message) => message.id)).toEqual([
+      "msg_0",
+      "msg_1",
+      "msg_1:a",
+      "msg_2",
+      "msg_2:a",
+    ])
   })
 })

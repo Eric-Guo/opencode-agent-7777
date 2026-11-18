@@ -18,11 +18,6 @@ export function selectSessionUserMessages(messages: SessionMessageInfo[]) {
   return messages.filter((message): message is SessionMessageUser => message.type === "user")
 }
 
-export function selectVisibleSessionUserMessages(messages: SessionMessageUser[], revertMessageID?: string) {
-  if (!revertMessageID) return messages
-  return messages.filter((message) => message.id < revertMessageID)
-}
-
 export function removedSessionIDs(sessions: readonly { id: string; parentID?: string }[], sessionID: string) {
   const removed = new Set([sessionID])
   const byParent = Map.groupBy(
