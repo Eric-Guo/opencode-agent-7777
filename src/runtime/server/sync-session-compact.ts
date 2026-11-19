@@ -4,6 +4,7 @@ import {
   retrySessionActivation,
   initializeSessionSync as bootstrapSessionSync,
 } from "./global-sync/bootstrap-session"
+import { sessionRemoved } from "@/home/sessions/switcher-compact"
 import { applySessionEvent } from "./global-sync/event-reducer-session"
 import { handlePermissionEvent } from "@/session/requests/permission-sync-compact"
 import { handleFormEvent } from "@/session/requests/form-sync-compact"
@@ -46,6 +47,10 @@ function scheduleMessageRefresh(delay = 120) {
 function handleEvent(event: OpenCodeEvent) {
   if (event.type === "server.connected") {
     scheduleMessageRefresh(0)
+    return
+  }
+  if (event.type === "session.deleted") {
+    sessionRemoved(event.data.sessionID)
     return
   }
   if (handlePermissionEvent(event)) return

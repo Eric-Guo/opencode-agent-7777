@@ -11,7 +11,10 @@ import {
   selectSessionExporting,
   transitionSessionExport,
   type SessionExportEvent,
+  type SessionExportTarget,
 } from "./export-machine"
+
+export type SessionExporter = ReturnType<typeof createSessionExporter>
 
 // One compact screen owns one export, even if its selected session changes meanwhile.
 export function createSessionExporter(language: Pick<ReturnType<typeof useLanguage>, "t">) {
@@ -60,11 +63,14 @@ export function createSessionExporter(language: Pick<ReturnType<typeof useLangua
 
   return {
     exporting: () => selectSessionExporting(state()),
-    export() {
+    export(selected?: SessionExportTarget) {
       if (untrack(state).status !== "idle") return
-      const active = currentSession()
-      if (!active || !dispatch({ type: "requested", target: { sessionID: active.sessionID, api: active.client } }))
-        return
+      if (!selected) {
+        const active = currentSession()
+        if (!active) return
+        selected = { sessionID: active.sessionID, api: active.client }
+      }
+      if (!dispatch({ type: "requested", target: selected })) return
       const current = untrack(state)
       if (current.status !== "fetching") return
       const { attempt, target } = current

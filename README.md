@@ -327,7 +327,8 @@ tab boundary. The public `Markdown`, `File`, and `Accordion` components own rend
 JSON serialization and file viewers mount only for expanded records and update from the existing runtime.
 Inspection makes no additional API requests and leaves the timeline's nine-dialog window unchanged. It shows only
 loaded records, including any loaded instruction updates, rather than reconstructing a complete system prompt.
-Use `/export` for the complete saved transcript. Closing or changing activation discards the inspector's view state.
+Choose **Export session** beside the loaded-history description, or use `/export`, for the complete saved transcript.
+Closing or changing activation discards the inspector's view state.
 New labels use the existing English fallback until translated; existing Chinese copy remains unchanged.
 Summary and docked plugin panels remain outside this compact view.
 
@@ -654,7 +655,10 @@ The shared UI toast reports preparation, download initiation or failure; concurr
 until the current one finishes. Local `/export` takes precedence over a same-named server command and never submits
 a prompt or changes model/session settings. Inline execution preserves attachments; choosing it from the Add menu
 preserves the existing draft and mentions. It needs no app imports, host command provider or native save dialog.
-The local exporter captures its session and continues across navigation. Its machine bounds fetch and response
+The compact `session/header/session-options.tsx` menu serves the current session and recent-session rows.
+The local `session/commands/session-actions.tsx` dialog driver owns rename and delete for both entry points.
+The header, recent-session rows, context dialog and slash command share one screen-owned exporter.
+It captures the selected session and continues across navigation. Its machine bounds fetch and response
 decoding to 60 seconds, then reports failure and allows another export. Timeout or owner disposal dismisses the
 loading toast, aborts the read and rejects late download effects; disposal is silent. The command hook only delegates
 to this driver. Notifications use the active language provider, including hosts without preference storage;
@@ -825,6 +829,12 @@ session ID to find it directly. Search results also support **Load more** and ar
 loaded. **Arrow Up** and **Arrow Down** select a result, **Enter** opens it, and **Escape** closes the popover.
 If a page takes longer than 30 seconds, choose **Retry** to load it again. Your search, previously loaded rows,
 and highlighted session stay in place. Clearing the search or reopening the popover starts again with the first batch.
+
+Use the **…** menu in the header for the current root session. Each recent-session row also has a **…** menu
+and supports right-click. Choose **Rename session** to edit its title, **Export session** to download its JSON,
+or **Delete session** to open a confirmation naming the session. Cancel returns focus to the opener.
+Editing another session keeps the current conversation and composer draft. Deleting the active session opens
+a neighboring root session from the loaded directory history, or a fresh draft when none is available.
 
 ## Undo and Redo
 

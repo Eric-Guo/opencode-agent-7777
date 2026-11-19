@@ -1,16 +1,19 @@
+import { createSimpleContext } from "@opencode/ui/context"
 import type { ClientSlashCommand } from "@/composer/client-slash-command"
 import { useContextDialog } from "@/context/dialog-compact"
 import { useLanguage } from "@/runtime/i18n/language"
 import { currentRuntime, state } from "@/runtime/server/session-store-compact"
+import { createSessionActions } from "./session-actions"
 import { createSessionExporter } from "./export-session"
 
 // The embedded session supplies local actions directly to its composer instead of a host command provider.
-export function useSessionCommands() {
+function createSessionCommands() {
   const language = useLanguage()
-  const openContext = useContextDialog()
   const exporter = createSessionExporter(language)
+  const openContext = useContextDialog(exporter)
+  const actions = createSessionActions()
 
-  return (): ClientSlashCommand[] =>
+  const commands = (): ClientSlashCommand[] =>
     state.session
       ? [
           {
@@ -35,4 +38,11 @@ export function useSessionCommands() {
           },
         ]
       : []
+
+  return { commands, openContext, exporter, actions }
 }
+
+export const { provider: SessionCommandsProvider, use: useSessionCommands } = createSimpleContext({
+  name: "SessionCommands",
+  init: createSessionCommands,
+})

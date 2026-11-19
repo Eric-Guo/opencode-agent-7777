@@ -11,7 +11,7 @@ export function createActiveComposerAdapter(input: {
   disabled: Accessor<boolean>
 }): ComposerAdapter {
   const language = useLanguage()
-  const commands = useSessionCommands()
+  const { commands } = useSessionCommands()
   return {
     state: prompt,
     identity: () => state.session?.id,

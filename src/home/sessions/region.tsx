@@ -4,16 +4,21 @@ import { createEffect, createMemo, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
 import { currentDirectory, currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { createHomeSessionsController } from "./controller"
 import { createHomeSessionIndex } from "./queries"
 import { createHomeSessionSearchController } from "./search"
 import { openRecentSession } from "./switcher-compact"
+import { SessionOptions } from "@/session/header/session-options"
+import { useSessionCommands } from "@/session/commands/use-session-commands"
 import { HomeSessionsView } from "./view"
 
 // The compact Home region is hosted in the session header instead of a route.
 export function HomeSessionsRegion() {
+  let trigger!: HTMLButtonElement
   const language = useLanguage()
+  const { actions } = useSessionCommands()
   const [local, setLocal] = createStore({ open: false })
   const source = createMemo(() => {
     const server = state.server
@@ -36,6 +41,25 @@ export function HomeSessionsRegion() {
     else data.clear()
   }
   createEffect(on(source, () => setOpen(false), { defer: true }))
+  createEffect(
+    on(
+      actions.saved,
+      (saved) => {
+        if (saved && local.open) void data.refresh(search.query.value())
+      },
+      { defer: true },
+    ),
+  )
+  createEffect(() => {
+    if (!local.open) return
+    onCleanup(
+      sessionEvents.listen((event) => {
+        if (event.type !== "session.renamed" && event.type !== "session.deleted") return
+        if (!event.location?.directory || event.location.directory === currentDirectory())
+          void data.refresh(search.query.value())
+      }),
+    )
+  })
   onCleanup(data.clear)
 
   return (
@@ -47,6 +71,7 @@ export function HomeSessionsRegion() {
       class="w-[320px] !max-w-[calc(100vw-28px)] [&_[data-slot=popover-body]]:!p-2"
       triggerAs="button"
       triggerProps={{
+        ref: (element) => (trigger = element),
         type: "button",
         "aria-label": language.t("session.recent"),
         title: language.t("session.recent"),
@@ -57,7 +82,23 @@ export function HomeSessionsRegion() {
       trigger={<Icon name="bullet-list" />}
     >
       <Show when={local.open}>
-        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={currentLocalAgent()} />
+        <HomeSessionsView
+          sessions={sessions}
+          search={search}
+          fallbackTitle={currentLocalAgent()}
+          row={(session, option) => (
+            <SessionOptions
+              session={session}
+              disabled={sessions.session.switching()}
+              onSelect={() => {
+                setOpen(false)
+                trigger.focus({ preventScroll: true })
+              }}
+            >
+              {option}
+            </SessionOptions>
+          )}
+        />
       </Show>
     </Popover>
   )

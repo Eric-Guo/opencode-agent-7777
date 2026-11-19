@@ -2,20 +2,29 @@ import type { SessionInfo, SessionMessageInfo } from "@opencode/client/promise"
 import { File } from "@opencode/session-ui/file"
 import { Markdown } from "@opencode/session-ui/markdown"
 import { Accordion } from "@opencode/ui/accordion"
+import { Button } from "@opencode/ui/button"
+import { Loader } from "@opencode/ui/loader"
 import { Icon } from "@opencode/ui/icon"
 import { checksum } from "@opencode/util/encode"
 import { createMemo, For, Show } from "solid-js"
 import { useLanguage, type TranslationKey } from "@/runtime/i18n/language"
 import type { SessionRuntime } from "@/runtime/server/runtime"
 import { state } from "@/runtime/server/session-store-compact"
+import type { SessionExporter } from "@/session/commands/export-session"
 import { sessionContextUsage } from "./model"
 
 // The public GUI plugin exposes the indicator; its full tab requires a plugin host.
-export default function SessionContextTab(props: { runtime: SessionRuntime }) {
+export default function SessionContextTab(props: { runtime: SessionRuntime; exporter: SessionExporter }) {
   return (
     <div class="min-h-0 flex-1 overflow-y-auto p-4 text-13-regular" data-scrollable>
       <SessionContextStats runtime={props.runtime} />
-      <SessionContextMessages messages={props.runtime.view().sessionMessages} />
+      <SessionContextMessages
+        messages={props.runtime.view().sessionMessages}
+        exporting={props.exporter.exporting()}
+        onExport={() => {
+          if (props.runtime.alive()) void props.exporter.export({ sessionID: props.runtime.id, api: props.runtime.api })
+        }}
+      />
     </div>
   )
 }
@@ -114,13 +123,25 @@ function SessionContextStats(props: { runtime: SessionRuntime }) {
   )
 }
 
-function SessionContextMessages(props: { messages: readonly SessionMessageInfo[] }) {
+function SessionContextMessages(props: {
+  messages: readonly SessionMessageInfo[]
+  exporting: boolean
+  onExport: () => void
+}) {
   const language = useLanguage()
   const systemPrompt = createMemo(() => props.messages.findLast((message) => message.type === "system")?.text.trim())
 
   return (
     <section class="mt-5 border-t border-border-weak-base pt-4" aria-label={language.t("context.inspect")}>
-      <p class="mb-3 text-12-regular text-text-weak">{language.t("context.loadedHistory")}</p>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-12-regular text-text-weak">{language.t("context.loadedHistory")}</p>
+        <Button size="small" variant="ghost" disabled={props.exporting} onClick={props.onExport}>
+          <Show when={props.exporting} fallback={<Icon name="download" size="small" />}>
+            <Loader />
+          </Show>
+          {language.t("command.session.export")}
+        </Button>
+      </div>
       <Accordion multiple>
         <Accordion.Item value="system">
           <Accordion.Header>

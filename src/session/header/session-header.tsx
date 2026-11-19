@@ -4,8 +4,9 @@ import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { useLanguage, type Locale } from "@/runtime/i18n/language"
 import { getDesktopCybrosCurrentUser, windowsElectron } from "@/runtime/platform/platform-bridge"
 import type { CybrosCurrentUser } from "@/runtime/platform/desktop-api"
-import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { currentLocalAgent, currentRuntime, state } from "@/runtime/server/session-store-compact"
 import { HomeSessionsRegion } from "@/home/sessions/region"
+import { SessionOptions } from "./session-options"
 import { SessionHeaderActions } from "@/session/header/session-header-actions"
 import { SessionContextUsage } from "@/context/indicator"
 import type { SessionRevert } from "@/session/revert"
@@ -79,6 +80,9 @@ export function SessionHeader(props: {
           <span>/</span>
           <span>{HISTORY_DIALOG_LIMIT}</span>
         </div>
+        <Show when={state.session && !state.session.parentID && currentRuntime()} keyed>
+          {(runtime) => <SessionOptions session={runtime.view().session} />}
+        </Show>
         <SessionHeaderActions revert={props.revert} />
         <ReviewTrigger />
         <button

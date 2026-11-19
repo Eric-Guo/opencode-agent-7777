@@ -4,12 +4,12 @@ import { createMemo, For, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
 import { state } from "@/runtime/server/session-store-compact"
 import { sessionContextUsage } from "./model"
-import { useContextDialog } from "./dialog-compact"
+import { useSessionCommands } from "@/session/commands/use-session-commands"
 
 // The compact button owns dialog activation and focus restoration around the shared indicator.
 export function SessionContextUsage() {
   const language = useLanguage()
-  const openContext = useContextDialog()
+  const { openContext } = useSessionCommands()
   const usage = createMemo(() =>
     sessionContextUsage({ session: state.session, messages: state.sessionMessages, models: state.models }),
   )

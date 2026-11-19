@@ -3,7 +3,10 @@ import { createLoadState, transitionLoad, type LoadState } from "@/runtime/serve
 import { recoverDeletedSession } from "@/session/recovery-compact"
 import type { SessionInfo as Session } from "@opencode/client/promise"
 import { createServerSdk } from "@/runtime/server/client-compact"
-import { currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { sessionTreeIDs } from "@/session/requests/session-request-tree"
+import { refreshRecentSessions } from "./directory-sync-recent-compact"
+import { compareSessionTime } from "./records"
+import { currentDirectory, currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { activateDraft } from "@/runtime/server/global-sync/bootstrap-session"
 import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"
 import { readableError } from "@/shell/errors/readable"
@@ -63,4 +66,32 @@ export function openRecentSession(session: Session) {
       if (activation) switches.set(activation, machine)
       if (current()) setState("recentSessionSwitchingID", machine.status === "loading" ? session.id : undefined)
     })
+}
+
+// Both the HTTP acknowledgement and session.deleted can arrive first.
+export function sessionRemoved(id: string) {
+  const server = state.server
+  const active = state.session
+  const directory = currentDirectory()
+  if (!server || !directory) return
+  const recent = state.recentSessions.filter((s) => s.location.directory === directory)
+  const records = active ? [...recent, active] : recent
+  const removed = new Set(sessionTreeIDs(records, id))
+  const remaining = recent.filter((s) => !removed.has(s.id))
+  if (remaining.length !== recent.length) setState("recentSessions", remaining)
+  if (!active || !removed.has(active.id)) {
+    if (remaining.length !== recent.length || state.recentSessionsLoading) void refreshRecentSessions()
+    return
+  }
+  const roots = records.filter((s) => !s.parentID && !s.time.archived).sort(compareSessionTime)
+  const index = roots.findIndex((s) => s.id === id)
+  const next =
+    remaining.find((s) => s.id === active.parentID) ??
+    roots.slice(index + 1).find((s) => !removed.has(s.id)) ??
+    roots.slice(0, index).findLast((s) => !removed.has(s.id))
+  if (next && !state.recentSessionSwitchingID) {
+    void openRecentSession(next)
+    return
+  }
+  void activateDraft(server, directory).catch(() => {}) // Activation owns its Retry banner.
 }

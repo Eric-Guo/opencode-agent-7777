@@ -175,6 +175,7 @@ export function createSessionData(input: {
             "session.agent.selected",
             "session.model.selected",
             "session.moved",
+            "session.renamed",
             "session.usage.updated",
             "session.permissions",
             "session.revert.staged",
