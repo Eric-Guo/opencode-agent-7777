@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
+import { gzipSync } from "node:zlib"
 import { middleware } from "./middleware"
 import type { Backend } from "./nexus"
 
@@ -32,6 +33,74 @@ async function bridge(b: Backend) {
     },
   }
 }
+
+test("exports the retained Nexus records as JSON through the read-only and archived conversation route", async () => {
+  const records = [
+    { type: "export", format: "nexus.conversation.diagnostic", version: 1 },
+    ...Array.from({ length: 12 }, (_, i) => ({ type: "turn", turn: { position: i + 1, text: "你好" } })),
+    { type: "task", task: { output: "first\nsecond" } },
+    { type: "usage", usage: { exact: "UNSAFE_INTEGER" } },
+    { type: "execution_unavailable", reason: "execution_details_pruned" },
+    { type: "end" },
+  ].map((record) =>
+    JSON.stringify({ conversation_public_id: "a", ...record }).replace('"UNSAFE_INTEGER"', "9007199254740993"),
+  )
+  const packed = (lines: string[]) => gzipSync(lines.join("\n") + "\n")
+  let workspace = "w"
+  let body = packed(records)
+  let exports = 0
+  const b = {
+    workspaceID: "w",
+    connection: { scope: "scope" },
+    workspace: {
+      conversation: () => ({
+        fetch: async () => ({
+          public_id: "a",
+          workspace_public_id: workspace,
+          archived_at: "now",
+          access: { default: "read" },
+        }),
+        export: async () => {
+          exports++
+          return { status: 200, contentType: "application/gzip", body: new Response(body).body }
+        },
+      }),
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(b)
+  const path = "/chats/a/export"
+  try {
+    const res = await send(path)
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toBe("application/json; charset=utf-8")
+    expect(res.headers.get("content-disposition")).toBe('attachment; filename="conversation-a.json"')
+    expect(res.headers.get("cache-control")).toBe("no-store")
+    const json = await res.text()
+    expect(JSON.parse(json)).toEqual(records.map((record) => JSON.parse(record)))
+    expect(json).toContain('"exact":9007199254740993')
+
+    workspace = "other"
+    expect((await send(path)).status).toBe(404)
+    expect(exports).toBe(1)
+    workspace = "w"
+
+    const valid = packed(records)
+    for (const [label, broken] of [
+      ["invalid gzip", Buffer.from("not gzip")],
+      ["truncated trailer", valid.subarray(0, valid.length - 1)],
+      ["missing end", packed(records.slice(0, -1))],
+      ["wrong conversation", packed([records[0].replace('"a"', '"b"'), ...records.slice(1)])],
+    ] as const) {
+      body = broken
+      const result = await send(path)
+        .then(async (response) => ({ status: response.status, text: await response.text() }))
+        .catch(() => undefined)
+      expect(result?.status === 200 && result.text.endsWith("\n]\n"), label).toBe(false)
+    }
+  } finally {
+    await close()
+  }
+})
 
 test("scoped bridge enforces channel ownership, archive state, run and file ownership", async () => {
   let bound = true,

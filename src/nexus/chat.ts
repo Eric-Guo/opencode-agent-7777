@@ -9,6 +9,14 @@ export type Connection = {
   model: string
   runner: string | null
 }
+
+// The bridge writes this only after it has read the entire gzip stream and its completion record.
+export const CONVERSATION_EXPORT_END = "\n]\n"
+
+export function conversationExportFilename(id: string) {
+  return `conversation-${id}.json`
+}
+
 export type Delivery = "queue" | "steer" | "steer_now"
 export type Approval = "ask" | "rules" | "bypass"
 export type ModeValues = { code_mode: boolean; subagent: boolean }

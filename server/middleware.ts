@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
+import { exportConversation } from "./export"
 import { fileBytes, outputs, outputTurn, review, restoreReview } from "./outputs"
 import type { ServiceConnection } from "./native"
 import { MemoryChange, MemoryConfiguration } from "./memory"
@@ -238,6 +239,8 @@ export function middleware(
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
 
       if (req.method === "GET") {
+        if (action === "export") return await exportConversation(chat, id!, res)
+
         if (action === "memory")
           return json(res, 200, {
             selection: Schema.decodeUnknownSync(MemoryConfiguration)(info.memory_context ?? null),
