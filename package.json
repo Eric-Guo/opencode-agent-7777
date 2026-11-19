@@ -19,6 +19,7 @@
   "dependencies": {
     "@cybros/agent": "file:../nexus-runtime/vendor/cybros-agent-0.1.0.tgz",
     "@opencode/client": "workspace:*",
+    "@opencode/gui-plugins": "workspace:*",
     "@opencode/schema": "workspace:*",
     "@opencode/session-ui": "workspace:*",
     "@opencode/ui": "workspace:*",

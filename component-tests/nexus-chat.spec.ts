@@ -417,6 +417,8 @@ test("steers a running reply, queues the next, promotes without resending, and r
       return json({ scope: "flow", user: "Human", workspace: "Workspace", agent: "rho", model: "m", runner: "local" })
     if (p.endsWith("/choices"))
       return json({ models: ["m", "other"], runners: [{ id: "local", name: "Local" }], approvals: ["ask", "rules"] })
+    if (p.endsWith("/work")) return json([{ id: "run", status: "running" }])
+    if (p.endsWith("/run")) return json({ status: "running", tasks: [] })
     if (p.endsWith("/prepare")) return json({ ticket: "ticket" })
     if (p.endsWith("/inputs")) {
       inputs.push(route.request().postDataJSON())
@@ -479,10 +481,26 @@ test("steers a running reply, queues the next, promotes without resending, and r
   await editor.press("Control+Enter")
   await expect.poll(() => promoted).toEqual([{ id: "waiting", version: 4 }])
   expect(inputs.length).toBe(3)
-  await page.getByRole("button", { name: "Usage", exact: true }).click()
-  await expect(page.getByText("Known subtotal", { exact: true })).toBeVisible()
-  await expect(page.getByText("0.17 USD")).toBeVisible()
-  await expect(page.getByText("actual-model")).toBeVisible()
+
+  const controls = page.locator('[data-slot="session-header-controls"]')
+  expect(await controls.getByRole("button").evaluateAll((buttons) =>
+    buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim()),
+  )).toEqual(["Options for Running example", "New session", "View context usage", "Recent sessions", "Memory bindings", "EN"])
+  const ring = controls.getByRole("button", { name: "View context usage" })
+  const circle = ring.locator('[data-component="progress-circle"][data-appearance="indicator"]')
+  const occupancy = await circle.locator('[data-slot="progress-circle-progress"]').evaluate((arc) =>
+    1 - Number(arc.getAttribute("stroke-dashoffset")) / Number(arc.getAttribute("stroke-dasharray")),
+  )
+  expect(occupancy).toBeCloseTo(0.2)
+  await ring.click()
+  const context = page.getByRole("dialog", { name: "Context usage" })
+  await expect(context.getByText("Known subtotal", { exact: true })).toBeVisible()
+  await expect(context.getByText("0.17 USD")).toBeVisible()
+  await expect(context.getByText("actual-model")).toBeVisible()
+  await expect(context.getByText("20 / 100 (20%)")).toBeVisible()
+  await expect(context.getByRole("region", { name: "Activity" }).getByText("running", { exact: true })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(ring).toBeFocused()
 })
 
 test("keeps slow answer files with their variant and loads recorded changes and rounds on demand", async ({ page }) => {

@@ -38,7 +38,6 @@ export const dict = {
   "chat.attention": "需要关注",
   "chat.channel": "在其频道中继续此会话。",
   "chat.activity": "活动",
-  "chat.usage": "用量",
   "chat.automatic": "自动",
   "chat.model": "模型",
   "chat.runner": "运行器",

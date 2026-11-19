@@ -3,6 +3,7 @@ import { ConversationActions } from "./conversation-actions"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
+import { SessionContextUsage } from "@/context/indicator"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import type { createChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -53,20 +54,13 @@ export function SessionHeader(props: {
           )}
         </p>
       </div>
-      <div class="flex flex-wrap gap-2 items-center text-xs">
+      <div data-slot="session-header-controls" class="flex flex-wrap gap-2 items-center text-xs">
         <span>{s.connection?.user}</span>
         <Icon name="speech-bubble" />
         <span>
           {props.dialogCount}
           {s.snapshot.expanded ? "" : "/" + HISTORY_DIALOG_LIMIT}
         </span>
-        <Button
-          disabled={!s.connection || s.sending}
-          aria-label={language.t("session.new")}
-          onClick={() => chat.select("")}
-        >
-          <Icon name="plus" />
-        </Button>
         <Show when={props.exporter.available() && s.connection}>
           {(connection) => (
             <SessionOptions
@@ -79,8 +73,16 @@ export function SessionHeader(props: {
             />
           )}
         </Show>
-        <ConversationActions chat={chat} />
+        <Button
+          disabled={!s.connection || s.sending}
+          aria-label={language.t("session.new")}
+          onClick={() => chat.select("")}
+        >
+          <Icon name="plus" />
+        </Button>
+        <SessionContextUsage chat={chat} />
         <HomeSessionsRegion chat={chat} exporter={props.exporter} actions={actions} />
+        <ConversationActions chat={chat} />
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
           {language.locale().toUpperCase()}
         </Button>
