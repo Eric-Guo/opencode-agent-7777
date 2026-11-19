@@ -1,9 +1,17 @@
+import { Button } from "@opencode/ui/button"
+import { Icon } from "@opencode/ui/icon"
+import { Loader } from "@opencode/ui/loader"
 import { For, Show } from "solid-js"
 import { Activity } from "@/nexus/activity"
 import type { ChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
+import type { createSessionExporter } from "@/session/commands/export-session"
 
-export function SessionContextTab(props: { chat: ChatController; cost: string }) {
+export function SessionContextTab(props: {
+  chat: ChatController
+  cost: string
+  exporter: ReturnType<typeof createSessionExporter>
+}) {
   const language = useLanguage()
   const detail = () => props.chat.s.snapshot.detail
   const usage = () => detail()?.usage
@@ -51,7 +59,23 @@ export function SessionContextTab(props: { chat: ChatController; cost: string })
         class="grid min-w-0 gap-2.5 border-t border-border-weak-base pt-4"
         aria-label={language.t("chat.activity")}
       >
-        <h3>{language.t("chat.activity")}</h3>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3>{language.t("chat.activity")}</h3>
+          <Show when={props.exporter.available()}>
+            <Button
+              size="small"
+              variant="ghost"
+              disabled={props.exporter.running()}
+              aria-busy={props.exporter.running()}
+              onClick={() => void props.exporter.run()}
+            >
+              <Show when={props.exporter.running()} fallback={<Icon name="download" size="small" />}>
+                <Loader />
+              </Show>
+              {language.t("command.session.export")}
+            </Button>
+          </Show>
+        </div>
         <Activity chat={props.chat} />
       </section>
     </div>

@@ -80,7 +80,7 @@ export function SessionHeader(props: {
         >
           <Icon name="plus" />
         </Button>
-        <SessionContextUsage chat={chat} />
+        <SessionContextUsage chat={chat} exporter={props.exporter} />
         <HomeSessionsRegion chat={chat} exporter={props.exporter} actions={actions} />
         <ConversationActions chat={chat} />
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
