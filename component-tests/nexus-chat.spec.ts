@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
 import { readFile } from "node:fs/promises"
 
 // Exercise the real 7777 entry and editor. The fixture supplies the browser bridge
 // protocol so streaming, decisions and recovery are deterministic and cost no model calls.
-async function mockEvents(page: import("@playwright/test").Page) {
+async function mockEvents(page: Page) {
   await page.addInitScript(() => {
     class Events extends EventTarget {
       constructor() {
@@ -22,6 +22,9 @@ async function mockEvents(page: import("@playwright/test").Page) {
     Object.defineProperty(window, "EventSource", { value: Events })
   })
 }
+
+const optionsFor = (page: Page, title: string) => page.getByRole("button", { name: `Options for ${title}`, exact: true })
+const sessionItem = (page: Page, name: string) => page.getByRole("menuitem", { name, exact: true })
 
 test("exports with Enter, Send and the slash suggestion without sending a chat message", async ({ page }) => {
   await mockEvents(page)
@@ -59,7 +62,7 @@ test("exports with Enter, Send and the slash suggestion without sending a chat m
   const editor = page.getByRole("textbox", { name: "Message", exact: true })
   const send = page.getByRole("button", { name: "Send", exact: true })
   const suggestion = page.getByRole("button", { name: /^\/export/ })
-  const exportButton = page.getByRole("button", { name: "Export JSON", exact: true })
+  const options = optionsFor(page, "Shared")
   await expect(editor).toHaveAttribute("contenteditable", "true")
 
   for (const trigger of ["enter", "send", "suggestion"] as const) {
@@ -70,7 +73,9 @@ test("exports with Enter, Send and the slash suggestion without sending a chat m
       await editor.press("Escape")
       await editor.press("Enter")
       await expect.poll(() => exports).toBe(1)
-      await expect(exportButton).toBeDisabled()
+      await options.click()
+      await expect(sessionItem(page, "Export session")).toBeDisabled()
+      await page.keyboard.press("Escape")
       await editor.fill("/export")
       await send.click()
       await expect(editor).toHaveText("")
@@ -80,7 +85,7 @@ test("exports with Enter, Send and the slash suggestion without sending a chat m
     const file = await saved
     expect(file.suggestedFilename()).toBe("conversation-chat.json")
     expect(JSON.parse(await readFile(await file.path(), "utf8"))).toEqual(records)
-    await expect(exportButton).toBeEnabled()
+    await expect(options).toBeEnabled()
     await expect(editor).toHaveText("")
   }
 
@@ -96,7 +101,7 @@ test("exports with Enter, Send and the slash suggestion without sending a chat m
   await expect.poll(() => messages).toEqual(["/unrelated"])
 
   await page.getByRole("button", { name: "New session", exact: true }).click()
-  await expect(exportButton).toHaveCount(0)
+  await expect(options).toHaveCount(0)
   await editor.fill("/export")
   await send.click()
   await expect(page.getByText("Open a saved conversation to export it.")).toBeVisible()
@@ -144,33 +149,40 @@ test("exports a read-only conversation and retires a pending export when the con
       busy: false,
       decisions: [],
       problem: null,
-      detail: { title: "Shared", owned: false, archived: true, writable: false },
+      detail: { title: path.endsWith("/first") ? "First" : "Second", owned: false, archived: true, writable: false },
     })
   })
   await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/first")
   const editor = page.getByRole("textbox", { name: "Message", exact: true })
-  const button = page.getByRole("button", { name: "Export JSON", exact: true })
+  const exportItem = sessionItem(page, "Export session")
   await expect(editor).toHaveAttribute("contenteditable", "false")
-  await button.click()
-  await expect(button).toBeDisabled()
+  await optionsFor(page, "First").click()
+  await exportItem.click()
   await expect.poll(() => requests.length).toBe(1)
+  await optionsFor(page, "First").click()
+  await expect(exportItem).toBeDisabled()
+  await page.keyboard.press("Escape")
 
   await page.evaluate(() => {
     location.hash = "/workspaces/shared/conversations/second"
   })
-  await expect(button).toBeEnabled()
+  const second = optionsFor(page, "Second")
+  await expect(second).toBeVisible()
   release()
-  await button.click()
+  await second.click()
+  await exportItem.click()
   await expect(page.getByText("Could not export session", { exact: true })).toBeVisible()
   await expect(page.getByText("Fixture unavailable", { exact: true })).toBeVisible()
   expect(downloads).toEqual([])
 
-  await button.click()
+  await second.click()
+  await exportItem.click()
   await expect(page.getByText("The server did not return a valid session export.", { exact: true })).toBeVisible()
   expect(downloads).toEqual([])
 
   const saved = page.waitForEvent("download")
-  await button.click()
+  await second.click()
+  await exportItem.click()
   expect((await saved).suggestedFilename()).toBe("conversation-second.json")
   expect(downloads).toEqual(["conversation-second.json"])
   expect(requests).toEqual([
@@ -799,15 +811,15 @@ test("renames, archives, reopens from a later archived page and restores the con
     })
   })
   await page.goto("/component-tests/nexus-chat.html")
-  const actions = page.getByRole("button", { name: "Conversation actions" }),
-    editor = page.getByRole("textbox", { name: "Message" })
+  const editor = page.getByRole("textbox", { name: "Message" })
   await expect(editor).toHaveText("Unsent note")
-  await actions.click()
-  await page.getByRole("textbox", { name: "Conversation title" }).fill("Revised notes")
-  await page.getByRole("button", { name: "Rename", exact: true }).click()
+  await optionsFor(page, "Design notes").click()
+  await sessionItem(page, "Rename session").click()
+  await page.getByRole("textbox", { name: "Rename session" }).fill("Revised notes")
+  await page.getByRole("button", { name: "Save", exact: true }).click()
   await expect(page.getByRole("heading", { name: "Revised notes" })).toBeVisible()
-  await actions.click()
-  await page.getByRole("button", { name: "Archive", exact: true }).click()
+  await optionsFor(page, "Revised notes").click()
+  await sessionItem(page, "Archive").click()
   await expect(editor).toHaveAttribute("contenteditable", "false")
   await page.getByRole("button", { name: "New session" }).click()
   await editor.fill("Different draft")
@@ -816,12 +828,106 @@ test("renames, archives, reopens from a later archived page and restores the con
   await page.getByRole("button", { name: "Load more" }).click()
   await page.getByRole("option", { name: /Revised notes/ }).click()
   await expect(editor).toHaveText("Unsent note")
-  await actions.click()
-  await page.getByRole("button", { name: "Restore", exact: true }).click()
+  await optionsFor(page, "Revised notes").click()
+  await sessionItem(page, "Restore").click()
   await expect(editor).toHaveAttribute("contenteditable", "true")
   expect(pageRequests).toEqual(["first", "second"])
   await page.getByRole("button", { name: "New session" }).click()
   await expect(editor).toHaveText("Different draft")
+})
+
+test("session menus target the chosen row and confirm deletion without replacing another draft", async ({ page }) => {
+  await mockEvents(page)
+  const chats = new Map([
+    ["current", { title: "Current", version: 3 }],
+    ["other", { title: "Other", version: 7 }],
+  ])
+  const writes: string[] = []
+  await page.addInitScript(() =>
+    localStorage.setItem("7777.nexus.menus.draft.", JSON.stringify({ text: "New-session draft" })),
+  )
+  await page.route("**/api/7777/**", async (route) => {
+    const parts = new URL(route.request().url()).pathname.slice("/api/7777/".length).split("/")
+    const [resource, id, action] = parts
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (resource === "connection")
+      return json({ scope: "menus", user: "Human", workspace: "Workspace", agent: "OpenCode", model: "m", runner: "r" })
+    if (resource === "choices") return json({ models: [], runners: [], approvals: ["ask"] })
+    if (resource !== "chats") return json([])
+    if (!id) return json({ items: [...chats].map(([id, row]) => ({ id, title: row.title, time: { created: 2 } })), next: null })
+    const chat = chats.get(id)
+    if (!chat) return route.fulfill({ status: 404, json: { error: "Session missing" } })
+    const detail = { ...chat, archived: false, owned: false, writable: true }
+    if (action === "options") return json(detail)
+    if (action === "export") {
+      return route.fulfill({ contentType: "application/json", body: `[\n  ${JSON.stringify({ type: "end", id })}\n]\n` })
+    }
+    if (action === "rename") {
+      const { title, version } = route.request().postDataJSON()
+      expect(version).toBe(chat.version)
+      writes.push(`rename ${id}`)
+      chats.set(id, { title, version: version + 1 })
+      return json({})
+    }
+    if (action === "delete") {
+      writes.push(`delete ${id}`)
+      chats.delete(id)
+      return json({})
+    }
+    return json({ turns: [], pending: [], busy: false, decisions: [], problem: null, detail })
+  })
+
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/current")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const recent = page.getByRole("button", { name: "Recent sessions", exact: true })
+  await expect(optionsFor(page, "Current")).toBeVisible()
+  await editor.fill("Current draft")
+  await recent.click()
+  await page.getByRole("option", { name: /Other/ }).click({ button: "right" })
+  await sessionItem(page, "Rename session").click()
+  const title = page.getByRole("textbox", { name: "Rename session" })
+  await expect(title).toBeFocused()
+  await expect(title).toHaveValue("Other")
+  await title.fill("  Renamed  ")
+  await title.press("Enter")
+  await expect(title).toBeHidden()
+  await expect(editor).toHaveText("Current draft")
+
+  await recent.click()
+  await optionsFor(page, "Renamed").click()
+  const downloaded = page.waitForEvent("download")
+  await sessionItem(page, "Export session").click()
+  const file = await downloaded
+  expect(file.suggestedFilename()).toBe("conversation-other.json")
+  expect(JSON.parse(await readFile(await file.path(), "utf8"))).toEqual([{ type: "end", id: "other" }])
+
+  const confirm = page.getByRole("dialog", { name: "Delete session", exact: true })
+  await recent.click()
+  await optionsFor(page, "Renamed").click()
+  await sessionItem(page, "Delete session…").click()
+  await expect(confirm).toContainText('Delete session "Renamed"?')
+  await expect(confirm.getByRole("button", { name: "Cancel" })).toBeFocused()
+  await confirm.getByRole("button", { name: "Cancel" }).click()
+  await expect(recent).toBeFocused()
+  expect(writes).toEqual(["rename other"])
+
+  await recent.click()
+  await optionsFor(page, "Renamed").click()
+  await sessionItem(page, "Delete session…").click()
+  await confirm.getByRole("button", { name: "Delete session" }).click()
+  await expect(confirm).toBeHidden()
+  await expect(editor).toHaveText("Current draft")
+  await recent.click()
+  await expect(page.getByText("No recent sessions", { exact: true })).toBeVisible()
+  await page.keyboard.press("Escape")
+
+  await optionsFor(page, "Current").click()
+  await sessionItem(page, "Delete session…").click()
+  await confirm.getByRole("button", { name: "Delete session" }).click()
+  await expect(editor).toHaveText("New-session draft")
+  await expect(optionsFor(page, "Current")).toHaveCount(0)
+  expect(await page.evaluate(() => localStorage.getItem("7777.nexus.menus.draft.current"))).toBeNull()
+  expect(writes).toEqual(["rename other", "delete other", "delete current"])
 })
 
 test("keyboard mode choices survive a new draft reload, and a lost receipt reuses the prepared reply", async ({
@@ -953,14 +1059,16 @@ test("read-only access disables conversation edits and updates when write access
   })
   await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
   const editor = page.getByRole("textbox", { name: "Message", exact: true })
-  const actions = page.getByRole("button", { name: "Conversation actions", exact: true })
+  const actions = optionsFor(page, "Shared")
 
   await expect(editor).toHaveAttribute("contenteditable", "false")
   await expect(page.getByText("This conversation is read-only.", { exact: true })).toBeVisible()
   await expect(page.getByRole("button", { name: "Run settings", exact: true })).toBeDisabled()
   await actions.click()
-  await expect(page.getByRole("textbox", { name: "Conversation title", exact: true })).toBeDisabled()
-  await expect(page.getByRole("button", { name: "Archive", exact: true })).toBeDisabled()
+  await expect(sessionItem(page, "Rename session")).toBeDisabled()
+  await expect(sessionItem(page, "Archive")).toBeDisabled()
+  await expect(sessionItem(page, "Delete session…")).toBeDisabled()
+  await expect(sessionItem(page, "Export session")).toBeEnabled()
   await page.keyboard.press("Escape")
   state.writable = true
   await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
@@ -970,7 +1078,7 @@ test("read-only access disables conversation edits and updates when write access
   await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
   await expect(editor).toHaveAttribute("contenteditable", "false")
   await actions.click()
-  await page.getByRole("button", { name: "Restore", exact: true }).click()
+  await sessionItem(page, "Restore").click()
   await expect(editor).toHaveAttribute("contenteditable", "true")
   expect(writes).toEqual(["/api/7777/chats/chat/restore"])
   state.unavailable = true
@@ -1025,7 +1133,7 @@ test("HTTP recovery updates idle metadata and access without stream events and s
   await expect(editor).toHaveText("Unsent draft")
   state.unavailable = true
   await page.clock.fastForward(3000)
-  await expect(page.getByRole("button", { name: "Conversation actions", exact: true })).toHaveCount(0)
+  await expect(optionsFor(page, "Generated title")).toHaveCount(0)
   await expect(page.getByRole("button", { name: "Reconnect", exact: true })).toBeVisible()
   const reads = state.reads
 

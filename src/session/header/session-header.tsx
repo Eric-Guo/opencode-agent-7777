@@ -7,6 +7,8 @@ import { HomeSessionsRegion } from "@/home/sessions/region"
 import type { createChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { createSessionExporter } from "../commands/export-session"
+import { createSessionActions } from "../commands/session-actions"
+import { SessionOptions } from "./session-options"
 
 export function SessionHeader(props: {
   chat: ReturnType<typeof createChatController>
@@ -16,13 +18,15 @@ export function SessionHeader(props: {
   const chat = props.chat
   const s = chat.s
   const language = useLanguage()
+  const actions = createSessionActions(chat)
+  const title = () => s.snapshot.detail?.title || s.connection?.agent || "OpenCode"
   return (
     <header
       data-slot="session-header"
       class="flex flex-wrap items-center justify-between gap-4 px-11 pb-4 pt-5 max-[720px]:px-[18px]"
     >
       <div class="min-w-0 max-w-full">
-        <h1 class="truncate text-xl font-[720]">{s.snapshot.detail?.title || s.connection?.agent || "OpenCode"}</h1>
+        <h1 class="truncate text-xl font-[720]">{title()}</h1>
         <p class="text-xs text-v2-text-text-faint">
           {s.connection?.workspace}
           {" · "}
@@ -63,17 +67,20 @@ export function SessionHeader(props: {
         >
           <Icon name="plus" />
         </Button>
-        <Show when={props.exporter.available()}>
-          <Button
-            disabled={props.exporter.running()}
-            aria-busy={props.exporter.running()}
-            onClick={() => void props.exporter.run()}
-          >
-            {language.t("session.export.json")}
-          </Button>
+        <Show when={props.exporter.available() && s.connection}>
+          {(connection) => (
+            <SessionOptions
+              target={{ id: s.id, scope: connection().scope }}
+              title={title()}
+              detail={s.snapshot.detail}
+              busy={s.sending}
+              exporter={props.exporter}
+              actions={actions}
+            />
+          )}
         </Show>
         <ConversationActions chat={chat} />
-        <HomeSessionsRegion chat={chat} />
+        <HomeSessionsRegion chat={chat} exporter={props.exporter} actions={actions} />
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
           {language.locale().toUpperCase()}
         </Button>

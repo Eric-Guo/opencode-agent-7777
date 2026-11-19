@@ -35,6 +35,15 @@ export type RecentChat = {
   time: { created: number; updated?: number }
 }
 export type RecentPage = { items: RecentChat[]; next: string | null }
+export type ConversationTarget = { id: string; scope: string }
+export type ConversationOptions = {
+  title: string
+  archived: boolean
+  owned: boolean
+  writable?: boolean
+  version: number
+}
+export type ConversationAction = "rename" | "archive" | "restore" | "delete"
 export type Decision = Pick<TaskDetail, "prompt" | "options" | "multi" | "fields" | "tool_input"> & {
   run: string
   key: string
@@ -64,15 +73,10 @@ export type ChatTurn = {
 export type Snapshot = {
   expanded?: boolean
   turns: ChatTurn[]
-  detail?: {
-    title: string
+  detail?: ConversationOptions & {
     runner: string | null
-    archived: boolean
-    owned: boolean
-    writable?: boolean
     bot?: string
     active: string | null
-    version: number
     usage: Conversation["usage_summary"]
     context: Conversation["context"]
   }

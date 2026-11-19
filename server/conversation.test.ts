@@ -106,6 +106,8 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
   let bound = true,
     bot = false,
     archived = false,
+    full = true,
+    deletes = 0,
     approvals = 0,
     executionReads = 0
   const pages: string[] = [],
@@ -117,7 +119,9 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     metadata: { "opencode.surface": bound ? "channel" : "desktop", ...(bot ? { "opencode.bot": "private-bot" } : {}) },
     archived_at: archived ? "now" : null,
     side: false,
-    access: { entries: [], default: "full" },
+    title: "Conversation",
+    lock_version: 2,
+    access: { entries: [], default: full ? "full" : "read" },
   })
   const chat = {
     fetch: async () => info(),
@@ -127,6 +131,9 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     },
     unarchive: async () => {
       archived = false
+    },
+    delete: async () => {
+      deletes++
     },
     inputs: {
       list: async () => ({
@@ -188,6 +195,7 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     expect((await send("/chats?archived=1&after=cursor")).status).toBe(200)
     expect((await send("/chats")).status).toBe(200)
     expect(pages).toEqual(["archived/cursor/agent", "active//agent"])
+    expect((await send("/chats/a/delete", {})).status).toBe(403)
     expect((await send("/chats/a/archive", {})).status).toBe(403)
     bound = false
     bot = true
@@ -220,6 +228,16 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     const download = await send("/chats/a/bytes?turn=turn&variant=v2&file=published")
     expect(download.headers.get("Content-Disposition")).toContain("picture.png")
     expect([...new Uint8Array(await download.arrayBuffer())]).toEqual([0, 255, 17])
+    archived = true
+    full = false
+    expect(await (await send("/chats/a/options")).json()).toEqual({
+      title: "Conversation", version: 2, archived: true, owned: false, writable: false,
+    })
+    expect((await send("/chats/a/delete", {})).status).toBe(403)
+    expect(deletes).toBe(0)
+    full = true
+    expect((await send("/chats/a/delete", {})).status).toBe(200)
+    expect(deletes).toBe(1)
   } finally {
     await close()
   }

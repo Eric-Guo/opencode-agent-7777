@@ -70,7 +70,7 @@ service does not provide newer management commands; use a matching development b
 ## Conversation behavior
 
 - Workspace, conversation, Bot, plugin and management links are kept in the URL fragment. Reload, Back and Forward restore that view; the embedding host's path and query stay intact. The current workspace is remembered in this browser. A new workspace opens immediately without changing the service default. Leaving the page closes its streams; returning from the back/forward cache reconnects the same conversation.
-- **Recent sessions** searches and pages through either active or archived root conversations in the current workspace. The header shows the conversation title, runner and status; **Conversation actions** renames, archives or restores it. Archived and channel-owned chats cannot receive new messages here.
+- **Recent sessions** searches and pages through active or archived root conversations in the current workspace. The header and recent rows have an options menu for renaming, exporting, archiving, restoring and deleting a conversation. Delete requires confirmation. Archived and channel-owned chats cannot receive new messages here.
 - Human read-only access disables sending, conversation edits and execution controls. Losing access closes the live stream and disables further writes while retaining the unsent draft. Restoring an archived conversation remains available to a Human with full access.
 - The new-chat draft and each conversation’s draft, send choices and uncertain submission receipt are stored separately under the Nexus origin, Human, workspace and answering agent. Switching chats or reloading never resubmits a message. A deliberate retry uses the original input and mutation keys.
 - New chats leave their title to the runtime's existing automatic-title policy. The selected conversation rereads authoritative HTTP state every three seconds, alongside realtime updates, so idle title, access and execution changes recover without a stream event. Leaving the conversation or losing access stops those reads.
@@ -83,7 +83,7 @@ service does not provide newer management commands; use a matching development b
 - **Memory bindings** shows resolved sources and edits the sources for future replies. Automatic restores the default selection; Disabled selects no memory; Custom chooses up to sixteen named scope or collection bindings with read or read/write access and optional conversation or speaker subjects. Collections page without losing the draft. The server retains authority over access, and channel-owned, archived and read-only conversations keep a read-only view.
 - **Code mode** and **Subagent** in **Run settings** control the tools available to future replies in that chat. A new draft rereads the runtime’s defaults and Code Mode availability; an existing chat saves a switch immediately. Changes leave running replies and prepared retries alone. The runner uses OpenCode Code Mode’s supported JavaScript subset and native results. Nexus owns child tool calls and their approvals; old Rho JavaScript bindings require new work after upgrading.
 - After verifying Human write access, the bridge asks the selected runtime for its tool list and executor contexts, then seals them into the send ticket. An empty list means no tools; omitted contexts stay inherited. If the runtime cannot prepare a policy, no new input is sent.
-- Browser file uploads, queue reordering, undo and export remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
+- Browser file uploads, queue reordering and undo remain outside this integration. The source-controlled `manageModels` policy and the embedding host’s document-title control through `SET_DOCUMENT_TITLE` remain in place.
 
 Scheduled jobs show their rule, next run, latest execution and paged execution history. Finished jobs and
 read-only conversations retain history without mutation controls. The model selector preserves a saved model
@@ -103,7 +103,9 @@ The [Rho WebUI review](docs/rho-webui-parity.md) maps the reference behaviors, r
 Management pages and their drafts are recreated when the authenticated workspace scope changes.
 `server/activity.ts` retains structured task output for the local `src/nexus/activity.tsx` disclosure,
 including Code Mode's false, zero and null selections alongside ordered printed output.
-`src/session/commands/export-session.tsx` owns downloads from `/export` and the session header.
+`src/session/header/session-options.tsx` shares the options menu between the header and recent rows.
+`src/session/commands/session-actions.tsx` owns the rename and delete dialogs and calls the scoped Nexus bridge.
+`src/session/commands/export-session.tsx` owns downloads from the options menu and `/export`.
 The Nexus bridge in `server/export.ts` converts the retained conversation's diagnostic stream into a JSON array,
 including records beyond the nine-dialog view. Human members with read access can export the conversation.
 
