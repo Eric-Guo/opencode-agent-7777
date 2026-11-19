@@ -107,7 +107,7 @@ including Code Mode's false, zero and null selections alongside ordered printed 
 `src/context/tab.tsx` shows current context, accumulated usage and the existing Nexus activity controls in one dialog.
 `src/session/header/session-options.tsx` shares the options menu between the header and recent rows.
 `src/session/commands/session-actions.tsx` owns the rename and delete dialogs and calls the scoped Nexus bridge.
-`src/session/commands/export-session.tsx` owns downloads from the options menu and `/export`.
+`src/session/commands/export-session.tsx` owns downloads from the options menu, context dialog and `/export`.
 The Nexus bridge in `server/export.ts` converts the retained conversation's diagnostic stream into a JSON array,
 including records beyond the nine-dialog view. Human members with read access can export the conversation.
 

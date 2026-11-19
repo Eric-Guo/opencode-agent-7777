@@ -5,9 +5,10 @@ import { Tooltip } from "@opencode/ui/tooltip"
 import { createMemo, For, Show } from "solid-js"
 import type { ChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
+import type { createSessionExporter } from "@/session/commands/export-session"
 import { SessionContextTab } from "./tab"
 
-export function SessionContextUsage(props: { chat: ChatController }) {
+export function SessionContextUsage(props: { chat: ChatController; exporter: ReturnType<typeof createSessionExporter> }) {
   const language = useLanguage()
   const dialog = useDialog()
   const state = props.chat.s
@@ -55,7 +56,7 @@ export function SessionContextUsage(props: { chat: ChatController }) {
         </DialogHeader>
         <DialogBody>
           <Show when={state.id === id && state.connection?.scope === scope && state.hydrated}>
-            <SessionContextTab chat={props.chat} cost={cost()} />
+            <SessionContextTab chat={props.chat} cost={cost()} exporter={props.exporter} />
           </Show>
         </DialogBody>
       </Dialog>

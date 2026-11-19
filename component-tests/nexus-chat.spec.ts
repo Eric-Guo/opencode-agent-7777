@@ -130,6 +130,7 @@ test("exports a read-only conversation and retires a pending export when the con
         runner: "r",
       })
     if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/work")) return json([])
     if (path.endsWith("/export")) {
       requests.push(path)
       if (path.endsWith("/first/export")) {
@@ -155,12 +156,17 @@ test("exports a read-only conversation and retires a pending export when the con
   await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/first")
   const editor = page.getByRole("textbox", { name: "Message", exact: true })
   const exportItem = sessionItem(page, "Export session")
+  const ring = page.getByRole("button", { name: "View context usage", exact: true })
+  const contextExport = page.getByRole("dialog", { name: "Context usage" }).getByRole("button", { name: "Export session" })
   await expect(editor).toHaveAttribute("contenteditable", "false")
   await optionsFor(page, "First").click()
   await exportItem.click()
   await expect.poll(() => requests.length).toBe(1)
   await optionsFor(page, "First").click()
   await expect(exportItem).toBeDisabled()
+  await page.keyboard.press("Escape")
+  await ring.click()
+  await expect(contextExport).toBeDisabled()
   await page.keyboard.press("Escape")
 
   await page.evaluate(() => {
@@ -181,9 +187,12 @@ test("exports a read-only conversation and retires a pending export when the con
   expect(downloads).toEqual([])
 
   const saved = page.waitForEvent("download")
-  await second.click()
-  await exportItem.click()
-  expect((await saved).suggestedFilename()).toBe("conversation-second.json")
+  await ring.click()
+  await contextExport.click()
+  const file = await saved
+  expect(file.suggestedFilename()).toBe("conversation-second.json")
+  expect(JSON.parse(await readFile(await file.path(), "utf8"))).toEqual([{ type: "end" }])
+  await expect(contextExport).toBeEnabled()
   expect(downloads).toEqual(["conversation-second.json"])
   expect(requests).toEqual([
     "/api/7777/chats/first/export",
