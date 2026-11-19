@@ -10,8 +10,12 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 | Public package                   | Reused responsibility                                                                                                     |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `@opencode/client`               | Data, catalogs, APIs, transport types and context-usage selection                                                         |
+| `@opencode/gui-plugins`          | Display-only context-usage ring                                                                                          |
 | `@opencode/session-ui`           | Timeline, attachment/comment cards, line-selection types, `DockPrompt`, `SessionReview`, context viewers                  |
-| `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, context ring/tooltip, image previews, touch visibility, scrolling, i18n, paths and titles |
+| `@opencode/ui`, `@opencode/util` | Controls, typeahead navigation, tooltips, image previews, touch visibility, scrolling, i18n, paths and titles              |
+
+The header uses the public `ContextUsage` indicator from `@opencode/gui-plugins/context/context-usage`.
+The compact adapter owns the button, localized cost/context/token tooltip, and dialog focus restoration.
 
 Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
 Shared Markdown owns fence completion, source copying and block disposal. The 7777 renderer handles ECharts

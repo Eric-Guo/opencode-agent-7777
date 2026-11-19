@@ -302,12 +302,12 @@ rich text; HTML data views, navigation links, image resources, prototype keys, a
 Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
 messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
 
-Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header composes the public UI
-`ProgressCircle` and `Tooltip` with a native button, preserving its ring and cost/context/token tooltip. This local
-adapter supplies mouse and keyboard activation because the plugin's indicator variant is display-only.
-Local `context/model.ts` adapts the compact catalog
-for both views, delegating usage-step selection to `lastAssistantWithUsage` from `@opencode/client/solid` so usage
-follows undo boundaries and completed compaction. Missing usage or model capacity stays unknown in the details;
+Context usage follows the GUI plugin's `context/{indicator,tab}.tsx` boundaries. The header renders the public
+`ContextUsage` indicator from `@opencode/gui-plugins/context/context-usage` inside its native button. The local
+adapter owns pointer and keyboard activation, focus restoration, and the cost, context, and token tooltip.
+Local `context/model.ts` adapts the compact catalog for both views, delegating usage-step selection to
+`lastAssistantWithUsage` from `@opencode/client/solid` so usage follows undo boundaries and completed compaction.
+Missing usage or model capacity stays unknown in the details;
 reported zero tokens remain zero. No app or plugin-host internals are imported.
 
 Click the header's context ring, use **/context**, or choose **Add → Commands → /context** to open the read-only usage

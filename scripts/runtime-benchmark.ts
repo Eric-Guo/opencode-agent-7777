@@ -328,6 +328,18 @@ try {
         const transcriptPath = `/api/session/${sessions[1].id}/message`
         const transcriptReads = requests[transcriptPath]
         const editor = page.getByRole("textbox", { name: "Message", exact: true })
+        const ring = page.getByRole("button", { name: "View context usage", exact: true })
+        const indicator = ring.locator('[data-component="progress-circle"][data-appearance="indicator"]')
+        const ringPercentage = () =>
+          indicator.locator('[data-slot="progress-circle-progress"]').evaluate((circle) => {
+            const circumference = Number(circle.getAttribute("stroke-dasharray"))
+            const offset = Number(circle.getAttribute("stroke-dashoffset"))
+            return Math.round(100 * (1 - offset / circumference))
+          })
+        await expect(ring).toHaveCount(1)
+        await expect(ring).toHaveAttribute("aria-haspopup", "dialog")
+        await expect(indicator).toHaveAttribute("width", "16")
+        await expect.poll(ringPercentage).toBe(0)
         await editor.fill("Keep this draft while checking usage")
         await page.getByRole("button", { name: "Add images and files", exact: true }).click()
         await page.getByRole("menuitem", { name: "Commands /", exact: true }).click()
@@ -368,15 +380,16 @@ try {
           ...data,
           finish: "stop",
           cost: 0.1,
-          tokens: { input: 100, output: 20, reasoning: 5, cache: { read: 10, write: 15 } },
+          tokens: { input: 25_450, output: 20, reasoning: 5, cache: { read: 10, write: 15 } },
         })
         emit("session.usage.updated", {
           sessionID: sessions[1].id,
           cost: 1.5,
-          tokens: { input: 1000, output: 200, reasoning: 50, cache: { read: 100, write: 150 } },
+          tokens: { input: 100_000, output: 200, reasoning: 50, cache: { read: 100, write: 150 } },
         })
-        await expect(details.getByRole("row", { name: "Input 100 1,000", exact: true })).toBeVisible()
-        await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeVisible()
+        const totals = details.getByRole("row", { name: "Total 25,500 100,500", exact: true })
+        await expect(details.getByRole("row", { name: "Input 25,450 100,000", exact: true })).toBeVisible()
+        await expect(totals).toBeVisible()
         await expect(details.getByText("$1.50", { exact: true })).toBeVisible()
         await expect(files.locator("[data-code]")).toContainText('"finish": "stop"')
         await files.scrollIntoViewIfNeeded()
@@ -390,11 +403,11 @@ try {
         await expect(files).toHaveCount(0)
         await raw.press("Enter")
         await page.setViewportSize({ width: 1100, height: 800 })
-        await details.getByRole("row", { name: "Total 150 1,500", exact: true }).scrollIntoViewIfNeeded()
+        await totals.scrollIntoViewIfNeeded()
         await page.screenshot({ path: output.replace(/\.json$/, "-context.png") })
         await page.setViewportSize({ width: 390, height: 800 })
         expect(await details.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1)
-        await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeInViewport()
+        await expect(totals).toBeInViewport()
         await page.screenshot({ path: output.replace(/\.json$/, "-context-narrow.png") })
         await details.getByRole("button", { name: "Close", exact: true }).press("Escape")
         await expect(details).toBeHidden()
@@ -414,10 +427,15 @@ try {
         await expect(page.locator('[role="dialog"]')).toHaveCount(0)
         await page.waitForTimeout(150)
         await page.setViewportSize({ width: 1100, height: 800 })
-        const ring = page.getByRole("button", { name: "View context usage", exact: true })
+        await expect.poll(ringPercentage).toBe(26)
+        await ring.hover()
+        const tooltip = page.getByRole("tooltip")
+        await expect(tooltip.getByText("26%", { exact: true })).toBeVisible()
+        await expect(tooltip.getByText("25,500", { exact: true })).toBeVisible()
+        await expect(tooltip.getByText("$1.50", { exact: true })).toBeVisible()
         await ring.click()
         await expect(details).toBeVisible()
-        await expect(details.getByRole("row", { name: "Total 150 1,500", exact: true })).toBeVisible()
+        await expect(totals).toBeVisible()
         expect((await details.boundingBox())!.width).toBe(900)
         await page.screenshot({ path: output.replace(/\.json$/, "-context-ring.png") })
         await details.getByRole("button", { name: "Close", exact: true }).press("Escape")
