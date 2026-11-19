@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test"
+import { APIError } from "@cybros/agent"
 import { createServer } from "node:http"
 import type { AddressInfo } from "node:net"
 import { gzipSync } from "node:zlib"
@@ -238,6 +239,51 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     full = true
     expect((await send("/chats/a/delete", {})).status).toBe(200)
     expect(deletes).toBe(1)
+  } finally {
+    await close()
+  }
+})
+
+test("context inspection returns only system text and reads raw records within the selected conversation", async () => {
+  const raw = { public_id: "turn", role: "assistant", active_variant: { content: "Recorded response" } }
+  const reads: string[] = []
+  const b = {
+    workspaceID: "workspace",
+    connection: { scope: "scope" },
+    workspace: {
+      conversation: (id: string) => ({
+        fetch: async () => ({ public_id: id, workspace_public_id: id === "other" ? "different" : "workspace" }),
+        turns: {
+          fetch: async (turn: string) => {
+            reads.push(`${id}/${turn}`)
+            return raw
+          },
+          request: async (turn: string, variant: string) => {
+            reads.push(`${id}/${turn}/${variant}`)
+            if (variant === "pruned")
+              throw new APIError("Expired", 410, "execution_details_pruned", null, null, null)
+            return {
+              entries: [
+                { role: "system", parts: [{ type: "text", text: "First instruction" }, { type: "image" }] },
+                { role: "user", parts: [{ type: "text", text: "Human input" }] },
+                { role: "system", parts: [{ type: "text", text: "Second instruction" }] },
+              ],
+            }
+          },
+        },
+      }),
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(b)
+  try {
+    expect((await send("/chats/a/system-prompt?turn=turn")).status).toBe(400)
+    expect((await send("/chats/other/raw-message?turn=turn")).status).toBe(404)
+    expect(await (await send("/chats/a/system-prompt?turn=turn&variant=variant")).json()).toBe(
+      "First instruction\n\nSecond instruction",
+    )
+    expect(await (await send("/chats/a/system-prompt?turn=turn&variant=pruned")).json()).toBeNull()
+    expect(await (await send("/chats/a/raw-message?turn=turn")).json()).toEqual(raw)
+    expect(reads).toEqual(["a/turn/variant", "a/turn/pruned", "a/turn"])
   } finally {
     await close()
   }

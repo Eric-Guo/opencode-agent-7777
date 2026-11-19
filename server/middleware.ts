@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import { activityRead, execution, field, ownedRun } from "./activity"
+import { readSystemPrompt } from "./context"
 import { exportConversation } from "./export"
 import { fileBytes, outputs, outputTurn, review, restoreReview } from "./outputs"
 import type { ServiceConnection } from "./native"
@@ -243,6 +244,13 @@ export function middleware(
       if (req.method === "GET") {
         if (action === "export") return await exportConversation(chat, id!, res)
         if (action === "options") return json(res, 200, await conversationOptions(b, info))
+        if (action === "system-prompt") {
+          const turn = field(url.searchParams.get("turn"), "turn")
+          const variant = field(url.searchParams.get("variant"), "variant")
+          return json(res, 200, await readSystemPrompt(chat, turn, variant))
+        }
+        if (action === "raw-message")
+          return json(res, 200, await chat.turns.fetch(field(url.searchParams.get("turn"), "turn")))
 
         if (action === "memory")
           return json(res, 200, {

@@ -512,6 +512,63 @@ test("steers a running reply, queues the next, promotes without resending, and r
   await expect(ring).toBeFocused()
 })
 
+test("inspects the latest recorded system prompt and fetches raw messages on demand", async ({ page }) => {
+  await mockEvents(page)
+  const reads: string[] = []
+  await page.route("**/api/7777/**", async (route) => {
+    const url = new URL(route.request().url())
+    const path = url.pathname
+    const json = (data: unknown) => route.fulfill({ json: data })
+    if (path.endsWith("/connection"))
+      return json({ scope: "context", user: "Human", workspace: "Shared", agent: "OpenCode", model: "m", runner: "r" })
+    if (path.endsWith("/choices")) return json({ models: [], runners: [], approvals: [] })
+    if (path.endsWith("/work")) return json([])
+    if (path.endsWith("/system-prompt")) {
+      reads.push(`system ${url.searchParams.get("turn")} ${url.searchParams.get("variant")}`)
+      return json("## Sealed system instructions")
+    }
+    if (path.endsWith("/raw-message")) {
+      reads.push(`raw ${url.searchParams.get("turn")}`)
+      return json({ public_id: "new", role: "assistant", active_variant: { content: "Original stored response" } })
+    }
+    if (route.request().method() === "POST") return json([])
+    return json({
+      turns: ["old", "new"].map((id, index) => ({
+        id,
+        variant: `${id}-v`,
+        run: `${id}-run`,
+        position: index + 1,
+        created: 1,
+        prompt: `Question ${id}`,
+        text: "Projected response",
+        status: "completed",
+      })),
+      pending: [],
+      busy: false,
+      decisions: [],
+      problem: null,
+      detail: { title: "Context fixture", owned: false, writable: false, archived: false },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/context")
+  await page.getByRole("button", { name: "View context usage" }).click()
+  const dialog = page.getByRole("dialog", { name: "Context usage" })
+  const system = dialog.getByRole("button", { name: "System prompt", exact: true })
+  const messages = dialog.getByRole("button", { name: "Raw messages", exact: true })
+  await expect(system).toHaveAttribute("aria-expanded", "false")
+  await expect(messages).toHaveAttribute("aria-expanded", "false")
+  expect(reads).toEqual([])
+
+  await system.click()
+  await expect(dialog.getByRole("heading", { name: "Sealed system instructions" })).toBeVisible()
+  await messages.click()
+  await expect(dialog.getByRole("button", { name: "Turn 1 • old" })).toBeVisible()
+  expect(reads).toEqual(["system new new-v"])
+  await dialog.getByRole("button", { name: "Turn 2 • new" }).click()
+  await expect(dialog.getByRole("region", { name: "Turn 2 • new" })).toContainText("Original stored response")
+  expect(reads).toEqual(["system new new-v", "raw new"])
+})
+
 test("keeps slow answer files with their variant and loads recorded changes and rounds on demand", async ({ page }) => {
   await mockEvents(page)
   await page.addInitScript(() => localStorage.setItem("7777.nexus.output", JSON.stringify({ id: "chat" })))
