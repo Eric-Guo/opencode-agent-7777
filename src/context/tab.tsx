@@ -6,6 +6,7 @@ import { Activity } from "@/nexus/activity"
 import type { ChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { createSessionExporter } from "@/session/commands/export-session"
+import { SessionContextMessages } from "./messages"
 
 export function SessionContextTab(props: {
   chat: ChatController
@@ -78,6 +79,7 @@ export function SessionContextTab(props: {
         </div>
         <Activity chat={props.chat} />
       </section>
+      <SessionContextMessages chat={props.chat} />
     </div>
   )
 }
