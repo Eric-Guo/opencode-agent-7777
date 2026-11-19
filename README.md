@@ -103,6 +103,9 @@ The [Rho WebUI review](docs/rho-webui-parity.md) maps the reference behaviors, r
 Management pages and their drafts are recreated when the authenticated workspace scope changes.
 `server/activity.ts` retains structured task output for the local `src/nexus/activity.tsx` disclosure,
 including Code Mode's false, zero and null selections alongside ordered printed output.
+`src/session/commands/export-session.tsx` owns downloads from `/export` and the session header.
+The Nexus bridge in `server/export.ts` converts the retained conversation's diagnostic stream into a JSON array,
+including records beyond the nine-dialog view. Human members with read access can export the conversation.
 
 7777 owns the Nexus integration. Its compact header menus, result disclosures and decision dock provide the compact desktop interface.
 

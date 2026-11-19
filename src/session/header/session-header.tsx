@@ -6,8 +6,13 @@ import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import type { createChatController } from "@/nexus/controller"
 import { useLanguage } from "@/runtime/i18n/language"
+import type { createSessionExporter } from "../commands/export-session"
 
-export function SessionHeader(props: { chat: ReturnType<typeof createChatController>; dialogCount: number }) {
+export function SessionHeader(props: {
+  chat: ReturnType<typeof createChatController>
+  exporter: ReturnType<typeof createSessionExporter>
+  dialogCount: number
+}) {
   const chat = props.chat
   const s = chat.s
   const language = useLanguage()
@@ -58,6 +63,15 @@ export function SessionHeader(props: { chat: ReturnType<typeof createChatControl
         >
           <Icon name="plus" />
         </Button>
+        <Show when={props.exporter.available()}>
+          <Button
+            disabled={props.exporter.running()}
+            aria-busy={props.exporter.running()}
+            onClick={() => void props.exporter.run()}
+          >
+            {language.t("session.export.json")}
+          </Button>
+        </Show>
         <ConversationActions chat={chat} />
         <HomeSessionsRegion chat={chat} />
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>

@@ -58,6 +58,7 @@ export type ComposerEditorView = {
     enabled?: Accessor<boolean>
     stopping: Accessor<boolean>
     working?: Accessor<boolean>
+    sendUnmatchedSlash?: boolean
     queue?: ComposerQueue
     onSubmit: (options?: { alternate?: boolean }) => void
     onStop: () => void
@@ -375,7 +376,13 @@ export function createComposerEditor(input: {
             : event.key === "ArrowUp" || (ctrl && event.key === "p")
               ? "ArrowUp"
               : undefined
-      if (key === "Enter" || (key && suggestions().length > 0)) {
+      const hasSuggestions = suggestions().length > 0
+      const submitUnmatched =
+        event.key === "Enter" &&
+        input.view.submit.sendUnmatchedSlash &&
+        state.popover.type === "command-inline" &&
+        !hasSuggestions
+      if (key && !submitUnmatched && (key === "Enter" || hasSuggestions)) {
         navigation.onKeyDown(new KeyboardEvent("keydown", { key }))
         handled = true
       }

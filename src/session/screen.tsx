@@ -25,6 +25,7 @@ import { ChatTranscript } from "@/nexus/transcript"
 import { SendControls } from "@/nexus/send-controls"
 import { useSettings } from "@/settings/model"
 import { createSessionTimelineInteraction } from "./timeline/interaction"
+import { createSessionExporter } from "./commands/export-session"
 
 export default function SessionPage() {
   const chat = createChatController()
@@ -36,20 +37,53 @@ export default function SessionPage() {
   const interaction = createSessionTimelineInteraction({ identity: () => s.id })
   const draft = createStore<ComposerPersistedState>({ prompt: [], context: { items: [] } })
   const agent = () => s.connection?.agent || "OpenCode"
+  const exportTarget = createMemo(() => {
+    const scope = s.connection?.scope
+    if (scope && s.id && s.hydrated && !s.accessDenied && !navigation.page()) return { id: s.id, scope }
+  })
+  const exporter = createSessionExporter(exportTarget)
+  const runExport = () => {
+    if (!s.id) {
+      showToast({ title: language.t("toast.session.export.noSession") })
+      return
+    }
+    void exporter.run()
+  }
   const editor = createComposerEditor({
     store: draft,
     identity: () => s.id,
-    commands: () => [],
+    commands: () => [
+      {
+        id: "session.export",
+        kind: "command",
+        trigger: "export",
+        label: "/export",
+        title: language.t("command.session.export"),
+        description: language.t("command.session.export.description"),
+      },
+    ],
     context: () => [],
     searchContextFiles: () => [],
-    capabilities: { commands: false, shell: false, context: false },
+    capabilities: { shell: false, context: false },
     onChange: () => chat.edit(promptText(draft[0].prompt)),
+    onSuggestionSelect: (item) => (item.id === "session.export" ? runExport : undefined),
     view: {
       placeholder: () => language.t("prompt.message.aria"),
       submit: {
+        sendUnmatchedSlash: true,
         enabled: () => chat.writable() && !s.sending,
         stopping: () => chat.stoppable() && s.snapshot.busy && !s.sending && (!s.draft.trim() || !chat.writable()),
-        onSubmit: (options) => void chat.send(options?.alternate, settings.general.followUpBehavior()),
+        onSubmit: (options) => {
+          const text = s.draft.trim()
+          if (!/^\/export(?=\s|$)/.test(text))
+            return void chat.send(options?.alternate, settings.general.followUpBehavior())
+          if (text !== "/export") {
+            showToast({ title: language.t("prompt.command.noArguments", { command: "/export" }) })
+            return
+          }
+          chat.edit("")
+          runExport()
+        },
         onStop: () => void chat.stop(),
       },
     },
@@ -83,7 +117,11 @@ export default function SessionPage() {
   return (
     <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
       <Management chat={chat} navigation={navigation}>
-        <SessionHeader chat={chat} dialogCount={doc().messages.filter((message) => message.type === "user").length} />
+        <SessionHeader
+          chat={chat}
+          exporter={exporter}
+          dialogCount={doc().messages.filter((message) => message.type === "user").length}
+        />
         <main
           class="relative min-h-0"
           on:pointerdown={{ capture: true, handleEvent: interaction.view.markInput }}

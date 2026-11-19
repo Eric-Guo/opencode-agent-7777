@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { readFile } from "node:fs/promises"
 
 // Exercise the real 7777 entry and editor. The fixture supplies the browser bridge
 // protocol so streaming, decisions and recovery are deterministic and cost no model calls.
@@ -21,6 +22,164 @@ async function mockEvents(page: import("@playwright/test").Page) {
     Object.defineProperty(window, "EventSource", { value: Events })
   })
 }
+
+test("exports with Enter, Send and the slash suggestion without sending a chat message", async ({ page }) => {
+  await mockEvents(page)
+  const records = [{ type: "turn", turn: { text: "你好" } }, { type: "end" }]
+  let exports = 0
+  let release!: () => void
+  const messages: string[] = []
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (path.endsWith("/connection"))
+      return json({ scope: "export", user: "Human", agent: "OpenCode", workspace: "Shared", model: "m", runner: "r" })
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/export")) {
+      expect(route.request().headers()["x-7777-scope"]).toBe("export")
+      exports++
+      if (exports === 1) await new Promise<void>((resolve) => (release = resolve))
+      return route.fulfill({ contentType: "application/json", body: JSON.stringify(records, null, 2) + "\n" })
+    }
+    if (path.endsWith("/prepare") || path.endsWith("/inputs")) {
+      messages.push(route.request().postDataJSON().text)
+      return route.fulfill({ status: 400, json: { error: "Fixture stops here" } })
+    }
+    if (route.request().method() === "POST") return json([])
+    return json({
+      turns: [],
+      pending: [],
+      busy: false,
+      decisions: [],
+      problem: null,
+      detail: { title: "Shared", owned: false, archived: false, writable: true },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const send = page.getByRole("button", { name: "Send", exact: true })
+  const suggestion = page.getByRole("button", { name: /^\/export/ })
+  const exportButton = page.getByRole("button", { name: "Export JSON", exact: true })
+  await expect(editor).toHaveAttribute("contenteditable", "true")
+
+  for (const trigger of ["enter", "send", "suggestion"] as const) {
+    await editor.fill(trigger === "suggestion" ? "/exp" : "/export")
+    await expect(suggestion).toBeVisible()
+    const saved = page.waitForEvent("download")
+    if (trigger === "enter") {
+      await editor.press("Escape")
+      await editor.press("Enter")
+      await expect.poll(() => exports).toBe(1)
+      await expect(exportButton).toBeDisabled()
+      await editor.fill("/export")
+      await send.click()
+      await expect(editor).toHaveText("")
+      release()
+    } else if (trigger === "send") await send.click()
+    else await suggestion.click()
+    const file = await saved
+    expect(file.suggestedFilename()).toBe("conversation-chat.json")
+    expect(JSON.parse(await readFile(await file.path(), "utf8"))).toEqual(records)
+    await expect(exportButton).toBeEnabled()
+    await expect(editor).toHaveText("")
+  }
+
+  await editor.fill("/export latest")
+  await editor.press("Enter")
+  await expect(page.getByText("/export does not take arguments. Your draft has been kept.")).toBeVisible()
+  await expect(editor).toHaveText("/export latest")
+  expect(exports).toBe(3)
+  expect(messages).toEqual([])
+
+  await editor.fill("/unrelated")
+  await editor.press("Enter")
+  await expect.poll(() => messages).toEqual(["/unrelated"])
+
+  await page.getByRole("button", { name: "New session", exact: true }).click()
+  await expect(exportButton).toHaveCount(0)
+  await editor.fill("/export")
+  await send.click()
+  await expect(page.getByText("Open a saved conversation to export it.")).toBeVisible()
+  expect(exports).toBe(3)
+  expect(messages).toEqual(["/unrelated"])
+})
+
+test("exports a read-only conversation and retires a pending export when the conversation changes", async ({
+  page,
+}) => {
+  await mockEvents(page)
+  const downloads: string[] = []
+  page.on("download", (file) => downloads.push(file.suggestedFilename()))
+  const requests: string[] = []
+  let release!: () => void
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (path.endsWith("/connection"))
+      return json({
+        scope: JSON.stringify(["origin", "human", "shared", "agent"]),
+        user: "Human",
+        agent: "OpenCode",
+        workspace: "Shared",
+        model: "m",
+        runner: "r",
+      })
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/export")) {
+      requests.push(path)
+      if (path.endsWith("/first/export")) {
+        await new Promise<void>((resolve) => (release = resolve))
+        return route
+          .fulfill({ contentType: "application/json", body: '[\n  {"type":"end"}\n]\n' })
+          .catch(() => undefined)
+      }
+      if (requests.length === 2) return route.fulfill({ status: 503, json: { error: "Fixture unavailable" } })
+      if (requests.length === 3) return route.fulfill({ contentType: "application/json", body: '[\n  {"type":"turn"}' })
+      return route.fulfill({ contentType: "application/json", body: '[\n  {"type":"end"}\n]\n' })
+    }
+    if (route.request().method() === "POST") return json([])
+    return json({
+      turns: [],
+      pending: [],
+      busy: false,
+      decisions: [],
+      problem: null,
+      detail: { title: "Shared", owned: false, archived: true, writable: false },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/first")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const button = page.getByRole("button", { name: "Export JSON", exact: true })
+  await expect(editor).toHaveAttribute("contenteditable", "false")
+  await button.click()
+  await expect(button).toBeDisabled()
+  await expect.poll(() => requests.length).toBe(1)
+
+  await page.evaluate(() => {
+    location.hash = "/workspaces/shared/conversations/second"
+  })
+  await expect(button).toBeEnabled()
+  release()
+  await button.click()
+  await expect(page.getByText("Could not export session", { exact: true })).toBeVisible()
+  await expect(page.getByText("Fixture unavailable", { exact: true })).toBeVisible()
+  expect(downloads).toEqual([])
+
+  await button.click()
+  await expect(page.getByText("The server did not return a valid session export.", { exact: true })).toBeVisible()
+  expect(downloads).toEqual([])
+
+  const saved = page.waitForEvent("download")
+  await button.click()
+  expect((await saved).suggestedFilename()).toBe("conversation-second.json")
+  expect(downloads).toEqual(["conversation-second.json"])
+  expect(requests).toEqual([
+    "/api/7777/chats/first/export",
+    "/api/7777/chats/second/export",
+    "/api/7777/chats/second/export",
+    "/api/7777/chats/second/export",
+  ])
+})
 
 test("keeps reconnect visible while pending and reports a repeated failure before recovering", async ({ page }) => {
   const failure = "Configure a Nexus origin and pair the OpenCode service."
