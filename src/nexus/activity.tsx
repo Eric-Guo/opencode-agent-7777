@@ -224,7 +224,7 @@ export function Activity(p: { chat: ChatController }) {
   const c = p.chat,
     lang = useLanguage()
   return (
-    <div class="chat-inspect">
+    <>
       <DetailRead<{ id: string; status: string }[]> chat={c} revision={c.s.revision} path={chatPath(c, "work")}>
         {(runs) => (
           <>
@@ -252,57 +252,6 @@ export function Activity(p: { chat: ChatController }) {
       <Show when={c.s.error}>
         <p role="alert">{c.s.error}</p>
       </Show>
-    </div>
-  )
-}
-export function Usage(p: { chat: ChatController }) {
-  const lang = useLanguage(),
-    detail = () => p.chat.s.snapshot.detail,
-    usage = () => detail()?.usage,
-    context = () => detail()?.context
-  const n = (value: number | null | undefined) =>
-    value == null ? lang.t("chat.unknown") : new Intl.NumberFormat(lang.intl()).format(value)
-  return (
-    <div class="chat-inspect">
-      <h3>{lang.t("chat.usageTotal")}</h3>
-      <dl>
-        <For
-          each={
-            [
-              ["chat.requests", "request_count"],
-              ["chat.tokens", "total_tokens"],
-              ["chat.inputTokens", "input_tokens"],
-              ["chat.cacheTokens", "cache_read_tokens"],
-              ["chat.outputTokens", "output_tokens"],
-              ["chat.reasonTokens", "reasoning_tokens"],
-            ] as const
-          }
-        >
-          {([key, k]) => (
-            <>
-              <dt>{lang.t(key)}</dt>
-              <dd>{n(usage()?.[k])}</dd>
-            </>
-          )}
-        </For>
-        <dt>{lang.t(usage()?.cost_complete === false ? "chat.subtotal" : "chat.cost")}</dt>
-        <dd>
-          {usage() ? [usage()!.cost_amount, usage()!.cost_unit].filter(Boolean).join(" ") : lang.t("chat.unknown")}
-        </dd>
-      </dl>
-      <Show when={usage()?.cost_complete === false}>
-        <p>{lang.t("chat.partial")}</p>
-      </Show>
-      <h3>{lang.t("chat.context")}</h3>
-      <dl>
-        <dt>{lang.t("chat.occupancy")}</dt>
-        <dd>
-          {n(context()?.used_tokens)} / {n(context()?.window_tokens)}{" "}
-          {context()?.used_percent != null ? "(" + n(context()!.used_percent) + "%)" : ""}
-        </dd>
-        <dt>{lang.t("chat.actual")}</dt>
-        <dd>{context()?.as_of_model?.model_ref || lang.t("chat.unknown")}</dd>
-      </dl>
-    </div>
+    </>
   )
 }

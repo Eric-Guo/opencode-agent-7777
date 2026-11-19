@@ -20,7 +20,6 @@ export const dict = {
   "chat.attention": "Needs attention",
   "chat.channel": "Continue this conversation in its channel.",
   "chat.activity": "Activity",
-  "chat.usage": "Usage",
   "chat.automatic": "Automatic",
   "chat.model": "Model",
   "chat.runner": "Runner",
