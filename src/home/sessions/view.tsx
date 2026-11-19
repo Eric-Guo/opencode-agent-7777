@@ -1,7 +1,8 @@
 import { Icon } from "@opencode/ui/icon"
 import { MenuScroll } from "@opencode/ui/menu-scroll"
 import { TextInput } from "@opencode/ui/text-input"
-import { createMemo, For, onCleanup, onMount, Show } from "solid-js"
+import { createMemo, For, onCleanup, onMount, Show, type JSX } from "solid-js"
+import type { RecentChat } from "@/nexus/chat"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { HomeSessionsController } from "./controller"
 import { groupSessions, recentSessionDescription, recentSessionTitle } from "./records"
@@ -11,6 +12,7 @@ export function HomeSessionsView(props: {
   sessions: HomeSessionsController
   search: HomeSessionSearchController
   fallbackTitle: string
+  row?: (session: RecentChat, option: JSX.Element) => JSX.Element
 }) {
   const language = useLanguage()
   const navigation = props.search.result
@@ -96,7 +98,7 @@ export function HomeSessionsView(props: {
               <For each={group.sessions}>
                 {(session) => {
                   const id = session.id
-                  return (
+                  const option = (
                     <button
                       id={navigation.optionID(session)}
                       type="button"
@@ -104,7 +106,7 @@ export function HomeSessionsView(props: {
                       aria-selected={active() === id}
                       disabled={props.sessions.session.switching()}
                       tabIndex={-1}
-                      class="block w-full rounded-md px-2 py-1.5 text-start text-[13px] leading-5 text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline disabled:opacity-55"
+                      class="block w-full min-w-0 flex-1 rounded-md px-2 py-1.5 text-start text-[13px] leading-5 text-v2-text-text-base hover:bg-v2-overlay-simple-overlay-hover focus-visible:outline disabled:opacity-55"
                       classList={{
                         "bg-v2-overlay-simple-overlay-hover": active() === id,
                       }}
@@ -125,6 +127,7 @@ export function HomeSessionsView(props: {
                       </span>
                     </button>
                   )
+                  return props.row?.(session, option) ?? option
                 }}
               </For>
             </div>

@@ -37,11 +37,11 @@ export default function SessionPage() {
   const interaction = createSessionTimelineInteraction({ identity: () => s.id })
   const draft = createStore<ComposerPersistedState>({ prompt: [], context: { items: [] } })
   const agent = () => s.connection?.agent || "OpenCode"
-  const exportTarget = createMemo(() => {
+  const exportOwner = createMemo(() => {
     const scope = s.connection?.scope
-    if (scope && s.id && s.hydrated && !s.accessDenied && !navigation.page()) return { id: s.id, scope }
+    if (scope && !navigation.page()) return { id: s.id, scope }
   })
-  const exporter = createSessionExporter(exportTarget)
+  const exporter = createSessionExporter(exportOwner, () => s.hydrated && !s.accessDenied)
   const runExport = () => {
     if (!s.id) {
       showToast({ title: language.t("toast.session.export.noSession") })

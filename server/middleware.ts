@@ -16,7 +16,9 @@ import { Schema } from "effect"
 import {
   BridgeError,
   discoverNative,
+  canManage,
   canWrite,
+  conversationOptions,
   grantSite,
   ownership,
   channelOwned,
@@ -240,6 +242,7 @@ export function middleware(
 
       if (req.method === "GET") {
         if (action === "export") return await exportConversation(chat, id!, res)
+        if (action === "options") return json(res, 200, await conversationOptions(b, info))
 
         if (action === "memory")
           return json(res, 200, {
@@ -287,7 +290,7 @@ export function middleware(
       if (req.method !== "POST") throw new BridgeError(405, "Expected POST.")
       if (action !== "stop") {
         if (await channelOwned(b, info)) throw new BridgeError(403, "Continue this conversation in its channel.")
-        if (info.archived_at && !["restore", "rename"].includes(action!))
+        if (info.archived_at && !["restore", "rename", "delete"].includes(action!))
           throw new BridgeError(409, "Restore this conversation first.")
       }
 
@@ -363,7 +366,10 @@ export function middleware(
         return json(res, 202, { id: result.input.public_id })
       }
       if (action === "stop") await chat.cancel()
-      else if (action === "rename") {
+      else if (action === "delete") {
+        if (!canManage(b, info)) throw new BridgeError(403, "Write access is required to delete this conversation.")
+        await chat.delete()
+      } else if (action === "rename") {
         if (!Number.isSafeInteger(body.version)) throw new BridgeError(400, "Missing conversation version.")
         await chat.update({ title: field(body.title, "title").trim(), lock_version: body.version })
       } else if (action === "archive") await chat.archive()

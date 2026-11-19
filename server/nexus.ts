@@ -2,7 +2,7 @@ import { nexusService, type ServiceConnection } from "./native"
 import { APIError, Client, type Conversation, type ResolveTask, type TaskDetail } from "@cybros/agent"
 import { RealtimeClient } from "@cybros/agent/realtime"
 import { Schema } from "effect"
-import { loadTurns, type Connection, type Decision, type Resolution, type Snapshot } from "../src/nexus/chat"
+import { loadTurns, type Connection, type ConversationOptions, type Decision, type Resolution, type Snapshot } from "../src/nexus/chat"
 
 export class BridgeError extends Error {
   constructor(
@@ -112,14 +112,24 @@ export async function channelOwned(b: Backend, info: Conversation) {
   return ownership(info) || info.answering_user_public_id !== b.agentID
 }
 
+export async function conversationOptions(b: Backend, info: Conversation): Promise<ConversationOptions> {
+  return {
+    title: info.title ?? "",
+    archived: !!info.archived_at,
+    owned: await channelOwned(b, info),
+    writable: canManage(b, info),
+    version: info.lock_version,
+  }
+}
+
 export async function snapshot(backend: Backend, id: string): Promise<Snapshot> {
   const { chat, info } = await readChat(backend, id)
 
   // Unbounded turns.list starts at the oldest turn. A before-position window reads newest first.
-  const [turns, inputs, owned] = await Promise.all([
+  const [turns, inputs, options] = await Promise.all([
     loadTurns((before_position) => chat.turns.list({ before_position: before_position ?? 2_147_483_647, limit: 36 })),
     chat.inputs.list(),
-    channelOwned(backend, info),
+    conversationOptions(backend, info),
   ])
   const pending = inputs.items.filter((item) => ["pending", "blocked", "held", "steering"].includes(item.state))
   const decisions: Decision[] = []
@@ -167,7 +177,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
         kind: task.status === "needs_approval" ? "approval" : "ask",
         tool: task.tool_name,
         siteGrant:
-          !owned && detail.task.target?.executor_public_id === backend.localRunner && canWrite(backend, info)
+          !options.owned && detail.task.target?.executor_public_id === backend.localRunner && canWrite(backend, info)
             ? grantSite(detail)
             : undefined,
         prompt: detail.prompt,
@@ -181,14 +191,10 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
   return {
     turns,
     detail: {
-      title: info.title ?? "",
+      ...options,
       runner: info.default_runner?.display_name || info.default_runner?.executor_public_id || null,
-      archived: !!info.archived_at,
-      owned,
-      writable: canManage(backend, info),
       bot: typeof info.metadata["opencode.bot"] === "string" ? info.metadata["opencode.bot"] : undefined,
       active,
-      version: info.lock_version,
       usage: info.usage_summary,
       context: info.context,
     },

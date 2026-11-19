@@ -1,15 +1,16 @@
 import { showToast, toaster } from "@opencode/ui/toast"
 import { createEffect, createSignal, on, onCleanup, onMount, type Accessor } from "solid-js"
-import { CONVERSATION_EXPORT_END, conversationExportFilename } from "@/nexus/chat"
+import { CONVERSATION_EXPORT_END, conversationExportFilename, type ConversationTarget } from "@/nexus/chat"
 import { useLanguage } from "@/runtime/i18n/language"
 import { readableError } from "@/shell/errors/readable"
 
-type Target = { id: string; scope: string }
-type ExportAttempt = { target: Target; controller: AbortController; notice?: number }
+type ExportAttempt = { owner: ConversationTarget; id: string; controller: AbortController; notice?: number }
 
-export function createSessionExporter(target: Accessor<Target | undefined>) {
+export function createSessionExporter(owner: Accessor<ConversationTarget | undefined>, canExportActive: Accessor<boolean>) {
   const language = useLanguage()
   const [active, setActive] = createSignal<ExportAttempt>()
+  const valid = (current: ConversationTarget, id: string) =>
+    owner() === current && (id !== current.id || canExportActive())
 
   function finish(attempt: ExportAttempt) {
     setActive(undefined)
@@ -18,9 +19,9 @@ export function createSessionExporter(target: Accessor<Target | undefined>) {
   }
 
   createEffect(
-    on(target, (current) => {
+    on([owner, canExportActive], () => {
       const attempt = active()
-      if (attempt && attempt.target !== current) finish(attempt)
+      if (attempt && !valid(attempt.owner, attempt.id)) finish(attempt)
     }),
   )
   function cancel() {
@@ -34,15 +35,16 @@ export function createSessionExporter(target: Accessor<Target | undefined>) {
     cancel()
   })
 
-  async function run() {
-    const current = target()
-    if (!current || active()) return
+  async function run(target?: ConversationTarget) {
+    const current = owner()
+    const id = target?.id ?? current?.id
+    if (!current || !id || (target && target.scope !== current.scope) || !valid(current, id) || active()) return
 
     const controller = new AbortController()
-    const attempt: ExportAttempt = { target: current, controller }
+    const attempt: ExportAttempt = { owner: current, id, controller }
     const timeout = AbortSignal.timeout(60_000)
     const signal = AbortSignal.any([controller.signal, timeout])
-    const ownsExport = () => active() === attempt && target() === current
+    const ownsExport = () => active() === attempt && valid(current, id)
     setActive(attempt)
     attempt.notice = showToast({
       variant: "loading",
@@ -55,7 +57,7 @@ export function createSessionExporter(target: Accessor<Target | undefined>) {
     }
 
     try {
-      const response = await fetch(`/api/7777/chats/${encodeURIComponent(current.id)}/export`, {
+      const response = await fetch(`/api/7777/chats/${encodeURIComponent(id)}/export`, {
         headers: { "x-7777-scope": encodeURIComponent(current.scope) },
         signal,
       })
@@ -70,7 +72,7 @@ export function createSessionExporter(target: Accessor<Target | undefined>) {
       signal.throwIfAborted()
       if (end !== CONVERSATION_EXPORT_END) throw new Error(language.t("toast.session.export.invalid"))
 
-      const filename = conversationExportFilename(current.id)
+      const filename = conversationExportFilename(id)
       const url = URL.createObjectURL(file)
       const link = document.createElement("a")
       try {
@@ -100,5 +102,5 @@ export function createSessionExporter(target: Accessor<Target | undefined>) {
   }
 
   const timeoutError = () => new Error(language.t("toast.session.export.timeout"))
-  return { available: () => !!target(), running: () => !!active(), run }
+  return { available: () => !!owner()?.id && canExportActive(), running: () => !!active(), run }
 }

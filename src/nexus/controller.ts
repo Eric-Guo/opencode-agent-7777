@@ -1,5 +1,5 @@
 import { createStore, reconcile } from "solid-js/store"
-import { storageGet, storageSet } from "../runtime/persistence/storage"
+import { storageGet, storageRemove, storageSet } from "../runtime/persistence/storage"
 import type { TurnPage } from "@cybros/agent"
 import { uuid } from "@opencode/util/uuid"
 import { readFollowUpBehavior } from "../runtime/persistence/settings-storage-compact"
@@ -7,6 +7,8 @@ import {
   updateLive,
   projectTurn,
   type Choices,
+  type ConversationAction,
+  type ConversationTarget,
   type ModeValues,
   type ConversationModes,
   type Approval,
@@ -73,7 +75,11 @@ const empty = (): Snapshot => ({ turns: [], pending: [], busy: false, problem: n
 export function createChatController(
   api = request,
   openEvents = (url: string) => new EventSource(url),
-  storage = { getItem: storageGet, setItem: storageSet },
+  storage: Pick<Storage, "getItem" | "setItem"> & Partial<Pick<Storage, "removeItem">> = {
+    getItem: storageGet,
+    setItem: storageSet,
+    removeItem: storageRemove,
+  },
 ) {
   const [s, set] = createStore({
     connection: undefined as Connection | undefined,
@@ -318,12 +324,30 @@ export function createChatController(
   function select(id: string) {
     if (s.sending) return
     persist()
+    openSelection(id)
+  }
+  function openSelection(id: string) {
     set("error", "")
     restore(id)
 
     if (!id && s.connection) loadChoices(s.connection)
     follow(id)
     persist()
+  }
+  async function manageSession(target: ConversationTarget, action: ConversationAction, body: object = {}) {
+    if (s.connection?.scope !== target.scope || s.sending || (target.id === s.id && !manageable())) return false
+    set("sending", true)
+    try {
+      await api(`/chats/${encodeURIComponent(target.id)}/${action}`, target.scope, body, AbortSignal.timeout(15_000))
+      if (action === "delete") storage.removeItem?.(`7777.nexus.${target.scope}.draft.${target.id}`)
+      if (s.connection?.scope === target.scope && s.id === target.id) {
+        if (action === "delete") openSelection("")
+        else await refresh()
+      }
+      return true
+    } finally {
+      set("sending", false)
+    }
   }
   function edit(text: string) {
     if (s.sending || s.draft === text) return
@@ -549,6 +573,7 @@ export function createChatController(
     manageable,
     stoppable,
     latestSteer,
+    manageSession,
     command,
     refresh,
     earlier,

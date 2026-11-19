@@ -5,14 +5,24 @@ import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
 import { request, type createChatController } from "@/nexus/controller"
 import type { RecentPage } from "@/nexus/chat"
+import type { createSessionExporter } from "@/session/commands/export-session"
+import type { createSessionActions } from "@/session/commands/session-actions"
+import { SessionOptions } from "@/session/header/session-options"
 import { createHomeSessionsController } from "./controller"
 import { createHomeSessionIndex } from "./queries"
+import { recentSessionTitle } from "./records"
 import { createHomeSessionSearchController } from "./search"
 import { HomeSessionsView } from "./view"
 
 // The compact Home region is hosted in the session header instead of a route.
-export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatController> }) {
+export function HomeSessionsRegion(props: {
+  chat: ReturnType<typeof createChatController>
+  exporter: ReturnType<typeof createSessionExporter>
+  actions: ReturnType<typeof createSessionActions>
+}) {
+  let trigger!: HTMLButtonElement
   const language = useLanguage()
+  const fallbackTitle = () => props.chat.s.connection?.agent ?? "OpenCode"
   const [local, setLocal] = createStore({ open: false, archived: false })
   const source = createMemo(() => {
     const connection = props.chat.s.connection
@@ -69,6 +79,7 @@ export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatCo
       class="w-[320px] !max-w-[calc(100vw-28px)] [&_[data-slot=popover-body]]:!p-2"
       triggerAs="button"
       triggerProps={{
+        ref: (element) => (trigger = element),
         type: "button",
         "aria-label": language.t("session.recent"),
         title: language.t("session.recent"),
@@ -97,7 +108,32 @@ export function HomeSessionsRegion(props: { chat: ReturnType<typeof createChatCo
             {language.t("chat.archived")}
           </button>
         </div>
-        <HomeSessionsView sessions={sessions} search={search} fallbackTitle={props.chat.s.connection?.agent ?? "OpenCode"} />
+        <HomeSessionsView
+          sessions={sessions}
+          search={search}
+          fallbackTitle={fallbackTitle()}
+          row={(session, option) => {
+            const scope = props.chat.s.connection?.scope
+            if (!scope) return option
+            return (
+              <SessionOptions
+                target={{ id: session.id, scope }}
+                title={recentSessionTitle(session, fallbackTitle())}
+                archived={local.archived}
+                loadDetail
+                busy={props.chat.s.sending}
+                exporter={props.exporter}
+                actions={props.actions}
+                onSelect={() => {
+                  setOpen(false)
+                  trigger.focus({ preventScroll: true })
+                }}
+              >
+                {option}
+              </SessionOptions>
+            )
+          }}
+        />
       </Show>
     </Popover>
   )
