@@ -129,6 +129,7 @@ export function Management(props: { chat: ChatController; navigation: Navigation
       <Show when={props.navigation.page()}>
         <div
           class="nexus-management"
+          classList={{ "nexus-plugins-page": props.navigation.page() === "Plugins" }}
           role="dialog"
           aria-modal="true"
           aria-label={props.navigation.page()}
