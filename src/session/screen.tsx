@@ -26,10 +26,12 @@ import { SendControls } from "@/nexus/send-controls"
 import { useSettings } from "@/settings/model"
 import { createSessionTimelineInteraction } from "./timeline/interaction"
 import { createSessionExporter } from "./commands/export-session"
+import { BrowserPane, createSessionBrowser } from "./browser/pane"
 
 export default function SessionPage() {
   const chat = createChatController()
   const navigation = createNavigation(chat)
+  const browser = createSessionBrowser()
   const settings = useSettings()
   const s = chat.s
   const language = useLanguage()
@@ -114,13 +116,14 @@ export default function SessionPage() {
     const d = s.snapshot.decisions[0]
     return d ? d.run + "/" + d.key : undefined
   }
-  return (
-    <div class="relative isolate grid h-full min-w-0 grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep text-v2-text-text-base">
+  const transcript = (
+    <div class="relative isolate grid h-full min-w-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)_auto_auto] bg-v2-background-bg-deep">
       <Management chat={chat} navigation={navigation}>
         <SessionHeader
           chat={chat}
           exporter={exporter}
           dialogCount={doc().messages.filter((message) => message.type === "user").length}
+          browser={browser.api ? { open: browser.open(), toggle: browser.toggle } : undefined}
         />
         <main
           class="relative min-h-0"
@@ -225,6 +228,14 @@ export default function SessionPage() {
           />
         </div>
       </Management>
+    </div>
+  )
+  return (
+    <div class="relative flex h-full min-w-0 text-v2-text-text-base">
+      {transcript}
+      <Show when={browser.open() && !navigation.page() && browser.api}>
+        {(api) => <BrowserPane api={api()} state={browser.state()} close={browser.toggle} />}
+      </Show>
     </div>
   )
 }

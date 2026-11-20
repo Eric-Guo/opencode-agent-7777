@@ -15,6 +15,7 @@ export function SessionHeader(props: {
   chat: ReturnType<typeof createChatController>
   exporter: ReturnType<typeof createSessionExporter>
   dialogCount: number
+  browser?: { open: boolean; toggle(): void }
 }) {
   const chat = props.chat
   const s = chat.s
@@ -83,6 +84,18 @@ export function SessionHeader(props: {
         <SessionContextUsage chat={chat} exporter={props.exporter} />
         <HomeSessionsRegion chat={chat} exporter={props.exporter} actions={actions} />
         <ConversationActions chat={chat} />
+        <Show when={props.browser}>
+          {(browser) => (
+            <Button
+              aria-label={language.t("browser.title")}
+              aria-expanded={browser().open}
+              aria-controls="nexus-browser-pane"
+              onClick={() => browser().toggle()}
+            >
+              <Icon name="globe" />
+            </Button>
+          )}
+        </Show>
         <Button onClick={() => language.setLocale(language.locale() === "en" ? "zh" : "en")}>
           {language.locale().toUpperCase()}
         </Button>
