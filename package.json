@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./browser-pane": "./src/runtime/platform/browser-pane.ts",
     "./desktop": "./server/desktop.ts"
   },
   "scripts": {

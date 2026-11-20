@@ -99,6 +99,14 @@ The [Rho WebUI review](docs/rho-webui-parity.md) maps the reference behaviors, r
 
 ## Code Layout Parity Review
 
+The Nexus Browser pane lives in `src/session/browser/pane.tsx`. SigmaAgents
+mounts the native page in the Nexus tab and sends tab state through the narrow
+`src/runtime/platform/browser-pane.ts` contract. Enable the Desktop backend
+and save a dedicated OpenCode session ID under **Plugins → Browser → Settings**.
+Keep the Nexus tab open to hold the browser attachment. The OpenCode chat tab
+does not need to display that session. The Browser button opens the pane
+manually, and a Nexus browser tool opening a tab reveals it automatically.
+
 `src/nexus/navigation.ts` owns fragment navigation and page lifecycle for the embedded Nexus interface.
 `src/nexus/memory-bindings.tsx` owns the conversation memory editor; `server/memory.ts` validates its scoped writes.
 Management pages and their drafts are recreated when the authenticated workspace scope changes.
