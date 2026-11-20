@@ -107,9 +107,9 @@ function SessionActionDialog(props: {
           description={renaming ? undefined : language.t("session.delete.confirm", { name: props.name })}
         />
       </DialogHeader>
-      <form onSubmit={submit}>
+      <form class="contents" onSubmit={submit}>
         <Show when={renaming}>
-          <DialogBody>
+          <DialogBody class="px-4">
             <TextInput
               appearance="large"
               class="!w-full"
