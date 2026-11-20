@@ -1,0 +1,185 @@
+#oc-agent .nexus-plugins-page {
+  --nexus-plugins-width: 760px;
+  background: var(--v2-background-bg-base);
+  font-size: 13px;
+  line-height: var(--line-height-base);
+
+  > header {
+    padding: 12px max(16px, calc((100% - var(--nexus-plugins-width)) / 2));
+    border-color: var(--v2-border-border-muted);
+  }
+
+  > header h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 640;
+  }
+
+  > .nexus-management-body {
+    padding: 24px 16px 48px;
+  }
+
+  > .nexus-management-body > :is(.nexus-plugin-settings, [role="alert"], [role="status"]) {
+    max-width: var(--nexus-plugins-width);
+    margin-inline: auto;
+  }
+
+  > .nexus-management-body > :is([role="alert"], [role="status"]) {
+    margin-block-end: 16px;
+    overflow-wrap: anywhere;
+  }
+}
+
+#oc-agent .nexus-plugin-settings {
+  display: grid;
+  gap: 32px;
+  container-type: inline-size;
+
+  .nexus-plugin-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-block-end: 12px;
+  }
+
+  .nexus-plugin-section-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 530;
+  }
+
+  [data-component="settings-list"] {
+    padding-inline: 16px;
+    border-radius: 8px;
+    background: var(--v2-background-bg-layer-01);
+    box-shadow: inset 0 0 0 0.5px var(--v2-border-border-muted);
+  }
+
+  :is(.nexus-plugin, .nexus-package-row) + :is(.nexus-plugin, .nexus-package-row) {
+    border-block-start: 0.5px solid var(--v2-border-border-base);
+  }
+
+  [data-component="settings-row"] {
+    flex-wrap: nowrap;
+    gap: 12px 24px;
+    padding-block: 12px;
+  }
+
+  [data-slot="settings-row-copy"] {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 13px;
+  }
+
+  [data-slot="settings-row-title"] {
+    font-weight: 530;
+  }
+
+  [data-slot="settings-row-description"] {
+    color: var(--v2-text-text-muted);
+    line-height: 20px;
+  }
+
+  .nexus-plugin-toggle {
+    max-width: calc(100% + var(--button-v2-inset));
+    height: auto;
+    min-height: 24px;
+    gap: 4px;
+    white-space: normal;
+    text-align: start;
+    font-weight: 530;
+    scroll-margin-block: 12px;
+  }
+
+  .nexus-plugin-toggle svg {
+    flex-shrink: 0;
+    color: var(--v2-icon-icon-muted);
+  }
+
+  .nexus-plugin-warning {
+    color: var(--v2-state-fg-warning);
+  }
+
+  .nexus-plugin-warning.is-error {
+    color: var(--v2-state-fg-danger);
+  }
+
+  .nexus-plugin-empty {
+    padding-block: 16px;
+    color: var(--v2-text-text-muted);
+  }
+
+  .nexus-plugin-details {
+    padding-block: 4px 16px;
+    overflow-wrap: anywhere;
+  }
+
+  .nexus-plugin-details .nexus-error {
+    padding: 0;
+  }
+
+  .nexus-plugin-metadata {
+    color: var(--v2-text-text-muted);
+  }
+
+  .nexus-plugin-metadata summary {
+    width: fit-content;
+    cursor: pointer;
+  }
+
+  .nexus-plugin-metadata[open] summary {
+    margin-block-end: 8px;
+  }
+
+  .nexus-package-row [data-slot="settings-row-control"] {
+    width: min(58%, 400px);
+    min-width: 0;
+  }
+
+  .nexus-package-install {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nexus-package-activation {
+    padding-block: 0 16px;
+    border-block-start: 0.5px solid var(--v2-border-border-base);
+  }
+
+  :is(.nexus-plugin-details form > .nexus-actions, .nexus-package-actions) {
+    justify-content: flex-end;
+  }
+}
+
+@container (min-width: 521px) {
+  #oc-agent .nexus-plugin-details {
+    .nexus-field:has(> :is(input, select)) {
+      grid-template-columns: minmax(0, 1fr) min(50%, 320px);
+      align-items: center;
+      gap: 4px 24px;
+
+      > :is(input, select) {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+        justify-self: end;
+      }
+    }
+
+    .nexus-field-group:has(> .nexus-field > :is(input, select)) > .nexus-actions {
+      justify-content: flex-end;
+    }
+  }
+}
+
+@container (max-width: 520px) {
+  #oc-agent .nexus-plugin-settings .nexus-package-row [data-component="settings-row"] {
+    flex-wrap: wrap;
+  }
+
+  #oc-agent .nexus-plugin-settings .nexus-package-row [data-slot="settings-row-control"] {
+    width: 100%;
+  }
+}
