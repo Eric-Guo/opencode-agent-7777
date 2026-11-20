@@ -22,6 +22,9 @@
   padding: 16px 22px;
   border-bottom: 1px solid var(--border-base);
 }
+#oc-agent:not([aria-hidden]) .nexus-management > header[data-tauri-drag-region] {
+  app-region: drag;
+}
 .nexus-management-body {
   overflow: auto;
   padding: 24px;
