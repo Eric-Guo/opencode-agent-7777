@@ -147,6 +147,14 @@
   line-height: 1.35;
 }
 
+#oc-agent:not([aria-hidden]) [data-slot="session-header"][data-tauri-drag-region] {
+  app-region: drag;
+
+  > [data-slot="session-header-controls"] {
+    app-region: no-drag;
+  }
+}
+
 @container (max-width: 720px) {
   #oc-agent [data-slot="session-header"] {
     gap: 8px;

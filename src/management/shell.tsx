@@ -4,6 +4,7 @@ import { Button } from "@opencode/ui/button"
 import type { WorkspaceSummary } from "@cybros/agent"
 import type { Navigation } from "../nexus/navigation"
 import type { ChatController } from "../nexus/controller"
+import { isElectronUserAgent } from "../runtime/platform/platform-bridge"
 import { createManagementClient } from "./client"
 import { createModuleHost } from "./modules"
 import { SlotView } from "./slot"
@@ -137,7 +138,7 @@ export function Management(props: { chat: ChatController; navigation: Navigation
             if (event.key === "Escape") props.navigation.openPage("")
           }}
         >
-          <header>
+          <header data-tauri-drag-region={isElectronUserAgent(navigator.userAgent) ? "" : undefined}>
             <h2>{props.navigation.page()}</h2>
             <Button class="ml-auto" onClick={() => props.navigation.openPage("")}>
               Back to conversation

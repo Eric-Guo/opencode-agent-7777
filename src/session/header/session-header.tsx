@@ -15,6 +15,7 @@ export function SessionHeader(props: {
   chat: ReturnType<typeof createChatController>
   exporter: ReturnType<typeof createSessionExporter>
   dialogCount: number
+  windowDrag: boolean
   browser?: { open: boolean; toggle(): void }
 }) {
   const chat = props.chat
@@ -25,6 +26,7 @@ export function SessionHeader(props: {
   return (
     <header
       data-slot="session-header"
+      data-tauri-drag-region={props.windowDrag ? "" : undefined}
       class="flex flex-wrap items-center justify-between gap-4 px-11 pb-4 pt-5 max-[720px]:px-[18px]"
     >
       <div class="min-w-0 max-w-full">

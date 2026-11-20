@@ -17,6 +17,7 @@ import { createNavigation } from "@/nexus/navigation"
 import { timeline } from "@/nexus/timeline"
 import { DecisionDock } from "@/nexus/decision"
 import { useLanguage } from "@/runtime/i18n/language"
+import { isElectronUserAgent } from "@/runtime/platform/platform-bridge"
 import { ErrorBanner } from "@/shell/errors/banner-compact"
 import { SessionUIProvider } from "@/shell/routes/session-ui-provider"
 import { AgentWelcome } from "./agent-welcome-compact"
@@ -123,6 +124,7 @@ export default function SessionPage() {
           chat={chat}
           exporter={exporter}
           dialogCount={doc().messages.filter((message) => message.type === "user").length}
+          windowDrag={isElectronUserAgent(navigator.userAgent) && !navigation.page()}
           browser={browser.api ? { open: browser.open(), toggle: browser.toggle } : undefined}
         />
         <main
