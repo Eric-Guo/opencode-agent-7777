@@ -129,6 +129,30 @@ browserSuite(import.meta.path, () => {
     expect(state.error).toBe("")
   })
 
+  test("holds the directory-wide form while resolving a possible child and restores it after the child settles", async () => {
+    const parent = Promise.withResolvers<SessionInfo>()
+    const { model, calls } = fixture(() => parent.promise)
+    const global = { ...question("global"), metadata: { kind: "mcp-elicitation" } }
+    handleFormEvent({
+      id: "directory",
+      created: 1,
+      type: "form.created",
+      location: { directory: "/fixture" },
+      data: { form: global },
+    })
+    const first = model.elicitationRequest()
+    expect(first?.sessionID).toBe("global")
+    form("child")
+    expect(model.elicitationRequest()).toBeUndefined()
+    parent.resolve(session("child", "root"))
+    await flush()
+    expect(calls).toEqual(["child"])
+    expect(model.questionRequest()?.sessionID).toBe("child")
+    expect(model.elicitationRequest()).toBeUndefined()
+    handleFormEvent({ id: "done", created: 2, type: "form.cancelled", data: { id: "form", sessionID: "child" } })
+    expect(model.elicitationRequest()).toBe(first)
+  })
+
   test("settling and switching away and back retire reads even if the client ignores cancellation", async () => {
     const held = Promise.withResolvers<SessionInfo>()
     const signals: AbortSignal[] = []

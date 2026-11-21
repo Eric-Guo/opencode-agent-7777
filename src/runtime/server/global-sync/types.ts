@@ -2,8 +2,8 @@ import type { ModelSelection } from "@/runtime/server/persistence"
 import type { ModelLoadStatus } from "@/providers/models/selection"
 import type { ModelOption } from "@/providers/models/models"
 import type { ServerInfo } from "@/runtime/server/resolver-compact"
+import type { FormWithLocation } from "@opencode/client/solid"
 import type {
-  FormInfo,
   PermissionRequest,
   SessionInfo,
   SessionInboxInfo,
@@ -31,7 +31,7 @@ export type State = {
   agentModels: Record<string, (ModelSelection & { variant?: string }) | undefined>
   permission: Record<string, PermissionRequest[] | undefined>
   permissionResponding: string | undefined
-  form: Record<string, FormInfo[] | undefined>
+  form: Record<string, FormWithLocation[] | undefined>
   questionResponding: string | undefined
   submitting: boolean
   error: string

@@ -1,11 +1,23 @@
 import type { FormAnswer } from "@opencode/client/promise"
+import type { FormWithLocation } from "@opencode/client/solid"
 import { createEffect, createMemo, on } from "solid-js"
-import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
+import {
+  currentRuntime,
+  currentSession,
+  isCurrentDirectory,
+  setState,
+  state,
+} from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { sessionDirectory } from "@/session/directory"
 import { translateSync } from "@/runtime/i18n/language"
 import { decidePermission, notifyCurrentPermission } from "@/session/requests/permission-sync-compact"
-import { rejectQuestion, replyQuestion, replyForm } from "@/session/requests/form-sync-compact"
+import {
+  rejectQuestion,
+  replyQuestion,
+  replyForm,
+  submitElicitationResponse,
+} from "@/session/requests/form-sync-compact"
 import { isRoutedForm, sessionPermissionRequest, sessionFormRequest, sessionTreeIDs } from "./session-request-tree"
 import { requestSessions } from "./sync-compact"
 import { createWebSearchRequest } from "./websearch"
@@ -18,7 +30,7 @@ export function createSessionRequestModel() {
     if (runtime.id !== state.session?.id) return runtime.requestAncestry.update([], [])
     const owners = new Set(Object.keys(state.permission).filter((id) => state.permission[id]?.length))
     for (const id of Object.keys(state.form)) {
-      if (state.form[id]?.some(isRoutedForm)) owners.add(id)
+      if (id !== "global" && state.form[id]?.some(isRoutedForm)) owners.add(id)
     }
     runtime.requestAncestry.update(state.recentSessions, [...owners])
   })
@@ -74,13 +86,35 @@ export function createSessionRequestModel() {
     const form = formRequest()
     return form?.metadata?.kind === "question" ? form : undefined
   })
+  const elicitationRequest = createMemo(() => {
+    if (!sessions().length || websearch.request()) return
+    const form = formRequest()
+    if (form) return form.metadata?.kind === "mcp-elicitation" ? form : undefined
+    if (permissionRequest() || currentRuntime()?.requestAncestry.loading()) return
+    return state.form.global?.find(
+      (item) =>
+        item.metadata?.kind === "mcp-elicitation" && item.location && isCurrentDirectory(item.location.directory),
+    )
+  })
 
   return {
-    blocked: createMemo(() => !!permissionRequest() || !!questionRequest() || !!websearch.request()),
+    blocked: createMemo(
+      () => !!permissionRequest() || !!questionRequest() || !!websearch.request() || !!elicitationRequest(),
+    ),
     websearch,
     permissionRequest,
     permissionResponding: () => state.permissionResponding === permissionRequest()?.id,
     questionRequest,
+    elicitationRequest,
+    elicitationSubagent: createMemo(() => {
+      const id = elicitationRequest()?.sessionID
+      if (!id || id === "global" || id === state.session?.id) return
+      return sessions().find((session) => session.id === id)?.title || id
+    }),
+    formBusy: () => state.questionResponding !== undefined,
+    respondToElicitation(request: FormWithLocation, answer?: FormAnswer) {
+      if (request === elicitationRequest()) submitElicitationResponse(request, answer)
+    },
     questionResponding: () => state.questionResponding === questionRequest()?.id,
     decidePermission(response: "once" | "always" | "reject") {
       const request = permissionRequest()

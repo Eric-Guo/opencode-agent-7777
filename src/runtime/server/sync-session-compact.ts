@@ -7,20 +7,23 @@ import {
 import { sessionRemoved } from "@/home/sessions/switcher-compact"
 import { applySessionEvent } from "./global-sync/event-reducer-session"
 import { handlePermissionEvent } from "@/session/requests/permission-sync-compact"
-import { handleFormEvent } from "@/session/requests/form-sync-compact"
+import { handleFormEvent, refreshForms } from "@/session/requests/form-sync-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { currentDraft, currentRuntime, setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 import { bounded } from "./operation"
 import { createLoadState, transitionLoad } from "./load-machine"
 import { clearReadError, reportReadError } from "./read-errors"
 import { createStreamState, transitionStream, type StreamEvent } from "./server-sync-machine"
+import { defaultIdleTimeout } from "@opencode/client/solid"
 import { abort } from "@opencode/util/abort"
 import { readableError } from "@/shell/errors/readable"
 import { sessionDirectory } from "@/session/directory"
 import type { OpenCodeEvent } from "@opencode/client/promise"
 import type { OpenCodeEventStream } from "./client-compact"
 
-let streamAbort: AbortController | undefined
+const INITIAL_RETRY_MS = 1_000
+const MAX_RETRY_MS = 30_000
+let stopEventStream: (() => void) | undefined
 let initialization = createLoadState()
 let bootstrapAbort: AbortController | undefined
 let stream = createStreamState()
@@ -44,9 +47,15 @@ function scheduleMessageRefresh(delay = 120) {
   currentRuntime()?.schedule(delay)
 }
 
+function refreshPendingForms() {
+  void refreshForms().catch((error) => setState("error", readableError(error)))
+}
+
 function handleEvent(event: OpenCodeEvent) {
   if (event.type === "server.connected") {
     scheduleMessageRefresh(0)
+    // Pick up forms created or settled between the activation read and the live stream, or while disconnected.
+    refreshPendingForms()
     return
   }
   if (event.type === "session.deleted") {
@@ -55,55 +64,75 @@ function handleEvent(event: OpenCodeEvent) {
   }
   if (handlePermissionEvent(event)) return
   if (handleFormEvent(event)) return
-  applySessionEvent(event, { refresh: scheduleMessageRefresh })
+  const applied = applySessionEvent(event, { refresh: scheduleMessageRefresh })
+  if (applied && event.type === "session.moved") refreshPendingForms()
 }
 
-function stopEventStream() {
-  abort(streamAbort)
-  streamAbort = undefined
-  dispatchStream({ type: "stop" })
-}
-
-function startEventStream() {
-  stopEventStream()
+export function restartSessionEventStream() {
+  stopEventStream?.()
   const runtime = currentRuntime()
   const server = state.server
   const directory = state.session ? sessionDirectory(state.session) : undefined
   if (!server || !directory || !runtime?.alive()) return
-  const activeClient = createDirectorySdk(server, directory).client
-  const controller = new AbortController()
-  streamAbort = controller
-  dispatchStream({ type: "start" })
-  const attempt = stream.attempt
-  const retire = () => {
-    abort(controller)
-    dispatchStream({ type: "ended", attempt })
-  }
-  runtime.signal.addEventListener("abort", retire, { once: true })
-  void (async () => {
-    const events = activeClient.event.subscribe({
-      signal: controller.signal,
-      onActivity: () => {
-        if (!controller.signal.aborted) dispatchStream({ type: "activity", attempt })
-      },
-    })
-    for await (const event of events) {
-      if (controller.signal.aborted) return
-      handleEvent(event)
-      listeners.forEach((handler) => handler(event))
-    }
-  })()
-    .catch((error) => {
-      if (!controller.signal.aborted) setState("error", readableError(error))
-    })
-    .finally(() => {
-      runtime.signal.removeEventListener("abort", retire)
-      dispatchStream({ type: "ended", attempt })
-    })
-}
+  const client = createDirectorySdk(server, directory).client
+  let request: AbortController | undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let delay = INITIAL_RETRY_MS
 
-export function restartSessionEventStream() {
-  startEventStream()
+  const stop = () => {
+    stopEventStream = undefined
+    runtime.signal.removeEventListener("abort", stop)
+    clearTimeout(timer)
+    abort(request)
+    clearReadError(stop)
+    dispatchStream({ type: "stop" })
+  }
+
+  async function connect() {
+    if (stopEventStream !== stop) return
+    const controller = new AbortController()
+    request = controller
+    dispatchStream({ type: "start" })
+    const attempt = stream.attempt
+    // Heartbeats are SSE comments. Count bytes even when there is no application event.
+    const watch = () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => abort(controller), defaultIdleTimeout)
+    }
+    watch()
+    try {
+      const events = client.event.subscribe({
+        signal: controller.signal,
+        onActivity: () => {
+          if (controller.signal.aborted) return
+          watch()
+          if (stream.status === "live") return
+          delay = INITIAL_RETRY_MS
+          clearReadError(stop)
+          dispatchStream({ type: "activity", attempt })
+        },
+      })
+      for await (const event of events) {
+        if (controller.signal.aborted) break
+        handleEvent(event)
+        listeners.forEach((handler) => handler(event))
+      }
+    } catch (error) {
+      if (!controller.signal.aborted) reportReadError(stop, error, restartSessionEventStream)
+    } finally {
+      abort(controller)
+      if (stopEventStream === stop) {
+        clearTimeout(timer)
+        timer = setTimeout(connect, delay)
+        delay = Math.min(MAX_RETRY_MS, delay * 2)
+        dispatchStream({ type: "ended", attempt })
+      }
+    }
+  }
+
+  stopEventStream = stop
+  runtime.signal.addEventListener("abort", stop, { once: true })
+  void connect()
 }
 
 export function initializeSessionSync() {
@@ -160,7 +189,7 @@ export function disposeSessionSync() {
   initialization = transitionLoad(initialization, { type: "disposed" })
   abort(bootstrapAbort)
   clearReadError(startupError)
-  stopEventStream()
+  stopEventStream?.()
   setSessionClient(undefined)
 }
 

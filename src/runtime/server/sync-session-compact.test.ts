@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, spyOn, test } from "bun:test"
+import { afterEach, describe, expect, jest, spyOn, test } from "bun:test"
 import { OpenCode, type OpenCodeEvent, type SessionInfo } from "@opencode/client/promise"
+import { defaultIdleTimeout } from "@opencode/client/solid"
 import { reconcile } from "solid-js/store"
 import {
   disposeSessionSync,
@@ -12,20 +13,23 @@ import * as catalogs from "@/providers/catalog/loader-compact"
 import { currentDraft, setSessionClient, setState, state } from "./session-store-compact"
 
 const originalFetch = globalThis.fetch
+const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 const encode = new TextEncoder()
 
 afterEach(() => {
   disposeSessionSync()
+  jest.useRealTimers()
   globalThis.fetch = originalFetch
   setState("server", undefined)
   setState("session", undefined)
   setState("form", reconcile({}))
+  setState("error", "")
 })
 
 async function until(check: () => boolean) {
   for (let attempt = 0; attempt < 50; attempt++) {
     if (check()) return
-    await new Promise((resolve) => setTimeout(resolve, 1))
+    await tick()
   }
   throw new Error("Session stream did not reach the expected state")
 }
@@ -91,6 +95,86 @@ describe("compact session event stream", () => {
     streams[0].close()
     await until(() => !state.eventsConnected)
     expect(state.eventsConnected).toBe(false)
+  })
+
+  test("reconnects after EOF and a failed retry, then reads forms missed during the gap", async () => {
+    jest.useFakeTimers()
+    const streams = fixture()
+    const sse = globalThis.fetch
+    let calls = 0
+    let reads = 0
+    const form = {
+      id: "missed",
+      sessionID: "global",
+      title: "MCP input",
+      metadata: { kind: "mcp-elicitation" },
+      fields: [{ type: "string", key: "answer" }],
+    }
+    globalThis.fetch = (async (input, init) => {
+      const url = new URL(new Request(input, init).url)
+      if (url.pathname === "/api/event") {
+        if (++calls === 2) throw new Error("Disconnected")
+        return sse(input, init)
+      }
+      if (url.pathname === "/api/form") {
+        expect(url.searchParams.get("location[directory]")).toBe("/repo")
+        reads++
+        return Response.json({ location: { directory: "/repo" }, data: [form] })
+      }
+      return Response.json({ data: [], cursor: {} })
+    }) as typeof fetch
+    setSessionClient(OpenCode.make({ baseUrl: "http://fixture.test", fetch: globalThis.fetch }), state.session)
+    restartSessionEventStream()
+    await until(() => streams.length === 1)
+    streams[0].enqueue(encode.encode(": heartbeat\n\n"))
+    await until(() => state.eventsConnected)
+    streams[0].close()
+    await until(() => !state.eventsConnected)
+    jest.advanceTimersByTime(1000)
+    await until(() => calls === 2)
+    await until(() => !!state.error)
+    jest.advanceTimersByTime(2000)
+    await until(() => streams.length === 2)
+    streams[1].enqueue(encode.encode('data: {"type":"server.connected","data":{}}\n\n'))
+    await until(() => state.form.global?.[0]?.id === "missed")
+    expect(state.eventsConnected).toBe(true)
+    expect(state.error).toBe("")
+    expect(reads).toBe(1)
+    expect(state.form.global?.[0]?.location?.directory).toBe("/repo")
+    streams[1].close()
+    await until(() => !state.eventsConnected)
+    setSessionClient(undefined)
+    jest.advanceTimersByTime(60_000)
+    await tick()
+    expect(calls).toBe(3)
+  })
+
+  test("heartbeat bytes extend the stall deadline and a silent connection is replaced", async () => {
+    jest.useFakeTimers()
+    const streams = fixture()
+    restartSessionEventStream()
+    await until(() => streams.length === 1)
+    const heartbeat = () => streams[0].enqueue(encode.encode(": heartbeat\n\n"))
+    heartbeat()
+    await until(() => state.eventsConnected)
+    jest.advanceTimersByTime(defaultIdleTimeout - 1)
+    heartbeat()
+    await tick()
+    jest.advanceTimersByTime(defaultIdleTimeout - 1)
+    expect(state.eventsConnected).toBe(true)
+    expect(streams).toHaveLength(1)
+    jest.advanceTimersByTime(1)
+    await until(() => !state.eventsConnected)
+    jest.advanceTimersByTime(1000)
+    await until(() => streams.length === 2)
+    streams[1].enqueue(encode.encode(": connected\n\n"))
+    await until(() => state.eventsConnected)
+    disposeSessionSync()
+    streams.forEach((stream) => stream.close())
+    jest.advanceTimersByTime(2 * defaultIdleTimeout)
+    await tick()
+    expect(state.eventsConnected).toBe(false)
+    expect(streams).toHaveLength(2)
   })
 
   test("forwards events to listeners and keeps a replacement stream connected", async () => {

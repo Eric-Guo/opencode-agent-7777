@@ -42,6 +42,10 @@ The README documents the local runtime/cache, desktop schemas, request widgets, 
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
 keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
 repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
+MCP input requests use local `session/requests/{session-elicitation-dock.tsx,elicitation-controller.ts}` with the
+public `DockPrompt` shell and form controls. Session and subagent requests take priority over directory-wide forms.
+The compact form adapter routes answers and dismissals to their owner and reconciles pending forms on reconnect.
+The production-entry fixture in `component-tests/request-routing.spec.ts` covers routing, typed replies and retry.
 Web-search consent follows `session/requests/{websearch,websearch-machine}.ts`. A local state machine tracks
 the choice and provider replies across HTTP, events and pending-form reads. The compact request model owns
 child-session routing and shared-client access. The compact dock retains its existing controls and asks for
@@ -209,6 +213,22 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Event stream recovery validation (2026-11-21). Closing the live SSE reader reproduced a permanent disconnect
+on the original implementation. A Vite update also reproduced a SessionCommands context mismatch that disposed
+the active session. After the fixes, a stream-module hot update reattached the session. Holding its next SSE
+fetch before it reached the server allowed a real MCP peer to create a directory-wide form during the gap.
+On release, the tab fetched the pending form and submitted its typed answer, then dismissed a second live request.
+Both writes returned HTTP 204, the peer received `accept` and `cancel`, and the document time origin and both
+process IDs matched their original values. All 701 Bun tests, 63 browser tests, typecheck and both production
+builds passed. Three-run medians before and after were 169/181 ms for entry, 66/62 ms for switching and
+92/89 ms for streaming. Evidence is in `node_modules/.cache/mcp-elicitation/reconnect/`.
+
+MCP input dock validation (2026-11-21). All 699 Bun tests, 63 browser tests, typecheck and both production builds
+passed. The browser fixture dismissed an active-session request, retried a grandchild's typed reply and acknowledged
+a directory-wide URL request. Unit coverage checks directory isolation and stale events. Three-run production medians
+before and after were 167/174 ms for entry, 73/68 ms for switching and 91/92 ms for streaming. Both suites made
+87 requests. The live session showed Ready at `1/9`. Evidence is in `node_modules/.cache/mcp-elicitation/`.
 
 Directory matching validation (2026-11-21). The original loader dropped Windows drive, UNC and trailing-slash
 matches. All 697 Bun tests, 63 browser tests, typecheck and both production builds passed after the change.

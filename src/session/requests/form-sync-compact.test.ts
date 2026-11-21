@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { OpenCode, type FormInfo, type OpenCodeEvent, type SessionInfo } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { handleFormEvent, refreshForms, rejectQuestion, replyForm } from "@/session/requests/form-sync-compact"
+import {
+  handleFormEvent,
+  refreshForms,
+  rejectQuestion,
+  replyForm,
+  submitElicitationResponse,
+} from "@/session/requests/form-sync-compact"
 import { setSessionClient, setState, state } from "@/runtime/server/session-store-compact"
 
 const form = {
@@ -27,6 +33,74 @@ afterEach(() => {
 })
 
 describe("form sync", () => {
+  test("keeps directory-wide form events local and ignores a stale list after cancellation", async () => {
+    const held = Promise.withResolvers<Response>()
+    setSessionClient(
+      OpenCode.make({ baseUrl: "http://localhost", fetch: ((_input, _init) => held.promise) as typeof fetch }),
+      {
+        id: "root",
+        location: { directory: "/repo" },
+      } as SessionInfo,
+    )
+    const global = { ...form, id: "global-input", sessionID: "global", metadata: { kind: "mcp-elicitation" } }
+    const created = { id: "created", created: 1, type: "form.created", data: { form: global } } as const
+    const cancelled = {
+      id: "cancelled",
+      created: 2,
+      type: "form.cancelled",
+      data: { id: global.id, sessionID: "global" },
+    } as const
+    const pending = refreshForms()
+    handleFormEvent(created)
+    handleFormEvent({ ...created, location: { directory: "/repo-other" } })
+    expect(state.form.global).toBeUndefined()
+    const location = { directory: "/repo/" }
+    handleFormEvent({ ...created, location })
+    const stored = state.form.global?.[0]
+    expect(stored).toMatchObject({ id: "global-input", location: { directory: "/repo/" } })
+    handleFormEvent({ ...created, data: { form: { ...global } }, location })
+    handleFormEvent({ ...cancelled, location: { directory: "/repo-other" } })
+    handleFormEvent(cancelled)
+    expect(state.form.global?.[0]).toBe(stored)
+    handleFormEvent({ ...cancelled, location })
+    held.resolve(Response.json({ data: [global], location }))
+    await pending
+    handleFormEvent({ ...created, location })
+    expect(state.form.global ?? []).toEqual([])
+  })
+
+  test("dismisses a global form in its directory and accepts an already-settled response", async () => {
+    const directory = "/repo with spaces/目录"
+    const request = { ...form, sessionID: "global", location: { directory }, metadata: { kind: "mcp-elicitation" } }
+    const calls: Request[] = []
+    setSessionClient(
+      OpenCode.make({
+        baseUrl: "http://localhost",
+        fetch: (async (input, init) => {
+          calls.push(new Request(input, init))
+          return Response.json(
+            { _tag: "FormAlreadySettledError", id: request.id, message: "Form settled" },
+            { status: 409 },
+          )
+        }) as typeof fetch,
+      }),
+      { id: "root", location: { directory } } as SessionInfo,
+    )
+    setState("form", "global", [request])
+    submitElicitationResponse({ ...request, location: { directory: "/elsewhere" } })
+    expect(calls).toHaveLength(0)
+    submitElicitationResponse(request)
+    submitElicitationResponse(request)
+    await Bun.sleep(0)
+    expect(calls).toHaveLength(1)
+    expect(calls[0].method).toBe("DELETE")
+    expect(new URL(calls[0].url).pathname).toBe("/api/session/global/form/form_test")
+    expect(calls[0].headers.get("x-opencode-directory")).toBe(encodeURIComponent(directory))
+    expect(state.form.global).toEqual([])
+    expect(state.questionResponding).toBeUndefined()
+    expect(state.error).toBe("")
+  })
+
   test("a stale list keeps forms created by SSE while it was pending", async () => {
     const held = Promise.withResolvers<Response>()
     setSessionClient(

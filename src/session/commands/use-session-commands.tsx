@@ -1,48 +1,9 @@
 import { createSimpleContext } from "@opencode/ui/context"
-import type { ClientSlashCommand } from "@/composer/client-slash-command"
-import { useContextDialog } from "@/context/dialog-compact"
-import { useLanguage } from "@/runtime/i18n/language"
-import { currentRuntime, state } from "@/runtime/server/session-store-compact"
-import { createSessionActions } from "./session-actions"
-import { createSessionExporter } from "./export-session"
+import type { createSessionCommands } from "./session-commands"
 
-// The embedded session supplies local actions directly to its composer instead of a host command provider.
-function createSessionCommands() {
-  const language = useLanguage()
-  const exporter = createSessionExporter(language)
-  const openContext = useContextDialog(exporter)
-  const actions = createSessionActions()
-
-  const commands = (): ClientSlashCommand[] =>
-    state.session
-      ? [
-          {
-            id: "session.export",
-            trigger: "export",
-            title: language.t("command.session.export"),
-            description: language.t("command.session.export.description"),
-            onSelect: () => void exporter.export(),
-          },
-          {
-            id: "session.context",
-            trigger: "context",
-            title: language.t("usage.view"),
-            description: language.t("command.session.context.description"),
-            onSelect: () => {
-              const runtime = currentRuntime()
-              // Let the command menu restore the editor before the dialog captures its return focus.
-              requestAnimationFrame(() => {
-                if (runtime && currentRuntime() === runtime) openContext()
-              })
-            },
-          },
-        ]
-      : []
-
-  return { commands, openContext, exporter, actions }
-}
-
+// Keep the context independent of the command implementations. A hot update can replace those
+// implementations while a mounted provider and its consumers still need the same context identity.
 export const { provider: SessionCommandsProvider, use: useSessionCommands } = createSimpleContext({
   name: "SessionCommands",
-  init: createSessionCommands,
+  init: (props: { value: ReturnType<typeof createSessionCommands> }) => props.value,
 })

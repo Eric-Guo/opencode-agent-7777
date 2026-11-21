@@ -1,7 +1,8 @@
 import type { FormInfo, PermissionRequest, SessionInfo } from "@opencode/client/promise"
 
 export function isRoutedForm(item: FormInfo) {
-  return item.metadata?.kind === "question" || item.metadata?.kind === "websearch.provider"
+  const kind = item.metadata?.kind
+  return kind === "question" || kind === "websearch.provider" || kind === "mcp-elicitation"
 }
 
 function sessionTreeRequest<T>(

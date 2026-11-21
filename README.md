@@ -433,6 +433,13 @@ Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming a
 modifier-Enter behavior are preserved. Package-local browser fixtures render the production widgets; run
 `bun run test:components` from this checkout to exercise them without a backend.
 
+The local `session/requests/session-elicitation-dock.tsx` displays MCP input requests from the active session
+and its descendants. Directory-wide requests appear after those requests and show the active directory.
+`elicitation-controller.ts` builds typed answers from visible fields and keeps edits while another request
+has priority or a submission needs a retry. URL requests open through an explicit link and settle on Submit,
+Dismiss or a server event. The dock uses the public `DockPrompt` shell and UI controls. Its replies use the
+compact form lifecycle, including the owning directory on writes to a directory-wide form.
+
 Web-search consent follows the main app’s `session/requests/{websearch,websearch-machine}.ts` boundary.
 The compact dock sends **Any** and **Don’t use search** in one reply. For a named provider it waits for the
 server to accept `choose` before answering the same session’s provider form. Both the event stream and the
@@ -811,6 +818,15 @@ multi-server registry and workspace cache. `server-sync-machine.ts` owns stream 
 `refresh-machine.ts` owns hydration, debounce scheduling and one coalesced follow-up pass. Promise resolvers,
 controllers and timers stay in their drivers. Machine snapshots use immutable values outside Solid stores;
 UI busy/loading fields are projections. Switching away and returning creates a distinct owner.
+
+An active session reconnects its event stream after EOF, a transport error or 45 seconds without bytes.
+Keepalive comments renew the deadline. Repeated failures back off from one second to 30 seconds. Switching
+sessions or disposing the page cancels the pending retry and the previous subscription. The new connection's
+server greeting refreshes pending forms so the dock can display a request created during the interruption.
+
+`session/commands/use-session-commands.tsx` owns the compact command context. The implementation lives in
+`session/commands/session-commands.ts` and `AppInterface` supplies its value. The context has only a type
+dependency on those commands, so a Vite update to the session services preserves the mounted context identity.
 
 `runtime/server/operation.ts` bounds complete API promises, including response decoding. `read-client.ts`
 applies that bound beneath shared `createData` synchronization, so a stalled read releases its pending cache

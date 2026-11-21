@@ -16,6 +16,7 @@ export function createRequestAncestry(rootID: string, get: OpenCodeClient["sessi
   const reads = new Map<string, AbortController>()
   const walks = new Map<string, Walk>()
   const [records, setRecords] = createSignal<SessionInfo[]>([])
+  const [loading, setLoading] = createSignal(false)
   let reported: Walk["failed"]
 
   function read(id: string) {
@@ -88,6 +89,7 @@ export function createRequestAncestry(rootID: string, get: OpenCodeClient["sessi
       abort(controller)
     }
     for (const id of needed) if (!reads.has(id)) read(id)
+    setLoading(needed.size > 0)
 
     // Only pending requests retain extra records. The recent-session page always owns its own rows.
     for (const id of fetched.keys()) if (!visited.has(id) || known.has(id)) fetched.delete(id)
@@ -123,6 +125,7 @@ export function createRequestAncestry(rootID: string, get: OpenCodeClient["sessi
 
   return {
     records,
+    loading,
     update(sessions: readonly SessionInfo[], pending: readonly string[]) {
       known = new Map(sessions.map((session) => [session.id, session]))
       owners = pending
