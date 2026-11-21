@@ -99,6 +99,29 @@ async function fixture(
   await expect(page.getByRole("combobox", { name: "Workspace", exact: true })).toHaveValue(workspace)
 }
 
+test.describe("Electron header", () => {
+  test.use({ userAgent: "Mozilla/5.0 Electron/44.0.0" })
+
+  test("makes the top toolbar draggable and keeps its controls interactive", async ({ page }) => {
+    await fixture(page, () => ({}))
+
+    const toolbar = page.getByRole("navigation", { name: "Nexus administration" })
+    const workspace = toolbar.getByRole("combobox", { name: "Workspace", exact: true })
+    const workspaces = toolbar.getByRole("button", { name: "Workspaces", exact: true })
+    await expect(toolbar).toHaveCSS("app-region", "drag")
+    await expect(workspace).toHaveCSS("app-region", "no-drag")
+    await expect(workspaces).toHaveCSS("app-region", "no-drag")
+
+    await workspaces.click()
+    const panel = page.getByRole("dialog", { name: "Workspaces", exact: true })
+    await expect(panel.locator("header")).toHaveCSS("app-region", "drag")
+    await expect(toolbar).toHaveCSS("app-region", "none")
+
+    await panel.getByRole("button", { name: "Back to conversation" }).click()
+    await expect(toolbar).toHaveCSS("app-region", "drag")
+  })
+})
+
 test("switches workspaces and retains plugin secrets until explicitly changed", async ({ page }) => {
   const writes: Command[] = []
 
