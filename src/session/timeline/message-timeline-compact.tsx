@@ -1,5 +1,6 @@
 import type { SessionDocument } from "@opencode/session-ui/document"
 import type { SessionUserActions } from "@opencode/session-ui/actions"
+import { useData } from "@opencode/session-ui/context"
 import { SessionTimeline, type SessionUserPresentation } from "@opencode/session-ui/timeline"
 import { createMemo } from "solid-js"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
@@ -13,6 +14,7 @@ type CompactMessageTimelineProps = {
 }
 
 export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
+  const data = useData()
   const messages = createTimelineMessages(() => props.document.messages)
   const document = createMemo(() => ({ ...props.document, messages: messages() }))
   const presentation = createMemo(() =>
@@ -53,6 +55,7 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
         presentation={presentation()}
         actions={props.actions}
         reasoningMode={props.showReasoningSummaries ? "full" : "hidden"}
+        turnDiffs={!!data.turnDiff}
         class="session-timeline-compact mx-auto w-full max-w-[1000px]"
       />
     </div>

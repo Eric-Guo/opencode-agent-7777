@@ -41,6 +41,17 @@ export function SettingsGeneral() {
               </Menu.RadioItem>
             </Menu.RadioGroup>
           </Menu.Group>
+          <Menu.Separator />
+          <Menu.Group>
+            <Menu.GroupLabel>{language.t("settings.timeline.title")}</Menu.GroupLabel>
+            <Menu.CheckboxItem
+              checked={settings.general.showTurnDiffs()}
+              onChange={settings.general.setShowTurnDiffs}
+              closeOnSelect
+            >
+              {language.t("settings.timeline.row.turnDiffs.title")}
+            </Menu.CheckboxItem>
+          </Menu.Group>
         </Menu.Content>
       </Menu.Portal>
     </Menu>

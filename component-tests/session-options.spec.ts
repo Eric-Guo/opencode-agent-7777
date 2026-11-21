@@ -104,6 +104,82 @@ async function setup(page: Page, beforeResponse?: WriteEvent[], history: Session
   return { writes, exports, release, forkResponded: forkResponded.promise, emitEvents: eventsReady.resolve, errors }
 }
 
+test("Changed files loads completed visible turns by default, remembers opt-out and retries the selected turn", async ({
+  page,
+}) => {
+  const history: SessionMessageInfo[] = []
+  for (let i = 0; i < 11; i++) {
+    const created = 4 * i
+    history.push(
+      { id: `user-${i}`, type: "user", text: `Turn ${i}`, time: { created } },
+      {
+        id: `step-${i}`,
+        type: "assistant",
+        agent: "7777",
+        model: { id: "fixture", providerID: "fixture" },
+        content: [{ type: "text", text: `Answer ${i}` }],
+        snapshot: { start: "before", end: "after", files: [0, 9, 10].includes(i) ? [`turn-${i}.txt`] : [] },
+        time: { created: created + 1, completed: created + 2 },
+      },
+    )
+    if (i !== 10) history.push({ id: `idle-${i}`, type: "idle", outcome: "succeeded", time: { created: created + 3 } })
+  }
+  const reads: URL[] = []
+  page.on("request", (req) => {
+    const url = new URL(req.url())
+    if (url.pathname.endsWith("/diff")) reads.push(url)
+  })
+  const { errors } = await setup(page, undefined, history)
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  await editor.fill("Keep my draft")
+  const header = page.locator("header")
+  await expect(header).toContainText("9/9", { useInnerText: false })
+  const diffs = page.locator('[data-slot="session-turn-diffs"]')
+  const expected = { from: "user-9", context: "3" }
+  const queries = () => reads.map((url) => Object.fromEntries(url.searchParams))
+  await expect.poll(queries).toEqual([expected])
+
+  const settings = page.getByRole("button", { name: "Follow-up behavior" })
+  const setting = page.getByRole("menuitemcheckbox", { name: "Changed files" })
+  await settings.click()
+  await expect(setting).toBeChecked()
+  await setting.click()
+  await page.reload()
+  await expect(header).toContainText("9/9", { useInnerText: false })
+  await expect(diffs).toHaveCount(0)
+  await settings.click()
+  await expect(setting).not.toBeChecked()
+  expect(queries()).toEqual([expected])
+  const patch = {
+    file: "turn-9.txt",
+    patch: "@@ -1 +1 @@\n-old\n+new\n",
+    additions: 1,
+    deletions: 1,
+    status: "modified",
+  }
+  await page.route("**/api/session/ses_0/diff?**", (route) => route.fulfill({ json: { data: [patch] } }))
+  await page.route("**/api/session/ses_0/diff?**", (route) => route.fulfill({ status: 503 }), { times: 1 })
+  await setting.click()
+  await expect(diffs).toHaveCount(1)
+  await expect(diffs).toContainText("turn-9.txt")
+  await diffs.getByRole("button", { name: "Retry" }).click()
+  await expect(diffs).toContainText("+1")
+  await expect(diffs.getByRole("button", { name: "Retry" })).toHaveCount(0)
+  await diffs.getByRole("button", { name: /turn-9\.txt/ }).click()
+  await expect(diffs.locator('[data-component="apply-patch-file-diff"]')).toBeVisible()
+  expect(queries()).toEqual([expected, expected, expected])
+  await expect(editor).toHaveText("Keep my draft")
+
+  await page.reload()
+  await expect(diffs).toContainText("+1")
+  await settings.click()
+  await expect(setting).toBeChecked()
+  await setting.click()
+  await expect(diffs).toHaveCount(0)
+  await expect(header).toContainText("9/9", { useInnerText: false })
+  expect(errors).toEqual([])
+})
+
 test("a rename in an equivalent directory refreshes the open picker", async ({ page }) => {
   const { emitEvents, writes } = await setup(page, [
     { type: "session.renamed", data: { sessionID: "ses_1", title: "Second renamed remotely" } },

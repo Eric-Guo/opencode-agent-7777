@@ -23,6 +23,7 @@ import {
 import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
+import { createTurnDiffSource } from "@/session/timeline/turn-diffs"
 import { sessionDirectory } from "@/session/directory"
 
 type SessionUiData = ComponentProps<typeof SessionUIProvider>["data"]
@@ -49,6 +50,17 @@ export function SessionPage() {
   )
 
   const interaction = createSessionTimelineInteraction({ identity: currentRuntime })
+  const turnDiff = createMemo(() => {
+    if (!settings.general.showTurnDiffs()) return
+    const runtime = currentRuntime()
+    if (!runtime) return
+    return createTurnDiffSource({
+      sessionID: runtime.id,
+      diff: runtime.api.session.diff,
+      signal: runtime.signal,
+      messages: timeline.visibleMessages,
+    })
+  })
 
   const toggleReasoningSummaries = () => {
     settings.general.setShowReasoningSummaries(!settings.general.showReasoningSummaries())
@@ -105,6 +117,7 @@ export function SessionPage() {
                 <SessionUIProvider
                   data={sessionUiData()}
                   directory={state.session ? sessionDirectory(state.session) : ""}
+                  turnDiff={turnDiff()}
                 >
                   <CompactMessageTimeline
                     document={timeline.document()}

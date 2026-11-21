@@ -24,6 +24,12 @@ The local `session/timeline/projection.ts` supplies stable message and content o
 `SessionTimeline`, which owns row projection. Only the assistant text part receiving a delta recomputes its
 Chinese-parenthesized URL formatting. The context inspector and export retain the source text.
 
+The compact timeline shows **Changed files** by default through the public `SessionTimeline` and `TurnDiffSource`
+APIs. A saved preference takes precedence. Shared rows own the file list, counts, patch disclosure and Retry.
+Local `session/timeline/turn-diffs.ts` requests a finished turn through `session.diff` and caches it by its closing
+idle marker within the nine-dialog window. Steered prompts share a read. Reads have three lines of context
+and a 15-second deadline. The gear menu and settings persistence stay local.
+
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching text and mentions retain their
@@ -218,6 +224,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Changed-files validation (2026-11-22). All 705 Bun tests and 69 browser tests passed, along with typecheck
+and the default and browser-enabled builds. An 11-prompt fixture requested only the completed visible turn
+with changed files, retried a failed read, expanded the patch and restored the preference on reload.
+Driver tests cover a replacement idle marker, timeout and navigation during retry. A settings module update
+exposed a context identity error in the live tab. After separating the context and refreshing the tab, another
+settings update allowed the preference to toggle in Chinese and return to its original value at `1/9`.
+Five-run production medians before and after were 167/169 ms for entry, 69/70 ms for switching and 92/91 ms
+for streaming. Both builds made 145 requests with identical endpoint counts. Production source maps contained
+zero app or desktop source modules. Evidence is in `node_modules/.cache/turn-diffs/`.
 
 Fork and reconnect validation (2026-11-22). The original code failed the missed-permission and duplicate-notification
 regressions. All 704 Bun tests, 68 browser tests, typecheck and both production builds passed. The browser

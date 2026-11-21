@@ -254,6 +254,18 @@ to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking show
 individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
 from the broader timeline-detail settings.
 
+Completed turns show their changed files by default. Turn them off under **Timeline → Changed files** in the
+header gear menu. This browser remembers your choice. Expand a filename for its patch. If the read fails,
+the row keeps its recorded paths and offers **Retry**. The header’s **Review turn changes** dialog is also available.
+
+The optional rows use the public `SessionTimeline` and `TurnDiffSource` from `@opencode/session-ui`.
+The local `session/timeline/turn-diffs.ts` follows the main app’s turn-diff boundary. The compact cache lives
+with the visible nine-dialog window. Prompts steered into the same turn share the diff identified by its closing
+idle marker. The public client reads three context lines for the requested turn, with a 15-second deadline.
+Rewinding past that marker, moving it outside the window, switching sessions or disabling the preference
+releases its patch and cancels pending work. The settings provider uses `settings/context.ts` to keep its
+context identity across development updates to `settings/model.tsx`.
+
 The local `session/timeline/projection.ts` adapts assistant text for the public `SessionTimeline`. In the display
 text it wraps bare HTTP(S) URLs inside full-width Chinese parentheses as Markdown autolinks, keeping trailing
 prose and inline code outside the target. The context inspector and export read the original transcript.

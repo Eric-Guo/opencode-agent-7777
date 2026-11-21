@@ -140,6 +140,8 @@ export const dict = {
     "选择将后续消息加入队列，还是引导当前轮次。使用 {{keybind}} 切换。",
   "settings.general.row.followUpBehavior.queue": "加入队列",
   "settings.general.row.followUpBehavior.steer": "引导",
+  "settings.timeline.title": "时间表",
+  "settings.timeline.row.turnDiffs.title": "已更改的文件",
 
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",

@@ -142,6 +142,8 @@ export const dict = {
     "Choose whether to queue follow-ups or steer the current turn. Use {{keybind}} to switch.",
   "settings.general.row.followUpBehavior.queue": "Queue",
   "settings.general.row.followUpBehavior.steer": "Steer",
+  "settings.timeline.title": "Timeline",
+  "settings.timeline.row.turnDiffs.title": "Changed files",
 
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",
