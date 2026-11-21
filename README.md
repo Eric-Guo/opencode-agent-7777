@@ -371,6 +371,9 @@ promoting adapters to the main app. Shared controls, session rendering and theme
 primitives continue to come from the existing public UI packages. Built-in Coding,
 Checkpoints and Lifecycle hook settings use the same Plugins form; atomic hook
 groups are edited as complete JSON objects, following the runtime descriptors.
+`src/management/preset-tools.tsx` uses shared OpenCode checkboxes to edit the same
+draft as the Preset JSON editor. The T3 controls in `src/management/integrations.tsx`
+read both peer directories and save choices through the runtime.
 
 Run `bun run test`, `bun run typecheck`, `bun run build` and `bun run test:components`
 from this package. The nested repository's CI checks out a matching OpenCode workspace

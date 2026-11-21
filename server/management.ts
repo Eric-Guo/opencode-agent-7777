@@ -1,3 +1,4 @@
+import { isInvalidRequestError } from "@opencode/client/promise"
 import { Schema } from "effect"
 import { NexusCommand } from "@opencode/protocol/nexus-command"
 import { BridgeError, canWrite, ownership, readChat, type Backend } from "./nexus"
@@ -171,9 +172,19 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
   )
     throw new BridgeError(403, "This host requires approval.")
 
-  return b.native.manage({
-    payload: command as Parameters<Backend["native"]["manage"]>[0]["payload"],
-    "x-nexus-origin": config.native!.origin,
-    "x-nexus-member-token": (b.memberToken ?? config.token)!,
-  })
+  return b.native
+    .manage({
+      payload: command as Parameters<Backend["native"]["manage"]>[0]["payload"],
+      "x-nexus-origin": config.native!.origin,
+      "x-nexus-member-token": (b.memberToken ?? config.token)!,
+    })
+    .catch((error: unknown) => {
+      if (
+        isInvalidRequestError(error) &&
+        (command.action.startsWith("preset.") ||
+          (command.action === "extension.call" && command.name.startsWith("t3.")))
+      )
+        throw new BridgeError(400, error.message)
+      throw error
+    })
 }

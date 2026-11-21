@@ -1,8 +1,49 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`47209fd6063c5ded85c82b078889b4272c55f45d`. The reference checkout and its Ruby/JavaScript
+`42a2ecb2cb18f6ae5fd91e6971b342fb7fe51678`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Preset selection and T3 setup, November 21, 2026
+
+The Presets panel reads `preset.tools` through the existing scoped management
+bridge. Kernel and application selections share the authored `tools` field.
+Runner selection has its own inheritance switch. Each MCP checkbox identifies
+its connection and remote tool. Advanced JSON and the controls edit one draft.
+
+The Integrations panel reads `t3.status`, `t3.projects` and `t3.agents`.
+It saves a project through `t3.project` or `t3.create` and a default agent
+through the existing extension configuration writer. A declared runtime
+refusal now reaches these controls through the management bridge.
+
+### Fixture verification
+
+The Chromium management tests exercise inherited and explicitly empty tool
+lists, missing and previously saved tools, two MCP connections offering
+`read`, independent connection and tool exclusions, discovery failure with
+unsaved edits, advanced JSON, save and reload. T3 tests exercise unavailable
+saved choices, disabled providers, a refused project selection, refresh with
+a draft, recovery and clearing the default agent. A project discovery failure
+leaves the independently discovered coding agents selectable. The bridge test
+exercises the OpenCode client's declared error response and checks the operator
+receives the path refusal and its HTTP status. All 407 UI unit tests and 80
+browser tests passed, including 22 management tests. The UI type check and
+production build passed.
+
+### Development Nexus verification
+
+Chrome opened the source UI against an isolated OpenCode service paired to a
+scratch Agent on `localhost:3000`. The editor saved `memory_read`, selected
+the Preset for Main and reopened the saved choice. Nexus assembled exactly
+`memory_read`, and the admitted input retained that allowlist. Two isolated MCP
+peers offering `read` produced distinct saved exclusions.
+
+The T3 form selected a project and the `Codex` default from an isolated
+HTTP/WebSocket peer. A relative path displayed the runtime's absolute-path
+refusal. A padded absolute path created one project, recovered its ID through
+discovery after a truncated response, and reopened with both selections after
+reload. The scratch integrations were disabled, the workspace deleted and the
+Agent removed. Its credentials were revoked.
 
 ## Schedule edits, November 21, 2026
 

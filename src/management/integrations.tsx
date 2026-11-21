@@ -1,5 +1,5 @@
-import { For, Show, Switch, Match, onMount } from "solid-js"
-import { createStore } from "solid-js/store"
+import { For, Show, Switch, Match, createResource, onMount } from "solid-js"
+import { createStore, reconcile } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { Schema } from "effect"
 import type { Nexus } from "@opencode/schema/nexus"
@@ -9,8 +9,11 @@ import { FieldRow, ConfigurationForm } from "./fields"
 
 export function Integrations(props: { client: ManagementClient }) {
   const c = props.client
-  const [s, set] = createStore({ selected: "nexus.ingress-telegram", rows: [] as Nexus.Extension[] })
-  const refresh = async () => set("rows", await c.command<Nexus.Extension[]>({ action: "extension.list" }))
+  const [s, set] = createStore({ selected: "nexus.ingress-telegram", revision: 0, rows: [] as Nexus.Extension[] })
+  const refresh = async () => {
+    set("rows", reconcile(await c.command<Nexus.Extension[]>({ action: "extension.list" }), { key: "id" }))
+    set("revision", (revision) => revision + 1)
+  }
   onMount(() => void c.perform(refresh))
 
   return (
@@ -33,6 +36,9 @@ export function Integrations(props: { client: ManagementClient }) {
           <>
             <div class="nexus-card">
               <h3>{row.name}</h3>
+              <Show when={row.restart_required}>
+                <p>Restart required to apply the saved configuration.</p>
+              </Show>
               <p>{row.description}</p>
               <For each={row.diagnostics}>{(text) => <p role="alert">{text}</p>}</For>
               <Button
@@ -70,7 +76,7 @@ export function Integrations(props: { client: ManagementClient }) {
                   <Mcp client={c} />
                 </Match>
                 <Match when={row.id === "nexus.t3"}>
-                  <T3 client={c} />
+                  <T3 client={c} configuration={row.configuration} revision={s.revision} refresh={refresh} />
                 </Match>
               </Switch>
             </Show>
@@ -481,11 +487,18 @@ function Mcp(props: { client: ManagementClient }) {
   )
 }
 
-function T3(props: { client: ManagementClient }) {
+function T3(props: {
+  client: ManagementClient
+  configuration: Nexus.Extension["configuration"]
+  revision: number
+  refresh(): Promise<void>
+}) {
   const c = props.client
 
   const [s, set] = createStore({
-    projects: [] as { id: string; title: string; workspaceRoot: string }[],
+    project: undefined as string | undefined,
+    agent: undefined as string | undefined,
+    problem: "",
     path: "",
     token: "",
     provider: "",
@@ -499,41 +512,167 @@ function T3(props: { client: ManagementClient }) {
   const show = async (action: string, input?: Record<string, Schema.Json>) =>
     set("output", JSON.stringify(await invoke(action, input), null, 2))
 
+  const [directory, { refetch }] = createResource(
+    () => props.revision,
+    async () => {
+      const status = await c.extension<{
+        project_id: string
+        ready: boolean
+        issues: string[]
+        bearer: string
+        url: string
+      }>("t3.status", { action: "t3.status" })
+      const list = async <T,>(action: "t3.projects" | "t3.agents") => {
+        if (!status.url || status.bearer !== "saved") return { items: [], error: "" }
+        return c.extension<T[]>(action, { action }).then(
+          (items) => ({ items, error: "" }),
+          (error: Error) => ({ items: [], error: error.message }),
+        )
+      }
+      const [projects, agents] = await Promise.all([
+        list<{ id: string; title: string; workspaceRoot: string }>("t3.projects"),
+        list<{ agent: string; available: boolean; reason: string | null }>("t3.agents"),
+      ])
+      return { status, projects, agents }
+    },
+  )
+  const data = () => (directory.error ? undefined : directory.latest)
+  const project = () =>
+    s.project ??
+    String(props.configuration.project_id ?? (props.configuration.project || data()?.status.project_id || ""))
+  const agent = () => s.agent ?? String(props.configuration.default_agent ?? "")
+  const save = async (work: () => Promise<void>) => {
+    set("problem", "")
+    await c.perform(async () => {
+      try {
+        await work()
+      } catch (error) {
+        set("problem", error instanceof Error ? error.message : String(error))
+      }
+    })
+  }
   return (
     <div class="nexus-card">
       <h3>T3 service</h3>
-      <div class="nexus-actions">
-        <For each={["status", "check", "agents"]}>
-          {(action) => (
-            <Button disabled={c.state.busy} onClick={() => void c.perform(() => show("t3." + action))}>
-              {action}
-            </Button>
-          )}
-        </For>
-        <Button
-          onClick={() =>
-            void c.perform(async () => set("projects", await c.extension("t3.projects", { action: "t3.projects" })))
-          }
-        >
-          List projects
-        </Button>
-      </div>
-      <For each={s.projects}>
+      <Button disabled={directory.loading} onClick={() => void refetch()}>
+        Refresh T3
+      </Button>
+      <Show when={directory.error}>
+        <p role="alert">{String(directory.error.message ?? directory.error)}</p>
+      </Show>
+      <Show when={s.problem}>
+        <p role="alert">{s.problem}</p>
+      </Show>
+      <Show when={data()?.status.ready}>
+        <p>T3 configuration ready.</p>
+      </Show>
+      <For each={data()?.status.issues}>{(issue) => <p>{issue}</p>}</For>
+      <Show when={data()?.projects.error}>{(error) => <p role="alert">{error()}</p>}</Show>
+      <FieldRow label="T3 project">
+        <select value={project()} onChange={(e) => set("project", e.currentTarget.value)}>
+          <option value="">Select a project</option>
+          <For each={data()?.projects.items}>
+            {(row) => (
+              <option value={row.id} selected={row.id === project()}>
+                {row.title} · {row.workspaceRoot}
+              </option>
+            )}
+          </For>
+          <Show when={project() && !data()?.projects.items.some((row) => row.id === project())}>
+            <option value={project()} selected>
+              {project()} · Currently unavailable
+            </option>
+          </Show>
+        </select>
+      </FieldRow>
+      <Button
+        disabled={c.state.busy || !data()?.projects.items.some((row) => row.id === project())}
+        onClick={() =>
+          void save(async () => {
+            await invoke("t3.project", { id: project() })
+            await props.refresh()
+            set("project", undefined)
+          })
+        }
+      >
+        Use project
+      </Button>
+      <Show when={data()?.agents.error}>{(error) => <p role="alert">{error()}</p>}</Show>
+      <FieldRow label="Default coding agent">
+        <select value={agent()} onChange={(e) => set("agent", e.currentTarget.value)}>
+          <option value="">Automatic</option>
+          <For each={data()?.agents.items}>
+            {(row) => (
+              <option value={row.agent} selected={agent() === row.agent} disabled={!row.available}>
+                {row.agent}
+                {row.reason && " · " + row.reason}
+              </option>
+            )}
+          </For>
+          <Show when={agent() && !data()?.agents.items.some((row) => row.agent === agent())}>
+            <option value={agent()} selected>
+              {agent()} · Currently unavailable
+            </option>
+          </Show>
+        </select>
+      </FieldRow>
+      <For each={data()?.agents.items.filter((row) => !row.available && row.reason)}>
         {(row) => (
-          <p>
-            {row.title} · {row.workspaceRoot}
-            <Button onClick={() => void c.perform(() => show("t3.project", { id: row.id }))}>Use project</Button>
-          </p>
+          <small>
+            {row.agent} · {row.reason}
+          </small>
         )}
       </For>
+      <Button
+        disabled={
+          c.state.busy ||
+          !data() ||
+          (!!agent() && !data()?.agents.items.some((row) => row.agent === agent() && row.available))
+        }
+        onClick={() =>
+          void save(async () => {
+            await c.command({
+              action: "extension.configure",
+              change: {
+                id: "nexus.t3",
+                operations: [
+                  agent()
+                    ? { op: "set", path: ["default_agent"], value: agent() }
+                    : { op: "unset", path: ["default_agent"] },
+                ],
+              },
+            })
+            await props.refresh()
+            set("agent", undefined)
+            c.notice("Default coding agent saved.")
+          })
+        }
+      >
+        Save default agent
+      </Button>
       <FieldRow label="Project root on the T3 host">
         <input value={s.path} onInput={(e) => set("path", e.currentTarget.value)} />
       </FieldRow>
       <Button
-        disabled={c.state.busy || !s.path}
-        onClick={() => void c.perform(() => show("t3.create", { path: s.path }))}
+        disabled={c.state.busy || !s.path.trim()}
+        onClick={() =>
+          void save(async () => {
+            const created = await c.extension<{ id: string }>("t3.create", { action: "t3.create", path: s.path })
+            set({ project: created.id, path: "" })
+            await props.refresh()
+          })
+        }
       >
         Create or adopt project
+      </Button>
+      <Button disabled={c.state.busy} onClick={() => void c.perform(() => show("t3.check"))}>
+        Check service
+      </Button>
+      <Button disabled={c.state.busy} onClick={() => void c.perform(() => show("t3.status"))}>
+        Status details
+      </Button>
+      <Button disabled={c.state.busy} onClick={() => void c.perform(() => show("t3.agents"))}>
+        Agent details
       </Button>
       <FieldRow label="Bearer token (leave empty to issue on a local service)">
         <input
@@ -549,6 +688,7 @@ function T3(props: { client: ManagementClient }) {
           void c.perform(async () => {
             await show("t3.token", s.token ? { token: s.token } : {})
             set("token", "")
+            await props.refresh()
           })
         }
       >
