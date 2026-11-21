@@ -13,7 +13,7 @@ import {
 } from "@/runtime/persistence/storage-compact"
 import { refreshModels } from "@/providers/catalog/loader-compact"
 import { refreshPermissions } from "@/session/requests/permission-sync-compact"
-import { prompt, readPromptDraft } from "@/composer/persistence-singleton"
+import { prompt, readPromptDraft, type PromptDraft } from "@/composer/persistence-singleton"
 import { refreshForms } from "@/session/requests/form-sync-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { createServerSdk, type OpencodeClient } from "@/runtime/server/client-compact"
@@ -57,9 +57,10 @@ export function retrySessionActivation() {
 export function activateSession(
   server: ServerInfo,
   session: NonNullable<typeof state.session>,
-  options: { restoreDraft?: boolean; created?: boolean } = {},
+  options: { restoreDraft?: boolean; created?: boolean; initialDraft?: PromptDraft } = {},
 ) {
-  const draft = options.restoreDraft ? readPromptDraft(server.storageKeys?.promptDraft) : undefined
+  const draft =
+    options.initialDraft ?? (options.restoreDraft ? readPromptDraft(server.storageKeys?.promptDraft) : undefined)
   writeSessionRecord(session, server.storageKeys)
   const activeClient = createDirectorySdk(server, sessionDirectory(session)).client
   batch(() => {

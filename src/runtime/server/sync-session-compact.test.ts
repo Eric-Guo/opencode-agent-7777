@@ -23,6 +23,7 @@ afterEach(() => {
   setState("server", undefined)
   setState("session", undefined)
   setState("form", reconcile({}))
+  setState("permission", reconcile({}))
   setState("error", "")
 })
 
@@ -97,12 +98,14 @@ describe("compact session event stream", () => {
     expect(state.eventsConnected).toBe(false)
   })
 
-  test("reconnects after EOF and a failed retry, then reads forms missed during the gap", async () => {
+  test("reconnects after EOF and a failed retry, then reconciles pending requests once per greeting", async () => {
     jest.useFakeTimers()
     const streams = fixture()
     const sse = globalThis.fetch
     let calls = 0
     let reads = 0
+    let permissionReads = 0
+    const permission = { id: "new", sessionID: "session", action: "read", resources: [] }
     const form = {
       id: "missed",
       sessionID: "global",
@@ -115,6 +118,11 @@ describe("compact session event stream", () => {
       if (url.pathname === "/api/event") {
         if (++calls === 2) throw new Error("Disconnected")
         return sse(input, init)
+      }
+      if (url.pathname === "/api/permission/request") {
+        expect(url.searchParams.get("location[directory]")).toBe("/repo")
+        permissionReads++
+        return Response.json({ data: [permission] })
       }
       if (url.pathname === "/api/form") {
         expect(url.searchParams.get("location[directory]")).toBe("/repo")
@@ -135,11 +143,15 @@ describe("compact session event stream", () => {
     await until(() => !!state.error)
     jest.advanceTimersByTime(2000)
     await until(() => streams.length === 2)
-    streams[1].enqueue(encode.encode('data: {"type":"server.connected","data":{}}\n\n'))
+    setState("permission", "session", [{ ...permission, id: "settled-offline" }])
+    const greeting = 'data: {"type":"server.connected","data":{}}\n\n'
+    streams[1].enqueue(encode.encode(greeting + greeting))
     await until(() => state.form.global?.[0]?.id === "missed")
     expect(state.eventsConnected).toBe(true)
     expect(state.error).toBe("")
     expect(reads).toBe(1)
+    expect(permissionReads).toBe(1)
+    expect(state.permission.session?.map((item) => item.id)).toEqual(["new"])
     expect(state.form.global?.[0]?.location?.directory).toBe("/repo")
     streams[1].close()
     await until(() => !state.eventsConnected)

@@ -22,6 +22,7 @@ test("routes directory requests beyond the recent page and replies to their owni
   const pages: (string | null)[] = []
   const replies: { path: string; body: unknown }[] = []
   const globalDirectories: (string | undefined)[] = []
+  let streamConnections = 0
   let retry = true
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
@@ -56,7 +57,12 @@ test("routes directory requests beyond the recent page and replies to their owni
       }
     }
     if (path === "/api/permission/request")
-      return json({ data: [{ id: "permission", sessionID: child.id, action: "read", resources: ["fixture.txt"] }] })
+      return json({
+        data:
+          streamConnections < 2
+            ? []
+            : [{ id: "permission", sessionID: child.id, action: "read", resources: ["fixture.txt"] }],
+      })
     if (path === "/api/form")
       return json({
         location,
@@ -119,7 +125,12 @@ test("routes directory requests beyond the recent page and replies to their owni
           },
         ],
       })
-    if (path === "/api/event") return route.fulfill({ contentType: "text/event-stream", body: ": connected\n\n" })
+    if (path === "/api/event") {
+      streamConnections++
+      // The first stream closes before the child asks. Only the replacement greeting can discover its permission.
+      const body = streamConnections === 2 ? 'data: {"type":"server.connected","data":{}}\n\n' : ": heartbeat\n\n"
+      return route.fulfill({ contentType: "text/event-stream", body })
+    }
     if (path === "/api/session/active") return json({ data: {} })
     if (path.endsWith("/message")) return json({ data: [], cursor: {} })
     if (path === "/api/model/default") return json({ location, data: null })

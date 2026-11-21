@@ -380,6 +380,11 @@ snapshot or event arrives. Neither helper creates a root, timer or SSE connectio
 contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
 exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
 
+`session/fork.ts` supplies the public timeline’s fork action and shares the normal session-switch path.
+The local `session/commands/fork-dialog.tsx` confirms replacing the single tab draft. The returned
+session receives its draft before history hydration, so Retry preserves edits. Each activation admits one fork
+at a time and bounds the public client write to 30 seconds.
+
 Transport scheduling follows the main app's `runtime/server/{request-queue-machine,request-queue}.ts` boundary.
 One immutable machine owns active slots, FIFO waiting order, request IDs and stall-warning state; the driver owns
 fetch, promise callbacks, cancellation and timers. The compact queue retains four total slots, two slow slots and
@@ -814,15 +819,17 @@ and the composer browser fixture own these contracts.
 The compact runtime now uses explicit lifecycle machines for startup, runtime attachment, active reads, session
 switching, catalog loading, and the New session action. Finite read admission shares the local
 `runtime/server/load-machine.ts`; this deliberately stays compact-specific rather than adopting the main app's
-multi-server registry and workspace cache. `server-sync-machine.ts` owns stream connection state, and
-`refresh-machine.ts` owns hydration, debounce scheduling and one coalesced follow-up pass. Promise resolvers,
+multi-server registry and workspace cache. The local `runtime/server/server-sync/{connection,machine}.ts` modules
+own the event stream. `refresh-machine.ts` owns hydration, debounce scheduling and one coalesced follow-up pass. Promise resolvers,
 controllers and timers stay in their drivers. Machine snapshots use immutable values outside Solid stores;
 UI busy/loading fields are projections. Switching away and returning creates a distinct owner.
 
 An active session reconnects its event stream after EOF, a transport error or 45 seconds without bytes.
 Keepalive comments renew the deadline. Repeated failures back off from one second to 30 seconds. Switching
-sessions or disposing the page cancels the pending retry and the previous subscription. The new connection's
-server greeting refreshes pending forms so the dock can display a request created during the interruption.
+sessions or disposing the page cancels the pending retry and the previous subscription. The first server greeting
+on each connection refreshes messages, forms and permissions. A permission asked while the stream was down
+appears in the dock, and a request answered elsewhere disappears. Reconnecting preserves notification history
+for requests already announced in this activation.
 
 `session/commands/use-session-commands.tsx` owns the compact command context. The implementation lives in
 `session/commands/session-commands.ts` and `AppInterface` supplies its value. The context has only a type
@@ -869,6 +876,14 @@ and supports right-click. Choose **Rename session** to edit its title, **Export 
 or **Delete session** to open a confirmation naming the session. Cancel returns focus to the opener.
 Editing another session keeps the current conversation and composer draft. Deleting the active session opens
 a neighboring root session from the loaded directory history, or a fresh draft when none is available.
+
+## Fork from here
+
+In a root session, open a delivered user message’s **More actions** menu and choose **Fork from here**.
+The new session contains the history before that message, including earlier turns outside the nine-dialog window.
+Its composer opens with the selected message’s display text, supported mentions and attachments ready to edit.
+An unsent draft triggers a replacement confirmation before creation. If the draft changes during creation,
+Cancel keeps those edits in the source session. The created fork is available in **Recent sessions**.
 
 ## Undo and Redo
 

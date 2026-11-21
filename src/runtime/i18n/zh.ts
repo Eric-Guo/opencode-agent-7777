@@ -1,9 +1,13 @@
 import { dict as en } from "./en"
 
-type Keys = keyof typeof en
-
 export const dict = {
   "error.operationTimeout": "操作超时，请重试。",
+  "session.fork.replace": "替换草稿并创建分支会话",
+  "session.fork.confirm": "创建分支会话将用所选消息替换未发送的草稿。",
+  "session.fork.open": "替换草稿并打开分支会话",
+  "session.fork.draftChanged":
+    "创建分支会话期间，你的草稿发生了变化。打开分支会话可编辑所选消息，取消则保留当前草稿。你可以在最近会话中找到该分支会话。",
+  "session.fork.pending": "此消息仍在发送中。",
   "session.read.retry": "重试",
   "session.revert.timeout": "服务器未能及时完成历史记录操作。请检查当前历史记录后重试。",
   "toast.session.export.timeout": "服务器未能及时准备好导出内容，请重试。",
@@ -257,4 +261,4 @@ export const dict = {
   "error.createSessionFailed": "创建 {{agent}} 会话失败",
   "error.permissionsLoadFailed": "加载权限失败：{{status}}",
   "error.permissionsReplyFailed": "响应权限失败：{{status}}",
-} satisfies Record<Keys, string>
+} satisfies Record<keyof typeof en, string>

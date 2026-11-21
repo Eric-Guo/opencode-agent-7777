@@ -126,6 +126,10 @@ server event or HTTP success within 15 seconds. Active-session deletion uses the
 activation paths. The context inspector, session menus and `/export` share a screen-owned exporter. A recent-row
 action uses the selected row's session ID.
 
+The public timeline’s **Fork from here** action uses local `session/fork.ts` and the public session client.
+The controller shares prompt reconstruction with Undo and seeds the normal activation before hydration.
+The local fork dialog handles replacement of the single tab draft, including edits made while the write is pending.
+
 Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
 The pure machine owns slots, FIFO eligibility, request IDs and stall warnings; the driver retains fetch, abort signals,
 promise callbacks and timers. The shared fetch/origin budget, synchronous free-slot dispatch, slow-request limits,
@@ -136,9 +140,10 @@ cover stale completions, watcher cleanup, cancellation between grant and dispatc
 Startup, runtime attachment, activation reads, session switching and New session admission now use the local
 `runtime/server/load-machine.ts` finite-read boundary. It replaces independent generation counters and busy
 flags while leaving the main app's multi-server registry and workspace providers outside the compact runtime.
-Stream activity/EOF ownership follows `server-sync-machine.ts`; hydration scheduling, loading and coalescing
-follow `refresh-machine.ts`. Controllers, timers and caller settlement remain in drivers; immutable machine
-snapshots never enter mutable Solid stores.
+Stream activity, handshake and retry backoff follow the local `server-sync/{connection,machine}.ts` boundary.
+The first greeting reconciles both pending request lists with the active directory. Heartbeats renew stream readiness
+and the idle deadline. Hydration scheduling, loading and coalescing follow `refresh-machine.ts`. Drivers own
+controllers, timers and caller settlement. Machine snapshots live outside mutable Solid stores.
 
 Complete API reads, including decoding, are bounded through local `operation.ts` and `read-client.ts` beneath
 shared `createData`, so stalled synchronization entries settle and retries can proceed. Shared reads retain data-owner
@@ -213,6 +218,21 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Fork and reconnect validation (2026-11-22). The original code failed the missed-permission and duplicate-notification
+regressions. All 704 Bun tests, 68 browser tests, typecheck and both production builds passed. The browser
+fixture recovered a child permission after reconnect. Forking from the oldest of nine visible
+prompts in an 11-turn source restored its mention and attachment, then hydrated the two earlier turns on Retry.
+Draft cancellation, edits during creation, a second message action, navigation and timeout all exercised the real
+message menu. The live agent retained its draft after cancellation and returned to an empty composer at `1/9` after
+the temporary test text was cleared. The browser page was refreshed during verification. Both processes stayed up.
+
+Three-run production medians before and after were 162/173 ms for entry, 68/58 ms for switching and 91/92 ms
+for streaming. The standard heartbeat fixture made 87 requests in each build. Repeating the comparison with a
+server greeting on each connection added six permission-list reads across six connections (105 to 111 total
+requests). All other endpoint counts matched. The browser-enabled production source maps contained zero
+modules from the main app or desktop. Both full component runs passed. Build logs, test output, benchmarks
+and the live confirmation screenshot are in `node_modules/.cache/reconnect-fork/`.
 
 Event stream recovery validation (2026-11-21). Closing the live SSE reader reproduced a permanent disconnect
 on the original implementation. A Vite update also reproduced a SessionCommands context mismatch that disposed

@@ -1,7 +1,7 @@
 // Imperative directory request sync and replies for the compact session tree.
 import type { OpenCodeEvent, PermissionRequest } from "@opencode/client/promise"
 import { reconcile } from "solid-js/store"
-import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, isCurrentDirectory, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { sessionPermissionRequest } from "./session-request-tree"
@@ -45,28 +45,28 @@ function notificationsFor(active: Owner) {
   return notifications
 }
 
-export function refreshPermissions() {
+export function refreshPermissions(reason: "refresh" | "greeting" = "refresh") {
   const active = captureSessionOwnership()
   const session = state.session
   if (!active || !session) return Promise.resolve()
 
+  const directory = sessionDirectory(session)
+  const current = () => active.current() && isCurrentDirectory(directory)
   return readSessionRequests(
     "permission",
-    async (signal) =>
-      (await active.client.permission.request.list({ location: { directory: sessionDirectory(session) } }, { signal }))
-        .data,
+    async (signal) => (await active.client.permission.request.list({ location: { directory } }, { signal })).data,
   )
     .then((result) => {
-      if (!active.current() || !result) return
+      if (!current() || !result) return
       const requests = groupSessionRequests(result)
       setState("permission", reconcile(requests))
-      notificationControllers.get(active.runtime)?.clear()
+      if (reason === "refresh") notificationControllers.get(active.runtime)?.clear()
       const request = currentPermission(requests)
       if (request) notificationsFor(active).notify(request)
     })
 
     .catch((error) => {
-      if (active.current()) throw error
+      if (current()) throw error
     })
 }
 

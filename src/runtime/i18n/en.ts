@@ -1,5 +1,11 @@
 export const dict = {
   "error.operationTimeout": "The operation timed out. Please try again.",
+  "session.fork.replace": "Replace draft and fork",
+  "session.fork.confirm": "Forking will replace your unsent draft with the selected message.",
+  "session.fork.open": "Replace draft and open fork",
+  "session.fork.draftChanged":
+    "Your draft changed while the fork was being created. Open the fork to edit the selected message, or cancel to keep this draft. The fork is available in Recent sessions.",
+  "session.fork.pending": "This message is still being delivered.",
   "session.read.retry": "Retry",
   "session.revert.timeout":
     "The server took too long to finish the history action. Check the current history before trying again.",

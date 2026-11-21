@@ -1,8 +1,9 @@
+import type { SessionInfo as Session } from "@opencode/client/promise"
 import { sameDirectory } from "@opencode/util/path"
+import type { PromptDraft } from "@/composer/schema"
 import { bounded } from "@/runtime/server/operation"
 import { createLoadState, transitionLoad, type LoadState } from "@/runtime/server/load-machine"
 import { recoverDeletedSession } from "@/session/recovery-compact"
-import type { SessionInfo as Session } from "@opencode/client/promise"
 import { createServerSdk } from "@/runtime/server/client-compact"
 import { sessionTreeIDs } from "@/session/requests/session-request-tree"
 import { refreshRecentSessions } from "./directory-sync-recent-compact"
@@ -13,11 +14,11 @@ import { activateSession, restartSessionEventStream } from "@/runtime/server/syn
 import { readableError } from "@/shell/errors/readable"
 import { isSessionNotFoundError } from "@/runtime/server/errors"
 
-// Header-driven session switching only; 7777 has no tab router or tabs context.
+// The recent picker and message forks share the same single-session activation.
 
 const switches = new WeakMap<object, LoadState>()
 
-export function openRecentSession(session: Session) {
+export function openRecentSession(session: Session, initialDraft?: PromptDraft) {
   const server = state.server
   if (!server) return Promise.resolve()
   const original = currentRuntime() ?? currentDraft() ?? server
@@ -30,18 +31,20 @@ export function openRecentSession(session: Session) {
   setState("recentSessionSwitchingID", session.id)
   let activation = currentRuntime() ?? currentDraft()
   const current = () => (currentRuntime() ?? currentDraft()) === activation
-  const activate = (session: Session) => {
-    const loading = activateSession(server, session)
+  const activate = (session: Session, draft?: PromptDraft) => {
+    const loading = activateSession(server, session, { initialDraft: draft })
     activation = currentRuntime()
     if (activation) switches.set(activation, machine)
     return loading.then(() => {
       if (current()) restartSessionEventStream()
     })
   }
-  return activate(session)
+  return activate(session, initialDraft)
     .catch((error) => {
       if (!current()) return
       if (!isSessionNotFoundError(error, session.id)) {
+        // Activation offers a read-only retry. Keep listening while it recovers.
+        restartSessionEventStream()
         machine = transitionLoad(machine, { type: "failed", attempt, error })
         setState("error", readableError(error))
         return

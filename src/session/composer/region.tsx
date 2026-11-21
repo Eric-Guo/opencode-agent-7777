@@ -3,6 +3,7 @@ import { Composer } from "@/composer/composer"
 import { createPromptModelSelection } from "@/composer/selection"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 import { createSessionRequestModel } from "@/session/requests/model"
+import { createSessionFork } from "@/session/fork"
 import { createSessionRevert } from "@/session/revert"
 import { createSessionComposerController, type SessionComposerController } from "./controller"
 import { SessionComposerRegion } from "./session-composer-region"
@@ -19,6 +20,7 @@ export function createActiveSessionRegion() {
     }),
     dock: { state: requests, ready: () => state.status === "ready" && !revert.busy() },
   })
+  const fork = createSessionFork(active.composer.preparingAttachments)
   const revertMessage: NonNullable<SessionUserActions["revert"]> = ({ messageID }) => revert.to(messageID)
 
   return {
@@ -27,6 +29,10 @@ export function createActiveSessionRegion() {
     actions: {
       revert,
       timeline: {
+        get fork() {
+          const action = fork()
+          return action?.available() ? action.fork : undefined
+        },
         get revert() {
           return revert.canUndo() ? revertMessage : undefined
         },

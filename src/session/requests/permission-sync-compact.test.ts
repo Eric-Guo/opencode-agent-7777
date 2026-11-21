@@ -126,6 +126,18 @@ describe("permission notifications", () => {
     expect(browser).toHaveLength(2)
   })
 
+  test("greetings keep notification history and announce a newly discovered request", async () => {
+    asked()
+    await refreshPermissions("greeting")
+    listed = [{ ...request, id: "missed", action: "other" }]
+    await refreshPermissions("greeting")
+    await refreshPermissions("greeting")
+    expect(browser.map((notice) => notice.body)).toEqual([
+      "Reading a file (matches the file path)",
+      "Permission required",
+    ])
+  })
+
   test("refresh resets deduplication and notifies the first pending request", async () => {
     asked()
     await refreshPermissions()
@@ -253,6 +265,22 @@ describe("permission notifications", () => {
 })
 
 describe("permission sync", () => {
+  test.each(["success", "failure"])("ignores a late %s after the session moves directories", async (outcome) => {
+    const held = Promise.withResolvers<Response>()
+    setSessionClient(
+      OpenCode.make({ baseUrl: "http://localhost", fetch: ((_input, _init) => held.promise) as typeof fetch }),
+      parent,
+    )
+    const pending = refreshPermissions("greeting")
+    setState("session", "location", "directory", "/new")
+    setState("permission", parent.id, [{ ...request, id: "current", sessionID: parent.id }])
+    if (outcome === "success") held.resolve(Response.json({ data: [request] }))
+    else held.reject(new Error("Old directory failed"))
+    await pending
+    expect(state.permission[parent.id]?.map((item) => item.id)).toEqual(["current"])
+    expect(state.permission[request.sessionID]).toBeUndefined()
+  })
+
   test.each(["once", "always", "reject"] as const)("sends the %s decision to the owning session", async (decision) => {
     setState("session", { id: "session_parent", location: { directory: "/repo" } } as SessionInfo)
     setState("permission", "session_child", [request, { ...request, id: "next_permission" }])

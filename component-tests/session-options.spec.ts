@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test"
+import type { SessionMessageInfo } from "@opencode/client/promise"
 import { readFile } from "node:fs/promises"
 
 test.use({ userAgent: "7777 fixture Electron/44", locale: "en-US" })
@@ -7,7 +8,7 @@ type WriteEvent =
   | { type: "session.deleted"; data: { sessionID: string } }
   | { type: "session.renamed"; data: { sessionID: string; title: string } }
 
-async function setup(page: Page, beforeResponse?: WriteEvent[]) {
+async function setup(page: Page, beforeResponse?: WriteEvent[], history: SessionMessageInfo[] = []) {
   const location = { directory: "C:\\Work\\Agent" }
   const sessions = ["First", "Second"].map((title, index) => ({
     id: `ses_${index}`,
@@ -19,11 +20,13 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
     cost: 0,
     tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
   }))
+  const messages = new Map([[sessions[0].id, history]])
   const writes: string[] = []
   const exports: string[] = []
   let firstStream = true
   const eventsReady = Promise.withResolvers<void>()
   const release = Promise.withResolvers<void>()
+  const forkResponded = Promise.withResolvers<void>()
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
   await page.addInitScript(() => {
@@ -73,20 +76,32 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
       if (beforeResponse) await release.promise
       return route.fulfill({ status: 204 })
     }
+    if (path === "/api/session/ses_0/fork" && request.method() === "POST") {
+      const { before } = request.postDataJSON()
+      const boundary = history.findIndex((message) => message.id === before)
+      expect(boundary).toBeGreaterThanOrEqual(0)
+      writes.push(`fork ${before}`)
+      const fork = { ...sessions[0], id: "ses_fork", title: "Fork" }
+      sessions.push(fork)
+      messages.set(fork.id, history.slice(0, boundary))
+      await release.promise
+      return json({ data: fork }).finally(forkResponded.resolve)
+    }
     if (path.endsWith("/export")) {
       const id = path.split("/").at(-2)!
       exports.push(id)
       await release.promise
       return json({ data: { info: sessions.find((s) => s.id === id), messages: [] } })
     }
-    if (path.endsWith("/message")) return json({ data: [], cursor: {} })
+    if (path.endsWith("/message"))
+      return json({ data: messages.get(path.split("/").at(-2)!)?.toReversed() ?? [], cursor: {} })
     if (path === "/api/model/default") return json({ location, data: null })
     if (request.method() === "GET") return json({ location, data: [] })
     throw new Error(`Unexpected ${request.method()} ${path}`)
   })
   await page.goto("/")
   await expect(page.getByRole("button", { name: "Options for First" })).toBeVisible()
-  return { writes, exports, release, emitEvents: eventsReady.resolve, errors }
+  return { writes, exports, release, forkResponded: forkResponded.promise, emitEvents: eventsReady.resolve, errors }
 }
 
 test("a rename in an equivalent directory refreshes the open picker", async ({ page }) => {
@@ -299,3 +314,111 @@ test("a stalled delete keeps the session and requires a fresh confirmation to re
     release.resolve()
   }
 })
+
+const forkHistory: SessionMessageInfo[] = Array.from({ length: 11 }, (_, index) => ({
+  type: "user",
+  id: `msg_${String(index).padStart(2, "0")}`,
+  text: index === 2 ? "Review @agent" : `Prompt ${index}`,
+  ...(index === 2
+    ? {
+        agents: [{ name: "agent", mention: { text: "@agent", start: 7, end: 13 } }],
+        files: [{ name: "notes.txt", mime: "text/plain", data: "aGk=", source: { type: "inline" as const } }],
+      }
+    : {}),
+  time: { created: index + 1 },
+}))
+
+async function selectFork(page: Page) {
+  const message = page.locator('[data-component="user-message"]').filter({ hasText: "Review @agent" })
+  await message.locator('[data-slot="user-message-text"]').hover()
+  await message.getByRole("button", { name: "More actions" }).click()
+  await page.getByRole("menuitem", { name: "Fork from here" }).click()
+}
+
+test("forks before the oldest visible prompt and restores its draft through hydration retry", async ({ page }) => {
+  const { writes, release, errors } = await setup(page, undefined, forkHistory)
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const header = page.locator("header")
+  await expect(header).toContainText("9/9", { useInnerText: false })
+  await editor.fill("Keep my draft")
+  await selectFork(page)
+  const dialog = page.getByRole("dialog", { name: "Fork from here" })
+  await dialog.getByRole("button", { name: "Cancel" }).click()
+  await expect(editor).toHaveText("Keep my draft")
+  expect(writes).toEqual([])
+  await selectFork(page)
+  await dialog.getByRole("button", { name: "Replace draft and fork" }).click()
+  await expect.poll(() => writes).toEqual(["fork msg_02"])
+  await page.route(
+    "**/api/session/ses_fork/message?**",
+    (route) => route.fulfill({ status: 503, body: "History unavailable" }),
+    { times: 1 },
+  )
+  release.resolve()
+  await expect(page.getByRole("button", { name: "Options for Fork" })).toBeVisible()
+  await expect(editor.locator('[data-mention="agent"]')).toHaveText("@agent")
+  await expect(editor).toHaveText("Review @agent")
+  await expect(page.getByText("notes.txt", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(header).toContainText("2/9", { useInnerText: false })
+  await expect(editor).toHaveText("Review @agent")
+  await page.getByRole("button", { name: "Recent sessions" }).click()
+  await page.getByRole("option", { name: /First/ }).click()
+  await expect(header).toContainText("9/9", { useInnerText: false })
+  await expect(page.getByText("Prompt 10", { exact: true })).toBeVisible()
+  expect(writes).toEqual(["fork msg_02"])
+  expect(errors).toEqual([])
+})
+
+for (const open of [false, true]) {
+  test(`edits during a fork require confirmation before ${open ? "opening" : "keeping"} the created session`, async ({
+    page,
+  }) => {
+    const { writes, release } = await setup(page, undefined, forkHistory)
+    await selectFork(page)
+    await expect.poll(() => writes).toEqual(["fork msg_02"])
+    const other = page.locator('[data-component="user-message"]').filter({ hasText: "Prompt 10" })
+    await other.locator('[data-slot="user-message-text"]').hover()
+    await other.getByRole("button", { name: "More actions" }).click()
+    await expect(page.getByRole("menuitem", { name: "Fork from here" })).toBeDisabled()
+    await page.keyboard.press("Escape")
+    const editor = page.getByRole("textbox", { name: "Message", exact: true })
+    await editor.fill("Written during creation")
+    release.resolve()
+    const dialog = page.getByRole("dialog", { name: "Fork from here" })
+    await dialog.getByRole("button", { name: open ? "Replace draft and open fork" : "Cancel" }).click()
+    await expect(editor).toHaveText(open ? "Review @agent" : "Written during creation")
+    await expect(page.getByRole("button", { name: open ? "Options for Fork" : "Options for First" })).toBeVisible()
+    if (!open) {
+      await page.getByRole("button", { name: "Recent sessions" }).click()
+      await expect(page.getByRole("option", { name: /Fork/ })).toBeVisible()
+    }
+    expect(writes).toEqual(["fork msg_02"])
+  })
+}
+
+for (const retire of ["navigation", "timeout"]) {
+  test(`ignores a fork response after ${retire}`, async ({ page }) => {
+    const { writes, release, forkResponded } = await setup(page, undefined, forkHistory)
+    await page.clock.install()
+    await selectFork(page)
+    await expect.poll(() => writes).toEqual(["fork msg_02"])
+    if (retire === "timeout") {
+      await page.clock.fastForward(30_001)
+      await expect(page.getByText(/operation timed out/i)).toBeVisible()
+    } else {
+      await page.getByRole("button", { name: "Recent sessions" }).click()
+      await page.getByRole("option", { name: /Second/ }).click()
+    }
+    const editor = page.getByRole("textbox", { name: "Message", exact: true })
+    await editor.fill("Keep this draft")
+    release.resolve()
+    await forkResponded
+    await expect(
+      page.getByRole("button", { name: retire === "timeout" ? "Options for First" : "Options for Second" }),
+    ).toBeVisible()
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await expect(editor).toHaveText("Keep this draft")
+    expect(writes).toEqual(["fork msg_02"])
+  })
+}
