@@ -3,6 +3,7 @@ import type { SessionUserActions } from "@opencode/session-ui/actions"
 import { SessionTimeline, type SessionUserPresentation } from "@opencode/session-ui/timeline"
 import { createMemo } from "solid-js"
 import { parseCommentNote, readPromptPresentation } from "@/composer/comment-note"
+import { createTimelineMessages } from "./projection"
 
 type CompactMessageTimelineProps = {
   document: SessionDocument
@@ -12,18 +13,8 @@ type CompactMessageTimelineProps = {
 }
 
 export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
-  const document = createMemo(() => ({
-    ...props.document,
-    messages: props.document.messages.map((message) => {
-      if (message.type !== "assistant") return message
-      return {
-        ...message,
-        content: message.content.map((part) =>
-          part.type === "text" ? { ...part, text: linkChineseParenthesizedUrls(part.text) } : part,
-        ),
-      }
-    }),
-  }))
+  const messages = createTimelineMessages(() => props.document.messages)
+  const document = createMemo(() => ({ ...props.document, messages: messages() }))
   const presentation = createMemo(() =>
     Object.fromEntries(
       props.document.messages.flatMap((message): [string, SessionUserPresentation][] => {
@@ -66,8 +57,4 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
       />
     </div>
   )
-}
-
-function linkChineseParenthesizedUrls(text: string) {
-  return text.replace(/（(https?:\/\/[^\s（）]+)）/g, "（<$1>）")
 }

@@ -164,6 +164,25 @@ test("waits for completion, replaces charts, and disposes removed instances", as
   await expect(page.locator(`${charts} ${canvas} svg`)).toHaveCount(1)
 })
 
+test("keeps an earlier chart expanded while a later answer streams a report link", async ({ page }) => {
+  await page.goto("/component-tests/echarts.html?scenario=streamed-link")
+  const chart = page.locator(charts)
+  const surface = chart.locator(canvas)
+  await expect(surface.locator("svg")).toBeVisible()
+  const instance = await surface.getAttribute("_echarts_instance_")
+  await chart.getByRole("button", { name: "Show source", exact: true }).click()
+
+  await page.getByRole("button", { name: "Append URL" }).click()
+  const answer = page.locator('[data-slot="text-part-body"]').filter({ hasText: "来源（" })
+  await expect(answer).toHaveText("来源（https://example.org/report")
+  await page.getByRole("button", { name: "Append punctuation" }).click()
+  await expect(answer).toHaveText("来源（https://example.org/report），见下文。")
+  await expect(answer.locator("a")).toHaveAttribute("href", "https://example.org/report")
+  await expect(surface).toHaveAttribute("_echarts_instance_", instance!)
+  await expect(chart.getByRole("button", { name: "Hide source", exact: true })).toBeVisible()
+  await expect(chart.locator("..").locator("pre code")).toBeVisible()
+})
+
 test("keeps the same chart source as code in expanded reasoning", async ({ page }) => {
   await page.goto("/component-tests/echarts.html?scenario=reasoning")
   const reasoning = page.locator('[data-component="reasoning-part"] pre code')

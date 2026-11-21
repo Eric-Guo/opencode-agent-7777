@@ -20,6 +20,9 @@ The compact adapter owns the button, localized cost/context/token tooltip, and d
 Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
 Shared Markdown owns fence completion, source copying and block disposal. The 7777 renderer handles ECharts
 options, chart controls and resizing in timeline text parts. Its former timeline-wide DOM observer is removed.
+The local `session/timeline/projection.ts` supplies stable message and content objects to the public
+`SessionTimeline`, which owns row projection. Only the assistant text part receiving a delta recomputes its
+Chinese-parenthesized URL formatting. The context inspector and export retain the source text.
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
@@ -203,6 +206,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Timeline streaming validation (2026-11-21). The identity regression reproduced on the original mapping. All
+693 Bun tests, 62 browser tests, typecheck and both production builds passed. The browser fixture streamed a
+report URL across two updates and kept the earlier chart instance and its expanded source. On the running agent,
+opening and closing the chart source restored its controls at `1/9`. Three-run production medians before and after
+were 172/166 ms for entry, 67/69 ms for switching and 122/91 ms for streaming. History and scroll checks passed,
+and both runs made the same 139 requests across the same endpoints. Evidence is in
+`node_modules/.cache/timeline-projection/`.
 
 Session action refactor validation (2026-11-21). All 692 Bun tests, 61 browser tests, typecheck and both
 production builds passed. Browser fixtures covered early rename acknowledgement, a competing title during a

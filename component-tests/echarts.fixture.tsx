@@ -35,10 +35,25 @@ function Fixture() {
     hidden: scenario === "hidden",
     session: 1,
   })
+  const [report, setReport] = createStore({ type: "text" as const, text: "来源（" })
+  const followUp: SessionDocument["messages"] =
+    scenario === "streamed-link"
+      ? [
+          { id: "msg_follow_up", type: "user", text: "Show the report link", time: { created: STORY_TIME + 2000 } },
+          {
+            id: "msg_report",
+            type: "assistant",
+            agent: "build",
+            model: STORY_MODEL,
+            time: { created: STORY_TIME + 2100 },
+            content: [report],
+          },
+        ]
+      : []
   const document = createMemo(
     (): SessionDocument => ({
       sessionID: `ses_chart_${state.session}`,
-      status: { type: state.completed ? "idle" : "busy" },
+      status: { type: state.completed && !followUp.length ? "idle" : "busy" },
       diffs: [],
       messages: [
         {
@@ -59,6 +74,7 @@ function Fixture() {
             { type: "text", text: state.text },
           ],
         },
+        ...followUp,
       ],
     }),
   )
@@ -85,6 +101,10 @@ function Fixture() {
           <Button onClick={() => setState("mounted", !state.mounted)}>Toggle timeline</Button>
           <Button onClick={() => setState("narrow", !state.narrow)}>Toggle width</Button>
           <Button onClick={() => setState("hidden", !state.hidden)}>Toggle visibility</Button>
+          <Show when={followUp.length}>
+            <Button onClick={() => setReport("text", (text) => text + "https://example.org/report")}>Append URL</Button>
+            <Button onClick={() => setReport("text", (text) => text + "），见下文。")}>Append punctuation</Button>
+          </Show>
         </nav>
         <div style={{ width: state.narrow ? "360px" : "100%", display: state.hidden ? "none" : "block" }}>
           <Show when={state.mounted}>

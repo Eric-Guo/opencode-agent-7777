@@ -249,9 +249,14 @@ when content grows. The compact screen owns the viewport and resume control and 
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
 to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
 individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
-from the broader timeline-detail settings. Before shared Markdown parsing, the compact timeline also turns bare
-HTTP(S) URLs inside full-width Chinese parentheses into standard angle-bracket autolinks so trailing prose and inline
-code cannot become part of the link target.
+from the broader timeline-detail settings.
+
+The local `session/timeline/projection.ts` adapts assistant text for the public `SessionTimeline`. In the display
+text it wraps bare HTTP(S) URLs inside full-width Chinese parentheses as Markdown autolinks, keeping trailing
+prose and inline code outside the target. The context inspector and export read the original transcript.
+Solid tracks each visible message and content part by object identity. A text delta updates the existing part,
+so earlier messages and their charts keep their views. A replacement message gets a fresh view even if it has
+the same ID. If a snapshot changes a part from text to reasoning in place, the timeline uses the raw reasoning text.
 
 `shell/routes/session-ui-provider.tsx` registers the local ECharts renderer through the public
 `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`. Shared Markdown detects completed fences
