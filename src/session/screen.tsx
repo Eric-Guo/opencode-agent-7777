@@ -137,7 +137,7 @@ export default function SessionPage() {
         >
           <ScrollView
             data-slot="session-message-scroller"
-            class="h-full [&>.scroll-view__viewport]:px-6 [&>.scroll-view__viewport]:py-5"
+            class="h-full"
             viewportRef={interaction.view.setScrollRef}
             onScroll={interaction.view.onScroll}
             onKeyDown={interaction.view.onKeyDown}
@@ -236,7 +236,15 @@ export default function SessionPage() {
     <div class="relative flex h-full min-w-0 text-v2-text-text-base">
       {transcript}
       <Show when={browser.open() && !navigation.page() && browser.api}>
-        {(api) => <BrowserPane api={api()} state={browser.state()} close={browser.toggle} />}
+        {(api) => (
+          <BrowserPane
+            api={api()}
+            state={browser.state()}
+            width={browser.width()}
+            resize={browser.resize}
+            close={browser.toggle}
+          />
+        )}
       </Show>
     </div>
   )

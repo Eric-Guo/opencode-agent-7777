@@ -3,12 +3,17 @@ import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { useDialog } from "@opencode/ui/context/dialog"
 import { Loader } from "@opencode/ui/loader"
+import { ResizeHandle } from "@opencode/ui/resize-handle"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { BrowserPaneAction, BrowserPaneAPI, BrowserPaneState } from "@/runtime/platform/browser-pane"
+
+const BROWSER_MIN_WIDTH = 320
+const CONVERSATION_MIN_WIDTH = 360
 
 export function createSessionBrowser(api = window.nexusBrowser) {
   const [state, setState] = createSignal<BrowserPaneState>()
   const [open, setOpen] = createSignal(false)
+  const [width, setWidth] = createSignal<number>()
 
   if (api) {
     onMount(() => {
@@ -37,6 +42,8 @@ export function createSessionBrowser(api = window.nexusBrowser) {
     api,
     state,
     open,
+    width,
+    resize: setWidth,
     toggle() {
       if (!open() && state()?.status !== "ready") void api?.refresh().catch(() => {})
       setOpen(!open())
@@ -44,13 +51,20 @@ export function createSessionBrowser(api = window.nexusBrowser) {
   }
 }
 
-export function BrowserPane(props: { api: BrowserPaneAPI; state: BrowserPaneState | undefined; close(): void }) {
+export function BrowserPane(props: {
+  api: BrowserPaneAPI
+  state: BrowserPaneState | undefined
+  width?: number
+  resize(width: number): void
+  close(): void
+}) {
   const api = props.api
   const language = useLanguage()
   const dialog = useDialog()
   const selected = createMemo(() => props.state?.tabs.find((tab) => tab.id === props.state?.focusedTabID))
   const [address, setAddress] = createSignal("")
   const [error, setError] = createSignal(false)
+  let pane!: HTMLElement
   let surface!: HTMLDivElement
 
   createEffect(
@@ -95,10 +109,23 @@ export function BrowserPane(props: { api: BrowserPaneAPI; state: BrowserPaneStat
 
   return (
     <aside
+      ref={pane}
       id="nexus-browser-pane"
       aria-label={language.t("browser.title")}
-      class="z-10 flex h-full w-[48%] min-w-0 shrink-0 flex-col border-l border-v2-border-border-base bg-v2-background-bg-deep max-[760px]:absolute max-[760px]:inset-y-0 max-[760px]:right-0 max-[760px]:w-full"
+      class="relative z-10 flex h-full w-(--nexus-browser-width) min-w-0 shrink-0 flex-col border-l border-v2-border-border-base bg-v2-background-bg-deep max-[760px]:absolute max-[760px]:inset-y-0 max-[760px]:right-0 max-[760px]:w-full"
+      style={{
+        "--nexus-browser-width": `clamp(${BROWSER_MIN_WIDTH}px, ${props.width === undefined ? "48%" : `${props.width}px`}, calc(100% - ${CONVERSATION_MIN_WIDTH}px))`,
+      }}
     >
+      <ResizeHandle
+        class="max-[760px]:hidden"
+        direction="horizontal"
+        edge="start"
+        size={pane.getBoundingClientRect().width}
+        min={BROWSER_MIN_WIDTH}
+        max={pane.parentElement!.clientWidth - CONVERSATION_MIN_WIDTH}
+        onResize={props.resize}
+      />
       <div class="flex min-w-0 items-center gap-1 border-b border-v2-border-border-base p-2">
         <div class="flex min-w-0 flex-1 items-center gap-1 overflow-auto" aria-label={language.t("browser.tabs")}>
           <For each={props.state?.tabs}>

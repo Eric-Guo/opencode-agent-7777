@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 import { readFile } from "node:fs/promises"
+import type { BrowserPaneAPI } from "../src/runtime/platform/browser-pane"
 
 // Exercise the real 7777 entry and editor. The fixture supplies the browser bridge
 // protocol so streaming, decisions and recovery are deterministic and cost no model calls.
@@ -25,6 +26,100 @@ async function mockEvents(page: Page) {
 
 const optionsFor = (page: Page, title: string) => page.getByRole("button", { name: `Options for ${title}`, exact: true })
 const sessionItem = (page: Page, name: string) => page.getByRole("menuitem", { name, exact: true })
+
+test("resizes the Browser beside the conversation and keeps the timeline inset", async ({ page }) => {
+  await mockEvents(page)
+  await page.setViewportSize({ width: 1200, height: 800 })
+  await page.addInitScript(() => {
+    const api: BrowserPaneAPI = {
+      async refresh() {},
+      async command() {},
+      async layout(bounds) {
+        document.dispatchEvent(new CustomEvent("browser-layout", { detail: bounds }))
+      },
+      subscribe(listener) {
+        listener({
+          status: "ready",
+          tabs: [
+            { id: "tab", title: "Example", url: "about:blank", loading: false, canGoBack: false, canGoForward: false },
+          ],
+          focusedTabID: "tab",
+          reveal: 0,
+        })
+        return () => {}
+      },
+    }
+    window.nexusBrowser = api
+    document.addEventListener("browser-layout", (event) => {
+      document.documentElement.dataset.browserWidth = String((event as CustomEvent).detail?.width ?? 0)
+    })
+  })
+  await page.route("**/api/7777/**", (route) => {
+    const path = new URL(route.request().url()).pathname
+
+    if (path.endsWith("/connection"))
+      return route.fulfill({
+        json: { scope: "fixture", user: "Human", agent: "OpenCode", workspace: "Shared", model: "m", runner: "r" },
+      })
+    if (path.endsWith("/choices")) return route.fulfill({ json: { models: [], runners: [], approvals: ["ask"] } })
+
+    return route.fulfill({
+      json: {
+        turns: [
+          {
+            id: "turn",
+            input: "input",
+            variant: "variant",
+            run: "run",
+            created: 1000,
+            position: 1,
+            prompt: "A question",
+            text: "A reply",
+            status: "completed",
+          },
+        ],
+        pending: [],
+        busy: false,
+        decisions: [],
+        detail: { title: "Shared", owned: false, archived: false, writable: true },
+      },
+    })
+  })
+
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  await expect(page.getByText("A reply", { exact: true })).toBeVisible()
+
+  const scroller = page.locator('[data-slot="session-message-scroller"]')
+  const timeline = page.locator('[data-slot="session-message-timeline"]')
+  const inset = async () => {
+    const pane = (await scroller.boundingBox())!
+    const content = (await timeline.boundingBox())!
+    return [content.x - pane.x, pane.x + pane.width - content.x - content.width]
+  }
+  const browser = page.getByRole("complementary", { name: "Browser" })
+  const handle = browser.locator('[data-component="resize-handle"]')
+
+  await page.getByRole("button", { name: "Browser", exact: true }).click()
+  await expect(handle).toBeVisible()
+  await expect.poll(inset).toEqual([14, 14])
+
+  const start = (await browser.boundingBox())!
+  const grip = (await handle.boundingBox())!
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(grip.x + grip.width / 2 + 130, grip.y + grip.height / 2, { steps: 8 })
+  await page.mouse.up()
+
+  await expect.poll(async () => (await browser.boundingBox())?.width).toBe(start.width - 130)
+  await expect(page.locator("html")).toHaveAttribute("data-browser-width", String(start.width - 131))
+  await expect.poll(inset).toEqual([24, 24])
+
+  await page.setViewportSize({ width: 390, height: 800 })
+  await expect(handle).toBeHidden()
+  await expect.poll(async () => (await browser.boundingBox())?.width).toBe(390)
+  await page.getByRole("button", { name: "Close Browser pane" }).click()
+  await expect.poll(inset).toEqual([14, 14])
+})
 
 test("exports with Enter, Send and the slash suggestion without sending a chat message", async ({ page }) => {
   await mockEvents(page)
