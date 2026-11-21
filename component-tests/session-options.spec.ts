@@ -8,12 +8,12 @@ type WriteEvent =
   | { type: "session.renamed"; data: { sessionID: string; title: string } }
 
 async function setup(page: Page, beforeResponse?: WriteEvent[]) {
-  const location = { directory: "/fixture" }
+  const location = { directory: "C:\\Work\\Agent" }
   const sessions = ["First", "Second"].map((title, index) => ({
     id: `ses_${index}`,
     title,
     projectID: "project",
-    location,
+    location: index === 0 ? location : { directory: "c:/work/agent/" },
     agent: "7777",
     time: { created: index + 1, updated: index + 1 },
     cost: 0,
@@ -22,7 +22,7 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
   const writes: string[] = []
   const exports: string[] = []
   let firstStream = true
-  const writeStarted = Promise.withResolvers<void>()
+  const eventsReady = Promise.withResolvers<void>()
   const release = Promise.withResolvers<void>()
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
@@ -38,14 +38,16 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
       if (!firstStream || !beforeResponse)
         return route.fulfill({ contentType: "text/event-stream", body: ": connected\n\n" })
       firstStream = false
-      await writeStarted.promise
+      await eventsReady.promise
       const body = beforeResponse
         .map((event, index) => {
+          const session = sessions.find((item) => item.id === event.data.sessionID)
+          if (session && event.type === "session.renamed") session.title = event.data.title
           const envelope = {
             ...event,
             id: `evt_fixture_${index}`,
             created: 10 + index,
-            location,
+            location: session?.location ?? location,
             durable: { aggregateID: event.data.sessionID, seq: index + 1, version: 2 },
           }
           return `data: ${JSON.stringify(envelope)}\n\n`
@@ -60,14 +62,14 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
     if (session && request.method() === "PATCH") {
       writes.push(`rename ${session.id}`)
       session.title = request.postDataJSON().title
-      writeStarted.resolve()
+      eventsReady.resolve()
       if (beforeResponse) await release.promise
       return route.fulfill({ status: 204 })
     }
     if (session && request.method() === "DELETE") {
       writes.push(`delete ${session.id}`)
       sessions.splice(sessions.indexOf(session), 1)
-      writeStarted.resolve()
+      eventsReady.resolve()
       if (beforeResponse) await release.promise
       return route.fulfill({ status: 204 })
     }
@@ -84,8 +86,22 @@ async function setup(page: Page, beforeResponse?: WriteEvent[]) {
   })
   await page.goto("/")
   await expect(page.getByRole("button", { name: "Options for First" })).toBeVisible()
-  return { writes, exports, release, errors }
+  return { writes, exports, release, emitEvents: eventsReady.resolve, errors }
 }
+
+test("a rename in an equivalent directory refreshes the open picker", async ({ page }) => {
+  const { emitEvents, writes } = await setup(page, [
+    { type: "session.renamed", data: { sessionID: "ses_1", title: "Second renamed remotely" } },
+  ])
+  await page.getByRole("button", { name: "Recent sessions", exact: true }).click()
+  const search = page.getByRole("combobox")
+  await search.fill("Second")
+  await expect(page.getByRole("option", { name: /Second/ })).toBeVisible()
+  emitEvents()
+  await expect(page.getByRole("option", { name: /Second renamed remotely/ })).toBeVisible()
+  await expect(search).toHaveValue("Second")
+  expect(writes).toEqual([])
+})
 
 test("rename and delete target the chosen recent row and retain the active draft", async ({ page }) => {
   const { writes, errors } = await setup(page)

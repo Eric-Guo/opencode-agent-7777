@@ -47,6 +47,8 @@ browserSuite(import.meta.path, () => {
     const request = await old.started.promise
     const second = refreshRecentSessions()
     await next.started.promise
+    // The active session can receive an equivalent spelling while its directory page is loading.
+    setState("session", "location", "directory", "/repo/")
     expect(request.signal.aborted).toBe(true)
     await first
     expect(state.recentSessionsLoading).toBe(true)

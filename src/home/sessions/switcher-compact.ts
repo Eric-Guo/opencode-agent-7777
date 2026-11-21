@@ -1,3 +1,4 @@
+import { sameDirectory } from "@opencode/util/path"
 import { bounded } from "@/runtime/server/operation"
 import { createLoadState, transitionLoad, type LoadState } from "@/runtime/server/load-machine"
 import { recoverDeletedSession } from "@/session/recovery-compact"
@@ -74,7 +75,7 @@ export function sessionRemoved(id: string) {
   const active = state.session
   const directory = currentDirectory()
   if (!server || !directory) return
-  const recent = state.recentSessions.filter((s) => s.location.directory === directory)
+  const recent = state.recentSessions.filter((s) => sameDirectory(s.location.directory, directory))
   const records = active ? [...recent, active] : recent
   const removed = new Set(sessionTreeIDs(records, id))
   const remaining = recent.filter((s) => !removed.has(s.id))

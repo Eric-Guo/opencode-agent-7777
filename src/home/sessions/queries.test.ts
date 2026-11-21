@@ -139,6 +139,34 @@ test.each(["/repo/agent7777/agent7777", "/", "C:\\"])(
   },
 )
 
+test.each([
+  ["C:\\Work\\Agent", "c:/work/agent/"],
+  ["\\\\Server\\Share\\Agent", "//server/share/agent/"],
+  ["/work/Agent/", "/work/Agent"],
+])("browses and looks up sessions in equivalent spellings of %s", async (directory, reported) => {
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const api: HomeSessionSource = {
+    directory,
+    sessionID: "active",
+    list: async (input) => {
+      expect(input.directory).toBe(directory)
+      return input.search ? page([]) : page([session("listed", reported)])
+    },
+    get: async () => session(id, reported),
+  }
+  expect((await loadHomeSessionPage(api)).items).toEqual([session("listed", reported)])
+  expect((await loadHomeSessionPage(api, { search: id })).items).toEqual([session(id, reported)])
+})
+
+test("excludes different POSIX directories from recent sessions and exact lookup", async () => {
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const api = source(
+    async () => page([session("child", "/repo/sub"), session("sibling", "/repo-2"), session("current-dir", "/repo")]),
+    async () => session(id, "/Repo"),
+  )
+  expect((await loadHomeSessionPage(api, { search: id })).items.map((item) => item.id)).toEqual(["current-dir"])
+})
+
 test("failed next-page requests preserve loaded rows and retry the same cursor", async () => {
   let fail = true
   const cursors: (string | undefined)[] = []

@@ -1,5 +1,6 @@
 import type { SessionInfo, SessionListInput, SessionsResponse } from "@opencode/client/promise"
 import { abort } from "@opencode/util/abort"
+import { sameDirectory } from "@opencode/util/path"
 import { RECENT_SESSION_PAGE_SIZE } from "@/constants/session"
 import { isSessionNotFoundError } from "@/runtime/server/errors"
 import { bounded } from "@/runtime/server/operation"
@@ -53,7 +54,7 @@ async function readPage(source: HomeSessionSource, input: PageQuery, signal: Abo
     if (
       session.id === source.sessionID ||
       seen.has(session.id) ||
-      session.location.directory !== source.directory
+      !sameDirectory(session.location.directory, source.directory)
     )
       return
     seen.add(session.id)

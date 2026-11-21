@@ -1,6 +1,13 @@
 import { abort } from "@opencode/util/abort"
 import { clearReadError, reportReadError } from "@/runtime/server/read-errors"
-import { currentDirectory, currentDraft, currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
+import {
+  currentDirectory,
+  currentDraft,
+  currentRuntime,
+  isCurrentDirectory,
+  setState,
+  state,
+} from "@/runtime/server/session-store-compact"
 import { loadHomeSessionPage } from "./index"
 
 // The compact store has one directory list for child-session request routing.
@@ -19,7 +26,7 @@ export async function refreshRecentSessions(): Promise<void> {
   const request = new AbortController()
   latest = request
   const signal = AbortSignal.any([owner.signal, request.signal])
-  const current = () => latest === request && !signal.aborted && currentDirectory() === directory
+  const current = () => latest === request && !signal.aborted && isCurrentDirectory(directory)
   // Retire the retry action with the request, even if navigation happens after it failed.
   signal.addEventListener(
     "abort",

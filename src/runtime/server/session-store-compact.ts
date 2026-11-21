@@ -1,3 +1,4 @@
+import { sameDirectory } from "@opencode/util/path"
 import { batch, createSignal } from "solid-js"
 import { createStore, reconcile } from "solid-js/store"
 import type { State } from "@/runtime/server/global-sync/types"
@@ -49,6 +50,11 @@ export const currentRuntime = runtime
 export const currentDraft = draft
 export const currentDirectory = () => state.session?.location.directory ?? draft()?.directory
 export const currentData = () => runtime()?.data ?? draft()?.data
+
+export function isCurrentDirectory(directory: string) {
+  const active = currentDirectory()
+  return active !== undefined && sameDirectory(active, directory)
+}
 
 export type ActiveSession = {
   client: OpencodeClient

@@ -3,7 +3,7 @@ import { Popover } from "@opencode/ui/popover"
 import { createEffect, createMemo, on, onCleanup, Show } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentDirectory, currentLocalAgent, state } from "@/runtime/server/session-store-compact"
+import { currentDirectory, currentLocalAgent, isCurrentDirectory, state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { createDirectorySdk } from "@/runtime/server/directory-client-compact"
 import { createHomeSessionsController } from "./controller"
@@ -55,7 +55,7 @@ export function HomeSessionsRegion() {
     onCleanup(
       sessionEvents.listen((event) => {
         if (event.type !== "session.renamed" && event.type !== "session.deleted") return
-        if (!event.location?.directory || event.location.directory === currentDirectory())
+        if (!event.location?.directory || isCurrentDirectory(event.location.directory))
           void data.refresh(search.query.value())
       }),
     )

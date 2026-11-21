@@ -119,14 +119,17 @@ browserSuite(import.meta.path, () => {
     f.open()
     await Bun.sleep(0)
     f.emit("integration.updated", "/other")
+    f.emit("integration.updated", "/repo/sub")
     f.emit("model.updated", "/repo")
     await Bun.sleep(0)
     expect(f.requests).toEqual(["/repo"])
     for (const type of ["credential.switched", "integration.connection.switched", "integration.updated"] as const) {
-      f.emit(type, "/repo")
+      f.emit(type, "/repo/")
       await Bun.sleep(0)
     }
-    expect(f.requests).toEqual(["/repo", "/repo", "/repo", "/repo"])
+    f.emit("integration.updated")
+    await Bun.sleep(0)
+    expect(f.requests).toEqual(["/repo", "/repo", "/repo", "/repo", "/repo"])
   })
 
   test("an event overtaking a read waits for the refreshed connection before displaying a plan", async () => {

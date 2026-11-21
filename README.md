@@ -217,6 +217,9 @@ not shared imports: see the parity table for actual public exports and the remai
 7777 is an independent Git repository. Refactors use this checkout's behavior and public shared-package exports;
 they do not rely on `packages/app` source.
 File URL encoding uses `@opencode/util/path`; URL composition and directory search remain local.
+Recent sessions, session actions, and directory-scoped refreshes use the same package's `sameDirectory` helper.
+For example, a session saved under `C:\Work\Agent` appears when the active directory is `c:/work/agent/`.
+Requests and stored settings keep their original path spelling.
 The embedding host's payload schemas and `DesktopAPI` contract live in `runtime/platform/desktop-api.ts`.
 Ambient window declarations, header identity types and the lazy RPC adapter derive their payload types from those
 Effect schemas, including mutable arrays and optional host capabilities. This compact-only contract replaces

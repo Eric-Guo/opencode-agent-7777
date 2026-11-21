@@ -4,7 +4,7 @@ import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { createSignal, type ParentProps } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
-import { currentDirectory, currentDraft, currentRuntime } from "@/runtime/server/session-store-compact"
+import { currentDraft, currentRuntime, isCurrentDirectory } from "@/runtime/server/session-store-compact"
 import { useSessionCommands } from "@/session/commands/use-session-commands"
 import { sessionLabel } from "@/session/title"
 
@@ -18,7 +18,7 @@ export function SessionOptions(
   const select = (action: "rename" | "delete" | "export") => {
     const session = props.session
     const owner = currentRuntime() ?? currentDraft()
-    if (!owner || owner.signal.aborted || session.location.directory !== currentDirectory()) return
+    if (!owner || owner.signal.aborted || !isCurrentDirectory(session.location.directory)) return
     // Capture the row before its picker clears its query and unmounts.
     if (props.onSelect) props.onSelect()
     else trigger.focus({ preventScroll: true })

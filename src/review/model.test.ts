@@ -168,10 +168,11 @@ test("workspace watcher bursts refresh only live VCS review in the captured dire
   calls[0].response.resolve([])
   await working
   model.event(changed("/other"))
+  model.event(changed("/workspace/sub"))
   model.event(changed())
   await Bun.sleep(130)
   expect(calls).toHaveLength(1)
-  for (let index = 0; index < 10; index++) model.event(changed("/workspace"))
+  for (let index = 0; index < 10; index++) model.event(changed("/workspace/"))
   await Bun.sleep(130)
   expect(calls).toHaveLength(2)
   expect(calls[1].input).toEqual({ location: { directory: "/workspace" }, mode: "working", context: 3 })

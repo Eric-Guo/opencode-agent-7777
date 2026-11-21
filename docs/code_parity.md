@@ -92,6 +92,9 @@ deadline. The local page loader bounds the entire 12-row batch, including exact-
 Cancelling a search settles the caller even if a read ignores abort. The query driver owns debounce and cancellation,
 and the load machine retains rows, query and cursor for Retry. The background directory snapshot uses the same
 loader and the active runtime or draft's client. Only the latest refresh can publish results or offer a banner retry.
+Recent-session rows, exact-ID lookup, session actions and post-delete navigation use `sameDirectory` from
+`@opencode/util/path`. The open picker, VCS review and integration catalog use it for directory-scoped events.
+Matching handles trailing slashes and Windows drive or UNC spelling while keeping POSIX paths case-sensitive.
 Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
 30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
 results after a timeout, source change or close. The model still uses the existing activation and event stream.
@@ -206,6 +209,13 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Directory matching validation (2026-11-21). The original loader dropped Windows drive, UNC and trailing-slash
+matches. All 697 Bun tests, 63 browser tests, typecheck and both production builds passed after the change.
+On the running agent, cancelling Rename for a recent row returned focus to Recent sessions at `1/9`.
+Three-run production medians before and after were 168/171 ms for entry, 67/68 ms for switching and 90/91 ms
+for streaming. Each run of the benchmark suite made 87 requests with identical per-endpoint counts.
+Evidence is in `node_modules/.cache/directory-parity/`.
 
 Timeline streaming validation (2026-11-21). The identity regression reproduced on the original mapping. All
 693 Bun tests, 62 browser tests, typecheck and both production builds passed. The browser fixture streamed a

@@ -9,7 +9,7 @@ import { createSignal, onCleanup, Show } from "solid-js"
 import { sessionRemoved } from "@/home/sessions/switcher-compact"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createLoadState, transitionLoad, type LoadEvent, type LoadState } from "@/runtime/server/load-machine"
-import { currentDirectory, currentDraft, currentRuntime, state } from "@/runtime/server/session-store-compact"
+import { currentDraft, currentRuntime, isCurrentDirectory, state } from "@/runtime/server/session-store-compact"
 import { createSessionDeleteState, transitionSessionDelete, type SessionDeleteState } from "@/session/delete-machine"
 import { sessionLabel } from "@/session/title"
 import { readableError } from "@/shell/errors/readable"
@@ -35,9 +35,9 @@ export function createSessionActions() {
   function show(action: Action, session: SessionInfo) {
     const owner = currentRuntime() ?? currentDraft()
     const directory = session.location.directory
-    if (!owner || owner.signal.aborted || lifetime.signal.aborted || currentDirectory() !== directory || busy()) return
     const server = state.server
-    const sameDirectory = () => state.server === server && currentDirectory() === directory
+    const sameDirectory = () => state.server === server && isCurrentDirectory(directory)
+    if (!owner || owner.signal.aborted || lifetime.signal.aborted || !sameDirectory() || busy()) return
     const id = session.id
     const name = sessionLabel(session)
     const layer = uuid()

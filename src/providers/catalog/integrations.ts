@@ -1,5 +1,6 @@
 import type { Data } from "@opencode/client/solid"
 import type { IntegrationInfo, OpenCodeEvent } from "@opencode/client/promise"
+import { sameDirectory } from "@opencode/util/path"
 import { createMemo, createResource, createSignal, onCleanup, type Accessor } from "solid-js"
 import type { OpenCodeEventStream } from "@/runtime/server/client-compact"
 
@@ -8,7 +9,7 @@ export type IntegrationSource = { data: Data; directory: string }
 function refreshesIntegrations(event: OpenCodeEvent, directory: string) {
   switch (event.type) {
     case "integration.updated":
-      return !event.location?.directory || event.location.directory === directory
+      return !event.location?.directory || sameDirectory(event.location.directory, directory)
     case "server.connected":
     case "credential.updated":
     case "credential.switched":

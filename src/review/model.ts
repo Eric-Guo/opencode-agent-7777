@@ -1,5 +1,6 @@
 import type { OpenCodeClient, OpenCodeEvent } from "@opencode/client/promise"
 import { abort } from "@opencode/util/abort"
+import { sameDirectory } from "@opencode/util/path"
 import { createSignal, untrack } from "solid-js"
 import {
   createReviewState,
@@ -85,7 +86,13 @@ export function createReviewModel(input: {
       if (untrack(state).status === "disposed") return
       if (event.type === "server.connected") return void refresh()
       if (event.type === "filesystem.changed") {
-        if (untrack(state).source.mode === "turn" || event.location?.directory !== input.directory) return
+        const directory = event.location?.directory
+        if (
+          untrack(state).source.mode === "turn" ||
+          directory === undefined ||
+          !sameDirectory(directory, input.directory)
+        )
+          return
         // Match the extension's coalescing of workspace watcher bursts, using the existing stream.
         clearScheduled()
         scheduled = setTimeout(() => void refresh(), 100)
