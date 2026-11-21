@@ -3,7 +3,11 @@ import { readFile } from "node:fs/promises"
 
 test.use({ userAgent: "7777 fixture Electron/44", locale: "en-US" })
 
-async function setup(page: Page, deleteEventFirst = false) {
+type WriteEvent =
+  | { type: "session.deleted"; data: { sessionID: string } }
+  | { type: "session.renamed"; data: { sessionID: string; title: string } }
+
+async function setup(page: Page, beforeResponse?: WriteEvent[]) {
   const location = { directory: "/fixture" }
   const sessions = ["First", "Second"].map((title, index) => ({
     id: `ses_${index}`,
@@ -17,8 +21,8 @@ async function setup(page: Page, deleteEventFirst = false) {
   }))
   const writes: string[] = []
   const exports: string[] = []
-  const holdDelete = deleteEventFirst
-  const deleted = Promise.withResolvers<string>()
+  let firstStream = true
+  const writeStarted = Promise.withResolvers<void>()
   const release = Promise.withResolvers<void>()
   const errors: string[] = []
   page.on("pageerror", (error) => errors.push(error.message))
@@ -31,11 +35,22 @@ async function setup(page: Page, deleteEventFirst = false) {
     const path = new URL(request.url()).pathname
     const json = (value: unknown) => route.fulfill({ json: value })
     if (path === "/api/event") {
-      let body = ": connected\n\n"
-      if (deleteEventFirst) {
-        deleteEventFirst = false
-        body = await deleted.promise
-      }
+      if (!firstStream || !beforeResponse)
+        return route.fulfill({ contentType: "text/event-stream", body: ": connected\n\n" })
+      firstStream = false
+      await writeStarted.promise
+      const body = beforeResponse
+        .map((event, index) => {
+          const envelope = {
+            ...event,
+            id: `evt_fixture_${index}`,
+            created: 10 + index,
+            location,
+            durable: { aggregateID: event.data.sessionID, seq: index + 1, version: 2 },
+          }
+          return `data: ${JSON.stringify(envelope)}\n\n`
+        })
+        .join("")
       return route.fulfill({ contentType: "text/event-stream", body })
     }
     if (path === "/api/session/active") return json({ data: {} })
@@ -45,23 +60,15 @@ async function setup(page: Page, deleteEventFirst = false) {
     if (session && request.method() === "PATCH") {
       writes.push(`rename ${session.id}`)
       session.title = request.postDataJSON().title
+      writeStarted.resolve()
+      if (beforeResponse) await release.promise
       return route.fulfill({ status: 204 })
     }
     if (session && request.method() === "DELETE") {
       writes.push(`delete ${session.id}`)
       sessions.splice(sessions.indexOf(session), 1)
-      if (holdDelete) {
-        const event = {
-          id: "evt_fixture_delete",
-          created: 10,
-          type: "session.deleted",
-          data: { sessionID: session.id },
-          location,
-          durable: { aggregateID: session.id, seq: 1, version: 2 },
-        }
-        deleted.resolve(`data: ${JSON.stringify(event)}\n\n`)
-        await release.promise
-      }
+      writeStarted.resolve()
+      if (beforeResponse) await release.promise
       return route.fulfill({ status: 204 })
     }
     if (path.endsWith("/export")) {
@@ -165,7 +172,7 @@ test("context and session menus share export admission and download the selected
 })
 
 test("a deletion event releases the dialog and write lock before HTTP finishes", async ({ page }) => {
-  const { release, writes, errors } = await setup(page, true)
+  const { release, writes, errors } = await setup(page, [{ type: "session.deleted", data: { sessionID: "ses_0" } }])
   await page.getByRole("button", { name: "Options for First" }).click()
   await page.getByRole("menuitem", { name: "Delete session" }).click()
   const confirm = page.getByRole("dialog", { name: "Delete session" })
@@ -179,6 +186,68 @@ test("a deletion event releases the dialog and write lock before HTTP finishes",
   }
   expect(writes).toEqual(["delete ses_0"])
   expect(errors).toEqual([])
+})
+
+test("delete retries a mismatched not-found response and accepts one for the selected session", async ({ page }) => {
+  await setup(page)
+  const missing = ["ses_1", "ses_0"]
+  await page.route("**/api/session/ses_0", (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback()
+    return route.fulfill({
+      status: 404,
+      json: { _tag: "SessionNotFoundError", sessionID: missing.shift(), message: "Session not found" },
+    })
+  })
+  await page.getByRole("button", { name: "Options for First" }).click()
+  await page.getByRole("menuitem", { name: "Delete session" }).click()
+  const dialog = page.getByRole("dialog", { name: "Delete session" })
+  const remove = dialog.getByRole("button", { name: "Delete session" })
+  await remove.click()
+  await expect(dialog.getByRole("alert")).toContainText("Session not found")
+  await remove.click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole("button", { name: "Options for Second" })).toBeVisible()
+  expect(missing).toEqual([])
+})
+
+test("a matching rename event releases the dialog before HTTP finishes", async ({ page }) => {
+  const { release, writes } = await setup(page, [
+    { type: "session.renamed", data: { sessionID: "ses_0", title: "New" } },
+  ])
+  try {
+    await page.getByRole("button", { name: "Options for First" }).click()
+    await page.getByRole("menuitem", { name: "Rename session" }).click()
+    const field = page.getByRole("textbox", { name: "Rename session" })
+    await field.fill("New")
+    await field.press("Enter")
+    await expect(field).toBeHidden()
+    await page.getByRole("button", { name: "Options for New" }).click()
+    await expect(page.getByRole("menuitem", { name: "Delete session" })).toBeEnabled()
+    expect(writes).toEqual(["rename ses_0"])
+  } finally {
+    release.resolve()
+  }
+})
+
+test("other rename events keep the save pending, and its response preserves a newer title", async ({ page }) => {
+  const { release, writes } = await setup(page, [
+    { type: "session.renamed", data: { sessionID: "ses_1", title: "Requested" } },
+    { type: "session.renamed", data: { sessionID: "ses_0", title: "Newer" } },
+  ])
+  try {
+    await page.getByRole("button", { name: "Options for First" }).click()
+    await page.getByRole("menuitem", { name: "Rename session" }).click()
+    const field = page.getByRole("textbox", { name: "Rename session" })
+    await field.fill("Requested")
+    await field.press("Enter")
+    await expect(page.locator('[aria-label="Options for Newer"]')).toBeAttached()
+    await expect(field).toBeDisabled()
+  } finally {
+    release.resolve()
+  }
+  await expect(page.getByRole("dialog", { name: "Rename session" })).toBeHidden()
+  await expect(page.getByRole("button", { name: "Options for Newer" })).toBeVisible()
+  expect(writes).toEqual(["rename ses_0"])
 })
 
 test("a stalled delete keeps the session and requires a fresh confirmation to retry", async ({ page }) => {

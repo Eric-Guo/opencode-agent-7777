@@ -662,7 +662,11 @@ until the current one finishes. Local `/export` takes precedence over a same-nam
 a prompt or changes model/session settings. Inline execution preserves attachments; choosing it from the Add menu
 preserves the existing draft and mentions. It needs no app imports, host command provider or native save dialog.
 The compact `session/header/session-options.tsx` menu serves the current session and recent-session rows.
-The local `session/commands/session-actions.tsx` dialog driver owns rename and delete for both entry points.
+Rename follows `session/commands/rename-session.ts`, which saves the title and reconciles the active session and
+recent list. Delete follows `session/delete-machine.ts`, which tracks the selected session and admits one write
+per confirmation. Both menus use the compact `session/commands/session-actions.tsx` dialog driver for form state,
+focus and inline errors. Its `session-write-compact.ts` helper accepts HTTP success or a matching server event
+within 15 seconds. A confirmed write keeps its original target if the dialog closes during navigation.
 The header, recent-session rows, context dialog and slash command share one screen-owned exporter.
 It captures the selected session and continues across navigation. Its machine bounds fetch and response
 decoding to 60 seconds, then reports failure and allows another export. Timeout or owner disposal dismisses the

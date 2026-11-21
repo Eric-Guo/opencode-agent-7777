@@ -107,11 +107,14 @@ No shared exports or app-source dependencies are added. Machine tests and the ex
 cover these contracts alongside the local export-driver suite.
 
 The current root session and recent-session rows share the compact `session/header/session-options.tsx` menu,
-following the main app's Rename, Export and Delete actions. `session/commands/session-actions.tsx` supplies the
-rename and confirmation dialogs through public UI controls and the public session client. A confirmed write
-captures its target, accepts a matching server event or HTTP success, and has a 15-second deadline.
-Active-session deletion uses the existing navigation and draft activation paths. The context inspector, session
-menus and `/export` share a screen-owned exporter. The recent-row action uses the selected row's session ID.
+following the main app's Rename, Export and Delete actions. The local `session/commands/rename-session.ts` owns
+the title write and recent-list refresh. It preserves a newer title if another rename lands during the request.
+The local `session/delete-machine.ts` owns delete confirmation and retry. A missing-session response counts as
+success only for the selected session and pending attempt. The compact `session/commands/session-actions.tsx`
+drives both dialogs through public UI controls. Its shared write helper captures the target and accepts a matching
+server event or HTTP success within 15 seconds. Active-session deletion uses the existing navigation and draft
+activation paths. The context inspector, session menus and `/export` share a screen-owned exporter. A recent-row
+action uses the selected row's session ID.
 
 Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
 The pure machine owns slots, FIFO eligibility, request IDs and stall warnings; the driver retains fetch, abort signals,
@@ -200,6 +203,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Session action refactor validation (2026-11-21). All 692 Bun tests, 61 browser tests, typecheck and both
+production builds passed. Browser fixtures covered early rename acknowledgement, a competing title during a
+save, and retry after a delete response named the wrong session. The live agent returned focus to the header
+after cancelling Rename and to Recent sessions after cancelling a row deletion. Production source maps contained
+no main-app modules. Across six runs per build, median entry, switch and streaming times went from 179, 72 and
+149 ms to 187, 71 and 121 ms respectively. Per-endpoint request counts matched in both three-run comparisons.
+Evidence is in `node_modules/.cache/session-action-refactor/`.
 
 Child request routing validation (2026-11-21). The original production build missed a child's permission beyond
 the first 12 recent sessions. With the fix, the browser fixture answered that permission and a grandchild's
