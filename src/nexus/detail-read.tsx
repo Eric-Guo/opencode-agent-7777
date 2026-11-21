@@ -1,4 +1,4 @@
-import { createEffect, onCleanup, Show, type Accessor, type JSX } from "solid-js"
+import { createEffect, createSignal, onCleanup, Show, type Accessor, type JSX } from "solid-js"
 import { createStore } from "solid-js/store"
 import { request, type ChatController } from "./controller"
 import { useLanguage } from "../runtime/i18n/language"
@@ -6,6 +6,16 @@ import { Button } from "@opencode/ui/button"
 
 export function chatPath(chat: ChatController, action: string, query: Record<string, string> = {}) {
   return "/chats/" + encodeURIComponent(chat.s.id) + "/" + action + "?" + new URLSearchParams(query)
+}
+
+export function Disclosure(p: { title: JSX.Element; children: JSX.Element }) {
+  const [open, set] = createSignal(false)
+  return (
+    <details class="chat-disclosure" onToggle={(e) => set(e.currentTarget.open)}>
+      <summary>{p.title}</summary>
+      <Show when={open()}>{p.children}</Show>
+    </details>
+  )
 }
 
 // Detail reads belong to their view, including variant and task. Never paint an earlier selection.

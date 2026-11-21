@@ -1,4 +1,4 @@
-import { For, Show, createSignal, useContext, type JSX } from "solid-js"
+import { For, Show, useContext } from "solid-js"
 import { ModuleContext } from "../management/context"
 import { SlotView } from "../management/slot"
 import { Button } from "@opencode/ui/button"
@@ -6,21 +6,12 @@ import { Markdown } from "@opencode/session-ui/markdown"
 import { ExternalLink } from "../runtime/platform/external-link"
 import { McpTargetDetails } from "./mcp-target"
 import { useLanguage } from "../runtime/i18n/language"
-import { chatPath, DetailRead } from "./detail-read"
+import { chatPath, DetailRead, Disclosure } from "./detail-read"
 import { FileRow } from "./output-files"
 import type { ChatController } from "./controller"
 import type { ChatTurn } from "./chat"
 import type { Related, RunView, TaskView, Rounds } from "./inspection"
 
-export function Disclosure(p: { title: JSX.Element; children: JSX.Element }) {
-  const [open, set] = createSignal(false)
-  return (
-    <details class="chat-disclosure" onToggle={(e) => set(e.currentTarget.open)}>
-      <summary>{p.title}</summary>
-      <Show when={open()}>{p.children}</Show>
-    </details>
-  )
-}
 function Task(p: { chat: ChatController; run: string; task: string; name: string }) {
   const modules = useContext(ModuleContext)
   const lang = useLanguage(),

@@ -25,19 +25,44 @@ const RecordedTree = Schema.Struct({
 })
 const RecordedChange = Schema.Struct({ root: Schema.String, change: FileDiff.Info })
 
+const CheckpointChanges = Schema.Struct({
+  root: Schema.String,
+  base: Schema.NonEmptyString,
+  captured_at: Schema.DateFromString,
+  truncated: Schema.Boolean,
+  files: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      state: Schema.Literals(["text", "binary", "too_large", "omitted"]),
+      status: Schema.Literals(["A", "D", "M", "T"]),
+      patch: Schema.optionalKey(Schema.String),
+      additions: Schema.optionalKey(FileDiff.Info.fields.additions),
+      deletions: Schema.optionalKey(FileDiff.Info.fields.deletions),
+    }),
+  ),
+})
+const CHECKPOINT_STATUS = { A: "added", D: "deleted", M: "modified", T: "modified" } as const
+const STEP_REVIEW_TOOLS = new Set(["write", "edit", "bash"])
+
 export async function review(b: Backend, chat: Conversation, turn: Turn) {
   const id = turn.active_variant?.run_public_id
   if (!id || !b.localRunner || turn.reference || turn.active_variant?.details_pruned_at) return []
   const { run, data } = await ownedRun(b, chat.public_id, id)
   const reviews: Review[] = []
+  const snapshots = new Map<string, typeof CheckpointChanges.Type>()
   for (const task of data.tasks) {
-    if (
-      task.status !== "completed" ||
-      !["write", "edit", "bash"].includes(task.tool_name ?? "") ||
-      task.target?.executor_public_id !== b.localRunner
-    )
+    if (task.status !== "completed" || task.target?.kind === "mcp" || task.target?.executor_public_id !== b.localRunner)
       continue
     const result = await run.task(task.key).fetch()
+    // The runner records cumulative changes against this run's baseline, including after terminal reads and closes.
+    const snapshot = Schema.decodeUnknownOption(CheckpointChanges)(result.metadata?.["rho.changes"])
+    if (snapshot._tag === "Some") {
+      const current = snapshot.value
+      const key = JSON.stringify([current.root, current.base])
+      const previous = snapshots.get(key)
+      if (!previous || previous.captured_at <= current.captured_at) snapshots.set(key, current)
+    }
+    if (!STEP_REVIEW_TOOLS.has(task.tool_name ?? "")) continue
     const change = Schema.decodeUnknownOption(RecordedChange)(result.structured_content)
     const tree = Schema.decodeUnknownOption(RecordedTree)(result.structured_content)
     const checkpoint = Schema.decodeUnknownOption(Checkpoint)(result.metadata?.checkpoint)
@@ -65,6 +90,28 @@ export async function review(b: Backend, chat: Conversation, turn: Turn) {
       })),
     })
   }
+  // Keep step-specific patches and restore targets. Add any distinct patch captured by the checkpoint.
+  const stepFiles = new Map(
+    reviews.flatMap((step) => step.files.map((file) => [JSON.stringify([step.root, file.path]), file] as const)),
+  )
+  for (const snapshot of snapshots.values()) {
+    const files = snapshot.files.flatMap((file) => {
+      const status = CHECKPOINT_STATUS[file.status]
+      const step = stepFiles.get(JSON.stringify([snapshot.root, file.path]))
+      if (step && file.state === "text" && step.status === status && step.patch === file.patch) return []
+      return [{ ...file, status }]
+    })
+    if (files.length || snapshot.truncated)
+      reviews.push({
+        source: "checkpoint",
+        runner: b.localRunner,
+        run: id,
+        base: snapshot.base,
+        root: snapshot.root,
+        truncated: snapshot.truncated,
+        files,
+      })
+  }
   return reviews
 }
 
@@ -77,7 +124,7 @@ export async function restoreReview(b: Backend, chat: Conversation, turn: Turn, 
   if (
     detail.task.status !== "completed" ||
     detail.task.target?.executor_public_id !== b.localRunner ||
-    !["bash", "write", "edit"].includes(detail.task.tool_name ?? "")
+    !STEP_REVIEW_TOOLS.has(detail.task.tool_name ?? "")
   )
     throw new BridgeError(409, "This change has no local checkpoint.")
   const checkpoint = Schema.decodeUnknownOption(Checkpoint)(detail.metadata?.checkpoint)

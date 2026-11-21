@@ -2,6 +2,7 @@ import type { JsonValue, RunTranscript, TaskDetail } from "@cybros/agent"
 
 export type OutputFile = { id: string; name: string; path?: boolean }
 export type Review = {
+  source?: "checkpoint"
   runner: string
   root: string
   base: string
@@ -14,7 +15,7 @@ export type Review = {
     patch?: string
     additions?: number
     deletions?: number
-    status: string
+    status: "added" | "deleted" | "modified"
   }[]
 }
 export type RunView = {

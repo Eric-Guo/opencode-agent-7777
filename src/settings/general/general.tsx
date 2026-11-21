@@ -7,7 +7,7 @@ import { useSettings } from "../model"
 export function SettingsGeneral() {
   const language = useLanguage()
   const settings = useSettings()
-  const title = () => language.t("settings.general.row.followUpBehavior.title")
+  const title = () => language.t("settings.general.title")
   const keybind = () =>
     typeof navigator === "object" && /(Mac|iPod|iPhone|iPad)/.test(navigator.platform) ? "⌘↵" : "Ctrl+Enter"
   return (
@@ -23,7 +23,7 @@ export function SettingsGeneral() {
       <Menu.Portal>
         <Menu.Content class="w-[276px] max-w-[calc(100vw-28px)]">
           <Menu.Group>
-            <Menu.GroupLabel>{title()}</Menu.GroupLabel>
+            <Menu.GroupLabel>{language.t("settings.general.row.followUpBehavior.title")}</Menu.GroupLabel>
             <p class="px-2 pb-2 text-xs leading-5 text-v2-text-text-muted">
               {language.t("settings.general.row.followUpBehavior.description", { keybind: keybind() })}
             </p>

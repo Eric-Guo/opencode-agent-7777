@@ -109,6 +109,7 @@ export const dict = {
   "chat.requestsHeld": "Waiting for a decision",
   "chat.archivedView": "Conversation list",
   "chat.nonText": "{{path}} · {{state}}",
+  "chat.checkpointReview": "Turn checkpoint · {{runner}} · {{root}}",
   "chat.scopedReview": "Recorded on {{runner}} · {{root}}",
   "chat.delivery": "Send behavior",
   "chat.partial": "Some requests have no reported cost.",
@@ -253,9 +254,10 @@ export const dict = {
   "session.queue.attachments.one": "{{count}} attachment",
   "session.queue.attachments.other": "{{count}} attachments",
 
+  "settings.general.title": "Conversation preferences",
   "settings.general.row.followUpBehavior.title": "Follow-up behavior",
   "settings.general.row.followUpBehavior.description":
-    "Choose whether to queue follow-ups or steer the current turn. Use {{keybind}} to switch.",
+    "Choose whether to queue follow-ups or steer the current turn. Use {{keybind}} to steer immediately.",
   "settings.general.row.followUpBehavior.queue": "Queue",
   "settings.general.row.followUpBehavior.steer": "Steer",
   "settings.timeline.title": "Timeline",

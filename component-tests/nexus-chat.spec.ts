@@ -711,7 +711,15 @@ test("steers a running reply, queues the next, promotes without resending, and r
   const controls = page.locator('[data-slot="session-header-controls"]')
   expect(await controls.getByRole("button").evaluateAll((buttons) =>
     buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim()),
-  )).toEqual(["Options for Running example", "New session", "View context usage", "Recent sessions", "Memory bindings", "EN"])
+  )).toEqual([
+    "Options for Running example",
+    "New session",
+    "View context usage",
+    "Recent sessions",
+    "Memory bindings",
+    "Conversation preferences",
+    "EN",
+  ])
   const ring = controls.getByRole("button", { name: "View context usage" })
   const circle = ring.locator('[data-component="progress-circle"][data-appearance="indicator"]')
   const occupancy = await circle.locator('[data-slot="progress-circle-progress"]').evaluate((arc) =>
@@ -811,13 +819,13 @@ test("inspects the latest recorded system prompt and fetches raw messages on dem
   expect(reads).toEqual(["system new new-v", "raw new"])
 })
 
-test("keeps slow answer files with their variant and loads recorded changes and rounds on demand", async ({ page }) => {
+test("shows completed turn changes inline, keeps each variant’s files, and remembers manual review", async ({ page }) => {
   await mockEvents(page)
   await page.addInitScript(() => localStorage.setItem("7777.nexus.output", JSON.stringify({ id: "chat" })))
   let variant = "old",
     release!: () => void,
     oldStarted = false,
-    reviewReads = 0,
+    reviewReads: string[] = [],
     roundReads = 0
   const delayed = new Promise<void>((r) => (release = r))
   await page.route("**/api/7777/**", async (route) => {
@@ -838,7 +846,9 @@ test("keeps slow answer files with their variant and loads recorded changes and 
     if (p.endsWith("/bytes"))
       return route.fulfill({ body: "# Previewed output", contentType: "application/octet-stream" })
     if (p.endsWith("/review")) {
-      reviewReads++
+      const requested = url.searchParams.get("variant")!
+      reviewReads.push(requested)
+      if (requested === "old") await delayed
       return json([
         {
           runner: "Local",
@@ -847,7 +857,7 @@ test("keeps slow answer files with their variant and loads recorded changes and 
           run: "run",
           files: [
             {
-              path: "readme.txt",
+              path: requested === "old" ? "superseded.txt" : "readme.txt",
               state: "text",
               additions: 1,
               deletions: 1,
@@ -897,18 +907,20 @@ test("keeps slow answer files with their variant and loads recorded changes and 
   })
   await page.goto("/component-tests/nexus-chat.html")
   await expect.poll(() => oldStarted).toBe(true)
+  await expect.poll(() => reviewReads).toEqual(["old"])
   variant = "new"
   await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
   await expect(page.getByText("report.md", { exact: true })).toBeVisible()
   release()
   expect(roundReads).toBe(0)
-  expect(reviewReads).toBe(0)
+  const review = page.locator('[data-component="session-review"]')
+  await expect(review.getByText("readme.txt")).toBeVisible()
+  await expect(review.getByText("superseded.txt")).toHaveCount(0)
+  expect(reviewReads).toEqual(["old", "new"])
   await page.getByRole("button", { name: "Preview", exact: true }).click()
   await expect(page.getByText("Previewed output")).toBeVisible()
   await expect(page.getByText("old.zip")).toHaveCount(0)
-  await page.getByText("Review changes", { exact: true }).click()
-  await page.getByText("readme.txt", { exact: true }).click()
-  const review = page.locator('[data-component="session-review"]')
+  await review.getByText("readme.txt", { exact: true }).click()
   await review.locator('[data-line-type="change-addition"][data-column-number]').click()
   const comment = review.getByRole("textbox")
   await expect(comment).toBeVisible()
@@ -923,6 +935,19 @@ test("keeps slow answer files with their variant and loads recorded changes and 
   await expect(page.getByText("Recorded output")).toBeVisible()
   await page.getByText("Read sealed model request").click()
   await expect(page.getByText("A captured request", { exact: false })).toBeVisible()
+
+  await page.getByRole("button", { name: "Conversation preferences" }).click()
+  const preference = page.getByRole("menuitemcheckbox", { name: "Changed files" })
+  await expect(preference).toBeChecked()
+  await preference.click()
+  await expect(review).toHaveCount(0)
+  await page.reload()
+  const manual = page.getByText("Review changes", { exact: true })
+  await expect(manual).toBeVisible()
+  expect(reviewReads).toEqual(["old", "new"])
+  await manual.click()
+  await expect(review.getByText("readme.txt")).toBeVisible()
+  expect(reviewReads).toEqual(["old", "new", "new"])
 })
 
 for (const structured of [false, 0, null])

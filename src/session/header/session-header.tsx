@@ -3,6 +3,7 @@ import { ConversationActions } from "./conversation-actions"
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { HISTORY_DIALOG_LIMIT } from "@/constants/session"
+import { SettingsGeneral } from "@/settings/general/general"
 import { SessionContextUsage } from "@/context/indicator"
 import { HomeSessionsRegion } from "@/home/sessions/region"
 import type { createChatController } from "@/nexus/controller"
@@ -86,6 +87,7 @@ export function SessionHeader(props: {
         <SessionContextUsage chat={chat} exporter={props.exporter} />
         <HomeSessionsRegion chat={chat} exporter={props.exporter} actions={actions} />
         <ConversationActions chat={chat} />
+        <SettingsGeneral />
         <Show when={props.browser}>
           {(browser) => (
             <Button

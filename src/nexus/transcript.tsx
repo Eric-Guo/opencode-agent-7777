@@ -2,8 +2,10 @@ import { For, Show, createMemo } from "solid-js"
 import { Markdown } from "@opencode/session-ui/markdown"
 import type { SessionDocument } from "@opencode/session-ui/document"
 import { useLanguage } from "../runtime/i18n/language"
+import { useSettings } from "../settings/model"
 import { CompactMessageTimeline } from "../session/timeline/message-timeline-compact"
-import { RoundHistory, Disclosure } from "./activity"
+import { RoundHistory } from "./activity"
+import { Disclosure } from "./detail-read"
 import { AnswerFiles, AnswerReview } from "./output-files"
 import type { ChatController } from "./controller"
 
@@ -14,6 +16,7 @@ export function ChatTranscript(p: {
 }) {
   const c = p.chat,
     lang = useLanguage()
+  const settings = useSettings()
   // Keep the shared timeline renderer, with a local output shelf for each durable answer.
   // Use the bounded document as the source so pending messages cannot push us past nine.
   const groups = createMemo(() => {
@@ -94,7 +97,12 @@ export function ChatTranscript(p: {
                         <AnswerFiles chat={c} query={query} />
                       </Show>
                       <Show when={turn()?.review && !turn()?.pruned}>
-                        <AnswerReview chat={c} query={query} valid={() => turn()?.variant === variant} />
+                        <AnswerReview
+                          chat={c}
+                          query={query}
+                          valid={() => turn()?.variant === variant}
+                          inline={turn()?.status === "completed" && settings.general.showTurnDiffs()}
+                        />
                       </Show>
                       <Show when={turn()?.run && !turn()?.pruned && !turn()?.kind}>
                         <Disclosure title={lang.t("chat.rounds")}>
