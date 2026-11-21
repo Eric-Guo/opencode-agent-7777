@@ -25,6 +25,7 @@ import "./management.css"
 
 export function Management(props: { chat: ChatController; navigation: Navigation; children: JSX.Element }) {
   const client = createManagementClient(props.chat)
+  const windowDrag = isElectronUserAgent(navigator.userAgent)
 
   const [s, set] = createStore({
     workspaces: [] as WorkspaceSummary[],
@@ -68,7 +69,11 @@ export function Management(props: { chat: ChatController; navigation: Navigation
         },
       }}
     >
-      <nav class="nexus-management-bar" aria-label="Nexus administration">
+      <nav
+        class="nexus-management-bar"
+        aria-label="Nexus administration"
+        data-tauri-drag-region={windowDrag && !props.navigation.page() ? "" : undefined}
+      >
         <Show when={props.chat.s.connection}>
           <select
             aria-label="Workspace"
@@ -138,7 +143,7 @@ export function Management(props: { chat: ChatController; navigation: Navigation
             if (event.key === "Escape") props.navigation.openPage("")
           }}
         >
-          <header data-tauri-drag-region={isElectronUserAgent(navigator.userAgent) ? "" : undefined}>
+          <header data-tauri-drag-region={windowDrag ? "" : undefined}>
             <h2>{props.navigation.page()}</h2>
             <Button class="ml-auto" onClick={() => props.navigation.openPage("")}>
               Back to conversation
