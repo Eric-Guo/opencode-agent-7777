@@ -1,5 +1,5 @@
 import type { OpenCodeClient } from "@opencode/client/promise"
-import { setState, state } from "@/runtime/server/session-store-compact"
+import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import { bounded } from "@/runtime/server/operation"
@@ -17,6 +17,13 @@ type Kind = "permission" | "form"
 type Owner = NonNullable<ReturnType<typeof captureSessionOwnership>>["runtime"]
 const replies = new WeakMap<Owner, Record<Kind, ReturnType<typeof createReplyState>>>()
 const lists = new WeakMap<Owner, Record<Kind, RequestListState>>()
+
+export function requestSessions() {
+  const runtime = currentRuntime()
+  if (!runtime || !state.session || runtime.id !== state.session.id) return []
+  return [state.session, ...state.recentSessions, ...runtime.requestAncestry.records()]
+}
+
 function listMachines(owner: Owner) {
   let value = lists.get(owner)
   if (!value) {

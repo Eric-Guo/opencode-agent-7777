@@ -1,18 +1,40 @@
 import type { FormAnswer } from "@opencode/client/promise"
-import { createMemo } from "solid-js"
+import { createEffect, createMemo, on } from "solid-js"
 import { currentRuntime, currentSession, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionEvents } from "@/runtime/server/sync-session-compact"
 import { sessionDirectory } from "@/session/directory"
 import { translateSync } from "@/runtime/i18n/language"
-import { decidePermission } from "@/session/requests/permission-sync-compact"
+import { decidePermission, notifyCurrentPermission } from "@/session/requests/permission-sync-compact"
 import { rejectQuestion, replyQuestion, replyForm } from "@/session/requests/form-sync-compact"
-import { sessionPermissionRequest, sessionFormRequest } from "@/session/requests/session-request-tree"
+import { isRoutedForm, sessionPermissionRequest, sessionFormRequest, sessionTreeIDs } from "./session-request-tree"
+import { requestSessions } from "./sync-compact"
 import { createWebSearchRequest } from "./websearch"
 
 export function createSessionRequestModel() {
-  const sessions = createMemo(() => (state.session ? [state.session, ...state.recentSessions] : state.recentSessions))
-  const permissionRequest = createMemo(() => sessionPermissionRequest(sessions(), state.permission, state.session?.id))
-  const formRequest = createMemo(() => sessionFormRequest(sessions(), state.form, state.session?.id))
+  const sessions = createMemo(requestSessions)
+  createEffect(() => {
+    const runtime = currentRuntime()
+    if (!runtime) return
+    if (runtime.id !== state.session?.id) return runtime.requestAncestry.update([], [])
+    const owners = new Set(Object.keys(state.permission).filter((id) => state.permission[id]?.length))
+    for (const id of Object.keys(state.form)) {
+      if (state.form[id]?.some(isRoutedForm)) owners.add(id)
+    }
+    runtime.requestAncestry.update(state.recentSessions, [...owners])
+  })
+  const permissionRequest = createMemo(() => sessionPermissionRequest(sessions(), state.permission, sessions()[0]?.id))
+  const formRequest = createMemo(() => sessionFormRequest(sessions(), state.form, sessions()[0]?.id))
+  // An ask or snapshot can arrive before the recent page or the GET that connects its owner to this tree.
+  createEffect(
+    on(
+      () => sessionTreeIDs(sessions(), sessions()[0]?.id),
+      (ids, previous) => {
+        const request = permissionRequest()
+        if (request && previous && ids.includes(request.sessionID) && !previous.includes(request.sessionID))
+          notifyCurrentPermission(request)
+      },
+    ),
+  )
   const websearch = createWebSearchRequest({
     owner: createMemo(() => {
       const runtime = currentRuntime()

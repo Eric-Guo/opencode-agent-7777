@@ -4,10 +4,11 @@ import { reconcile } from "solid-js/store"
 import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { captureSessionOwnership } from "@/session/session-ownership"
-import { sessionPermissionRequest } from "@/session/requests/session-request-tree"
+import { sessionPermissionRequest } from "./session-request-tree"
 import { createPermissionNotifications } from "@/shell/notifications/notification"
 import {
   groupSessionRequests,
+  requestSessions,
   respondToRequest,
   settleRequest,
   rememberRequest,
@@ -22,8 +23,13 @@ function currentPermission(
   requests: Record<string, PermissionRequest[] | undefined>,
   include?: (request: PermissionRequest) => boolean,
 ) {
-  const sessions = state.session ? [state.session, ...state.recentSessions] : state.recentSessions
-  return sessionPermissionRequest(sessions, requests, state.session?.id, include)
+  const sessions = requestSessions()
+  return sessionPermissionRequest(sessions, requests, sessions[0]?.id, include)
+}
+
+export function notifyCurrentPermission(request: PermissionRequest) {
+  const active = captureSessionOwnership()
+  if (active?.current()) notificationsFor(active).notify(request)
 }
 
 function notificationsFor(active: Owner) {
@@ -74,10 +80,7 @@ export function handlePermissionEvent(event: OpenCodeEvent) {
       ...current.filter((item) => item.id !== request.id),
     ])
     const selected = currentPermission(state.permission)
-    if (selected?.id === request.id && selected.sessionID === request.sessionID) {
-      const active = captureSessionOwnership()
-      if (active) notificationsFor(active).notify(request)
-    }
+    if (selected?.id === request.id && selected.sessionID === request.sessionID) notifyCurrentPermission(request)
     return true
   }
 

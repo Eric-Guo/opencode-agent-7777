@@ -87,7 +87,7 @@ the current status. Query limits, deduplication, error recovery and the existing
 Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts` and the main app's 30-second fetch
 deadline. The local page loader bounds the entire 12-row batch, including exact-ID lookup and cursor backfill.
 Cancelling a search settles the caller even if a read ignores abort. The query driver owns debounce and cancellation,
-and the load machine retains rows, query and cursor for Retry. Background child-session discovery uses the same
+and the load machine retains rows, query and cursor for Retry. The background directory snapshot uses the same
 loader and the active runtime or draft's client. Only the latest refresh can publish results or offer a banner retry.
 Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
 30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
@@ -154,6 +154,12 @@ translated copy, desktop-first delivery and the browser fallback. The permission
 to a runtime activation and verifies that the request still belongs to its active tree. Refresh can notify again
 for the first pending request, while older permission grants cannot deliver after a refresh, reply or navigation.
 
+The request dock and permission notifications follow the active session tree, including older subagents outside
+the recent-session page. The compact `session/requests/request-ancestry.ts` driver follows missing parent IDs
+through public `session.get` reads for pending permissions, questions and web-search forms. Walks share reads,
+release them on settlement or navigation, and offer Retry on a failed read or a 30-second chain deadline.
+The recent-session picker retains its 12-row pages.
+
 Attachment preparation follows local `composer/attachments/{preparation-machine,preparation}.ts`, using the main
 app's upload machine/driver separation without adopting server uploads or a global upload service. Picker, paste,
 drop and input gestures capture draft ownership before work begins. Reset/restoration, navigation and disposal
@@ -194,6 +200,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Child request routing validation (2026-11-21). The original production build missed a child's permission beyond
+the first 12 recent sessions. With the fix, the browser fixture answered that permission and a grandchild's
+question at their respective session endpoints after a single recent-session page read. All 690 Bun tests,
+58 browser tests, typecheck and both production builds passed. The live agent returned to its composer at
+`1/9` after dismissing Recent sessions. Three-run production medians before and after were 165/172 ms for
+entry, 64/71 ms for switching and 122/119 ms for streaming. Per-endpoint request counts matched.
+Evidence is in `node_modules/.cache/request-ancestry/`.
 
 Session actions validation (2026-11-19). All 689 Bun tests, 57 browser tests, typecheck and both production
 builds passed. The browser fixture exercised row and header actions, rename retry, delete cancellation and timeout,

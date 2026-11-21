@@ -8,17 +8,15 @@ import { SessionWebSearchDock } from "../src/session/requests/session-websearch-
 
 export function WebSearchFixture() {
   const session = { id: "parent", location: { directory: "/fixture" } } as SessionInfo
-  const child = { ...session, id: "child", parentID: session.id, location: { directory: "/fixture/child" } }
   setSessionClient(OpenCode.make({ baseUrl: new URL("/fixture-api/", location.origin).href }), session)
-  setState("recentSessions", [child])
   const consent: FormInfo = {
     id: "consent",
-    sessionID: child.id,
+    sessionID: "child",
     title: "Web search",
     metadata: { kind: "websearch.provider" },
     fields: [{ key: "choice", type: "string" }],
   }
-  setState("form", child.id, [consent])
+  setState("form", consent.sessionID, [consent])
   setState({ status: "ready", eventsConnected: true })
   const model = createSessionRequestModel()
   return (

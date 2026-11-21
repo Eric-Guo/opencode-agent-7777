@@ -12,6 +12,10 @@ async function consent(page: Page, pending: string[], failFirstLoad = false) {
   await page.route("**/fixture-api/api/**", async (route) => {
     const request = route.request()
     const url = new URL(request.url())
+    if (url.pathname.endsWith("/session/child"))
+      return route.fulfill({
+        json: { data: { id: "child", parentID: "parent", location: { directory: "/fixture/child" } } },
+      })
     if (url.pathname.endsWith("/websearch/provider")) {
       directories.push(url.searchParams.get("location[directory]"))
       if (failFirstLoad && directories.length === 1) return route.abort()

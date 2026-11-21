@@ -11,6 +11,7 @@ import { setState, state } from "@/runtime/server/session-store-compact"
 import { sessionDirectory } from "@/session/directory"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { translateSync } from "@/runtime/i18n/language"
+import { isRoutedForm } from "./session-request-tree"
 import {
   groupSessionRequests,
   respondToRequest,
@@ -42,7 +43,7 @@ export function refreshForms() {
 export function handleFormEvent(event: OpenCodeEvent) {
   if (event.type === "form.created") {
     const form = event.data.form
-    if (form.metadata?.kind !== "question" && form.metadata?.kind !== "websearch.provider") return false
+    if (!isRoutedForm(form)) return false
     if (!filterSettledRequests("form", [form]).length) return true
     rememberRequest("form", form)
     setState("form", form.sessionID, (current = []) => [form, ...current.filter((item) => item.id !== form.id)])

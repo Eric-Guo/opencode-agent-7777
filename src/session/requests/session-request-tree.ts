@@ -1,5 +1,9 @@
 import type { FormInfo, PermissionRequest, SessionInfo } from "@opencode/client/promise"
 
+export function isRoutedForm(item: FormInfo) {
+  return item.metadata?.kind === "question" || item.metadata?.kind === "websearch.provider"
+}
+
 function sessionTreeRequest<T>(
   session: SessionInfo[],
   request: Record<string, T[] | undefined> | ((sessionID: string) => T[] | undefined),
@@ -52,10 +56,5 @@ export function sessionFormRequest(
   request: Record<string, FormInfo[] | undefined> | ((sessionID: string) => FormInfo[] | undefined),
   sessionID?: string,
 ) {
-  return sessionTreeRequest(
-    session,
-    request,
-    sessionID,
-    (item) => item.metadata?.kind === "question" || item.metadata?.kind === "websearch.provider",
-  )
+  return sessionTreeRequest(session, request, sessionID, isRoutedForm)
 }

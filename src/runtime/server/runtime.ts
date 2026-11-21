@@ -13,6 +13,7 @@ import { clearReadError, reportReadError } from "./read-errors"
 import { createRefreshState, transitionRefresh, refreshLoading, type RefreshEvent } from "./refresh-machine"
 import { FETCH_MESSAGE_LIMIT, HISTORY_DIALOG_LIMIT } from "@/constants/session"
 import { projectTimelineHistory } from "@/session/timeline/controller-projection"
+import { createRequestAncestry } from "@/session/requests/request-ancestry"
 import { createSessionData, type SessionDataView } from "./data"
 
 export type SessionView = SessionDataView & { messagesLoading: boolean }
@@ -22,6 +23,7 @@ export type SessionRuntime = {
   api: OpenCodeClient
   data: Data
   events: CreateDataInput["event"]
+  requestAncestry: ReturnType<typeof createRequestAncestry>
   id: string
   signal: AbortSignal
   statusRevision: () => number
@@ -136,6 +138,7 @@ export function createSessionRuntime(input: {
     return {
       ...sessionData.mutations,
       api: input.client,
+      requestAncestry: createRequestAncestry(id, input.client.session.get, abort.signal),
       data,
       events: sessionData.events,
       id,

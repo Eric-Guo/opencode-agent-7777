@@ -79,6 +79,7 @@ export function sessionRemoved(id: string) {
   const removed = new Set(sessionTreeIDs(records, id))
   const remaining = recent.filter((s) => !removed.has(s.id))
   if (remaining.length !== recent.length) setState("recentSessions", remaining)
+  currentRuntime()?.requestAncestry.removed(id)
   if (!active || !removed.has(active.id)) {
     if (remaining.length !== recent.length || state.recentSessionsLoading) void refreshRecentSessions()
     return

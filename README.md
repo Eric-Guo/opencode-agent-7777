@@ -392,6 +392,11 @@ ID before activation also rejects stale writes. The helper adds no subscriptions
 tests retain coverage for draft restoration, request routing, pending flags, errors and successful prompt history.
 
 `session/requests/sync-compact.ts` centralizes permission/question response handling and directory request grouping.
+The dock and permission notifications use the active session and its descendants. If a directory read or an event
+reports a pending request from an unknown session, `session/requests/request-ancestry.ts` follows its parent IDs
+through the public session client. Each activation shares lookups for missing parents. A walk has 30 seconds to
+resolve, and **Retry** repeats the outstanding lookups after a failed read. Requests whose owners are already known
+stay available throughout. A child can use its own directory for web-search providers.
 The permission and form adapters retain their public client endpoints, event filtering and child-session routing.
 Replies keep the request visible until accepted, block duplicate submissions, preserve failures for retry,
 and ignore results from an earlier activation even after returning to the same session. An older response
@@ -517,8 +522,9 @@ owns the 200 ms search debounce and cancels reads when the picker closes or its 
 machine retains the last published cursor and rows for Retry. Whole-state replacement keeps its snapshots independent
 of Solid store merging.
 
-The compact-only `home/sessions/directory-sync-recent-compact.ts` uses the same page loader to discover child sessions
-for permission and question routing. Each refresh uses the active session or draft's client and supersedes the previous
+The compact-only `home/sessions/directory-sync-recent-compact.ts` uses the same page loader for the background
+directory snapshot. These rows supply known parents for request routing and neighbors for session deletion.
+Each refresh uses the active session or draft's client and supersedes the previous
 read. A failure keeps the last successful list and gives the error banner a retry for that directory read. Switching
 sessions or drafts retires the outstanding read and its retry action.
 

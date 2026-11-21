@@ -2,6 +2,7 @@
 import { bounded } from "../operation"
 import { createLoadState, transitionLoad, type LoadState } from "../load-machine"
 import { clearReadError, reportReadError } from "../read-errors"
+import { batch } from "solid-js"
 import { reconcile } from "solid-js/store"
 import { FETCH_MESSAGE_LIMIT } from "@/constants/session"
 import {
@@ -61,13 +62,15 @@ export function activateSession(
   const draft = options.restoreDraft ? readPromptDraft(server.storageKeys?.promptDraft) : undefined
   writeSessionRecord(session, server.storageKeys)
   const activeClient = createDirectorySdk(server, sessionDirectory(session)).client
-  setState("session", undefined)
+  batch(() => {
+    setState("session", undefined)
+    setState("permission", reconcile({}))
+    setState("permissionResponding", undefined)
+    setState("form", reconcile({}))
+    setState("questionResponding", undefined)
+  })
   setSessionClient(activeClient, session)
   const runtime = currentRuntime()
-  setState("permission", reconcile({}))
-  setState("permissionResponding", undefined)
-  setState("form", reconcile({}))
-  setState("questionResponding", undefined)
   if (options.created) {
     setState("status", "ready")
     if (state.modelStatus !== "ready") void refreshModels(activeClient, session)
