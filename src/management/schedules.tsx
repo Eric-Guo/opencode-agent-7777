@@ -54,14 +54,20 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
       }),
   )
 
-  const rule = (): Rule =>
-    s.kind === "daily"
-      ? { kind: "daily", local_time: s.local, time_zone: s.zone }
-      : s.kind === "interval"
-        ? { kind: "interval", starts_at: new Date(s.instant).toISOString(), every_seconds: s.seconds }
-        : { kind: "once", run_at: new Date(s.instant).toISOString() }
+  const rule = (): Rule => {
+    if (s.kind === "daily") return { kind: "daily", local_time: s.local, time_zone: s.zone }
 
-  const edit = (row: Schedule) =>
+    const saved = s.editing?.rule.run_at ?? s.editing?.rule.starts_at
+    const instant = saved && s.instant === localDate(saved) ? saved : new Date(s.instant).toISOString()
+
+    return s.kind === "interval"
+      ? { kind: "interval", starts_at: instant, every_seconds: s.seconds }
+      : { kind: "once", run_at: instant }
+  }
+
+  // Compare the displayed choices, including any fallback for an inherited permission.
+  let observed: { approval: string; rule: string }
+  const edit = (row: Schedule) => {
     set({
       editing: row,
       name: row.name ?? "",
@@ -75,6 +81,8 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
       zone: row.rule.time_zone ?? s.zone,
       approval: row.approval_mode === "bypass" ? "bypass" : row.approval_mode === "rules" ? "rules" : "ask",
     })
+    observed = { approval: s.approval, rule: JSON.stringify(rule()) }
+  }
 
   const executions = async (row: Schedule, after?: string) => {
     const page = await c.command<ScheduleExecutionPage>({
@@ -228,6 +236,7 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
         onSubmit={(event) => {
           event.preventDefault()
           void c.perform(async () => {
+            const selectedRule = rule()
             if (s.editing)
               await c.command({
                 action: "schedule.update",
@@ -235,11 +244,11 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
                 conversation: s.conversation,
                 id: s.editing.public_id,
                 version: s.editing.lock_version,
-                name: s.name,
+                ...(s.name !== (s.editing.name ?? "") ? { name: s.name } : {}),
                 ...(s.model && s.model !== (s.editing.model?.model ?? "") ? { model: s.model } : {}),
-                approval: s.approval,
-                prompt: s.prompt,
-                rule: rule(),
+                ...(s.approval !== observed.approval ? { approval: s.approval } : {}),
+                ...(s.prompt !== s.editing.prompt ? { prompt: s.prompt } : {}),
+                ...(JSON.stringify(selectedRule) !== observed.rule ? { rule: selectedRule } : {}),
               })
             else
               await c.command({
@@ -250,7 +259,7 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
                 ...(s.model ? { model: s.model } : {}),
                 prompt: s.prompt,
                 key: s.key,
-                rule: rule(),
+                rule: selectedRule,
                 approval: s.approval,
               })
             set({ editing: null, prompt: "", name: "", key: crypto.randomUUID() })
@@ -315,6 +324,7 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
               <input
                 required
                 type="datetime-local"
+                step="1"
                 value={s.instant}
                 onInput={(e) => set("instant", e.currentTarget.value)}
               />
@@ -368,7 +378,7 @@ function localDate(value: string | null | undefined) {
   if (!value) return ""
   const date = new Date(value)
 
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 19).replace(/:00$/, "")
 }
 
 function scheduleRule(row: Schedule) {

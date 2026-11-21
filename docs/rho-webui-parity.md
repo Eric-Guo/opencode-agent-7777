@@ -1,14 +1,34 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`a91c63f44a0571f2a6cf08b85d7e568964441183`. The reference checkout and its Ruby/JavaScript
+`47209fd6063c5ded85c82b078889b4272c55f45d`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
-The reference WebUI changed only its Ruby lockfile from the previous baseline.
-OpenCode's UI remains the owner of the browser surface. The November 21 review
-passed 406 UI unit tests, 77 browser component tests, and the UI type check and build.
-The runtime parity ledger at `packages/nexus-runtime/PARITY.md` in the OpenCode
-checkout records the companion model adaptation and declaration checks.
+## Schedule edits, November 21, 2026
+
+The schedule editor sends the fields the operator changed and the version they
+opened. Editing the prompt preserves the server's model, inherited permission
+and exact clock. An interval change retains the fractional seconds in its saved
+start time. The first-run control accepts edits to the second. A rejected save
+keeps the draft and displays the conflict.
+
+`component-tests/management.spec.ts` exercises these behaviors against the
+production form, including the outgoing management payload. Live verification
+used the source management bridge and an isolated OpenCode runtime connected to
+development Nexus. A prompt-only edit preserved the timestamp
+`2030-03-04T05:06:37.123000Z`, model, name and approval mode. Reusing the
+original lock version returned HTTP 409 and preserved the accepted edit.
+The scratch schedule was canceled, its workspace deleted and its agent removed.
+
+All 407 UI unit tests and 78 browser component tests passed, along with the UI
+type check and build. The companion runtime review is recorded in
+`packages/nexus-runtime/PARITY.md` in the OpenCode checkout.
+
+## Earlier verification
+
+The previous November 21 review passed 406 UI unit tests, 77 browser component
+tests, and the UI type check and build. It covered model adaptations and
+declarations at Cybros revision `a91c63f44`, which shares the current Rho tree.
 
 An earlier verification passed all 403 UI unit tests and 69 browser component tests,
 the UI type check/build, 312 runtime conformance tests with real Chromium/WebRTC,

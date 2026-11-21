@@ -586,7 +586,7 @@ test("schedules retain execution pages, expose their clock and model, and keep f
 
   const jobs = [
     job("Later", "active", "2030-01-02T00:00:00Z"),
-    job("Earlier", "active", "2030-01-01T00:00:00Z"),
+    { ...job("Earlier", "active", "2030-01-01T00:00:37.123Z"), approval_mode: null },
     job("Finished", "completed", "2030-01-01T00:00:00Z"),
   ]
 
@@ -636,7 +636,49 @@ test("schedules retain execution pages, expose their clock and model, and keep f
   await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Changed prompt")
   await page.getByRole("button", { name: "Save job", exact: true }).click()
   await expect.poll(() => writes.filter((row) => row.action === "schedule.update").length).toBe(1)
-  expect(writes.find((row) => row.action === "schedule.update")).not.toHaveProperty("model")
+  expect(writes.find((row) => row.action === "schedule.update")).toEqual({
+    action: "schedule.update",
+    workspace: "one",
+    conversation: "conversation",
+    id: "Earlier",
+    version: 2,
+    prompt: "Changed prompt",
+  })
+
+  await articles.nth(0).getByRole("button", { name: "Edit", exact: true }).click()
+  const firstRun = page.getByLabel("First run", { exact: true })
+  expect(await firstRun.inputValue()).toMatch(/:37$/)
+  await page.getByLabel("Every (seconds)").fill("7200")
+  await page.getByRole("button", { name: "Save job", exact: true }).click()
+  await expect.poll(() => writes.filter((row) => row.action === "schedule.update").length).toBe(2)
+  expect(writes.at(-1)).toMatchObject({
+    rule: { kind: "interval", every_seconds: 7200, starts_at: "2030-01-01T00:00:37.123Z" },
+  })
+
+  await articles.nth(0).getByRole("button", { name: "Edit", exact: true }).click()
+  await firstRun.fill("2031-02-03T12:34:56")
+  await page.route("**/api/7777/manage", async (route) => {
+    const input = route.request().postDataJSON() as Command
+    if (input.action !== "schedule.update") return route.fallback()
+
+    writes.push(input)
+    return route.fulfill({ status: 409, json: { error: "This job changed. Refresh to use its current version." } })
+  })
+  await page.getByRole("button", { name: "Save job", exact: true }).click()
+  await expect(page.getByText("This job changed. Refresh to use its current version.")).toBeVisible()
+  expect(await firstRun.inputValue()).toBe("2031-02-03T12:34:56")
+  expect(writes.at(-1)).toEqual({
+    action: "schedule.update",
+    workspace: "one",
+    conversation: "conversation",
+    id: "Earlier",
+    version: 2,
+    rule: {
+      kind: "interval",
+      every_seconds: 3600,
+      starts_at: await page.evaluate(() => new Date("2031-02-03T12:34:56").toISOString()),
+    },
+  })
 })
 
 test("an unconfirmed upgrade survives reload and retries only its checked payload and key", async ({ page }) => {
