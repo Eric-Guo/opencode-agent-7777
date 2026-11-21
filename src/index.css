@@ -155,6 +155,21 @@
   }
 }
 
+#oc-agent [data-slot="session-message-scroller"] {
+  container-type: inline-size;
+}
+
+#oc-agent [data-slot="session-message-scroller"] > .scroll-view__viewport {
+  padding: 20px 24px;
+}
+
+/* Keep the grip outside the native Browser view and the window's draggable header. */
+#nexus-browser-pane > [data-component="resize-handle"] {
+  inset-inline-start: -4px;
+  app-region: no-drag;
+  touch-action: none;
+}
+
 @container (max-width: 720px) {
   #oc-agent [data-slot="session-header"] {
     gap: 8px;
