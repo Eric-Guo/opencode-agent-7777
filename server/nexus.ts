@@ -1,3 +1,4 @@
+import { mcpTarget } from "../src/nexus/inspection"
 import { nexusService, type ServiceConnection } from "./native"
 import { APIError, Client, type Conversation, type ResolveTask, type TaskDetail } from "@cybros/agent"
 import { RealtimeClient } from "@cybros/agent/realtime"
@@ -175,11 +176,9 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
         key: task.key,
         run: runID,
         kind: task.status === "needs_approval" ? "approval" : "ask",
-        tool: task.tool_name,
-        siteGrant:
-          !options.owned && detail.task.target?.executor_public_id === backend.localRunner && canWrite(backend, info)
-            ? grantSite(detail)
-            : undefined,
+        tool: detail.task.tool_alias || detail.task.tool_name,
+        mcp: mcpTarget(detail.task),
+        siteGrant: !options.owned && canWrite(backend, info) ? grantSite(detail, backend.localRunner) : undefined,
         prompt: detail.prompt,
         options: detail.options,
         multi: detail.multi,
@@ -215,24 +214,34 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
   }
 }
 
-export function grantSite(detail: {
-  task: { tool_name: string | null; status: string; target: { kind: string | null } | null }
-  tool_input: TaskDetail["tool_input"]
-}) {
+export function grantSite(
+  detail: {
+    task: {
+      tool_name: string | null
+      status: string
+      target: { kind: string | null; executor_public_id: string | null } | null
+    }
+    tool_input: TaskDetail["tool_input"]
+  },
+  runner: string | null,
+) {
   const { task } = detail
   const url = detail.tool_input?.url
   if (
     task.status !== "needs_approval" ||
     task.tool_name !== "web_fetch" ||
-    task.target?.kind === "mcp" ||
+    !runner ||
+    task.target?.executor_public_id !== runner ||
+    task.target.kind === "mcp" ||
     typeof url !== "string"
   )
     return
   // Keep the literal scheme, authority and explicit port. Never turn a credential or glob into a site grant.
   const match = /^(https?:\/\/[^/?#]+)(?:[/?#]|$)/i.exec(url)
-  if (!match || /[\s\\]/.test(url) || /[@*|]/.test(match[1]) || !URL.canParse(url)) return
+  if (!match || /[^\x21-\x7e]|\\/.test(url) || /[@*|]/.test(match[1]) || !URL.canParse(url)) return
   return match[1]
 }
+
 // Check the Human’s standing before using the agent credential for conversation policy or a site grant.
 export function canWrite(b: Backend, info: Conversation) {
   return !info.archived_at && canManage(b, info)

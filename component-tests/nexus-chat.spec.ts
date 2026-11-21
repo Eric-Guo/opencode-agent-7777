@@ -496,6 +496,92 @@ for (const [choice, action] of [
   })
 }
 
+test("MCP approval identifies the captured account and only card focus enables its shortcuts", async ({ page }) => {
+  const decisions: unknown[] = []
+  const task = {
+    kind: "approval",
+    run: "run",
+    key: "held",
+    tool: "work_fetch",
+    tool_input: { url: "https://docs.test" },
+    mcp: { connection: "Docs", account: "Research <b>account</b>", tool: "web_fetch" },
+  }
+  await mockEvents(page)
+  await page.addInitScript(() => localStorage.setItem("7777.nexus.fixture", JSON.stringify({ id: "chat" })))
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith("/connection"))
+      return route.fulfill({
+        json: {
+          scope: "fixture",
+          user: "Human",
+          agent: "rho",
+          workspace: "Workspace",
+          model: "model",
+          runner: "runner",
+        },
+      })
+    if (path.endsWith("/decisions")) decisions.push(route.request().postDataJSON())
+    if (path.endsWith("/rounds"))
+      return route.fulfill({
+        json: {
+          rounds: [
+            {
+              task_key: "r1",
+              status: "completed",
+              calls: { items: [{ name: task.tool, task_key: task.key, status: "completed" }] },
+            },
+          ],
+          has_older: false,
+        },
+      })
+    if (path.endsWith("/task"))
+      return route.fulfill({
+        json: { key: task.key, name: task.tool, kind: "tool_task", status: "completed", mcp: task.mcp, captures: [] },
+      })
+    const local = { ...task, key: "local", tool: "web_fetch", mcp: undefined, siteGrant: "https://docs.test" }
+    return route.fulfill({
+      json: {
+        turns: [
+          {
+            id: "turn",
+            input: "in",
+            variant: "v",
+            run: "run",
+            created: 1,
+            position: 1,
+            prompt: "Fetch notes",
+            text: "Received notes",
+            status: "completed",
+          },
+        ],
+        pending: [],
+        busy: decisions.length < 2,
+        problem: null,
+        decisions: [task, local].slice(decisions.length, decisions.length + 1),
+      },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html")
+  const card = page.getByRole("group").filter({ has: page.getByRole("button", { name: "Deny" }) })
+  await expect(card.getByText("work_fetch", { exact: true })).toBeVisible()
+  await expect(card.locator("dd")).toHaveText(["Docs", "Research <b>account</b>", "web_fetch"])
+  await expect(card.getByRole("button")).toHaveCount(2)
+  await card.getByRole("button", { name: "Allow once" }).press("Escape")
+  await expect(card.getByRole("button", { name: "Allow once" })).toBeVisible()
+  await card.focus()
+  await card.press("Enter")
+  await card.getByRole("button", { name: "Allow https://docs.test until restart" }).press("Enter")
+  await expect(card).toHaveCount(0)
+  expect(decisions).toEqual([
+    { run: "run", key: "held", response: { action: "approve" } },
+    { run: "run", key: "local", response: { action: "site" } },
+  ])
+  await page.getByText("Tools and activity", { exact: true }).click()
+  await page.getByText("work_fetch · completed").click()
+  await expect(page.locator(".chat-round dd")).toHaveText(["Docs", "Research <b>account</b>", "web_fetch"])
+})
+
 test("steers a running reply, queues the next, promotes without resending, and reports partial usage", async ({
   page,
 }) => {

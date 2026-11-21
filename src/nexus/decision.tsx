@@ -2,6 +2,7 @@ import { For, Show, createMemo, createSignal } from "solid-js"
 import { DockPrompt } from "@opencode/session-ui/dock-prompt"
 import { Button } from "@opencode/ui/button"
 import type { JsonObject } from "@cybros/agent"
+import { McpTargetDetails } from "./mcp-target"
 import { useLanguage, translateSync } from "../runtime/i18n/language"
 import { PermissionPrompt } from "../session/requests/permission-prompt"
 import type { Decision, Resolution } from "./chat"
@@ -31,7 +32,7 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
   const options = () => d().options ?? []
   const resources = createMemo(() => {
     const input = d().tool_input ?? {}
-    if (d().tool !== "bash" || typeof input.command !== "string") return [JSON.stringify(input, null, 2)]
+    if (d().mcp || d().tool !== "bash" || typeof input.command !== "string") return [JSON.stringify(input, null, 2)]
     const { command, workdir, ...rest } = input
     const lines = [command]
     if (typeof workdir === "string") lines.push(language.t("nexus.workdir", { directory: workdir }))
@@ -60,7 +61,8 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
         if (props.sending || event.isComposing || event.repeat || event.defaultPrevented) return
         if (
           d().kind === "approval" &&
-          (event.key === "Escape" || (event.key === "Enter" && event.target === event.currentTarget))
+          event.target === event.currentTarget &&
+          (event.key === "Escape" || event.key === "Enter")
         ) {
           event.preventDefault()
           props.reply({ action: event.key === "Escape" ? "deny" : "approve" })
@@ -80,6 +82,7 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
         fallback={
           <PermissionPrompt
             title={d().tool || language.t("notification.permission.title")}
+            description={<Show when={d().mcp}>{(target) => <McpTargetDetails target={target()} />}</Show>}
             resources={resources()}
             allowAlways={!!d().siteGrant}
             alwaysLabel={language.t("chat.site", { site: d().siteGrant ?? "" })}

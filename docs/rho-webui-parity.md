@@ -1,8 +1,35 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`42a2ecb2cb18f6ae5fd91e6971b342fb7fe51678`. The reference checkout and its Ruby/JavaScript
+`3ee7232034cb07aa114b24749571f3e13ddbba76`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Approvals and task inspection
+
+The Rho WebUI at `3ee723203` has the same source as the previous pin,
+`42a2ecb2c`. This review used the following entry points.
+
+| Rho WebUI reference under `test/` | OpenCode workflow | Regression |
+| --- | --- | --- |
+| `router_test.js`, `conversation_lifecycle_test.js`, `composer_test.js` | Workspace and conversation navigation, history, drafting, sending and queued inputs | `component-tests/nexus-chat.spec.ts`, `component-tests/composer.spec.ts`, `src/nexus/controller.test.ts` |
+| `seat_test.js`, `task_test.js` | Approval card, site grant and expanded task in Tools and activity | `component-tests/nexus-chat.spec.ts` exercises the callable and external account in both views, the local site-grant button, and Enter/Escape focus. `server/conversation.test.ts` and `server/nexus.test.ts` exercise task ownership, the connection ID fallback and site eligibility. |
+| `turn_test.js`, `git_review_test.js` | Published files, output previews, recorded changes and sealed requests | `component-tests/nexus-chat.spec.ts`, `server/conversation.test.ts` |
+| `settings_page_test.js`, `presets_test.js`, `bots_test.js`, `modules_test.js`, `slots_test.js` | Management shell, saved settings, extension registration and outlets | `component-tests/management.spec.ts`, `server/management.test.ts` |
+| `rho-env/test/webui/` terminal contracts | Terminal viewer, access changes and reattachment | `component-tests/management.spec.ts`, `src/management/terminal-stream.test.ts`, and the runtime's real WebRTC/PTY tests |
+
+**Development Nexus.** The production decision and task projections read a
+real held `notes_read` call from a scratch Bot conversation. The target had
+remote tool name `web_fetch` and its captured account label. An authenticated
+source service also returned two held tasks on different MCP connections,
+including one without a label. The [runtime ledger](../../nexus-runtime/PARITY.md#approvals-task-inspection-and-editor-replay)
+records the rename test, the local peer setup and the Nexus task change.
+
+**Browser and unit fixtures.** The browser displayed the same connection,
+account and remote tool in the approval card and its expanded history entry.
+Escape on a child button left the card open. Enter on the card approved the
+remote call. Enter on the local site button requested the literal site grant.
+All 407 unit tests and 81 Playwright component tests passed. The new browser
+case also passed three consecutive runs. The UI type check and build passed.
 
 ## Preset selection and T3 setup, November 21, 2026
 

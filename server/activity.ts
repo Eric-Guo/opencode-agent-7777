@@ -1,3 +1,4 @@
+import { mcpTarget } from "../src/nexus/inspection"
 import type { Conversation, JsonValue, Run, TaskDetail } from "@cybros/agent"
 import { outputPaths } from "./output-paths"
 import { loadTurns } from "../src/nexus/chat"
@@ -43,7 +44,7 @@ export function taskFiles(detail: TaskDetail, runner: string | null | undefined)
   const names = new Set(uploads.map((file) => file.name))
   const source = detail.task.target
   const paths =
-    runner && (source?.kind !== "runner" || source.executor_public_id === runner)
+    runner && source?.kind !== "mcp" && (!source?.executor_public_id || source.executor_public_id === runner)
       ? outputPaths(detail.output ?? detail.output_preview ?? "").filter((f) => !names.has(f.name))
       : []
   return [...uploads, ...paths]
@@ -53,6 +54,7 @@ export function taskView(detail: TaskDetail, runner: string | null | undefined) 
     key: detail.task.key,
     kind: detail.task.kind,
     status: detail.task.status,
+    mcp: mcpTarget(detail.task),
     name: detail.task.tool_alias || detail.task.tool_name || detail.task.key,
     prompt: detail.prompt,
     input: detail.tool_input,

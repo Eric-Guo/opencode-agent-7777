@@ -1,4 +1,4 @@
-import { For, Show } from "solid-js"
+import { For, Show, type JSX } from "solid-js"
 import { Button } from "@opencode/ui/button"
 import { DockPrompt } from "@opencode/session-ui/dock-prompt"
 import { Icon } from "@opencode/ui/icon"
@@ -6,7 +6,7 @@ import { useI18n } from "@opencode/ui/context/i18n"
 
 export type PermissionPromptProps = {
   title: string
-  description?: string
+  description?: JSX.Element
   resources: readonly string[]
   alwaysLabel?: string
   allowAlways?: boolean

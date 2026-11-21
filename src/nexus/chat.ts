@@ -1,4 +1,5 @@
 import type { Conversation, JsonObject, TaskDetail, TranscriptItem, Turn, TurnPage } from "@cybros/agent"
+import type { McpTarget } from "./inspection"
 import { HISTORY_DIALOG_LIMIT } from "../constants/session"
 
 export type Connection = {
@@ -48,6 +49,7 @@ export type Decision = Pick<TaskDetail, "prompt" | "options" | "multi" | "fields
   run: string
   key: string
   kind: "ask" | "approval"
+  mcp?: McpTarget
   siteGrant?: string
   tool: string | null
 }

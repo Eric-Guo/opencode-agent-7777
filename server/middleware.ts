@@ -400,7 +400,7 @@ export function middleware(
         const { run } = await ownedRun(b, id!, body.run)
         if (body.response.action === "site") {
           const detail = await run.task(body.key).fetch()
-          if (!canWrite(b, info) || detail.task.target?.executor_public_id !== b.localRunner || !grantSite(detail))
+          if (!canWrite(b, info) || !grantSite(detail, b.localRunner))
             throw new BridgeError(403, "This site grant is unavailable.")
           await run.task(body.key).approve()
           const retained = await b.native

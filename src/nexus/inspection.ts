@@ -1,4 +1,4 @@
-import type { JsonValue, RunTranscript } from "@cybros/agent"
+import type { JsonValue, RunTranscript, TaskDetail } from "@cybros/agent"
 
 export type OutputFile = { id: string; name: string; path?: boolean }
 export type Review = {
@@ -30,7 +30,10 @@ export type RunView = {
     unresolved: boolean
   }[]
 }
+export type McpTarget = { connection: string | null; account: string | null; tool: string | null }
+
 export type TaskView = {
+  mcp?: McpTarget
   key: string
   name: string
   kind: string
@@ -45,3 +48,14 @@ export type TaskView = {
 }
 export type Rounds = RunTranscript
 export type Related = { items: { id: string; name: string; busy?: boolean }[]; next: string | null }
+
+export function mcpTarget(task: TaskDetail["task"]) {
+  const target = task.target
+  if (target?.kind !== "mcp") return
+
+  return {
+    connection: target.display_name || target.connection_public_id,
+    account: target.account_label,
+    tool: target.tool_name || task.tool_name,
+  }
+}

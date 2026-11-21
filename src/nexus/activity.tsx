@@ -3,6 +3,7 @@ import { ModuleContext } from "../management/context"
 import { SlotView } from "../management/slot"
 import { Button } from "@opencode/ui/button"
 import { Markdown } from "@opencode/session-ui/markdown"
+import { McpTargetDetails } from "./mcp-target"
 import { useLanguage } from "../runtime/i18n/language"
 import { chatPath, DetailRead } from "./detail-read"
 import { FileRow } from "./output-files"
@@ -31,7 +32,8 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
             <p>
               {data().kind} · {data().status}
             </p>
-            <Show when={modules && data().name === "terminal"}>
+            <Show when={data().mcp}>{(target) => <McpTargetDetails target={target()} />}</Show>
+            <Show when={modules && !data().mcp && data().name === "terminal"}>
               <Button disabled={!p.chat.writable()} onClick={() => modules!.terminal({ run: p.run, task: p.task })}>
                 Open terminal
               </Button>

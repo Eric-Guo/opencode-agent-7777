@@ -117,6 +117,7 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     public_id: "a",
     workspace_public_id: "w",
     answering_user_public_id: "agent",
+    default_runner: { executor_public_id: "runner" },
     metadata: { "opencode.surface": bound ? "channel" : "desktop", ...(bot ? { "opencode.bot": "private-bot" } : {}) },
     archived_at: archived ? "now" : null,
     side: false,
@@ -177,12 +178,27 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
           executionReads++
           return { rounds: [] }
         },
-        task: () => ({
+        task: (key: string) => ({
           fetch: async () => ({
-            task: { key: "code", kind: "tool_task", tool_name: "code", status: "completed" },
+            task:
+              key === "mcp"
+                ? {
+                    key,
+                    kind: "tool_task",
+                    status: "completed",
+                    tool_name: "write",
+                    tool_alias: "research_write",
+                    target: {
+                      kind: "mcp",
+                      connection_public_id: "work",
+                      account_label: "Research",
+                      tool_name: "write",
+                    },
+                  }
+                : { key: "code", kind: "tool_task", tool_name: "code", status: "completed" },
             structured_content: false,
             content: [],
-            output: "first\nsecond\nthird",
+            output: key === "mcp" ? "Wrote /remote/notes.md" : "first\nsecond\nthird",
           }),
           approve: async () => {
             approvals++
@@ -217,6 +233,11 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
     }
     expect(approvals).toBe(1)
     expect(executionReads).toBe(1)
+    expect(await (await send("/chats/a/task?run=mine&key=mcp")).json()).toMatchObject({
+      name: "research_write",
+      captures: [],
+      mcp: { connection: "work", account: "Research", tool: "write" },
+    })
     expect(await (await send("/chats/a/task?run=mine&key=code")).json()).toMatchObject({
       output: "first\nsecond\nthird",
       structured: false,

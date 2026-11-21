@@ -133,11 +133,17 @@ test("discovery checks workspace access and sends only the Human credential for 
 })
 
 test("only native web_fetch approvals with a literal HTTP site can be retained", () => {
-  const held = (url: string, kind = "builtin", status = "needs_approval") =>
-    grantSite({ task: { tool_name: "web_fetch", target: { kind }, status }, tool_input: { url } })
+  const held = (url: string, kind = "runner", status = "needs_approval", runner: string | null = "local") =>
+    grantSite(
+      { task: { tool_name: "web_fetch", target: { kind, executor_public_id: runner }, status }, tool_input: { url } },
+      "local",
+    )
   expect(held("https://EXAMPLE.test:443/reports?a=1")).toBe("https://EXAMPLE.test:443")
   expect(held("https://user:pass@example.test/data")).toBeUndefined()
   expect(held("http://*.example.test/data")).toBeUndefined()
+  expect(held("https://example.test/€")).toBeUndefined()
+  expect(held("https://example.test/data", "runner", "needs_approval", "other")).toBeUndefined()
+  expect(held("https://example.test/data", "runner", "needs_approval", null)).toBeUndefined()
   expect(held("file:///etc/hosts")).toBeUndefined()
   expect(held("https://example.test/data", "mcp")).toBeUndefined()
   expect(held("https://example.test/data", "builtin", "completed")).toBeUndefined()
