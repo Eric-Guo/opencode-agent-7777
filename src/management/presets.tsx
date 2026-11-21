@@ -1,8 +1,9 @@
 import { For, Show, onMount } from "solid-js"
-import { createStore, reconcile } from "solid-js/store"
+import { createStore, reconcile, unwrap } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import { NexusPreset } from "@opencode/schema/nexus-preset"
 import type { ManagementClient } from "./client"
+import { PresetTools } from "./preset-tools"
 import { FieldRow, JsonInput } from "./fields"
 import { Schema } from "effect"
 
@@ -11,6 +12,8 @@ export function Presets(props: { client: ManagementClient }) {
 
   const [s, set] = createStore({
     catalog: null as NexusPreset.Catalog | null,
+    choices: null as NexusPreset.ToolChoices | null,
+    discoveryError: "",
     id: "",
     name: "",
     description: "",
@@ -22,16 +25,23 @@ export function Presets(props: { client: ManagementClient }) {
     exported: "",
   })
 
-  const refresh = async () => set("catalog", await c.command<NexusPreset.Catalog>({ action: "preset.list" }))
+  const refresh = async () => {
+    await Promise.all([
+      c.command<NexusPreset.Catalog>({ action: "preset.list" }).then((catalog) => set("catalog", catalog)),
+      c.command<NexusPreset.ToolChoices>({ action: "preset.tools" }).then(
+        (choices) => set({ choices, discoveryError: "" }),
+        (error: Error) => set("discoveryError", error.message),
+      ),
+    ])
+  }
   onMount(() => void c.perform(refresh))
 
   const edit = (entry: NexusPreset.Entry) => {
-    set("config", reconcile(structuredClone(entry.configuration)))
+    set("config", reconcile(structuredClone(unwrap(entry.configuration))))
     set({
       id: entry.public_id,
       name: entry.name,
       description: entry.description,
-      config: structuredClone(entry.configuration),
       role: entry.role?.name ?? "",
       roleDescription: entry.role?.description ?? "",
     })
@@ -194,28 +204,10 @@ export function Presets(props: { client: ManagementClient }) {
               />
             </FieldRow>
           </Show>
-          <For each={["tools", "runner_tool_names"] as const}>
-            {(key) => (
-              <FieldRow
-                label={key === "tools" ? "Kernel and application tools (one per line)" : "Runner tools (one per line)"}
-              >
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={s.config[key] != null}
-                    onChange={(e) => update({ [key]: e.currentTarget.checked ? [] : null })}
-                  />
-                  Restrict selected tools
-                </label>
-                <Show when={s.config[key] != null}>
-                  <textarea
-                    value={s.config[key]?.join("\n")}
-                    onInput={(e) => update({ [key]: list(e.currentTarget.value) })}
-                  />
-                </Show>
-              </FieldRow>
-            )}
-          </For>
+          <Show when={s.discoveryError}>
+            <p role="alert">{s.discoveryError}. Your selections are kept.</p>
+          </Show>
+          <PresetTools configuration={s.config} choices={s.choices} update={update} />
           <JsonInput
             label="Advanced configuration, including MCP selections"
             value={s.config}

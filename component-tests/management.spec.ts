@@ -4,6 +4,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { executionExtensions } from "../../nexus-runtime/src/execution-settings"
+import type { NexusPreset } from "@opencode/schema/nexus-preset"
 import { Configuration } from "../../nexus-runtime/src/configuration"
 
 type Command = { action: string; [key: string]: unknown }
@@ -90,7 +91,9 @@ async function fixture(
           },
         })
 
-      return route.fulfill({ json: await command(input) })
+      const result = await command(input)
+      if (result instanceof Error) return route.fulfill({status: 503, json: {error: result.message}})
+      return route.fulfill({json: result})
     }
 
     return route.fulfill({ json: {} })
@@ -325,6 +328,7 @@ test("rejects invalid configuration JSON and distinguishes inherited fallback fr
 
     if (input.action === "preset.list")
       return { presets: [], main_preset_public_id: "", default_bot_preset_public_id: "" }
+    if (input.action === "preset.tools") return {tools: [], mcp_connections: []}
     writes.push(input)
 
     return {
@@ -1180,4 +1184,181 @@ test("built-in settings save defaults and atomic hook groups without carrying dr
   } finally {
     await rm(directory, { recursive: true, force: true })
   }
+})
+
+test("Preset discovery preserves independent MCP choices, unavailable selections and the open draft", async ({
+  page,
+}) => {
+  const saved: NexusPreset.Entry = {
+    name: "Selected",
+    description: "Before",
+    public_id: "saved",
+    role: null,
+    configuration: {
+      tools: ["gone"],
+      mcp: {
+        disabled_connections: [],
+        disabled_tools: [{ source: "executor", executor_public_id: "paired", server_key: "files", tool_name: "old" }],
+      },
+    },
+  }
+  let failing = false
+  await fixture(page, (input) => {
+    if (input.action === "preset.list")
+      return { presets: [saved], main_preset_public_id: "saved", default_bot_preset_public_id: "saved" }
+    if (input.action === "preset.tools")
+      return failing
+        ? new Error("Discovery unavailable")
+        : {
+            tools: [
+              { kind: "kernel", name: "memory_read", canonical: "nexus.memory.read" },
+              { kind: "agent", name: "web_fetch" },
+              { kind: "runner", name: "read" },
+            ],
+            mcp_connections: ["local", "other"].map((id) => ({
+              ref: { source: "executor", executor_public_id: id, server_key: "files" },
+              ...(id === "local" && {
+                previous_ref: { source: "executor", executor_public_id: "paired", server_key: "files" },
+              }),
+              name: "files",
+              account_label: id,
+              available: true,
+              tools: [{ name: "read", description: "Read files" }],
+            })),
+          }
+    if (input.action === "preset.replace") return Object.assign(saved, input.value)
+    return []
+  })
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  const editor = page.getByRole("dialog", { name: "Presets" })
+  await editor.getByRole("button", { name: "Edit", exact: true }).click()
+  const local = editor.getByRole("group", { name: "files · local", exact: true })
+  const other = editor.getByRole("group", { name: "files · other", exact: true })
+  await expect(local.getByRole("checkbox", { name: "old", exact: true })).not.toBeChecked()
+  await expect(editor.getByRole("checkbox", { name: "gone", exact: true })).toBeChecked()
+  await editor.getByText("memory_read", { exact: true }).click()
+  await editor.getByText("web_fetch", { exact: true }).click()
+  const runner = editor.getByRole("group", { name: "Runner tools", exact: true })
+  await expect(runner.getByRole("checkbox", { name: "Restrict selected tools" })).not.toBeChecked()
+  await runner.getByText("Restrict selected tools", { exact: true }).click()
+  await local.getByText("read", { exact: true }).click()
+  await local.getByText("Use files", { exact: true }).click()
+  await expect(other.getByRole("checkbox", { name: "read", exact: true })).toBeChecked()
+  await local.getByText("Use files", { exact: true }).click()
+  await expect(local.getByRole("checkbox", { name: "read", exact: true })).not.toBeChecked()
+  await editor.getByRole("textbox", { name: "Description", exact: true }).fill("Draft")
+  failing = true
+  await editor.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect(editor.getByRole("alert")).toContainText("Discovery unavailable")
+  await expect(editor.getByRole("textbox", { name: "Description", exact: true })).toHaveValue("Draft")
+  expect(saved.description).toBe("Before")
+  failing = false
+  await editor.getByRole("button", { name: "Save Preset", exact: true }).click()
+  await expect.poll(() => saved.description).toBe("Draft")
+  expect(saved.configuration).toMatchObject({
+    tools: ["gone", "memory_read", "web_fetch"],
+    runner_tool_names: [],
+    mcp: {
+      disabled_connections: [],
+      disabled_tools: [
+        { source: "executor", executor_public_id: "paired", server_key: "files", tool_name: "old" },
+        { source: "executor", executor_public_id: "local", server_key: "files", tool_name: "read" },
+      ],
+    },
+  })
+  await page.reload()
+  await editor.getByRole("button", { name: "Edit", exact: true }).click()
+  await expect(local.getByRole("checkbox", { name: "read", exact: true })).not.toBeChecked()
+  const advanced = editor.getByRole("textbox", { name: "Advanced configuration, including MCP selections" })
+  await advanced.fill(JSON.stringify({ ...saved.configuration, runner_tool_names: ["read"] }))
+  await expect(runner.getByRole("checkbox", { name: "read", exact: true })).toBeChecked()
+})
+
+test("T3 project and default agent controls use runtime discovery and retain unsaved choices after a refusal", async ({
+  page,
+}) => {
+  const config: Record<string, string> = { project_id: "missing", default_agent: "retired" }
+  let failing = true
+  let offline = false
+  const calls: string[] = []
+  await fixture(page, (input) => {
+    if (input.action === "extension.list")
+      return [
+        {
+          id: "nexus.t3",
+          name: "Coding delegation",
+          active: true,
+          enabled: true,
+          ready: true,
+          configuration_version: 1,
+          configuration_schema: { type: "object", properties: {} },
+          configuration: config,
+          diagnostics: [],
+          tools: [],
+          restart_required: false,
+        },
+      ]
+    if (input.action === "extension.call") {
+      calls.push(String(input.name))
+      if (input.name === "t3.status")
+        return { project_id: config.project_id, ready: true, issues: [], bearer: "saved", url: "http://peer" }
+      if (input.name === "t3.projects")
+        return offline ? new Error("T3 offline") : [{ id: "one", title: "Repository", workspaceRoot: "/work" }]
+      if (input.name === "t3.agents")
+        return [
+          { agent: "codex", available: true, reason: null },
+          { agent: "offline", available: false, reason: "No provider" },
+        ]
+      if (input.name === "t3.project") {
+        if (failing) return new Error("Project permission denied")
+        config.project_id = (input.input as { id: string }).id
+        return { id: config.project_id }
+      }
+    }
+    if (input.action === "extension.configure") {
+      const op = (input.change as { operations: { op: string; path: string[]; value?: string }[] }).operations[0]
+      expect(op.path).toEqual(["default_agent"])
+      if (op.op === "unset") delete config.default_agent
+      else config.default_agent = op.value!
+      return {}
+    }
+    return []
+  })
+  await page.getByRole("button", { name: "Integrations", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Integrations" })
+  await dialog.getByRole("button", { name: "T3", exact: true }).click()
+  const project = dialog.getByRole("combobox", { name: "T3 project" })
+  const agent = dialog.getByRole("combobox", { name: "Default coding agent" })
+  await expect(project).toHaveValue("missing")
+  await expect(agent).toHaveValue("retired")
+  await expect(dialog.getByText("T3 configuration ready.")).toBeVisible()
+  await expect(dialog.getByText("offline · No provider", { exact: true }).last()).toBeVisible()
+  await project.selectOption("one")
+  await agent.selectOption("codex")
+  await dialog.getByRole("button", { name: "Use project", exact: true }).click()
+  await expect(dialog.getByRole("alert")).toContainText("Project permission denied")
+  await dialog.getByRole("button", { name: "Refresh", exact: true }).click()
+  await expect(project).toHaveValue("one")
+  await expect(agent).toHaveValue("codex")
+  offline = true
+  await dialog.getByRole("button", { name: "Refresh T3", exact: true }).click()
+  await expect(dialog.getByRole("alert").filter({ hasText: "T3 offline" })).toBeVisible()
+  await expect(project).toHaveValue("one")
+  await expect(agent).toHaveValue("codex")
+  await expect(agent.locator("option:checked")).toHaveText("codex")
+  offline = false
+  await dialog.getByRole("button", { name: "Refresh T3", exact: true }).click()
+  failing = false
+  await dialog.getByRole("button", { name: "Use project", exact: true }).click()
+  await expect.poll(() => config.project_id).toBe("one")
+  await dialog.getByRole("button", { name: "Save default agent" }).click()
+  await expect.poll(() => config.default_agent).toBe("codex")
+  await page.reload()
+  await dialog.getByRole("button", { name: "T3", exact: true }).click()
+  await expect(project).toHaveValue("one")
+  await expect(agent).toHaveValue("codex")
+  await agent.selectOption("")
+  await dialog.getByRole("button", { name: "Save default agent" }).click()
+  await expect.poll(() => config.default_agent).toBeUndefined()
+  expect(calls).toEqual(expect.arrayContaining(["t3.status", "t3.agents", "t3.projects", "t3.project"]))
 })
