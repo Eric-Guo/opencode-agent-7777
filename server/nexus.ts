@@ -16,6 +16,7 @@ export class BridgeError extends Error {
 
 type Workspace = ReturnType<Client["workspace"]>
 export type Backend = {
+  origin: string
   client: Client
   workspace: Workspace
   workspaceID: string
@@ -80,6 +81,7 @@ async function connectMember(
     runner: runtime.runner,
   }
   return {
+    origin: baseURL,
     client,
     memberToken: token,
     ...runtime,

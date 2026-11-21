@@ -1,8 +1,39 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`3ee7232034cb07aa114b24749571f3e13ddbba76`. The reference checkout and its Ruby/JavaScript
+`c0ebf861e5a2793cf3e384dedc1e071237a93f12`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Usage and cost-limit recovery
+
+The reference `test/usage_test.js` and `test/seat_test.js` passed all 28
+cases at this pin. The OpenCode context dialog shows the latest successful
+request's occupancy, provider/model and token counts separately from the
+conversation's cumulative totals. Cache creation and uncached input have
+their own rows. The cache hit rate is a percentage. Cost preserves the ledger
+decimal and account unit, and incomplete cost is labeled as a known subtotal.
+The header tooltip falls back to cumulative tokens when the latest request
+has no token count.
+
+In Tools and activity, an unresolved model step held by the conversation cost
+limit links to the conversation's limit editor on the paired Nexus origin.
+Retry and Abandon act on that run and task key. An absorbed tool failure or
+an already-resolved model failure offers neither action. The scoped bridge
+checks that the run belongs to the selected conversation.
+
+**Browser and bridge tests.** `component-tests/nexus-chat.spec.ts` covers a
+fallback model, exact decimal subtotal, zero and missing counts, cumulative
+token fallback, the limit-editor destination and an explicit retry.
+`server/conversation.test.ts` checks model and tool failures, resolution and
+foreign-run ownership. All 408 UI unit tests and 81 Playwright component tests
+passed, along with the UI type check and production build.
+
+**Live Nexus.** Chromium opened the source UI through its authenticated
+bridge against `localhost:3000`. The scratch conversation displayed zero
+requests and zero cache creation tokens. The cache hit rate and actual model
+were unreported. The cost-held task and retry used a controlled run fixture.
+The [runtime verification](../../nexus-runtime/PARITY.md#delegation-browser-snapshots-and-conversation-controls)
+records the live cost-limit changes and cleanup.
 
 ## Approvals and task inspection
 

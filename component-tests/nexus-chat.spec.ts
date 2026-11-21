@@ -587,6 +587,7 @@ test("steers a running reply, queues the next, promotes without resending, and r
 }) => {
   await mockEvents(page)
   await page.addInitScript(() => localStorage.setItem("7777.nexus.flow", JSON.stringify({ id: "chat" })))
+  const repairs: unknown[] = []
   const inputs: any[] = [],
     promoted: any[] = []
   const turn = {
@@ -608,7 +609,25 @@ test("steers a running reply, queues the next, promotes without resending, and r
     if (p.endsWith("/choices"))
       return json({ models: ["m", "other"], runners: [{ id: "local", name: "Local" }], approvals: ["ask", "rules"] })
     if (p.endsWith("/work")) return json([{ id: "run", status: "running" }])
-    if (p.endsWith("/run")) return json({ status: "running", tasks: [] })
+    if (p.endsWith("/run"))
+      return json({
+        status: "running",
+        tasks: [
+          {
+            key: "budget",
+            name: "Summary",
+            status: "failed",
+            unresolved: true,
+            waitingOn: [],
+            terminal: true,
+            costLimitUrl: "https://nexus.example/conversations/chat/cost_limit/edit",
+          },
+        ],
+      })
+    if (p.endsWith("/execution")) {
+      repairs.push(route.request().postDataJSON())
+      return json({})
+    }
     if (p.endsWith("/prepare")) return json({ ticket: "ticket" })
     if (p.endsWith("/inputs")) {
       inputs.push(route.request().postDataJSON())
@@ -643,8 +662,25 @@ test("steers a running reply, queues the next, promotes without resending, and r
         archived: false,
         runner: "Local",
         version: 1,
-        usage: { request_count: 3, total_tokens: 90, cost_complete: false, cost_amount: "0.17", cost_unit: "USD" },
-        context: { used_tokens: 20, window_tokens: 100, used_percent: 20, as_of_model: { model_ref: "actual-model" } },
+        usage: {
+          request_count: 3,
+          total_tokens: 90,
+          uncached_input_tokens: 60,
+          cache_creation_tokens: 0,
+          cache_hit_rate: 0.25,
+          cost_complete: false,
+          cost_amount: "0.170000000000000001",
+          cost_unit: "USD",
+        },
+        context: {
+          used_tokens: 20,
+          input_tokens: 17,
+          output_tokens: 3,
+          cache_read_tokens: null,
+          window_tokens: 99,
+          used_percent: 20.20202,
+          as_of_model: { provider_id: "fallback", model_ref: "actual-model" },
+        },
       },
     })
   })
@@ -685,10 +721,26 @@ test("steers a running reply, queues the next, promotes without resending, and r
   await ring.click()
   const context = page.getByRole("dialog", { name: "Context usage" })
   await expect(context.getByText("Known subtotal", { exact: true })).toBeVisible()
-  await expect(context.getByText("0.17 USD")).toBeVisible()
-  await expect(context.getByText("actual-model")).toBeVisible()
-  await expect(context.getByText("20 / 100 (20%)")).toBeVisible()
+  await expect(context.getByText("0.170000000000000001 USD")).toBeVisible()
+  await expect(context.getByText("Cost unit", { exact: true }).locator("+ dd")).toHaveText("USD")
+  await expect(context.getByText("fallback/actual-model")).toBeVisible()
+  const latest = context.locator("dl").filter({ hasText: "Actual model" })
+  await expect(latest.getByText("Input tokens", { exact: true }).locator("+ dd")).toHaveText("17")
+  await expect(latest.getByText("Output tokens", { exact: true }).locator("+ dd")).toHaveText("3")
+  await expect(latest.getByText("Cached input tokens", { exact: true }).locator("+ dd")).toHaveText("Not reported")
+  await expect(context.getByText("Uncached input tokens", { exact: true }).locator("+ dd")).toHaveText("60")
+  await expect(context.getByText("Cache creation tokens", { exact: true }).locator("+ dd")).toHaveText("0")
+  await expect(context.getByText("Cache hit rate", { exact: true }).locator("+ dd")).toHaveText("25%")
+  await expect(context.getByText("20 / 99 (20.2%)")).toBeVisible()
   await expect(context.getByRole("region", { name: "Activity" }).getByText("running", { exact: true })).toBeVisible()
+  await expect(context.getByRole("link", { name: "Edit cost limit in Nexus" })).toHaveAttribute(
+    "href",
+    "https://nexus.example/conversations/chat/cost_limit/edit",
+  )
+  await expect(context.getByRole("button", { name: "Abandon step" })).toBeVisible()
+  expect(repairs).toEqual([])
+  await context.getByRole("button", { name: "Retry step" }).click()
+  await expect.poll(() => repairs).toEqual([{ action: "retry", run: "run", key: "budget" }])
   await page.keyboard.press("Escape")
   await expect(ring).toBeFocused()
 })
@@ -728,11 +780,20 @@ test("inspects the latest recorded system prompt and fetches raw messages on dem
       busy: false,
       decisions: [],
       problem: null,
-      detail: { title: "Context fixture", owned: false, writable: false, archived: false },
+      detail: {
+        title: "Context fixture",
+        owned: false,
+        writable: false,
+        archived: false,
+        usage: { total_tokens: 4400 },
+      },
     })
   })
   await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/context")
-  await page.getByRole("button", { name: "View context usage" }).click()
+  const ring = page.getByRole("button", { name: "View context usage" })
+  await ring.hover()
+  await expect(page.getByRole("tooltip")).toContainText("4,400")
+  await ring.click()
   const dialog = page.getByRole("dialog", { name: "Context usage" })
   const system = dialog.getByRole("button", { name: "System prompt", exact: true })
   const messages = dialog.getByRole("button", { name: "Raw messages", exact: true })

@@ -28,6 +28,7 @@ export type RunView = {
     branch: boolean
     terminal: boolean
     unresolved: boolean
+    costLimitUrl?: string
   }[]
 }
 export type McpTarget = { connection: string | null; account: string | null; tool: string | null }

@@ -265,6 +265,55 @@ test("scoped bridge enforces channel ownership, archive state, run and file owne
   }
 })
 
+test("run inspection offers cost-limit recovery only for the conversation's unresolved model refusal", async () => {
+  const failure = {
+    status: "failed",
+    on_failure: "absorb",
+    kind: "model_task",
+    error: { key: "conversation_cost_limit_reached" },
+  }
+  const b = {
+    origin: "https://nexus.example",
+    workspaceID: "w",
+    connection: { scope: "scope" },
+    workspace: {
+      conversation: (id: string) => ({ fetch: async () => ({ public_id: id, workspace_public_id: "w" }) }),
+      run: () => ({
+        graph: async () => ({ nodes: [] }),
+        fetch: async () => ({
+          status: "needs_attention",
+          turn: { conversation_public_id: "chat" },
+          tasks: [
+            { ...failure, key: "model" },
+            { ...failure, key: "tool", kind: "tool_task" },
+            { ...failure, key: "resolved", failure_resolution: "abandoned" },
+            { ...failure, key: "ordinary", error: { key: "model_unavailable" }, on_failure: "propagate" },
+          ],
+        }),
+      }),
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(b)
+  try {
+    expect((await send("/chats/other/run?run=r")).status).toBe(404)
+    const run = await (await send("/chats/chat/run?run=r")).json()
+    expect(
+      run.tasks.map((task: { key: string; unresolved: boolean; costLimitUrl?: string }) => [
+        task.key,
+        task.unresolved,
+        task.costLimitUrl,
+      ]),
+    ).toEqual([
+      ["model", true, "https://nexus.example/conversations/chat/cost_limit/edit"],
+      ["tool", false, undefined],
+      ["resolved", false, undefined],
+      ["ordinary", true, undefined],
+    ])
+  } finally {
+    await close()
+  }
+})
+
 test("context inspection returns only system text and reads raw records within the selected conversation", async () => {
   const raw = { public_id: "turn", role: "assistant", active_variant: { content: "Recorded response" } }
   const reads: string[] = []

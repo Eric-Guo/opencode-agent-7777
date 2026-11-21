@@ -17,14 +17,21 @@ export function SessionContextTab(props: {
   const detail = () => props.chat.s.snapshot.detail
   const usage = () => detail()?.usage
   const context = () => detail()?.context
+  const model = () => context()?.as_of_model
+  const occupancy = () => context()?.used_percent?.toLocaleString(language.intl(), { maximumFractionDigits: 1 })
   const number = (value: number | null | undefined) =>
     value?.toLocaleString(language.intl()) ?? language.t("chat.unknown")
+  const contextRows = [
+    ["chat.inputTokens", "input_tokens"],
+    ["chat.outputTokens", "output_tokens"],
+    ["chat.cacheTokens", "cache_read_tokens"],
+  ] as const
   const usageRows = [
     ["chat.requests", "request_count"],
     ["chat.tokens", "total_tokens"],
-    ["chat.inputTokens", "input_tokens"],
-    ["chat.cacheTokens", "cache_read_tokens"],
-    ["chat.outputTokens", "output_tokens"],
+    ...contextRows,
+    ["chat.uncachedTokens", "uncached_input_tokens"],
+    ["chat.cacheCreationTokens", "cache_creation_tokens"],
     ["chat.reasonTokens", "reasoning_tokens"],
   ] as const
 
@@ -35,10 +42,18 @@ export function SessionContextTab(props: {
         <dt>{language.t("chat.occupancy")}</dt>
         <dd>
           {number(context()?.used_tokens)} / {number(context()?.window_tokens)}{" "}
-          <Show when={context()?.used_percent != null}>{"(" + number(context()?.used_percent) + "%)"}</Show>
+          <Show when={occupancy()}>{(value) => "(" + value() + "%)"}</Show>
         </dd>
         <dt>{language.t("chat.actual")}</dt>
-        <dd>{context()?.as_of_model?.model_ref || language.t("chat.unknown")}</dd>
+        <dd>{[model()?.provider_id, model()?.model_ref].filter(Boolean).join("/") || language.t("chat.unknown")}</dd>
+        <For each={contextRows}>
+          {([label, field]) => (
+            <>
+              <dt>{language.t(label)}</dt>
+              <dd>{number(context()?.[field])}</dd>
+            </>
+          )}
+        </For>
       </dl>
       <h3>{language.t("chat.usageTotal")}</h3>
       <dl>
@@ -50,8 +65,15 @@ export function SessionContextTab(props: {
             </>
           )}
         </For>
+        <dt>{language.t("chat.cacheHitRate")}</dt>
+        <dd>
+          {usage()?.cache_hit_rate?.toLocaleString(language.intl(), { style: "percent", maximumFractionDigits: 1 }) ??
+            language.t("chat.unknown")}
+        </dd>
         <dt>{language.t(usage()?.cost_complete === false ? "chat.subtotal" : "chat.cost")}</dt>
         <dd>{props.cost}</dd>
+        <dt>{language.t("chat.costUnit")}</dt>
+        <dd>{usage()?.cost_unit || language.t("chat.unknown")}</dd>
       </dl>
       <Show when={usage()?.cost_complete === false}>
         <p>{language.t("chat.partial")}</p>

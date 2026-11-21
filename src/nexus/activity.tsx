@@ -3,6 +3,7 @@ import { ModuleContext } from "../management/context"
 import { SlotView } from "../management/slot"
 import { Button } from "@opencode/ui/button"
 import { Markdown } from "@opencode/session-ui/markdown"
+import { ExternalLink } from "../runtime/platform/external-link"
 import { McpTargetDetails } from "./mcp-target"
 import { useLanguage } from "../runtime/i18n/language"
 import { chatPath, DetailRead } from "./detail-read"
@@ -137,6 +138,14 @@ function Run(p: { chat: ChatController; run: string }) {
               return (
                 <div>
                   <Task chat={c} run={p.run} task={key} name={task().name + " · " + task().status} />
+                  <Show when={task().costLimitUrl}>
+                    {(url) => (
+                      <p>
+                        {lang.t("chat.costRecovery")}{" "}
+                        <ExternalLink href={url()}>{lang.t("chat.editCostLimit")}</ExternalLink>
+                      </p>
+                    )}
+                  </Show>
                   <Show when={task().waitingOn.length}>
                     <small>
                       {lang.t("chat.waiting")}: {task().waitingOn.join(", ")}

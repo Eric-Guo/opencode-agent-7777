@@ -171,6 +171,7 @@ test("management binds Human platform calls and workspace reads without exposing
   }
 
   const b: Backend = {
+    origin: server.url.origin,
     client,
     workspace: client.workspace("workspace"),
     workspaceID: "workspace",

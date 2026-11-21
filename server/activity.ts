@@ -116,22 +116,31 @@ export async function activityRead(b: Backend, info: Conversation, action: strin
   if (action === "run") {
     const graph = await run.graph()
     const branches = new Set(graph.nodes.filter((node) => node.mainline !== true).map((node) => node.key))
-    return {
-      status: data.status,
-      tasks: data.tasks.map((t) => ({
+    const tasks = data.tasks.map((t) => {
+      const costHold = t.kind === "model_task" && t.error?.key === "conversation_cost_limit_reached"
+      const unresolved =
+        ["failed", "timed_out", "uncertain"].includes(t.status) &&
+        !t.failure_resolution &&
+        (t.on_failure !== "absorb" || costHold)
+
+      return {
         key: t.key,
         name: t.tool_alias || t.tool_name || t.key,
         status: t.status,
-        unresolved:
-          ["failed", "timed_out", "uncertain"].includes(t.status) &&
-          !t.failure_resolution &&
-          (t.on_failure !== "absorb" || t.error?.key === "conversation_cost_limit_reached"),
+        unresolved,
+        ...(unresolved &&
+          costHold && {
+            costLimitUrl: new URL("/conversations/" + encodeURIComponent(info.public_id) + "/cost_limit/edit", b.origin)
+              .href,
+          }),
         kind: t.kind,
         waitingOn: t.waiting_on ?? [],
         branch: branches.has(t.key),
         terminal: ["failed", "timed_out", "uncertain", "skipped", "completed", "canceled"].includes(t.status),
-      })),
-    }
+      }
+    })
+
+    return { status: data.status, tasks }
   }
   if (action === "rounds") return run.transcript({ before: q.get("before") || undefined, limit: 20 })
   const task = run.task(field(q.get("key"), "task"))

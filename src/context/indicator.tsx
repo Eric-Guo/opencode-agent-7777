@@ -28,7 +28,7 @@ export function SessionContextUsage(props: { chat: ChatController; exporter: Ret
   const labels = createMemo(() => ({
     cost: language.t(usage()?.cost_complete === false ? "chat.subtotal" : "usage.cost"),
     usage: language.t("usage.usage"),
-    tokens: language.t("usage.tokens"),
+    tokens: language.t(context()?.used_tokens == null ? "chat.tokens" : "usage.tokens"),
     view: language.t("usage.view"),
   }))
   const rows = [
@@ -39,10 +39,13 @@ export function SessionContextUsage(props: { chat: ChatController; exporter: Ret
         const percent = context()?.used_percent
         return percent == null
           ? unreported()
-          : new Intl.NumberFormat(language.intl(), { style: "percent", maximumFractionDigits: 0 }).format(percent / 100)
+          : (percent / 100).toLocaleString(language.intl(), { style: "percent", maximumFractionDigits: 1 })
       },
     },
-    { label: "tokens", value: () => context()?.used_tokens?.toLocaleString(language.intl()) ?? unreported() },
+    {
+      label: "tokens",
+      value: () => (context()?.used_tokens ?? usage()?.total_tokens)?.toLocaleString(language.intl()) ?? unreported(),
+    },
   ] as const
 
   function openContext() {
