@@ -4,6 +4,15 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `c0ebf861e5a2793cf3e384dedc1e071237a93f12`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Child navigation
+
+The child list provides an Open action for busy and idle children. Opening
+a child uses the current workspace and connection and applies that child's
+write permissions. Browser Back returns to the parent with its draft intact.
+
+`component-tests/nexus-chat.spec.ts` covers both child states, read-only composition
+and restoration of the parent draft in Chromium.
+
 ## Usage and cost-limit recovery
 
 The reference `test/usage_test.js` and `test/seat_test.js` passed all 28

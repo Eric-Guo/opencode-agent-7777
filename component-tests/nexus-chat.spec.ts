@@ -753,6 +753,53 @@ test("steers a running reply, queues the next, promotes without resending, and r
   await expect(ring).toBeFocused()
 })
 
+test("opens child conversations from activity and returns to the parent's draft", async ({ page }) => {
+  await mockEvents(page)
+  const children = [
+    { id: "busy", name: "Research", busy: true },
+    { id: "idle", name: "Review", busy: false },
+  ]
+  await page.route("**/api/7777/**", (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (path.endsWith("/connection"))
+      return json({
+        scope: JSON.stringify(["user", "agent", "w"]),
+        user: "Human",
+        workspace: "Workspace",
+        agent: "Agent",
+        model: "m",
+      })
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/children")) return json({ items: children, next: null })
+    if (path.endsWith("/work")) return json([])
+    const child = children.find((item) => path.endsWith("/chats/" + item.id))
+    return json({
+      turns: [],
+      pending: [],
+      decisions: [],
+      busy: child?.busy ?? false,
+      detail: { title: child?.name ?? "Parent", owned: !!child, writable: !child, archived: false, version: 1 },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/w/conversations/parent")
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  await editor.fill("Parent draft")
+  for (const child of children) {
+    await page.getByRole("button", { name: "View context usage" }).click()
+    const dialog = page.getByRole("dialog", { name: "Context usage" })
+    await dialog.getByText("Child conversations", { exact: true }).click()
+    await dialog.getByRole("button", { name: "Open " + child.name }).click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page).toHaveURL(new RegExp("/conversations/" + child.id + "$"))
+    await expect(page.getByRole("heading", { name: child.name, exact: true })).toBeVisible()
+    await expect(editor).toHaveAttribute("contenteditable", "false")
+    await page.goBack()
+    await expect(page.getByRole("heading", { name: "Parent", exact: true })).toBeVisible()
+    await expect(editor).toHaveText("Parent draft")
+  }
+})
+
 test("inspects the latest recorded system prompt and fetches raw messages on demand", async ({ page }) => {
   await mockEvents(page)
   const reads: string[] = []

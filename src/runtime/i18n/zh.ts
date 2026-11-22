@@ -91,6 +91,7 @@ export const dict = {
   "chat.limit": "此记录中省略了部分变更。",
   "chat.added": "反馈已添加到草稿。",
   "chat.children": "子会话",
+  "chat.openChild": "打开 {{name}}",
   "chat.links": "通信链接",
   "chat.closeLink": "关闭链接",
   "chat.more": "显示更多",

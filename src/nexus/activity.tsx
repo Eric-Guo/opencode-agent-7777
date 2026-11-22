@@ -2,6 +2,7 @@ import { For, Show, useContext } from "solid-js"
 import { ModuleContext } from "../management/context"
 import { SlotView } from "../management/slot"
 import { Button } from "@opencode/ui/button"
+import { useDialog } from "@opencode/ui/context/dialog"
 import { Markdown } from "@opencode/session-ui/markdown"
 import { ExternalLink } from "../runtime/platform/external-link"
 import { McpTargetDetails } from "./mcp-target"
@@ -169,6 +170,7 @@ function Run(p: { chat: ChatController; run: string }) {
   )
 }
 function RelatedPage(p: { chat: ChatController; kind: "children" | "links"; after?: string }) {
+  const dialog = useDialog()
   const lang = useLanguage(),
     c = p.chat
   return (
@@ -195,6 +197,17 @@ function RelatedPage(p: { chat: ChatController; kind: "children" | "links"; afte
                         )}
                       </DetailRead>
                     </Disclosure>
+                  </Show>
+                  <Show when={p.kind === "children"}>
+                    <Button
+                      disabled={c.s.sending}
+                      onClick={() => {
+                        dialog.close()
+                        c.select(id)
+                      }}
+                    >
+                      {lang.t("chat.openChild", { name: item().name })}
+                    </Button>
                   </Show>
                   <Show when={c.writable() && (p.kind === "links" || item().busy)}>
                     <Button

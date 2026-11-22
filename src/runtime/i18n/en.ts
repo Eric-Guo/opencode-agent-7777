@@ -88,6 +88,7 @@ export const dict = {
   "chat.limit": "Some changes were omitted from this recording.",
   "chat.added": "Feedback added to the draft.",
   "chat.children": "Child conversations",
+  "chat.openChild": "Open {{name}}",
   "chat.links": "Communication links",
   "chat.closeLink": "Close link",
   "chat.more": "Show more",
