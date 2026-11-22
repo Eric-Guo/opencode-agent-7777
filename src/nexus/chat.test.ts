@@ -21,6 +21,20 @@ function reply(n: number, origin: string | null = null): Turn {
     },
   } as Turn
 }
+test("the selected and actual response models come from the active variant through regeneration", () => {
+  const turn = reply(1)
+  turn.active_variant!.model = { provider_id: "backup", model_ref: "fallback", reasoning_enabled: null, reasoning_effort: null }
+  turn.active_variant!.model_selection = { source: "explicit", model: "original/route" }
+  turn.running_variant = {
+    ...turn.active_variant!,
+    public_id: "candidate",
+    model: { ...turn.active_variant!.model, provider_id: "new", model_ref: "candidate" },
+  }
+  expect(projectTurn(turn).responseModel).toEqual({ actual: "backup/fallback", selected: "original/route" })
+  turn.active_variant!.model_selection = { source: "default", model: "original/route" }
+  expect(projectTurn(turn).responseModel?.selected).toBeUndefined()
+})
+
 test("reads backwards past kernel receipts to hydrate exactly nine user dialogs", async () => {
   const before: (number | undefined)[] = []
   const rows = await loadTurns(async (cursor) => {

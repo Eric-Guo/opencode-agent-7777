@@ -4,13 +4,26 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `48ff47738cf6edacd076caf261a8ff1f02ea636f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
-## Composer drafts
+## Composer drafts and model selection
 
 Send captures the text in the composer immediately. The operator can type the
 next draft while Nexus creates the conversation, prepares the reply or accepts
 the input. Acceptance clears the submitted text only if it still matches the
 draft. Text entered during creation follows the new conversation. Retrying an
 unchanged uncertain send reuses its input key, preparation ticket and model choice.
+
+The model control shows the active answer variant's explicit pin or Automatic.
+Run settings also show the model that actually answered, including a fallback.
+A retired pin stays visible until the operator changes it. Selecting Automatic
+clears a pin on the next input. Existing browser tickets and older drafts keep
+their original meaning across reloads.
+
+All 415 UI unit tests, 85 Chromium component tests and 67 Rho WebUI reference
+tests for conversation actions, the composer and its lifecycle passed. The UI
+type check and production build passed. The source bridge also sent and replayed
+a model pin, an explicit clear and a follow-up using Automatic against live Nexus.
+The [runtime ledger](../../nexus-runtime/PARITY.md#runner-placement-and-model-selection)
+records the corresponding receipts and cleanup.
 
 ## New chat runner selection
 

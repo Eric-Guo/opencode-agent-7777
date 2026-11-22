@@ -39,6 +39,7 @@ export const dict = {
   "chat.channel": "在其频道中继续此会话。",
   "chat.activity": "活动",
   "chat.automatic": "自动",
+  "chat.lastResponseModel": "上次回复使用了 {{model}}",
   "chat.model": "模型",
   "chat.presence.online": "在线",
   "chat.presence.offline": "离线",

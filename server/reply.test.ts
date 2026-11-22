@@ -30,6 +30,7 @@ test("a prepared Human reply cannot change delivery, target, model intent or app
     { delivery: "queue" as const },
     { target: "new-run" },
     { model: "pinned" },
+    { clearModel: true as const },
     { approval: "bypass" as const },
   ]) {
     expect(() => openReply("member", "scope", chat, { ...input, ...change }, ticket)).toThrow()

@@ -36,6 +36,7 @@ export const dict = {
   "chat.channel": "Continue this conversation in its channel.",
   "chat.activity": "Activity",
   "chat.automatic": "Automatic",
+  "chat.lastResponseModel": "Last response used {{model}}",
   "chat.model": "Model",
   "chat.presence.online": "online",
   "chat.presence.offline": "offline",

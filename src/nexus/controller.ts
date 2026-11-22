@@ -51,6 +51,7 @@ export async function request<T>(path: string, scope?: string, body?: unknown, s
 type Attempt = {
   text: string
   model: string | null
+  clearModel?: true
   delivery?: Delivery
   approval?: Approval
   target?: string
@@ -67,6 +68,7 @@ type Saved = {
   attempt?: Attempt
   draftModes?: Partial<ModeValues>
   model?: string
+  modelEdited?: boolean
   runner?: string | null
   runnerEdited?: boolean
   approval?: Approval
@@ -110,6 +112,7 @@ export function createChatController(
   let choicesReady: Promise<void> | undefined
   let modeRead = 0
   let choicesRead = 0
+  let modelEdited = false
   let runnerEdited = false
   let version = 0
   let source: EventSource | undefined
@@ -127,6 +130,7 @@ export function createChatController(
       text: s.draft,
       attempt,
       model: s.model,
+      modelEdited,
       runner: s.runner,
       runnerEdited,
       approval: s.approval,
@@ -143,6 +147,7 @@ export function createChatController(
       /* corrupt draft */
     }
     attempt = entry.attempt
+    modelEdited = entry.modelEdited ?? !!entry.model
     runnerEdited = entry.runnerEdited ?? (!!entry.runner && entry.runner !== s.connection?.runner)
     set("draftModes", reconcile(!id ? (entry.draftModes ?? {}) : {}))
     const approval = entry.approval ?? "ask"
@@ -160,6 +165,7 @@ export function createChatController(
   function configure(value: { model?: string; runner?: string | null; approval?: Approval }) {
     if (s.sending || s.prepared) return
     attempt = undefined
+    if ("model" in value) modelEdited = true
     if ("runner" in value) runnerEdited = true
     set(value)
     persist()
@@ -195,6 +201,8 @@ export function createChatController(
             ]
             data.expanded = true
           }
+          if (!modelEdited && !attempt)
+            set("model", data.turns.findLast((turn) => turn.responseModel)?.responseModel?.selected ?? "")
           set("snapshot", reconcile(data, { key: "id" }))
           set({ hydrated: true, accessDenied: false })
           set("revision", (n) => n + 1)
@@ -446,7 +454,8 @@ export function createChatController(
       const initial = !s.id ? modes() : null
       attempt ??= {
         text,
-        model: s.model || null,
+        model: modelEdited ? s.model || null : null,
+        clearModel: modelEdited && !s.model ? true : undefined,
         runner: s.runner,
         approval: s.approval,
         delivery,
@@ -495,6 +504,7 @@ export function createChatController(
         key: submission.inputKey,
         text: submission.text,
         model: submission.model,
+        clearModel: submission.clearModel,
         delivery: submission.delivery,
         approval: submission.approval,
         target: submission.target,
@@ -526,6 +536,7 @@ export function createChatController(
         persist()
       }
       await api(path() + "/inputs", c.scope, { ...body, ticket: submission.ticket })
+      modelEdited = false
       attempt = undefined
       set({ draft: s.draft === submission.text ? "" : s.draft, prepared: false })
       persist()

@@ -350,6 +350,7 @@ export function middleware(
         if (!body.key || typeof body.key !== "string" || (body.model !== null && typeof body.model !== "string"))
           throw new BridgeError(400, "Missing input key or model.")
         if (
+          (body.clearModel !== undefined && (body.clearModel !== true || body.model !== null)) ||
           (body.delivery !== undefined && !["steer", "steer_now", "queue"].includes(body.delivery)) ||
           (body.approval !== undefined && !["ask", "bypass", "rules"].includes(body.approval)) ||
           (body.target !== undefined && typeof body.target !== "string")
@@ -358,6 +359,7 @@ export function middleware(
         const submission = {
           key: body.key,
           model: body.model,
+          clearModel: body.clearModel,
           text: body.text,
           delivery: body.delivery,
           approval: body.approval,
@@ -368,7 +370,7 @@ export function middleware(
           workspace: b.workspaceID,
           conversation: id!,
           text: submission.text,
-          model: submission.model ?? undefined,
+          model: submission.clearModel ? null : (submission.model ?? undefined),
           delivery: submission.delivery,
           approval: submission.approval ?? "ask",
           target: submission.target,

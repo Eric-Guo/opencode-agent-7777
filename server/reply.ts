@@ -7,6 +7,7 @@ export type Submission = {
   key: string
   text: string
   model: string | null
+  clearModel?: true
   delivery?: CreateInput["delivery_mode"]
   approval?: CreateInput["approval_mode"]
   target?: string
@@ -25,6 +26,7 @@ function address(scope: string, chat: RunnerChat, input: Submission) {
       input.model,
       input.text,
       ...(input.delivery || input.approval || input.target ? [input.delivery, input.approval, input.target] : []),
+      ...(input.clearModel ? [true] : []),
     ]),
   )
 }

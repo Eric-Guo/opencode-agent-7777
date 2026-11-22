@@ -509,7 +509,9 @@ test("the bridge prepares and submits through runtime admission with Human autho
       },
     })
     expect((await send("/chats/b/inputs", { ...body, ticket })).status).toBe(409)
-    const next = { ...body, key: "two" }
+    const next = { ...body, key: "two", clearModel: true }
+    expect((await send("/chats/a/inputs", { ...body, clearModel: true, ticket })).status).toBe(409)
+    expect((await send("/chats/a/prepare", { ...next, model: "explicit/route" })).status).toBe(400)
     const nextTicket = await (await send("/chats/a/prepare", next)).json()
     expect((await send("/chats/a/inputs", { ...next, ...nextTicket })).status).toBe(202)
     expect((await send("/chats/a/modes", { tool_names: [] })).status).toBe(400)
@@ -521,6 +523,7 @@ test("the bridge prepares and submits through runtime admission with Human autho
     }
     expect(patches).toHaveLength(1)
     expect(commands).toHaveLength(5)
+    expect(commands.slice(-2)).toMatchObject([{ payload: { model: null } }, { payload: { model: null } }])
   } finally {
     await close()
   }

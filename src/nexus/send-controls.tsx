@@ -43,6 +43,7 @@ export function SendControls(p: { chat: ChatController }) {
     lang = useLanguage(),
     settings = useSettings()
   const choices = () => s.choices
+  const actualModel = () => s.snapshot.turns.findLast((turn) => turn.responseModel)?.responseModel?.actual
   const presence = (value: string) => {
     if (value === "online" || value === "offline" || value === "not_yet_seen") return lang.t(`chat.presence.${value}`)
     return value
@@ -62,7 +63,7 @@ export function SendControls(p: { chat: ChatController }) {
         trigger={
           <>
             <Icon name="settings-gear" size="small" />
-            <span>{s.model || s.connection?.agent || "OpenCode"}</span>
+            <span>{s.model || lang.t("chat.automatic")}</span>
           </>
         }
       >
@@ -71,6 +72,11 @@ export function SendControls(p: { chat: ChatController }) {
             {lang.t("chat.model")}
             <select value={s.model} onChange={(e) => c.configure({ model: e.currentTarget.value })}>
               <option value="">{lang.t("chat.automatic")}</option>
+              <Show when={s.model && !choices()?.models.includes(s.model)}>
+                <option value={s.model} selected disabled>
+                  {s.model}
+                </option>
+              </Show>
               <For each={choices()?.models}>
                 {(model) => (
                   <option value={model} selected={s.model === model}>
@@ -80,6 +86,9 @@ export function SendControls(p: { chat: ChatController }) {
               </For>
             </select>
           </label>
+          <Show when={actualModel()}>
+            {(model) => <small>{lang.t("chat.lastResponseModel", { model: model() })}</small>}
+          </Show>
           <Show when={!s.id}>
             <label>
               {lang.t("chat.runner")}

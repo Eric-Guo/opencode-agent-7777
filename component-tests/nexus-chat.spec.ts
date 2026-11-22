@@ -1328,6 +1328,75 @@ test("session menus target the chosen row and confirm deletion without replacing
   expect(writes).toEqual(["rename other", "delete other", "delete current"])
 })
 
+test("shows the captured pin beside the fallback route and keeps edits made while sending", async ({ page }) => {
+  await mockEvents(page)
+  const pending = Promise.withResolvers<void>()
+  const prepared = Promise.withResolvers<void>()
+  const posts: { text: string; model: string | null; clearModel?: boolean }[] = []
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    if (path.endsWith("/connection"))
+      return route.fulfill({
+        json: { scope: "drafts", user: "Human", agent: "OpenCode", workspace: "Workspace", runner: "local" },
+      })
+    if (path.endsWith("/choices"))
+      return route.fulfill({ json: { approvals: ["ask"], models: ["new/route"], runners: [], modes: null } })
+    if (path.endsWith("/prepare")) {
+      posts.push(route.request().postDataJSON())
+      prepared.resolve()
+      await pending.promise
+      return route.fulfill({ json: { ticket: "ticket" } })
+    }
+    if (path.endsWith("/inputs")) return route.fulfill({ json: { id: "input" } })
+    return route.fulfill({
+      json: {
+        turns: [
+          {
+            id: "turn",
+            position: 1,
+            created: 0,
+            variant: "variant",
+            input: "input",
+            prompt: "Earlier",
+            text: "Done",
+            status: "completed",
+            responseModel: { actual: "backup/route", selected: "retired/route" },
+          },
+        ],
+        pending: [],
+        decisions: [],
+        busy: false,
+        problem: null,
+      },
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  const settings = page.getByRole("button", { name: "Run settings" })
+  await expect(settings).toHaveText("retired/route")
+  await settings.click()
+  const model = page.getByRole("combobox", { name: "Model", exact: true })
+  await expect(model).toHaveValue("retired/route")
+  await expect(model.getByRole("option", { name: "retired/route" })).toBeDisabled()
+  await expect(page.getByText("Last response used backup/route")).toBeVisible()
+  await model.selectOption("")
+  await page.keyboard.press("Escape")
+  const editor = page.getByRole("textbox", { name: "Message" })
+  await editor.fill("First input")
+  await editor.press("Enter")
+  await prepared.promise
+  try {
+    await expect(editor).toBeEditable()
+    await editor.fill("Next input")
+    await editor.press("Enter")
+    expect(posts).toHaveLength(1)
+  } finally {
+    pending.resolve()
+  }
+  await expect(settings).toBeEnabled()
+  await expect(editor).toHaveText("Next input")
+  expect(posts[0]).toMatchObject({ text: "First input", model: null, clearModel: true })
+})
+
 test("keyboard mode choices survive a new draft reload, and a lost receipt reuses the prepared reply", async ({
   page,
 }) => {

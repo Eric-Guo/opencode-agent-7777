@@ -69,6 +69,7 @@ export type ChatTurn = {
   created: number
   completed?: number
   model?: { id: string; providerID: string }
+  responseModel?: { actual: string; selected?: string }
   prompt: string | null
   text: string
   status: string
@@ -115,7 +116,17 @@ export function projectTurn(turn: Turn): ChatTurn {
       ? [Date.parse(round.completed_at)].filter(Number.isFinite)
       : [],
   )
+  const active = turn.active_variant
   return {
+    responseModel: active?.model?.model_ref
+      ? {
+          actual: [active.model.provider_id, active.model.model_ref].filter(Boolean).join("/"),
+          selected:
+            active.model_selection?.source === "explicit" && typeof active.model_selection.model === "string"
+              ? active.model_selection.model
+              : undefined,
+        }
+      : undefined,
     model: variant?.model?.model_ref
       ? { id: variant.model.model_ref, providerID: variant.model.provider_id ?? "nexus" }
       : undefined,
