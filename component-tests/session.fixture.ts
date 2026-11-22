@@ -99,5 +99,13 @@ export async function setupSession(page: Page, beforeResponse?: WriteEvent[], hi
   })
   await page.goto("/")
   await expect(page.getByRole("button", { name: "Options for First" })).toBeVisible()
-  return { writes, exports, release, forkResponded: forkResponded.promise, emitEvents: eventsReady.resolve, errors }
+  return {
+    sessions,
+    writes,
+    exports,
+    release,
+    forkResponded: forkResponded.promise,
+    emitEvents: eventsReady.resolve,
+    errors,
+  }
 }

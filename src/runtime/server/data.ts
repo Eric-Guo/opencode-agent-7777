@@ -149,6 +149,7 @@ export function createSessionData(input: {
           setLocal("status", status.type === "retry" ? copy(status) : undefined)
         })
       },
+      admitted: cache.admitted,
       echo: cache.echo,
       dropEcho: cache.dropEcho,
       updatePending(update: (items: SessionInboxInfo[]) => SessionInboxInfo[]) {

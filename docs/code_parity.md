@@ -169,6 +169,10 @@ Submission follows local `composer/{machine,submit}.ts`: synchronous admission a
 history records once and retired responses cannot overwrite newer drafts. Existing-session sends retain their
 original target after navigation, while departed drafts reject promotion. Interrupt retains `resume: true` and a
 60-second deadline. Uncertain outcomes reconcile through reads without automatic write retries.
+Local `composer/retry.ts` reuses the admission ID on an explicit resend of the same restored prompt, including
+after reload. The compact fingerprint covers the outgoing request and backend. Timeline and inbox evidence
+can settle a retry locally, and replayed HTTP receipts leave queue membership to the existing inbox refresh.
+The optional draft record can reconstruct the original model while the catalog loads.
 Model choices follow `providers/models/selection-machine.ts`; persistence is an output effect. A ten-second
 acknowledgement deadline retains local preferences, and older cancellation or acknowledgement cannot retire a
 newer choice. Optional agent-catalog stalls do not disable successfully loaded models.

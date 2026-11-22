@@ -36,6 +36,7 @@ export type SessionRuntime = {
   schedule: (delay?: number) => void
   setSession: (info: SessionInfo) => void
   setStatus: (status: SessionStatus) => void
+  admitted: (messageID: string) => boolean
   echo: (message: SessionMessageInfo) => void
   dropEcho: (messageID: string) => void
   updatePending: (update: (items: SessionInboxInfo[]) => SessionInboxInfo[]) => void

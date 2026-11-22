@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+import { SessionMessage } from "@opencode/schema/session-message"
 import { Skill } from "@opencode/schema/skill"
 import { Persistence } from "@/runtime/persistence/schema"
 
@@ -50,10 +51,23 @@ export type AgentPart = typeof AgentPart.Type
 export const PromptReference = Schema.Union([PromptFileReference, SkillPart, AgentPart])
 export type PromptReference = typeof PromptReference.Type
 
+const RetryModel = Persistence.struct({
+  providerID: Schema.String,
+  modelID: Schema.String,
+  variant: Persistence.optional(Schema.String),
+})
+export const ComposerRetry = Persistence.struct({
+  id: SessionMessage.ID,
+  fingerprint: Schema.NonEmptyString,
+  model: Persistence.optional(RetryModel),
+})
+export type ComposerRetry = typeof ComposerRetry.Type
+
 export const PromptDraft = Persistence.struct({
   prompt: Persistence.fallback(Schema.String, () => ""),
   attachments: Persistence.array(PromptAttachment),
   references: Persistence.optional(Schema.mutable(Schema.Array(PromptReference))),
+  retry: Persistence.optional(ComposerRetry),
 })
 export type PromptDraft = typeof PromptDraft.Type
 

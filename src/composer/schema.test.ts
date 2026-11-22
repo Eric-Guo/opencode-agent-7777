@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { SessionMessage } from "@opencode/schema/session-message"
 import { Option, Schema } from "effect"
 import { createStore } from "solid-js/store"
 import { PromptDraft } from "./schema"
@@ -43,6 +44,14 @@ describe("composer persistence schemas", () => {
     })
     expect(decode({ prompt: "keep me", attachments: false })).toEqual({ prompt: "keep me", attachments: [] })
     expect(decode({ attachments: [attachment()] })).toEqual({ prompt: "", attachments: [attachment()] })
+  })
+
+  test("decodes the optional admission ID independently of the draft", () => {
+    const draft = { prompt: "keep", attachments: [attachment()] }
+    const retry = { id: SessionMessage.ID.make("msg_original"), fingerprint: "38:abc" }
+    expect(decode({ ...draft, retry })).toEqual({ ...draft, retry })
+    expect(decode({ ...draft, retry: { id: "invalid", fingerprint: "38:abc" } })).toEqual(draft)
+    expect(decode({ ...draft, retry: { id: "msg_old", modelID: "model" } })).toEqual(draft)
   })
 
   test("rejects non-object drafts", () => {

@@ -1,7 +1,5 @@
 import { abort } from "@opencode/util/abort"
 import { bounded } from "@/runtime/server/operation"
-import { createComposerSubmitState, transitionComposerSubmit, composerSubmitting } from "./machine"
-import { SessionMessage } from "@opencode/schema/session-message"
 import { refreshRecentSessions } from "@/home/sessions/directory-sync-recent-compact"
 import { prompt } from "@/composer/persistence-singleton"
 import { buildPromptRequest } from "@/composer/request"
@@ -9,17 +7,51 @@ import { createComposerSubmission } from "@/composer/submission-state"
 import { currentDraft, idleStatus, setState, state } from "@/runtime/server/session-store-compact"
 import { createSession } from "@/runtime/server/global-sync/session-load-current"
 import { activateSession, restartSessionEventStream } from "@/runtime/server/sync-session-compact"
+import { sameChoice } from "@/providers/models/selection-machine"
 import { localModelSelection } from "@/providers/models/selection"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import type { ComposerDelivery } from "./adapter"
 import { composerHistory } from "./history/store"
+import { createComposerSubmitState, transitionComposerSubmit, composerSubmitting } from "./machine"
+import { createPromptAdmission } from "./retry"
 import { clonePrompt } from "./prompt-parts"
 import { createPromptModelSelection } from "./selection"
 
 // A submission keeps its captured target across navigation. The weak entry gates
 // duplicate sends for that activation; the driver owns only I/O resources.
 const submissions = new WeakMap<object, ReturnType<typeof createComposerSubmitState<object>>>()
+
+type SubmissionTarget = NonNullable<ReturnType<typeof captureSessionOwnership>>
+
+async function postPrompt(
+  target: SubmissionTarget,
+  input: ReturnType<typeof createPromptAdmission>["input"],
+  signal: AbortSignal,
+) {
+  const confirmed = Promise.withResolvers<void>()
+  const http = new AbortController()
+  const requestSignal = AbortSignal.any([signal, http.signal])
+  const stop = target.runtime.events.listen(({ details: event }) => {
+    if (
+      event.type.startsWith("session.inbox.") &&
+      "inboxID" in event.data &&
+      event.data.sessionID === target.sessionID &&
+      event.data.inboxID === input.id
+    )
+      confirmed.resolve()
+  })
+  signal.addEventListener("abort", stop, { once: true })
+  try {
+    return await Promise.race([
+      target.client.session.prompt(input, { signal: requestSignal }),
+      confirmed.promise.then(() => abort(http)),
+    ])
+  } finally {
+    stop()
+    signal.removeEventListener("abort", stop)
+  }
+}
 
 export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: string }) {
   let active = state.session ? captureSessionOwnership() : undefined
@@ -47,12 +79,19 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   const model = selectedModel ? { ...selectedModel, ...(variant ? { variant } : {}) } : undefined
   const optimisticBusy = state.sessionStatus.type === "idle"
 
-  const messageID = SessionMessage.ID.create()
+  const saved = prompt.store[0].retry
+  const pendingChoice = saved?.model && !selected ? localModelSelection.draft.current() : undefined
+  const catalogUnavailable =
+    state.modelStatus !== "ready" &&
+    !selected &&
+    !!saved?.model &&
+    (!pendingChoice || sameChoice(pendingChoice, { model: saved.model, variant: saved.model.variant ?? null }))
+  let admission: ReturnType<typeof createPromptAdmission> | undefined
 
   let machine = transitionComposerSubmit(submissions.get(owner) ?? createComposerSubmitState<object>(), {
     type: "submit",
     creating: !active,
-    snapshot: { prompt: submission.prompt, request, model, variant, delivery, command, messageID, owner },
+    snapshot: { prompt: submission.prompt, request, model, variant, delivery, command, owner },
   })
   const attempt = machine.attempt
   const dispatch = (type: "accepted" | "failed" | "disposed") => {
@@ -68,18 +107,44 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
   const current = () => (active ? active.current() : currentDraft() === draft)
   let optimisticRevision: number | undefined
   let cancelCommit: (() => void) | undefined
-  const send = (target: NonNullable<typeof active>) => {
-    const revision = target.runtime.pendingRevision()
-    if (optimisticBusy) {
-      target.runtime.setStatus({ type: "busy" })
-      optimisticRevision = target.runtime.statusRevision()
+  const send = async (target: SubmissionTarget) => {
+    const { runtime, sessionID } = target
+    const attemptPrompt = command
+      ? undefined
+      : createPromptAdmission(
+          server?.url,
+          {
+            sessionID,
+            ...request,
+            delivery,
+            metadata: { agent: target.localAgent, ...(model ? { model } : {}) },
+          },
+          saved,
+          catalogUnavailable,
+        )
+    admission = attemptPrompt
+    const outgoingModel = attemptPrompt?.input.metadata.model ?? model
+    const observed = () => attemptPrompt && runtime.admitted(attemptPrompt.input.id)
+    const accepted = () => {
+      dispatch("accepted")
+      composerHistory.add(historyPrompt, "normal")
+      if (!target.current()) return
+      runtime.schedule(250)
+      void refreshRecentSessions().catch(() => {})
+    }
+    if (attemptPrompt?.replay && observed()) return accepted()
+
+    const revision = runtime.pendingRevision()
+    if (optimisticBusy && !attemptPrompt?.replay) {
+      runtime.setStatus({ type: "busy" })
+      optimisticRevision = runtime.statusRevision()
     }
     if (state.session?.revert) {
-      target.runtime.setSession({ ...target.runtime.view().session, revert: undefined })
+      runtime.setSession({ ...runtime.view().session, revert: undefined })
     }
-    if (delivery === "steer" && !command)
-      target.runtime.echo({
-        id: messageID,
+    if (delivery === "steer" && attemptPrompt && !attemptPrompt.replay)
+      runtime.echo({
+        id: attemptPrompt.input.id,
         type: "user",
         text: request.text,
         files: attachments.map((attachment) => ({
@@ -92,92 +157,53 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
       })
 
     cancelCommit =
-      delivery === "steer" && model ? selection.trackSessionCommit({ model, variant: variant ?? null }) : undefined
+      delivery === "steer" && outgoingModel
+        ? selection.trackSessionCommit({ model: outgoingModel, variant: outgoingModel.variant ?? null })
+        : undefined
     machine = transitionComposerSubmit(machine, { type: "advance", attempt, phase: "configuring" })
-    const configure = bounded((signal) =>
-      Promise.all([
-        ...(delivery === "steer"
-          ? [target.client.session.switchAgent({ sessionID: target.sessionID, agent: target.localAgent }, { signal })]
-          : []),
-        ...(delivery === "steer" && model
-          ? [
-              target.client.session.switchModel(
-                {
-                  sessionID: target.sessionID,
-                  model: { id: model.modelID, providerID: model.providerID, ...(variant ? { variant } : {}) },
-                },
-                { signal },
-              ),
-            ]
-          : []),
-        ...(previousRevert ? [target.client.session.revert.clear({ sessionID: target.sessionID }, { signal })] : []),
-      ]),
-    )
-
-    return configure
-      .then(() => {
-        machine = transitionComposerSubmit(machine, { type: "advance", attempt, phase: "sending" })
-        return bounded(async (signal) => {
-          if (command)
-            return target.client.session
-              .command(
-                {
-                  sessionID: target.sessionID,
-                  name: command,
-                  ...request,
-                  delivery,
-                },
-                { signal },
-              )
-              .then(() => undefined)
-          const confirmed = Promise.withResolvers<void>()
-          const http = new AbortController()
-          const requestSignal = AbortSignal.any([signal, http.signal])
-          const stop = target.runtime.events.listen(({ details: event }) => {
-            if (
-              event.type === "session.inbox.enqueued" &&
-              event.data.sessionID === target.sessionID &&
-              event.data.inboxID === messageID
-            )
-              confirmed.resolve()
-          })
-          signal.addEventListener("abort", stop, { once: true })
-          try {
-            return await Promise.race([
-              target.client.session.prompt(
-                {
-                  sessionID: target.sessionID,
-                  id: messageID,
-                  ...request,
-                  delivery,
-                  metadata: {
-                    agent: target.localAgent,
-                    ...(model ? { model } : {}),
+    let admitted
+    try {
+      await bounded((signal) =>
+        Promise.all([
+          ...(delivery === "steer"
+            ? [target.client.session.switchAgent({ sessionID, agent: target.localAgent }, { signal })]
+            : []),
+          ...(delivery === "steer" && outgoingModel
+            ? [
+                target.client.session.switchModel(
+                  {
+                    sessionID,
+                    model: {
+                      id: outgoingModel.modelID,
+                      providerID: outgoingModel.providerID,
+                      ...(outgoingModel.variant ? { variant: outgoingModel.variant } : {}),
+                    },
                   },
-                },
-                { signal: requestSignal },
-              ),
-              confirmed.promise.then(() => {
-                abort(http)
-              }),
-            ])
-          } finally {
-            stop()
-            signal.removeEventListener("abort", stop)
-          }
-        })
-      })
-      .then((admitted) => {
-        dispatch("accepted")
-        composerHistory.add(historyPrompt, "normal")
-        if (!target.current()) return
-        // SSE may already have delivered or cancelled this admission before HTTP returns.
-        if (admitted && target.runtime.pendingRevision() === revision) {
-          target.runtime.updatePending((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
-        }
-        target.runtime.schedule(250)
-        void refreshRecentSessions().catch(() => {})
-      })
+                  { signal },
+                ),
+              ]
+            : []),
+          ...(previousRevert ? [target.client.session.revert.clear({ sessionID }, { signal })] : []),
+        ]),
+      )
+      machine = transitionComposerSubmit(machine, { type: "advance", attempt, phase: "sending" })
+      if (command) {
+        await bounded((signal) =>
+          target.client.session.command({ sessionID, name: command, ...request, delivery }, { signal }),
+        )
+      } else if (attemptPrompt && !observed()) {
+        admitted = await bounded((signal) => postPrompt(target, attemptPrompt.input, signal))
+      }
+    } catch (error) {
+      // A snapshot or a delivery event can confirm admission even when HTTP fails.
+      if (!observed()) throw error
+    }
+    // A replay receipt may describe a delivered message outside loaded history.
+    // The scheduled inbox read establishes whether a replay is still pending.
+    if (admitted && !attemptPrompt?.replay && target.current() && runtime.pendingRevision() === revision) {
+      runtime.updatePending((items) => [...items.filter((item) => item.id !== admitted.id), admitted])
+    }
+    accepted()
   }
 
   const sending = active
@@ -198,12 +224,16 @@ export function submitPrompt(options?: { delivery?: ComposerDelivery; command?: 
 
   return sending
     .catch((error) => {
+      const mayHaveBeenSent = machine.status === "running" && machine.phase === "sending"
       dispatch("failed")
       cancelCommit?.()
       if (!current()) return
-      active?.runtime.dropEcho(messageID)
+      if (admission) active?.runtime.dropEcho(admission.input.id)
       const restored = submission.restore()
-      if (restored) restored.target.restore(restored.prompt)
+      if (restored) {
+        const retry = mayHaveBeenSent || admission?.replay ? admission?.retry(error) : undefined
+        restored.target.restore({ ...restored.prompt, retry })
+      }
       if (previousRevert && !state.session?.revert) {
         active?.runtime.setSession({ ...active.runtime.view().session, revert: previousRevert })
       }

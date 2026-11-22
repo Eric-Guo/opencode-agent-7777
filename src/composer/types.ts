@@ -1,6 +1,5 @@
-import type { SessionMessage } from "@opencode/schema/session-message"
 import type { CommentCardTarget } from "@opencode/session-ui/comment-card"
-import type { AgentPart, ImageAttachmentPart, PromptFileReference, SkillPart, TextPart } from "./schema"
+import type { AgentPart, ComposerRetry, ImageAttachmentPart, PromptFileReference, SkillPart, TextPart } from "./schema"
 
 export type { AgentPart, ImageAttachmentPart, SkillPart, TextPart } from "./schema"
 
@@ -58,13 +57,7 @@ export type ComposerStore = {
   cursor?: number
   model?: PromptModel
   mode?: "normal" | "shell"
-  retry?: {
-    id: SessionMessage.ID
-    agent: string
-    providerID: string
-    modelID: string
-    variant?: string
-  }
+  retry?: ComposerRetry
   context: {
     items: (ContextItem & { key: string })[]
   }

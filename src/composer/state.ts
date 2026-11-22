@@ -29,6 +29,7 @@ function promptState(draft?: PromptDraft): ComposerPersistedState {
   return {
     prompt: promptFromDraft(draft),
     cursor: draft?.prompt.length ?? 0,
+    retry: draft?.retry && { ...draft.retry },
     context: { items: [] },
   }
 }
@@ -39,7 +40,8 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
   const store: [typeof state, typeof setStore] = [state, setStore]
 
   const capture = () => draftFromPrompt(state.prompt)
-  const changed = () => onChange?.(capture())
+  // Content captures also seed forks and queue undo. Only the saved tab draft carries a retry.
+  const changed = () => onChange?.({ ...capture(), ...(state.retry && { retry: { ...state.retry } }) })
 
   return {
     store,
@@ -53,15 +55,18 @@ export function createPromptState(initial?: PromptDraft, onChange?: PromptStateC
       batch(() => {
         setStore("prompt", (parts) => replacePromptText(parts, value))
         setStore("cursor", value.length)
+        setStore("retry", undefined)
       })
       changed()
     },
     addAttachment(attachment: PromptAttachment) {
       setStore("prompt", (parts) => [...parts, attachmentFromDraft(attachment)])
+      setStore("retry", undefined)
       changed()
     },
     removeAttachment(id: string) {
       setStore("prompt", (parts) => removePromptAttachment(parts, id))
+      setStore("retry", undefined)
       changed()
     },
     restore(draft?: PromptDraft) {

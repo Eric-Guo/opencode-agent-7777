@@ -50,6 +50,10 @@ export function createSessionMessageCache(input: {
 
   return {
     messages,
+    // Inbox events carry the same ID through admission, delivery and cancellation. A local echo proves nothing.
+    admitted(id: string) {
+      return touched.has(id) || input.get(id)?.type === "user" || input.pending().some((item) => item.id === id)
+    },
     echo(message: SessionMessageInfo) {
       setLocal("echoes", message.id, copy(message))
     },

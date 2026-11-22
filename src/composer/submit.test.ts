@@ -45,6 +45,7 @@ browserSuite(import.meta.path, () => {
   }) {
     return {
       session: {
+        list: async () => ({ data: [], cursor: {} }),
         switchAgent: input.configure ?? (() => Promise.resolve()),
         switchModel: input.configure ?? (() => Promise.resolve()),
         revert: { clear: () => Promise.resolve() },
@@ -576,6 +577,84 @@ browserSuite(import.meta.path, () => {
       await pending
       expect(state.sessionPending).toEqual([])
     })
+
+    test.each(["steer", "queue"] as const)(
+      "replays a lost %s admission without recreating a pending row",
+      async (delivery) => {
+        setState("server", {
+          url: "http://localhost:4096",
+          localAgent: "7777",
+          suggestedQuestions: [],
+          welcomeText: "",
+        })
+        const ids: string[] = []
+        setSessionClient(
+          client({
+            send: async (value) => {
+              const input = value as SessionPromptInput
+              ids.push(input.id!)
+              if (ids.length === 1) throw new Error("acknowledgement lost")
+              return {
+                id: input.id,
+                sessionID: input.sessionID,
+                delivery,
+                type: "user",
+                time: { created: 1 },
+                payload: { text: input.text },
+              }
+            },
+          }),
+        )
+        await submitPrompt({ delivery })
+        expect(prompt.store[0].retry).toMatchObject({ id: ids[0] })
+        expect(state.sessionMessages).toEqual([])
+        await submitPrompt({ delivery })
+        expect(ids).toHaveLength(2)
+        expect(ids[1]).toBe(ids[0])
+        expect(state.sessionPending).toEqual([])
+        expect(prompt.store[0].retry).toBeUndefined()
+        expect(prompt.current()).toBe("")
+      },
+    )
+
+    test.each(["pending", "cancelled"] as const)(
+      "recognizes %s server evidence before a manual retry",
+      async (kind) => {
+        setState("server", {
+          url: "http://localhost:4096",
+          localAgent: "7777",
+          suggestedQuestions: [],
+          welcomeText: "",
+        })
+        let sends = 0
+        setSessionClient(
+          client({
+            send: async () => {
+              sends++
+              throw new Error("lost")
+            },
+          }),
+        )
+        await submitPrompt({ delivery: "queue" })
+        const inboxID = prompt.store[0].retry!.id
+        const sessionID = "session"
+        const event = { id: "evt_retry", created: 2, durable: { aggregateID: sessionID, seq: 1, version: 1 as const } }
+        currentRuntime()!.apply(
+          kind === "pending"
+            ? {
+                ...event,
+                type: "session.inbox.enqueued",
+                data: { sessionID, inboxID, item: { type: "user", delivery: "queue", payload: { text: "accepted" } } },
+              }
+            : { ...event, type: "session.inbox.cancelled", data: { sessionID, inboxID } },
+        )
+        await submitPrompt({ delivery: "queue" })
+        expect(sends).toBe(1)
+        expect(prompt.dirty()).toBe(false)
+        expect(state.error).toBe("")
+        expect(state.sessionPending.length).toBe(kind === "pending" ? 1 : 0)
+      },
+    )
 
     test("a failed send cannot clear a newer server execution status", async () => {
       const held = Promise.withResolvers<unknown>()

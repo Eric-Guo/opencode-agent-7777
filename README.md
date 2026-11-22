@@ -872,6 +872,13 @@ Existing-session sends retain their captured target across navigation; a departe
 creation. Interrupt remains `resume: true` with a 60-second bound. Uncertain writes reconcile through reads,
 without automatic resubmission.
 
+If a send fails and restores your prompt, pressing **Send** again with the same content, model and delivery
+reuses the original message ID. This also works after reloading the restored draft. The local
+`composer/retry.ts` binds that ID to the backend, session and outgoing request, including attachment bytes
+and mention ranges. An optional record in the tab draft keeps the fingerprint and original model selection.
+When the timeline or inbox already confirms acceptance, Send clears the restored draft and records history
+locally. Otherwise opencode2 reconciles the repeated ID, and the inbox refresh establishes queue status.
+
 `providers/models/selection-machine.ts` follows the main app's selection boundary while keeping 7777's scoped
 keys and persisted shape. Persistence is an output effect. Model acknowledgement expires after ten seconds,
 retaining the local choice. Old acknowledgements and cancellations cannot retire newer choices or commits.
