@@ -34,6 +34,7 @@ type ModelSelectorTrigger = (props: ComponentProps<"button">) => JSX.Element
 
 export function ModelSelectorPopover(props: {
   owner?: () => unknown
+  registerOpen?: (open: () => void) => void
   provider?: string
   model: ModelSelectorState
   trigger: ModelSelectorTrigger
@@ -48,6 +49,7 @@ export function ModelSelectorPopover(props: {
   return (
     <ModelSelectorPopoverView
       owner={props.owner}
+      registerOpen={props.registerOpen}
       trigger={props.trigger}
       all={() => props.model.list().filter((item) => !props.provider || item.provider.id === props.provider)}
       visible={props.model.visible}
@@ -74,6 +76,7 @@ export function ModelSelectorPopover(props: {
 
 export function ModelSelectorPopoverView(props: {
   owner?: () => unknown
+  registerOpen?: (open: () => void) => void
   trigger: ModelSelectorTrigger
   all: () => ModelItem[]
   visible: (model: ModelItem) => boolean
@@ -113,6 +116,7 @@ export function ModelSelectorPopoverView(props: {
     if (open && !store.open) dismiss.opened()
     setStore({ open, search: "" })
   }
+  props.registerOpen?.(() => setOpen(true))
   const closeWith = (action: (current: () => boolean) => void) => {
     if (!store.open) return
     const close = dismiss.capture()

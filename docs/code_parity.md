@@ -96,7 +96,8 @@ The model picker uses public `@opencode/ui/search-list` for provider sections, c
 matching the main app's desktop picker. Its non-modal `@opencode/ui/popover` keeps the compact layout and focus
 behavior. **Manage models** is a separate, source-controlled button below the results. Arrow keys select only model
 rows. The picker reads the integration catalog only when open with an OpenAI model selected. A Solid resource
-tracks refreshes and discards superseded results.
+tracks refreshes and discards superseded results. Local `session/composer/timeline-actions.ts` supplies the
+shared budget notices with the mounted picker's open action when a root session can choose a model.
 The language adapter reuses the public UI template formatter and parameter type for ordinary, plural and synchronous
 translations. `runtime/i18n/language.tsx` also owns `UiI18nBridge`, following the main app's language boundary;
 `app.tsx` only composes providers. Compact locale detection, storage and eager English/Chinese dictionaries stay local.
@@ -235,6 +236,18 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Prompt retry and budget notice validation (2026-11-22). All 725 Bun tests, 76 browser tests, typecheck and
+both production builds passed. The original build issued a fresh ID after a lost acknowledgement and lacked
+the budget notice action. Five production browser cases passed on the updated build. They covered manual
+resend before and after reload, local confirmation of an already delivered prompt, a retry before the model
+catalog loaded, and both notice actions. The live agent returned focus to the composer on Escape and retained
+its draft, model and `1/9` counter. Both live processes stayed running.
+
+Three-run production medians before and after were 176/187 ms for entry, 68/72 ms for switching and 87/92 ms
+for streaming. Each run of the suite made 87 requests with identical per-endpoint counts. Both updated builds'
+source maps contained zero app or desktop source modules. Logs and benchmarks are in
+`node_modules/.cache/retry-budget/`.
 
 Markdown validation (2026-11-22). All 710 Bun tests, 71 browser tests, typecheck and both production builds
 passed. The workspace image decoded to 96 pixels wide in the updated production fixture and zero on the original

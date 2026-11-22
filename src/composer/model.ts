@@ -1,6 +1,7 @@
 import { useDialog } from "@opencode/ui/context/dialog"
 import { ImagePreview } from "@opencode/ui/image-preview"
-import { createComponent, createEffect, createMemo, onCleanup } from "solid-js"
+import { createComponent, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
+import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { useLanguage } from "@/runtime/i18n/language"
 import { createPersistedBlobReference } from "@/runtime/persistence/drafts"
 import { createPlatformAttachments } from "@/runtime/platform/platform-bridge"
@@ -18,6 +19,8 @@ import { commandSuggestions, contextSuggestions, fileSuggestions } from "./sugge
 export type ComposerModel = ComposerEditorModel & {
   readonly model: ComposerControls["model"]
   readonly agent: string
+  registerModelPicker: (open: () => void) => void
+  chooseModel: () => (() => void) | undefined
   disabled: ComposerAdapter["disabled"]
   suggestionStatus: () => "loading" | "ready" | "failed"
 }
@@ -25,6 +28,13 @@ export type ComposerModel = ComposerEditorModel & {
 export function createComposerModel(adapter: ComposerAdapter, options?: { queue?: ComposerQueue }): ComposerModel {
   const language = useLanguage()
   const dialog = useDialog()
+  const [openPicker, setOpenPicker] = createSignal<() => void>()
+  const chooseModel = createMemo(() => {
+    const { status, selection } = adapter.controls().model
+    if (adapter.disabled() || status !== "ready") return
+    if (!DEFAULT_MODEL_CONFIG.manageModels && !selection.list().some(selection.visible)) return
+    return openPicker()
+  })
   const platform = createPlatformAttachments()
   const catalog = createComposerCatalog()
   const location = createMemo(
@@ -169,6 +179,11 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
 
   return {
     ...controller,
+    chooseModel,
+    registerModelPicker(open) {
+      setOpenPicker(() => open)
+      onCleanup(() => setOpenPicker(undefined))
+    },
     onKeyDown: (event) => commands.onKeyDown(event) || controller.onKeyDown(event),
     get model() {
       return adapter.controls().model

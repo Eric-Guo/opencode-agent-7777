@@ -553,6 +553,10 @@ When `manageModels` is enabled, **Manage models** sits below the results and is 
 when no models match. Enter in an empty result list keeps the picker open. Selection and Escape return focus to
 the composer. Clicking outside leaves focus on the clicked control.
 
+In a root session, **Use a free model** and **Switch model** on a budget notice open this same picker when
+model selection is available. The local `session/composer/timeline-actions.ts` adapter supplies the action
+to `@opencode/session-ui`, which renders and translates the notice. You choose the replacement model.
+
 Recent-session search in `home/sessions/view.tsx` uses the public `TextInput`, `MenuScroll` and `createTypeahead`
 directly. It retains plain-arrow navigation, IME and repeated-Enter guards, and server paging. Both pickers have
 rendered coverage in `component-tests/pickers.spec.ts`.

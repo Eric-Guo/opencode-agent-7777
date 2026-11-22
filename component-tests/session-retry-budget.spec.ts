@@ -75,6 +75,55 @@ for (const recovery of ["same page", "reload", "delivered on reload"]) {
   })
 }
 
+test("both budget notices open the mounted model picker for an eligible root session", async ({ page }) => {
+  const history: SessionMessageInfo[] = ["provider.budget-limit", "provider.model-budget-limit"].flatMap((type, i) => [
+    { id: `msg_${i}a`, type: "user", text: `Prompt ${i}`, time: { created: 1 + i * 3 } },
+    {
+      id: `msg_${i}b`,
+      type: "assistant",
+      agent: "7777",
+      model: { id: "start", providerID: "opencode" },
+      content: [],
+      finish: "error",
+      error: { type, message: "Budget reached.", status: 429 },
+      time: { created: 2 + i * 3, completed: 3 + i * 3 },
+    },
+    { id: `msg_${i}c`, type: "idle", outcome: "succeeded", time: { created: 3 + i * 3 } },
+  ])
+  const { errors, sessions, writes } = await setupSession(page, undefined, history)
+  const free = page.getByRole("button", { name: "Use a free model" })
+  const change = page.getByRole("button", { name: "Switch model" })
+  const trigger = page.getByRole("button", { name: "Model", exact: true })
+  await expect(page.getByText(/Workspace budget reached/)).toBeVisible()
+  await expect(trigger).toBeDisabled()
+  await expect(free).toHaveCount(0)
+  const location = sessions[0].location
+  await mockModelCatalog(page, location)
+  await page.reload()
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  await editor.fill("Keep my draft")
+  await free.click()
+  const search = page.getByRole("combobox", { name: "Search models" })
+  await expect(search).toBeFocused()
+  await search.press("Escape")
+  await expect(editor).toBeFocused()
+  await change.click()
+  await search.fill("Alternate")
+  await search.press("Enter")
+  await expect(trigger).toContainText("Alternate")
+  await expect(editor).toBeFocused()
+  await expect(editor).toHaveText("Keep my draft")
+  await expect(page.locator("header")).toContainText("2/9")
+  Object.assign(sessions[0], { parentID: "ses_parent" })
+  await page.reload()
+  await expect(page.getByText(/Workspace budget reached/)).toBeVisible()
+  await expect(trigger).toBeEnabled()
+  await expect(free).toHaveCount(0)
+  await expect(change).toHaveCount(0)
+  expect(writes).toEqual([])
+  expect(errors).toEqual([])
+})
+
 test("an immediate retry after reload uses the failed prompt's model while the catalog is loading", async ({
   page,
 }) => {

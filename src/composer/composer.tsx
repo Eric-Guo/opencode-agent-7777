@@ -1,7 +1,6 @@
 import { Button } from "@opencode/ui/button"
 import { Icon } from "@opencode/ui/icon"
 import { createMemo, Show } from "solid-js"
-import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
 import { ProviderModelIcon } from "@/providers/models/provider-group"
 import { ModelSelectorPopover } from "@/providers/models/select-dialog"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -17,16 +16,6 @@ export function Composer(props: { model: ComposerModel; suggestionBoundary?: () 
     if (props.model.model.status === "loading") return language.t("model.loading")
     return selectedModel()?.name ?? language.t("dialog.model.select.title")
   })
-  const modelDisabled = createMemo(
-    () =>
-      props.model.disabled() ||
-      props.model.model.status !== "ready" ||
-      (!DEFAULT_MODEL_CONFIG.manageModels &&
-        !props.model.model.selection
-          .list()
-          .some((item) => props.model.model.selection.visible({ modelID: item.id, providerID: item.provider.id }))),
-  )
-
   return (
     <ComposerEditor
       controller={props.model}
@@ -58,6 +47,7 @@ export function Composer(props: { model: ComposerModel; suggestionBoundary?: () 
       modelControl={
         <Show when={props.model.model.status !== "loading"}>
           <ModelSelectorPopover
+            registerOpen={props.model.registerModelPicker}
             owner={props.model.owner}
             model={props.model.model.selection}
             onClose={props.model.restoreFocus}
@@ -66,7 +56,7 @@ export function Composer(props: { model: ComposerModel; suggestionBoundary?: () 
                 {...triggerProps}
                 variant="ghost-muted"
                 size="normal"
-                disabled={modelDisabled()}
+                disabled={!props.model.chooseModel()}
                 class="min-w-0 max-w-[220px] justify-start ![font-weight:440] group"
                 data-action="prompt-model"
                 aria-label={language.t("model.aria")}

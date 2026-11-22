@@ -1,4 +1,3 @@
-import type { SessionUserActions } from "@opencode/session-ui/actions"
 import { Composer } from "@/composer/composer"
 import { createPromptModelSelection } from "@/composer/selection"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
@@ -7,6 +6,7 @@ import { createSessionFork } from "@/session/fork"
 import { createSessionRevert } from "@/session/revert"
 import { createSessionComposerController, type SessionComposerController } from "./controller"
 import { SessionComposerRegion } from "./session-composer-region"
+import { createTimelineActions } from "./timeline-actions"
 import { SessionQueuePanel } from "./queue-panel"
 
 export function createActiveSessionRegion() {
@@ -21,22 +21,20 @@ export function createActiveSessionRegion() {
     dock: { state: requests, ready: () => state.status === "ready" && !revert.busy() },
   })
   const fork = createSessionFork(active.composer.preparingAttachments)
-  const revertMessage: NonNullable<SessionUserActions["revert"]> = ({ messageID }) => revert.to(messageID)
 
   return {
     active,
     requests,
     actions: {
       revert,
-      timeline: {
-        get fork() {
-          const action = fork()
-          return action?.available() ? action.fork : undefined
-        },
-        get revert() {
-          return revert.canUndo() ? revertMessage : undefined
-        },
-      } satisfies SessionUserActions,
+      timeline: createTimelineActions({
+        revert,
+        fork,
+        chooseModel: () =>
+          state.session && !state.session.parentID && !state.recentSessionSwitchingID
+            ? active.composer.chooseModel()
+            : undefined,
+      }),
     },
   }
 }
