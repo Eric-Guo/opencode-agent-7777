@@ -122,6 +122,8 @@ including Code Mode's false, zero and null selections alongside ordered printed 
 Write, edit and bash steps retain their recorded patches and restore targets. For terminal commands and other local runner tools,
 the bridge reads the latest saved checkpoint diff for each project and baseline. This includes files changed through an interactive terminal.
 The header gear’s **Timeline → Changed files** preference controls inline display. When it is off, **Review changes** opens the same recording on demand.
+**Timeline → Wrap code blocks** sets the default for long lines and remembers it across reloads. Each overflowing block has its own wrap button.
+`src/nexus/transcript.tsx` passes completed answers’ local Markdown image references to the scoped Nexus file bridge. The bridge verifies the reference against the displayed variant and reads from the conversation’s bound runner.
 The Nexus bridge in `server/export.ts` converts the retained conversation's diagnostic stream into a JSON array,
 including records beyond the nine-dialog view. Human members with read access can export the conversation.
 

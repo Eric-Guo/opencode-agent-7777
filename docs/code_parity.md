@@ -17,6 +17,9 @@ The [README](../README.md#code-layout-parity-review) owns detailed boundaries an
 Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
 Shared Markdown owns fence completion, source copying and block disposal. The 7777 renderer handles ECharts
 options, chart controls and resizing in timeline text parts. Its former timeline-wide DOM observer is removed.
+The shared renderer also applies the saved code-wrap preference and owns image loading, cancellation and URL cleanup.
+Nexus uses `server/outputs.ts` for local Markdown images, with the same runner binding and path checks as file downloads.
+`runtime/i18n/language-context.ts` keeps the language provider stable when translation labels reload during development.
 The local `session/timeline/projection.ts` supplies stable message and content objects to the public
 `SessionTimeline`, which owns row projection. A text delta updates Chinese-parenthesized URL formatting
 for the affected assistant text part while preserving the source text.

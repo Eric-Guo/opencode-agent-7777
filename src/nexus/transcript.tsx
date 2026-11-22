@@ -1,11 +1,13 @@
 import { For, Show, createMemo } from "solid-js"
 import { Markdown } from "@opencode/session-ui/markdown"
+import { MarkdownProvider, useMarkdown, type ReadMarkdownImage } from "@opencode/session-ui/context/markdown"
+import { artifactMime } from "@opencode/util/artifact"
 import type { SessionDocument } from "@opencode/session-ui/document"
 import { useLanguage } from "../runtime/i18n/language"
 import { useSettings } from "../settings/model"
 import { CompactMessageTimeline } from "../session/timeline/message-timeline-compact"
 import { RoundHistory } from "./activity"
-import { Disclosure } from "./detail-read"
+import { chatPath, Disclosure } from "./detail-read"
 import { AnswerFiles, AnswerReview } from "./output-files"
 import type { ChatController } from "./controller"
 
@@ -17,6 +19,7 @@ export function ChatTranscript(p: {
   const c = p.chat,
     lang = useLanguage()
   const settings = useSettings()
+  const markdown = useMarkdown()
   // Keep the shared timeline renderer, with a local output shelf for each durable answer.
   // Use the bounded document as the source so pending messages cannot push us past nine.
   const groups = createMemo(() => {
@@ -35,6 +38,25 @@ export function ChatTranscript(p: {
         {(id) => {
           const messages = () => groups().get(id) ?? []
           const turn = () => c.s.snapshot.turns.find((t) => t.id === id)
+          const readImage = createMemo<ReadMarkdownImage | undefined>(() => {
+            const scope = c.s.connection?.scope
+            const variant = turn()?.variant
+            if (!scope || !c.s.id || !variant || turn()?.status !== "completed" || !turn()?.files || turn()?.kind)
+              return
+            const base = chatPath(c, "bytes", { turn: id, variant })
+            return async (path, signal) => {
+              const type = artifactMime(path)
+              if (!type?.startsWith("image/")) return
+              const response = await fetch("/api/7777" + base + "&" + new URLSearchParams({ image: path }), {
+                headers: { "x-7777-scope": encodeURIComponent(scope) },
+                signal,
+              })
+              if (response.status === 404 || response.status === 409) return
+              if (!response.ok) throw new Error(response.statusText)
+              const blob = await response.blob()
+              if (blob.size <= 10 * 1024 * 1024) return blob.slice(0, blob.size, type)
+            }
+          })
           const pending = () => c.s.snapshot.pending.find((i) => i.id === id && i.delivery)
           const active = () =>
             c.s.snapshot.detail?.active === id || turn()?.status === "running" || turn()?.status === "pending"
@@ -50,16 +72,18 @@ export function ChatTranscript(p: {
               <Show
                 when={turn()?.kind}
                 fallback={
-                  <CompactMessageTimeline
-                    document={{
-                      sessionID: p.document.sessionID,
-                      messages: messages(),
-                      diffs: [],
-                      status: active() ? { type: "busy" } : { type: "idle" },
-                    }}
-                    showReasoningSummaries
-                    onPointerGesture={p.onPointerGesture}
-                  />
+                  <MarkdownProvider readImage={readImage()} openLocalFile={markdown?.openLocalFile}>
+                    <CompactMessageTimeline
+                      document={{
+                        sessionID: p.document.sessionID,
+                        messages: messages(),
+                        diffs: [],
+                        status: active() ? { type: "busy" } : { type: "idle" },
+                      }}
+                      showReasoningSummaries
+                      onPointerGesture={p.onPointerGesture}
+                    />
+                  </MarkdownProvider>
                 }
               >
                 {(kind) => (

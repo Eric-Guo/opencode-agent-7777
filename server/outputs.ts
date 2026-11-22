@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto"
 import type { Conversation, Turn } from "@cybros/agent"
 import { BridgeError, type Backend } from "./nexus"
 import { captures, field, ownedRun, taskFiles } from "./activity"
-import { outputPaths } from "./output-paths"
+import { hasAnswerImage, outputPaths } from "./output-paths"
 import type { OutputFile, Review } from "../src/nexus/inspection"
 
 export async function outputTurn(b: Backend, chat: Conversation, q: URLSearchParams) {
@@ -167,6 +167,19 @@ export async function outputs(b: Backend, chat: Conversation, turn: Turn): Promi
 }
 
 export async function fileBytes(b: Backend, info: Conversation, q: URLSearchParams) {
+  if (q.has("image")) {
+    const path = field(q.get("image"), "image")
+    const turn = await outputTurn(b, info, q)
+    const variant = turn.active_variant!
+    if (
+      turn.role !== "assistant" ||
+      turn.reference ||
+      turn.status !== "completed" ||
+      !hasAnswerImage(variant.content ?? variant.content_preview ?? "", path)
+    )
+      throw new BridgeError(404, "Unknown answer image.")
+    return runnerFileBytes(b, info, path, path.split("/").at(-1)!)
+  }
   const id = field(q.get("file"), "file")
   let files: OutputFile[]
   if (q.has("key")) {
@@ -176,7 +189,10 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
   const file = files.find((f) => f.id === id)
   if (!file) throw new BridgeError(404, "Unknown answer file.")
   if (!file.path) return { name: file.name, body: (await b.client.uploads.bytes(id)).body }
+  return runnerFileBytes(b, info, id.slice(5), file.name)
+}
 
+async function runnerFileBytes(b: Backend, info: Conversation, path: string, name: string) {
   const runner = info.default_runner?.executor_public_id
   if (!runner) throw new BridgeError(409, "This conversation has no bound runner.")
   const result = await b.native.operator({
@@ -184,8 +200,8 @@ export async function fileBytes(b: Backend, info: Conversation, q: URLSearchPara
     conversation: info.public_id,
     runner,
     receipt: randomUUID(),
-    operation: { tool: "files_bytes", path: id.slice(5) },
+    operation: { tool: "files_bytes", path },
   })
   if (!result.upload) throw new BridgeError(404, "Runner file unavailable.")
-  return { name: file.name, body: (await b.client.uploads.bytes(result.upload)).body }
+  return { name, body: (await b.client.uploads.bytes(result.upload)).body }
 }

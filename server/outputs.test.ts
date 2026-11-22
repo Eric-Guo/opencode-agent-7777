@@ -13,8 +13,7 @@ test("runner downloads follow the recorded conversation binding and never fall b
         throw new Error("Downloads must use the conversation binding, not the global directory.")
       },
       operator: async (input: { runner: string; operation: { tool: string; path: string } }) => {
-        actions.push(input.runner + "/" + input.operation.tool)
-        expect(input.operation.path).toBe("./notes.md")
+        actions.push([input.runner, input.operation.tool, input.operation.path].join(":"))
         return { upload: "from-runner" }
       },
     },
@@ -35,7 +34,10 @@ test("runner downloads follow the recorded conversation binding and never fall b
             status: "completed",
             active_variant: {
               public_id: "v",
-              content: "./notes.md ./outside.md ./control.json",
+              content:
+                "./notes.md ./outside.md ./control.json\n\n" +
+                "![Plot](figures/plot%20%231.png) ![Remote](https://example.test/chart.png) " +
+                "\n\n\x60\x60\x60md\n![Example](fake.png)\n\x60\x60\x60",
             },
           }),
         },
@@ -46,9 +48,21 @@ test("runner downloads follow the recorded conversation binding and never fall b
     fileBytes(b, chat, new URLSearchParams({ turn: "turn", variant: "v", file: "path:./" + name }))
   expect(await new Response((await read("notes.md")).body).text()).toBe("from-runner")
   await expect(read("unmentioned.md")).rejects.toMatchObject({ status: 404 })
+  const image = (path: string, variant = "v") =>
+    fileBytes(b, chat, new URLSearchParams({ turn: "turn", variant, image: path }))
+  const plot = await image("figures/plot #1.png")
+  expect(plot.name).toBe("plot #1.png")
+  expect(await new Response(plot.body).text()).toBe("from-runner")
+  await expect(image("figures/plot #1.png", "stale")).rejects.toMatchObject({ status: 409 })
+  await expect(image("https://example.test/chart.png")).rejects.toMatchObject({ status: 404 })
+  await expect(image("fake.png")).rejects.toMatchObject({ status: 404 })
   b.localRunner = "other-runner"
   expect(await new Response((await read("notes.md")).body).text()).toBe("from-runner")
-  expect(actions).toEqual(["runner/files_bytes", "runner/files_bytes"])
+  expect(actions).toEqual([
+    "runner:files_bytes:./notes.md",
+    "runner:files_bytes:figures/plot #1.png",
+    "runner:files_bytes:./notes.md",
+  ])
 })
 
 const addedFile = {
