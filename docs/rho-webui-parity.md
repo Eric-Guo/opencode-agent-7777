@@ -4,14 +4,26 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `c0ebf861e5a2793cf3e384dedc1e071237a93f12`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
-## Child navigation
+## Model context recovery and child navigation
+
+An unresolved model task with `provider_context_overflow` shows recovery
+guidance in the activity row and its task detail. The detail also shows the
+original diagnostic as text. The guidance names the model provider's input,
+combined context and output limits. Resolved failures, absorbed failures
+and tool failures retain their own diagnostics.
 
 The child list provides an Open action for busy and idle children. Opening
 a child uses the current workspace and connection and applies that child's
 write permissions. Browser Back returns to the parent with its draft intact.
 
-`component-tests/nexus-chat.spec.ts` covers both child states, read-only composition
-and restoration of the parent draft in Chromium.
+`server/conversation.test.ts` checks recovery against the run and task
+projections. `component-tests/nexus-chat.spec.ts` exercises both child states,
+read-only composition, draft restoration, and a diagnostic containing HTML.
+These cases used controlled bridge responses in Chromium. All 411 UI unit
+tests, 82 Chromium component tests, the UI type check and production build
+passed. The pinned WebUI's task, seat and background suites passed 36 tests.
+The [runtime verification](../../nexus-runtime/PARITY.md#mcp-catalog-previews-and-development-streams)
+records the live Nexus check.
 
 ## Usage and cost-limit recovery
 

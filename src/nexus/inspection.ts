@@ -29,6 +29,7 @@ export type RunView = {
     branch: boolean
     terminal: boolean
     unresolved: boolean
+    contextOverflow: boolean
     costLimitUrl?: string
   }[]
 }
@@ -45,6 +46,7 @@ export type TaskView = {
   output: string | null
   structured?: JsonValue
   error: unknown
+  contextOverflow: boolean
   sealed: boolean
   captures: OutputFile[]
 }

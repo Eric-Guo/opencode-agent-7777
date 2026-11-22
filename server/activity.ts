@@ -63,9 +63,19 @@ export function taskView(detail: TaskDetail, runner: string | null | undefined) 
       ? { structured: detail.structured_content }
       : {}),
     error: detail.task.error,
+    contextOverflow: recovery(detail.task) === "context",
     captures: taskFiles(detail, runner),
     sealed: detail.task.kind === "model_task",
   }
+}
+
+function recovery(task: TaskDetail["task"]) {
+  if (task.failure_resolution || !["failed", "timed_out", "uncertain"].includes(task.status)) return
+  if (task.kind === "model_task" && task.error?.key === "conversation_cost_limit_reached") return "cost"
+  if (task.on_failure === "absorb") return
+  if (task.kind === "model_task" && task.error?.key === "provider_context_overflow") return "context"
+
+  return "retry"
 }
 
 export async function activityRead(b: Backend, info: Conversation, action: string, q: URLSearchParams) {
@@ -117,22 +127,18 @@ export async function activityRead(b: Backend, info: Conversation, action: strin
     const graph = await run.graph()
     const branches = new Set(graph.nodes.filter((node) => node.mainline !== true).map((node) => node.key))
     const tasks = data.tasks.map((t) => {
-      const costHold = t.kind === "model_task" && t.error?.key === "conversation_cost_limit_reached"
-      const unresolved =
-        ["failed", "timed_out", "uncertain"].includes(t.status) &&
-        !t.failure_resolution &&
-        (t.on_failure !== "absorb" || costHold)
+      const repair = recovery(t)
 
       return {
         key: t.key,
         name: t.tool_alias || t.tool_name || t.key,
         status: t.status,
-        unresolved,
-        ...(unresolved &&
-          costHold && {
-            costLimitUrl: new URL("/conversations/" + encodeURIComponent(info.public_id) + "/cost_limit/edit", b.origin)
-              .href,
-          }),
+        unresolved: !!repair,
+        contextOverflow: repair === "context",
+        ...(repair === "cost" && {
+          costLimitUrl: new URL("/conversations/" + encodeURIComponent(info.public_id) + "/cost_limit/edit", b.origin)
+            .href,
+        }),
         kind: t.kind,
         waitingOn: t.waiting_on ?? [],
         branch: branches.has(t.key),

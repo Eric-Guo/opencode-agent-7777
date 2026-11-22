@@ -73,6 +73,8 @@ export const dict = {
   "chat.cacheCreationTokens": "Cache creation tokens",
   "chat.cacheHitRate": "Cache hit rate",
   "chat.costRecovery": "Raise or clear the conversation cost limit, then retry this step. Completed work is preserved.",
+  "chat.contextOverflow":
+    "In Nexus Settings > Model providers > Edit model > Context and capabilities, set either Input token limit or Combined context window to the model server’s actual limit. Check Output token limit. You can also reduce the requested output or shorten the conversation.",
   "chat.editCostLimit": "Edit cost limit in Nexus",
   "chat.reasonTokens": "Reasoning tokens",
   "chat.cost": "Cost",

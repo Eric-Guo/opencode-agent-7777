@@ -314,6 +314,42 @@ test("run inspection offers cost-limit recovery only for the conversation's unre
   }
 })
 
+test("context overflow guidance follows the unresolved model task in the run and task views", async () => {
+  const error = { key: "provider_context_overflow", detail: "Requested 9000 tokens; maximum 8192. <div>" }
+  const failed = { status: "failed", kind: "model_task", on_failure: "halt", error }
+  const tasks = [
+    { ...failed, key: "held" },
+    { ...failed, key: "absorbed", on_failure: "absorb" },
+    { ...failed, key: "resolved", failure_resolution: "retried" },
+    { ...failed, key: "running", status: "running" },
+    { ...failed, key: "tool", kind: "tool_task" },
+  ]
+  const b = {
+    workspaceID: "w",
+    connection: { scope: "scope" },
+    workspace: {
+      conversation: (id: string) => ({ fetch: async () => ({ public_id: id, workspace_public_id: "w" }) }),
+      run: () => ({
+        graph: async () => ({ nodes: [] }),
+        fetch: async () => ({ status: "needs_attention", turn: { conversation_public_id: "chat" }, tasks }),
+        task: (key: string) => ({ fetch: async () => ({ task: tasks.find((t) => t.key === key) }) }),
+      }),
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(b)
+  try {
+    const run = await (await send("/chats/chat/run?run=r")).json()
+    for (const t of run.tasks) {
+      const detail = await (await send("/chats/chat/task?run=r&key=" + t.key)).json()
+      expect(t.contextOverflow).toBe(t.key === "held")
+      expect(detail.contextOverflow).toBe(t.key === "held")
+      expect(detail.error).toEqual(error)
+    }
+  } finally {
+    await close()
+  }
+})
+
 test("context inspection returns only system text and reads raw records within the selected conversation", async () => {
   const raw = { public_id: "turn", role: "assistant", active_variant: { content: "Recorded response" } }
   const reads: string[] = []

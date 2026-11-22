@@ -19,7 +19,7 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
     q = { run: p.run, key: p.task }
   return (
     <Disclosure title={p.name}>
-      <DetailRead<TaskView> chat={p.chat} path={chatPath(p.chat, "task", q)}>
+      <DetailRead<TaskView> chat={p.chat} path={chatPath(p.chat, "task", q)} revision={p.chat.s.revision}>
         {(data) => (
           <>
             <p>
@@ -57,6 +57,9 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
             </Show>
             <Show when={data().error}>
               <pre>{JSON.stringify(data().error, null, 2)}</pre>
+            </Show>
+            <Show when={data().contextOverflow}>
+              <p>{lang.t("chat.contextOverflow")}</p>
             </Show>
             <For each={data().captures}>{(file) => <FileRow chat={p.chat} file={file} query={q} />}</For>
             <Show when={data().sealed}>
@@ -130,6 +133,9 @@ function Run(p: { chat: ChatController; run: string }) {
               return (
                 <div>
                   <Task chat={c} run={p.run} task={key} name={task().name + " · " + task().status} />
+                  <Show when={task().contextOverflow}>
+                    <p>{lang.t("chat.contextOverflow")}</p>
+                  </Show>
                   <Show when={task().costLimitUrl}>
                     {(url) => (
                       <p>

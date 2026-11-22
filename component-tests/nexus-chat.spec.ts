@@ -772,7 +772,21 @@ test("opens child conversations from activity and returns to the parent's draft"
       })
     if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
     if (path.endsWith("/children")) return json({ items: children, next: null })
-    if (path.endsWith("/work")) return json([])
+    if (path.endsWith("/work")) return json([{ id: "run", status: "needs_attention" }])
+    if (path.endsWith("/run"))
+      return json({
+        status: "needs_attention",
+        tasks: [{ key: "step", name: "Model", status: "failed", waitingOn: [], contextOverflow: true }],
+      })
+    if (path.endsWith("/task"))
+      return json({
+        key: "step",
+        kind: "model_task",
+        status: "failed",
+        error: { detail: "Limit <div>8192</div>" },
+        contextOverflow: true,
+        captures: [],
+      })
     const child = children.find((item) => path.endsWith("/chats/" + item.id))
     return json({
       turns: [],
@@ -788,6 +802,12 @@ test("opens child conversations from activity and returns to the parent's draft"
   for (const child of children) {
     await page.getByRole("button", { name: "View context usage" }).click()
     const dialog = page.getByRole("dialog", { name: "Context usage" })
+    if (child.busy) {
+      await expect(dialog.getByText(/Input token limit or Combined context window/)).toHaveCount(1)
+      await dialog.getByText("Model · failed").click()
+      await expect(dialog.getByText(/Input token limit or Combined context window/)).toHaveCount(2)
+      await expect(dialog.locator("pre").filter({ hasText: "Limit <div>8192</div>" })).toBeVisible()
+    }
     await dialog.getByText("Child conversations", { exact: true }).click()
     await dialog.getByRole("button", { name: "Open " + child.name }).click()
     await expect(dialog).toHaveCount(0)

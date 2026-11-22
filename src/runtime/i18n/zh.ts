@@ -76,6 +76,7 @@ export const dict = {
   "chat.cacheCreationTokens": "写入缓存的 Token 数",
   "chat.cacheHitRate": "缓存命中率",
   "chat.costRecovery": "提高或清除会话费用上限，然后重试此步骤。已完成的工作会保留。",
+  "chat.contextOverflow": "在 Nexus 设置 > 模型提供方 > 编辑模型 > 上下文与能力中，将输入令牌上限或总上下文窗口其中一项设为模型服务器的实际限制，并检查输出令牌上限。也可减少请求的输出或缩短会话。",
   "chat.editCostLimit": "在 Nexus 中编辑费用上限",
   "chat.reasonTokens": "推理 Token 数",
   "chat.cost": "费用",
