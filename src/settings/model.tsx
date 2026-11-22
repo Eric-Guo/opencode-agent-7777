@@ -3,11 +3,8 @@ import { createStore } from "solid-js/store"
 import type { ComposerDelivery } from "@/composer/adapter"
 import {
   readFollowUpBehavior,
-  readShowReasoningSummaries,
-  readShowTurnDiffs,
+  timelinePreferences,
   writeFollowUpBehavior,
-  writeShowReasoningSummaries,
-  writeShowTurnDiffs,
 } from "@/runtime/persistence/settings-storage-compact"
 import { SettingsContextProvider } from "./context"
 
@@ -18,21 +15,22 @@ export type FollowUpBehavior = ComposerDelivery
 export function createSettings() {
   const [store, setStore] = createStore({
     followUpBehavior: readFollowUpBehavior(),
-    showReasoningSummaries: readShowReasoningSummaries(),
-    showTurnDiffs: readShowTurnDiffs(),
+    showReasoningSummaries: timelinePreferences.showReasoningSummaries.read(),
+    showTurnDiffs: timelinePreferences.showTurnDiffs.read(),
+    wrapCodeBlocks: timelinePreferences.wrapCodeBlocks.read(),
   })
+  const setTimelinePreference = (key: keyof typeof timelinePreferences) => (value: boolean) => {
+    setStore(key, value)
+    timelinePreferences[key].write(value)
+  }
   return {
     general: {
       showReasoningSummaries: () => store.showReasoningSummaries,
-      setShowReasoningSummaries(value: boolean) {
-        setStore("showReasoningSummaries", value)
-        writeShowReasoningSummaries(value)
-      },
+      setShowReasoningSummaries: setTimelinePreference("showReasoningSummaries"),
       showTurnDiffs: () => store.showTurnDiffs,
-      setShowTurnDiffs(value: boolean) {
-        setStore("showTurnDiffs", value)
-        writeShowTurnDiffs(value)
-      },
+      setShowTurnDiffs: setTimelinePreference("showTurnDiffs"),
+      wrapCodeBlocks: () => store.wrapCodeBlocks,
+      setWrapCodeBlocks: setTimelinePreference("wrapCodeBlocks"),
       followUpBehavior: () => store.followUpBehavior,
       setFollowUpBehavior(value: FollowUpBehavior) {
         setStore("followUpBehavior", value)

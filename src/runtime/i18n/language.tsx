@@ -1,4 +1,3 @@
-import { createSimpleContext } from "@opencode/ui/context"
 import {
   I18nProvider,
   pluralCategory,
@@ -13,6 +12,9 @@ import { createStore } from "solid-js/store"
 import { storageGet, storageSet } from "@/runtime/persistence/storage"
 import { dict as en } from "@/runtime/i18n/en"
 import { dict as zh } from "@/runtime/i18n/zh"
+import { LanguageContextProvider, useLanguage } from "./language-context"
+
+export { useLanguage }
 
 export type Locale = "en" | "zh"
 
@@ -96,47 +98,50 @@ export function translateSync(key: TranslationKey, params?: TranslationParams) {
   return template(dictionaries[currentLocale()], key, params)
 }
 
-export const { use: useLanguage, provider: LanguageProvider } = createSimpleContext({
-  name: "Language",
-  gate: false,
-  init: (props: { locale?: Locale }) => {
-    const [store, setStore] = createStore({
-      locale: props.locale ?? currentLocale(),
-    })
+function createLanguage(props: { locale?: Locale }) {
+  const [store, setStore] = createStore({
+    locale: props.locale ?? currentLocale(),
+  })
 
-    const locale = createMemo<Locale>(() => normalizeLocale(store.locale))
-    const intl = createMemo(() => INTL[locale()])
-    const dict = createMemo(() => dictionaries[locale()])
-    const t = (key: TranslationKey, params?: TranslationParams) => template(dict(), key, params)
-    const plural = (key: PluralKey, count: number, params?: TranslationParams) => {
-      const lookup = `${key}.${pluralCategory(intl(), count)}` as TranslationKey
-      const other = `${key}.other` as TranslationKey
-      return resolveTemplate(dict()[lookup] ?? dict()[other] ?? base[other], { ...params, count })
-    }
+  const locale = createMemo<Locale>(() => normalizeLocale(store.locale))
+  const intl = createMemo(() => INTL[locale()])
+  const dict = createMemo(() => dictionaries[locale()])
+  const t = (key: TranslationKey, params?: TranslationParams) => template(dict(), key, params)
+  const plural = (key: PluralKey, count: number, params?: TranslationParams) => {
+    const lookup = `${key}.${pluralCategory(intl(), count)}` as TranslationKey
+    const other = `${key}.other` as TranslationKey
+    return resolveTemplate(dict()[lookup] ?? dict()[other] ?? base[other], { ...params, count })
+  }
 
-    createEffect(() => {
-      const next = locale()
-      storageSet(STORAGE_KEY, next)
-      if (typeof document !== "object") return
-      document.documentElement.lang = INTL[next]
-      document.cookie = cookie(next)
-    })
+  createEffect(() => {
+    const next = locale()
+    storageSet(STORAGE_KEY, next)
+    if (typeof document !== "object") return
+    document.documentElement.lang = INTL[next]
+    document.cookie = cookie(next)
+  })
 
-    return {
-      locale,
-      intl,
-      locales: LOCALES,
-      label(value: Locale) {
-        return t(LABEL_KEY[value])
-      },
-      t,
-      plural,
-      setLocale(next: Locale) {
-        setStore("locale", normalizeLocale(next))
-      },
-    }
-  },
-})
+  return {
+    locale,
+    intl,
+    locales: LOCALES,
+    label(value: Locale) {
+      return t(LABEL_KEY[value])
+    },
+    t,
+    plural,
+    setLocale(next: Locale) {
+      setStore("locale", normalizeLocale(next))
+    },
+  }
+}
+
+export type Language = ReturnType<typeof createLanguage>
+
+export function LanguageProvider(props: ParentProps<{ locale?: Locale }>) {
+  const value = createLanguage(props)
+  return <LanguageContextProvider value={value}>{props.children}</LanguageContextProvider>
+}
 
 export function UiI18nBridge(props: ParentProps) {
   const language = useLanguage()

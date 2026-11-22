@@ -115,6 +115,7 @@ export function SessionPage() {
                 }
               >
                 <SessionUIProvider
+                  runtime={currentRuntime()}
                   data={sessionUiData()}
                   directory={state.session ? sessionDirectory(state.session) : ""}
                   turnDiff={turnDiff()}

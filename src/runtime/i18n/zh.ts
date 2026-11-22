@@ -142,6 +142,7 @@ export const dict = {
   "settings.general.row.followUpBehavior.steer": "引导",
   "settings.timeline.title": "时间表",
   "settings.timeline.row.turnDiffs.title": "已更改的文件",
+  "settings.timeline.row.wrapCodeBlocks.title": "代码块自动换行",
 
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",

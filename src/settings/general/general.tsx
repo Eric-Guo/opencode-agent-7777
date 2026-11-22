@@ -51,6 +51,13 @@ export function SettingsGeneral() {
             >
               {language.t("settings.timeline.row.turnDiffs.title")}
             </Menu.CheckboxItem>
+            <Menu.CheckboxItem
+              checked={settings.general.wrapCodeBlocks()}
+              onChange={settings.general.setWrapCodeBlocks}
+              closeOnSelect
+            >
+              {language.t("settings.timeline.row.wrapCodeBlocks.title")}
+            </Menu.CheckboxItem>
           </Menu.Group>
         </Menu.Content>
       </Menu.Portal>

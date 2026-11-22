@@ -17,14 +17,11 @@ function booleanPreference(key: string, defaultValue: boolean) {
   }
 }
 
-export const { read: readShowReasoningSummaries, write: writeShowReasoningSummaries } = booleanPreference(
-  SHOW_REASONING_SUMMARIES_KEY,
-  false,
-)
-export const { read: readShowTurnDiffs, write: writeShowTurnDiffs } = booleanPreference(
-  "opencode.7777.showTurnDiffs",
-  true,
-)
+export const timelinePreferences = {
+  showReasoningSummaries: booleanPreference(SHOW_REASONING_SUMMARIES_KEY, false),
+  showTurnDiffs: booleanPreference("opencode.7777.showTurnDiffs", true),
+  wrapCodeBlocks: booleanPreference("opencode.7777.wrapCodeBlocks", false),
+}
 
 export function readFollowUpBehavior(): ComposerDelivery {
   return storageGet(FOLLOW_UP_BEHAVIOR_KEY) === "queue" ? "queue" : "steer"

@@ -20,6 +20,13 @@ The compact adapter owns the button, localized cost/context/token tooltip, and d
 Timeline charts use the public `MarkdownCodeBlocks` API from `@opencode/session-ui/context/markdown`.
 Shared Markdown owns fence completion, source copying and block disposal. The 7777 renderer handles ECharts
 options, chart controls and resizing in timeline text parts. Its former timeline-wide DOM observer is removed.
+
+The same provider passes workspace image reads and the saved code-wrap preference to shared Markdown. The local
+`runtime/server/image.ts` maps decoded paths to the session client's file API using public artifact MIME and
+path helpers. Reads retain the active workspace as their server location. The renderer owns image retries,
+cancellation, URL disposal and per-block wrap overrides. The language context has a stable module identity so
+editing a preference label during development keeps mounted controls connected to their provider.
+
 The local `session/timeline/projection.ts` supplies stable message and content objects to the public
 `SessionTimeline`, which owns row projection. Only the assistant text part receiving a delta recomputes its
 Chinese-parenthesized URL formatting. The context inspector and export retain the source text.
@@ -224,6 +231,17 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Markdown validation (2026-11-22). All 710 Bun tests, 71 browser tests, typecheck and both production builds
+passed. The workspace image decoded to 96 pixels wide in the updated production fixture and zero on the original
+build. Switching sessions cancelled a pending SVG read and displayed the new session’s image at the same path.
+The fixture checked the wrap setting across reload and a single block’s override. After one page refresh during
+development, the live agent picked up a Chinese label edit, toggled wrapping and returned to its original setting
+at `1/9`. Both app and backend processes stayed running.
+
+Three-run production medians before and after were 178/181 ms for entry, 69/69 ms for switching and 93/92 ms
+for streaming. Endpoint counts matched across all 87 requests. Both output bundles contained zero app or desktop
+source modules. Logs, benchmark results and the live menu screenshot are in `node_modules/.cache/markdown-parity/`.
 
 Changed-files validation (2026-11-22). All 705 Bun tests and 69 browser tests passed, along with typecheck
 and the default and browser-enabled builds. An 11-prompt fixture requested only the completed visible turn

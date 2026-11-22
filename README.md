@@ -230,6 +230,15 @@ options when encoding requests. Browser consumers use type-only imports, keeping
 Markdown renderer's local-file callback. In the desktop host, file links open through `FilesOpenPath` in the system's
 default application (for example, Excel for `.xlsx`); relative paths resolve against the current session directory.
 The compact provider reports native opening errors through a toast and leaves browser-only file links inert.
+Timeline Markdown displays workspace images in both the browser and desktop host. Relative paths resolve from
+the active session directory. Absolute paths under that directory work too. The local `runtime/server/image.ts`
+adapter uses the session client's file reader and keeps automatic reads scoped to that workspace. The shared
+Markdown renderer owns image loading, retries and URL cleanup when the message or session changes.
+
+Choose **Timeline → Wrap code blocks** in the gear menu to wrap long lines by default. Horizontal scrolling is
+the initial setting. The browser remembers the preference. A single overflowing block can still switch between
+wrapping and scrolling with its own toolbar button.
+
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
 agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
 prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
@@ -498,6 +507,7 @@ the provider tree. Ordinary, plural and synchronous translations reuse the publi
 parameter type from `@opencode/ui/context/i18n`. Locale detection, the `opencode.7777.language` plain/legacy formats,
 English fallback and eager English/Chinese dictionaries remain local. The compact adapter keeps `zh-CN` formatting,
 its document language and cookie updates, and synchronous language switching without importing app source.
+The compact `runtime/i18n/language-context.ts` keeps the provider identity stable across translation hot updates.
 
 `composer/selection.ts` owns active model precedence, variant resolution and recent-model cycling, following the main
 app's composer boundary. Both the editor and submit path use it. Unsent choices still precede the durable session

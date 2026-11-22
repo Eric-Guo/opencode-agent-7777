@@ -1,21 +1,30 @@
 import { DataProvider } from "@opencode/session-ui/context"
-import { MarkdownProvider } from "@opencode/session-ui/context/markdown"
+import { MarkdownProvider, type ReadMarkdownImage } from "@opencode/session-ui/context/markdown"
 import { showToast } from "@opencode/ui/toast"
 import { parsePathLineSuffix } from "@opencode/util/path"
-import type { ComponentProps } from "solid-js"
+import { createMemo, type ComponentProps } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
+import { readLocalImage } from "@/runtime/server/image"
+import type { SessionRuntime } from "@/runtime/server/runtime"
 import { createMarkdownEcharts } from "@/session/timeline/markdown-echarts"
+import { useSettings } from "@/settings/model"
 import { readableError } from "@/shell/errors/readable"
-import { fileUrl } from "@/workspaces/files/path"
+import { resolveFilePath } from "@/workspaces/files/path"
 
-export function SessionUIProvider(props: ComponentProps<typeof DataProvider>) {
+export function SessionUIProvider(props: ComponentProps<typeof DataProvider> & { runtime?: SessionRuntime }) {
   const language = useLanguage()
+  const settings = useSettings()
   const codeBlocks = createMarkdownEcharts()
+  const directory = createMemo(() => props.directory)
+  const readImage = createMemo<ReadMarkdownImage | undefined>(() => {
+    const runtime = props.runtime
+    const root = directory()
+    if (!runtime || !root) return
+    return (path, signal) => readLocalImage(runtime.api, root, path, AbortSignal.any([signal, runtime.signal]))
+  })
   const openLocalFile = async (path: string) => {
     try {
-      // Markdown supplies decoded paths. Resolve relative links against this session, preserving filename characters.
-      const url = new URL(fileUrl(props.directory, parsePathLineSuffix(path).path))
-      const target = decodeURIComponent(url.pathname).replace(/^\/([a-z]:\/)/i, "$1")
+      const target = resolveFilePath(directory(), parsePathLineSuffix(path).path)
       const error = await window.api?.openPath?.(target)
       if (error) throw new Error(error)
     } catch (error) {
@@ -29,7 +38,12 @@ export function SessionUIProvider(props: ComponentProps<typeof DataProvider>) {
 
   return (
     <DataProvider {...props}>
-      <MarkdownProvider codeBlocks={codeBlocks} openLocalFile={window.api?.openPath ? openLocalFile : undefined}>
+      <MarkdownProvider
+        codeBlocks={codeBlocks}
+        codeWrap={settings.general.wrapCodeBlocks()}
+        readImage={readImage()}
+        openLocalFile={window.api?.openPath ? openLocalFile : undefined}
+      >
         {props.children}
       </MarkdownProvider>
     </DataProvider>
