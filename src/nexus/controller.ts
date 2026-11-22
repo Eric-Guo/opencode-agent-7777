@@ -100,6 +100,7 @@ export function createChatController(
     connected: false,
     connecting: true,
     sending: false,
+    submitting: false,
     prepared: false,
     loadingHistory: false,
     hasOlder: true,
@@ -146,7 +147,7 @@ export function createChatController(
     set("draftModes", reconcile(!id ? (entry.draftModes ?? {}) : {}))
     const approval = entry.approval ?? "ask"
     set({
-      prepared: !!attempt,
+      prepared: !!attempt && attempt.text === entry.text,
       draft: entry.text ?? "",
       model: entry.model ?? "",
       runner: attempt ? attempt.runner : (entry.runner ?? null),
@@ -157,7 +158,8 @@ export function createChatController(
     })
   }
   function configure(value: { model?: string; runner?: string | null; approval?: Approval }) {
-    if (s.sending || attempt) return
+    if (s.sending || s.prepared) return
+    attempt = undefined
     if ("runner" in value) runnerEdited = true
     set(value)
     persist()
@@ -359,9 +361,9 @@ export function createChatController(
     }
   }
   function edit(text: string) {
-    if (s.sending || s.draft === text) return
-    attempt = undefined
-    set({ draft: text, prepared: false })
+    if ((s.sending && !s.submitting) || s.draft === text) return
+    if (!s.sending && s.prepared) attempt = undefined
+    set({ draft: text, prepared: !!attempt && attempt.text === text })
     persist()
   }
 
@@ -396,7 +398,8 @@ export function createChatController(
   }
   async function changeMode(key: keyof ModeValues, value: boolean) {
     const current = modes()
-    if (!current || !writable() || s.sending || attempt || (key === "code_mode" && !current.code_mode_available)) return
+    if (!current || !writable() || s.sending || s.prepared || (key === "code_mode" && !current.code_mode_available)) return
+    attempt = undefined
     if (!s.id) {
       set("draftModes", key, value)
       persist()
@@ -423,15 +426,17 @@ export function createChatController(
   async function send(now = false, preference = readFollowUpBehavior()) {
     const c = s.connection
 
-    if (!c || s.sending || s.accessDenied || (!writable() && !(attempt && !s.hydrated && s.id))) return
+    if (!c || s.sending || s.accessDenied || (!writable() && !(s.prepared && !s.hydrated && s.id))) return
     if (!s.draft.trim()) {
       const pending = latestSteer()
       if (now && pending) await command("promote", { id: pending.id, version: pending.version })
       return
     }
+    const text = s.draft
+    if (attempt && attempt.text !== text) attempt = undefined
     const running = !!s.snapshot.detail?.active || (!s.snapshot.detail && s.snapshot.busy)
     const delivery = running || (now && latestSteer()) ? (now ? "steer_now" : preference) : "queue"
-    set({ sending: true, error: "" })
+    set({ sending: true, submitting: true, error: "" })
     try {
       if (!s.id && !attempt) {
         await choicesReady
@@ -440,7 +445,7 @@ export function createChatController(
       }
       const initial = !s.id ? modes() : null
       attempt ??= {
-        text: s.draft,
+        text,
         model: s.model || null,
         runner: s.runner,
         approval: s.approval,
@@ -459,7 +464,7 @@ export function createChatController(
         inputKey: uuid(),
       }
       const submission = attempt
-      set("prepared", true)
+      set("prepared", s.draft === submission.text)
       persist()
       if (!s.id) {
         const created = await api<{ id: string }>("/chats", c.scope, {
@@ -522,13 +527,13 @@ export function createChatController(
       }
       await api(path() + "/inputs", c.scope, { ...body, ticket: submission.ticket })
       attempt = undefined
-      set({ draft: "", prepared: false })
+      set({ draft: s.draft === submission.text ? "" : s.draft, prepared: false })
       persist()
       await refresh()
     } catch (err) {
       fail(err)
     } finally {
-      set("sending", false)
+      set({ sending: false, submitting: false })
     }
   }
   async function earlier() {

@@ -211,8 +211,9 @@ export default function SessionPage() {
           </Show>
           <ComposerEditor
             controller={editor}
-            disabled={!chat.writable() || s.sending}
-            readOnly={!chat.writable() || s.sending}
+            disabled={
+              (!chat.writable() && !(s.submitting && !s.hydrated && !s.accessDenied)) || (s.sending && !s.submitting)
+            }
             addMenuVisible={false}
             modelControlsVisible={false}
             agentControl={<SendControls chat={chat} />}

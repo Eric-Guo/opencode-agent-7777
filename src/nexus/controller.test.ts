@@ -167,6 +167,37 @@ test("retry after a lost creation receipt and a lost input receipt reuses the or
   expect(inputs[0]).not.toBe(creates[0])
   next.close()
 })
+test("a new chat keeps the draft typed during creation and sends the clicked text once", async () => {
+  const create = Promise.withResolvers<{ id: string }>()
+  const storage = new Map<string, string>()
+  const posts: string[] = []
+  const handler = async (path: string, body?: { text?: string }) => {
+    if (path === "/chats") return create.promise
+    if (path.endsWith("/prepare")) return { ticket: "ticket" }
+    if (path.endsWith("/inputs")) posts.push(body!.text!)
+    return empty()
+  }
+  const chat = fixture(handler, storage).controller
+  try {
+    await chat.connect()
+    chat.edit("first")
+    const sending = chat.send()
+    chat.edit("second")
+    await chat.send()
+    create.resolve({ id: "created" })
+    await sending
+    expect(posts).toEqual(["first"])
+    expect(chat.s.draft).toBe("second")
+    await chat.connect()
+    expect(chat.s.id).toBe("created")
+    expect(chat.s.draft).toBe("second")
+    chat.select("")
+    expect(chat.s.draft).toBe("")
+  } finally {
+    chat.close()
+  }
+})
+
 test("switch fences late history and frames; reconnect hydrates current pending inputs; Stop targets the current chat", async () => {
   let resume!: (value: unknown) => void
   let snapshot = empty()

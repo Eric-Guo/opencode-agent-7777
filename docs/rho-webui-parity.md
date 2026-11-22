@@ -4,6 +4,14 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `48ff47738cf6edacd076caf261a8ff1f02ea636f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Composer drafts
+
+Send captures the text in the composer immediately. The operator can type the
+next draft while Nexus creates the conversation, prepares the reply or accepts
+the input. Acceptance clears the submitted text only if it still matches the
+draft. Text entered during creation follows the new conversation. Retrying an
+unchanged uncertain send reuses its input key, preparation ticket and model choice.
+
 ## New chat runner selection
 
 A fresh draft starts with the operator's selected runner or the runtime's own
