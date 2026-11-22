@@ -68,6 +68,7 @@ type Saved = {
   draftModes?: Partial<ModeValues>
   model?: string
   runner?: string | null
+  runnerEdited?: boolean
   approval?: Approval
 }
 export type ChatController = ReturnType<typeof createChatController>
@@ -108,6 +109,7 @@ export function createChatController(
   let choicesReady: Promise<void> | undefined
   let modeRead = 0
   let choicesRead = 0
+  let runnerEdited = false
   let version = 0
   let source: EventSource | undefined
   let poll: ReturnType<typeof setInterval> | undefined
@@ -125,6 +127,7 @@ export function createChatController(
       attempt,
       model: s.model,
       runner: s.runner,
+      runnerEdited,
       approval: s.approval,
       draftModes: !s.id ? s.draftModes : undefined,
     }
@@ -139,13 +142,14 @@ export function createChatController(
       /* corrupt draft */
     }
     attempt = entry.attempt
+    runnerEdited = entry.runnerEdited ?? (!!entry.runner && entry.runner !== s.connection?.runner)
     set("draftModes", reconcile(!id ? (entry.draftModes ?? {}) : {}))
     const approval = entry.approval ?? "ask"
     set({
       prepared: !!attempt,
       draft: entry.text ?? "",
       model: entry.model ?? "",
-      runner: entry.runner ?? s.connection?.runner ?? null,
+      runner: attempt ? attempt.runner : (entry.runner ?? null),
       approval:
         !attempt && s.choices && !s.choices.approvals.includes(approval)
           ? (s.choices.approvals[0] ?? "rules")
@@ -154,6 +158,7 @@ export function createChatController(
   }
   function configure(value: { model?: string; runner?: string | null; approval?: Approval }) {
     if (s.sending || attempt) return
+    if ("runner" in value) runnerEdited = true
     set(value)
     persist()
   }
@@ -277,6 +282,10 @@ export function createChatController(
       .then((choices) => {
         if (read !== choicesRead || s.connection?.scope !== c.scope || !Array.isArray(choices.models)) return
         set("choices", choices)
+        if (!s.id && !attempt) {
+          const selected = runnerEdited ? s.runner : choices.defaultRunner
+          set("runner", choices.runners.find((r) => r.id === selected)?.id ?? null)
+        }
 
         if (!attempt && !choices.approvals.includes(s.approval)) set("approval", choices.approvals[0] ?? "rules")
       })

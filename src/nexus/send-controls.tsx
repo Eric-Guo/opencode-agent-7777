@@ -43,6 +43,10 @@ export function SendControls(p: { chat: ChatController }) {
     lang = useLanguage(),
     settings = useSettings()
   const choices = () => s.choices
+  const presence = (value: string) => {
+    if (value === "online" || value === "offline" || value === "not_yet_seen") return lang.t(`chat.presence.${value}`)
+    return value
+  }
   return (
     <div class="chat-row">
       <Popover
@@ -80,13 +84,16 @@ export function SendControls(p: { chat: ChatController }) {
             <label>
               {lang.t("chat.runner")}
               <select value={s.runner || ""} onChange={(e) => c.configure({ runner: e.currentTarget.value || null })}>
+                <Show when={!s.runner}>
+                  <option value="">{lang.t("chat.chooseRunner")}</option>
+                </Show>
                 <Show when={s.runner && !choices()?.runners.some((r) => r.id === s.runner)}>
                   <option value={s.runner!}>{s.runner}</option>
                 </Show>
                 <For each={choices()?.runners}>
                   {(r) => (
                     <option value={r.id} selected={s.runner === r.id}>
-                      {r.name}
+                      {[r.name, r.own && lang.t("chat.thisMachine"), presence(r.presence)].filter(Boolean).join(" · ")}
                     </option>
                   )}
                 </For>

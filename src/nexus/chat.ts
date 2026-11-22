@@ -25,7 +25,8 @@ export type ConversationModes = ModeValues & { available: boolean; code_mode_ava
 export type Choices = {
   modes: ConversationModes | null
   models: string[]
-  runners: { id: string; name: string }[]
+  defaultRunner: string | null
+  runners: { id: string; name: string; own: boolean; presence: string }[]
   approvals: Approval[]
 }
 export type RecentChat = {

@@ -35,6 +35,42 @@ async function bridge(b: Backend) {
   }
 }
 
+test("new-chat choices resolve the operator runner and expose its identity and presence", async () => {
+  let selection: string | null = "remote"
+  const backend = {
+    connection: { scope: "scope" },
+    client: { models: { list: async () => [] } },
+    native: {
+      manage: async ({ payload }: { payload: { action: string; name?: string; input?: unknown } }) => {
+        if (payload.action === "application.defaults")
+          return { available: true, code_mode_available: true, code_mode: true, subagent: true }
+        expect(payload).toEqual({ action: "extension.call", name: "runners", input: {} })
+        return {
+          selection,
+          runners: [
+            { public_id: "local", display_name: null, own: true, presence: "online" },
+            { public_id: "remote", display_name: "Build host", own: false, presence: "offline" },
+          ],
+        }
+      },
+    },
+  } as unknown as Backend
+  const { send, close } = await bridge(backend)
+  try {
+    expect(await (await send("/choices")).json()).toMatchObject({
+      defaultRunner: "remote",
+      runners: [
+        { id: "local", name: "local", own: true, presence: "online" },
+        { id: "remote", name: "Build host", own: false, presence: "offline" },
+      ],
+    })
+    selection = null
+    expect(await (await send("/choices")).json()).toMatchObject({ defaultRunner: "local" })
+  } finally {
+    await close()
+  }
+})
+
 test("exports the retained Nexus records as JSON through the read-only and archived conversation route", async () => {
   const records = [
     { type: "export", format: "nexus.conversation.diagnostic", version: 1 },

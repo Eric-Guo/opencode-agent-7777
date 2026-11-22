@@ -1,8 +1,27 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`c0ebf861e5a2793cf3e384dedc1e071237a93f12`. The reference checkout and its Ruby/JavaScript
+`48ff47738cf6edacd076caf261a8ff1f02ea636f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## New chat runner selection
+
+A fresh draft starts with the operator's selected runner or the runtime's own
+runner when the operator has cleared the selection. The selector shows each
+runner's name, presence and local ownership. An unavailable choice leaves the
+selector empty. A manual choice survives a draft reload, and retrying a lost
+creation receipt keeps the original runner even if the operator changes the
+default.
+
+The source UI bridge read the installed service's single online runner and
+created a scratch conversation on `localhost:3000`. Reading the conversation
+back through Nexus confirmed its default runner. A Chromium fixture exercised
+two runners, the remote default, a manual local override and draft reload.
+The bridge and controller tests also cover a cleared selection, missing runner
+and lost receipt. All 413 UI unit tests, 84 Chromium component tests, the UI
+type check and production build passed. The Rho WebUI runner fixtures passed
+7 tests. The [runtime ledger](../../nexus-runtime/PARITY.md#conversation-streams-and-browser-references)
+records the corresponding live execution checks.
 
 ## Model context recovery and child navigation
 

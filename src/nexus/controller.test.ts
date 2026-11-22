@@ -19,7 +19,11 @@ class Events extends EventTarget {
     this.closed = true
   }
 }
-function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved = new Map<string, string>()) {
+function fixture(
+  handle: (path: string, body?: any) => Promise<unknown>,
+  saved = new Map<string, string>(),
+  defaultRunner = () => "runner",
+) {
   const sources: Events[] = []
   const api = (async (path, _scope, body) =>
     path === "/connection"
@@ -27,7 +31,11 @@ function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved =
       : path === "/choices"
         ? {
             models: [],
-            runners: [],
+            defaultRunner: defaultRunner(),
+            runners: [
+              { id: "runner", name: "Laptop", own: true, presence: "online" },
+              { id: "remote", name: "Remote", own: false, presence: "online" },
+            ],
             approvals: ["ask"],
             modes: { code_mode: true, subagent: false, available: true, code_mode_available: true },
           }
@@ -49,6 +57,17 @@ function fixture(handle: (path: string, body?: any) => Promise<unknown>, saved =
   )
   return { controller, sources }
 }
+test("a draft with an unavailable runner leaves the selector empty", async () => {
+  for (const draft of [{}, { runner: "retired", runnerEdited: true }]) {
+    const storage = new Map([["7777.nexus.scope.draft.", JSON.stringify(draft)]])
+    const chat = fixture(async () => empty(), storage, () => "retired").controller
+    await chat.connect()
+    expect(chat.s.choices?.runners).toHaveLength(2)
+    expect(chat.s.runner).toBeNull()
+    chat.close()
+  }
+})
+
 test("earlier history expands the dialog window, survives refresh, and is fenced on conversation switch", async () => {
   const page = Promise.withResolvers<unknown>()
   const later = Array.from({ length: 9 }, (_, index) => ({
@@ -103,12 +122,14 @@ test("earlier history expands the dialog window, survives refresh, and is fenced
   }
 })
 test("retry after a lost creation receipt and a lost input receipt reuses the original keys across reload", async () => {
+  let defaultRunner = "remote"
   const creates: string[] = [],
     inputs: string[] = []
   let prepares = 0
   const storage = new Map<string, string>()
   const handler = async (path: string, body?: any) => {
     if (path === "/chats") {
+      expect(body.runner).toBe("remote")
       creates.push(body.key)
       if (creates.length === 1) throw new Error("lost create receipt")
       return { id: "chat" }
@@ -122,11 +143,14 @@ test("retry after a lost creation receipt and a lost input receipt reuses the or
     }
     return empty()
   }
-  const first = fixture(handler, storage).controller
+  const first = fixture(handler, storage, () => defaultRunner).controller
   await first.connect()
   first.edit("hello")
   await first.send()
   expect(first.s.error).toBe("lost create receipt")
+  defaultRunner = "runner"
+  await first.connect()
+  expect(first.s.runner).toBe("remote")
   await first.send()
   expect(first.s.error).toBe("lost input receipt")
   expect(first.s.draft).toBe("hello")

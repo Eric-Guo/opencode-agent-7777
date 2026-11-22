@@ -1344,7 +1344,17 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
     const json = (body: unknown) => route.fulfill({ json: body })
     if (path.endsWith("/connection"))
       return json({ scope: "modes", user: "Human", agent: "rho", workspace: "Workspace", model: "m", runner: "local" })
-    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"], modes: defaults })
+    if (path.endsWith("/choices"))
+      return json({
+        models: ["m"],
+        defaultRunner: "remote",
+        runners: [
+          { id: "local", name: "Laptop", own: true, presence: "online" },
+          { id: "remote", name: "Build host", own: false, presence: "online" },
+        ],
+        approvals: ["ask"],
+        modes: defaults,
+      })
 
     if (path.endsWith("/chats")) {
       expect(req.postDataJSON()).toMatchObject({ title: "", runner: "local" })
@@ -1380,6 +1390,10 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
     subagent = page.getByRole("switch", { name: "Subagent" })
   const editor = page.getByRole("textbox", { name: "Message" })
   await settings.click()
+  const runner = page.getByRole("combobox", { name: "Runner" })
+  await expect(runner).toHaveValue("remote")
+  await expect(runner.getByRole("option", { name: "Laptop · This machine · online" })).toBeAttached()
+  await runner.selectOption("local")
   await expect(code).toBeChecked()
   await code.press("Space")
   await subagent.press("Space")
@@ -1388,6 +1402,7 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
   expect(patches).toHaveLength(0)
   await page.reload()
   await settings.click()
+  await expect(runner).toHaveValue("local")
   await expect(code).not.toBeChecked()
   await expect(subagent).toBeChecked()
   await page.keyboard.press("Escape")

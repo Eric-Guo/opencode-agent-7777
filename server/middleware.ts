@@ -164,15 +164,34 @@ export function middleware(
       }
 
       if (route === "/choices" && req.method === "GET") {
-        const [models, runners, modes] = await Promise.all([
+        const [models, catalog, modes] = await Promise.all([
           b.client.models.list({ workload: "text_generation" }),
-          b.native.runners(),
+          b.native.manage({ payload: { action: "extension.call", name: "runners", input: {} } }),
           defaultModes(b),
         ])
 
+        const runners = Schema.decodeUnknownSync(
+          Schema.Struct({
+            selection: Schema.NullOr(Schema.String),
+            runners: Schema.Array(
+              Schema.Struct({
+                public_id: Schema.String,
+                display_name: Schema.NullOr(Schema.String),
+                own: Schema.Boolean,
+                presence: Schema.String,
+              }),
+            ),
+          }),
+        )(catalog)
         return json(res, 200, {
           models: models.filter((m) => m.available && m.visible).map((m) => m.ref),
-          runners: [...runners],
+          defaultRunner: runners.selection ?? runners.runners.find((row) => row.own)?.public_id ?? null,
+          runners: runners.runners.map((row) => ({
+            id: row.public_id,
+            name: row.display_name || row.public_id,
+            own: row.own,
+            presence: row.presence,
+          })),
           approvals: config.allowBypass === false ? ["ask", "rules"] : ["ask", "rules", "bypass"],
           modes,
         } satisfies Choices)
