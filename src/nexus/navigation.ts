@@ -122,7 +122,10 @@ export function createNavigation(chat: ChatController) {
   return {
     page: () => s.page,
     item: () => s.item,
-    openPage: (page: string, item = "") => set({ page, item }),
+    openPage(page: string, item = "") {
+      owner.revision++
+      set({ page, item, applying: false })
+    },
     reconnect,
     async open(workspace: string, conversation = "") {
       const revision = ++owner.revision

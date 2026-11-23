@@ -163,6 +163,20 @@ export function middleware(
         return res.end(Buffer.from(file.content, "base64"))
       }
 
+      if (route === "/settings/kernel-tools" && req.method === "GET") {
+        const tools = await b.client.tools.list()
+        const described = Schema.is(Schema.Struct({ description: Schema.String }))
+        return json(
+          res,
+          200,
+          tools.map((tool) => ({
+            canonical: tool.canonical_name,
+            name: tool.name,
+            description: described(tool.definition.function) ? tool.definition.function.description : "",
+          })),
+        )
+      }
+
       if (route === "/choices" && req.method === "GET") {
         const [models, catalog, modes] = await Promise.all([
           b.client.models.list({ workload: "text_generation" }),

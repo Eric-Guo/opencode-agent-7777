@@ -1,5 +1,6 @@
-import { For, Show, onMount } from "solid-js"
+import { For, Show, createMemo, createResource, createSignal, onMount } from "solid-js"
 import { createStore } from "solid-js/store"
+import { Checkbox } from "@opencode/ui/checkbox"
 import { Button } from "@opencode/ui/button"
 import type { NexusSettings } from "@opencode/schema/nexus-settings"
 import type { ManagementClient } from "./client"
@@ -7,6 +8,10 @@ import type { ModuleHost } from "./modules"
 import { SlotView } from "./slot"
 import { FieldRow } from "./fields"
 import { request } from "../nexus/controller"
+
+type KernelTool = { canonical: string; name: string; description: string }
+
+const groupOrder = ["graph", "human", "conversation", "memory", "skill", "tools", "runners"]
 
 type Setup = {
   status: { state: string; origin: string | null; error: string | null; pairing?: { url: string; code: string } }
@@ -18,7 +23,6 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
 
   const [s, set] = createStore({
     setup: null as Setup | null,
-    values: null as NexusSettings.Values | null,
     persona: "",
     model: "",
     workspace: "",
@@ -30,17 +34,65 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
     reviewModel: "",
   })
 
+  const [saved, setSaved] = createSignal<NexusSettings.Values>()
+  const scope = c.scope()
+  const draft = () => {
+    const entry = c.defaultsDraft()
+    return entry && entry.scope === scope ? entry.patch : {}
+  }
+  const values = createMemo(() => {
+    const current = saved()
+    return current && { ...current, ...draft() }
+  })
+  const models = () => c.chat.s.choices?.models ?? []
+  const [catalog] = createResource(
+    () => scope,
+    (activeScope) => request<KernelTool[]>("/settings/kernel-tools", activeScope).catch(() => undefined),
+  )
+  const toolGroups = createMemo(() => {
+    const names = [
+      ...new Set([
+        ...(catalog() ?? []).map((tool) => tool.canonical),
+        ...(saved()?.kernel_tools ?? []),
+        ...(draft().kernel_tools ?? []),
+      ]),
+    ]
+    return Map.groupBy(names, (name) => name.split(".")[1] || name)
+  })
+  const groups = () => [...new Set([...groupOrder, ...toolGroups().keys()])].filter((name) => toolGroups().has(name))
+
+  const edit = (change: NexusSettings.Patch) => {
+    if (!scope) return
+    const patch = Object.fromEntries(
+      Object.entries({ ...draft(), ...change }).filter(
+        ([key, value]) => JSON.stringify(value) !== JSON.stringify(saved()?.[key as keyof NexusSettings.Values]),
+      ),
+    )
+    c.setDefaultsDraft({ scope, patch })
+  }
+
   const refresh = async () => {
     set("setup", await request<Setup>("/setup"))
 
     if (!c.scope()) return
-    set("values", await c.command<NexusSettings.Values>({ action: "settings.read" }))
+    setSaved(await c.command<NexusSettings.Values>({ action: "settings.read" }))
+    edit({})
     set(
       "persona",
       editablePersona()
         ? ((await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "")
         : "",
     )
+  }
+
+  const saveDefaults = async () => {
+    const patch = { ...draft() }
+    if (!Object.keys(patch).length) return
+    if (patch.kernel_tools)
+      patch.kernel_tools = orderedTools(saved()?.kernel_tools ?? [], catalog(), new Set(patch.kernel_tools))
+    setSaved(await c.command<NexusSettings.Values>({ action: "settings.update", patch }))
+    c.setDefaultsDraft(undefined)
+    c.notice("Defaults saved for new conversations.")
   }
 
   const editablePersona = () => !!s.setup?.account && s.setup.account.id === c.human()
@@ -91,8 +143,8 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
             disabled={c.state.busy}
             onClick={() =>
               void c.perform(async () => {
-                await refresh()
                 await c.chat.connect(c.workspace(), c.chat.s.id)
+                if (!c.scope()) await refresh()
               })
             }
           >
@@ -157,68 +209,114 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
           </details>
         </Show>
       </div>
-      <Show when={s.values}>
-        {(values) => (
+      <Show when={values()}>
+        {(current) => (
           <form
             class="nexus-card"
             onSubmit={(event) => {
               event.preventDefault()
-              void c.perform(async () => {
-                await c.command({ action: "settings.update", patch: values() })
-                c.notice("Defaults saved for new conversations.")
-              })
+              void c.perform(saveDefaults)
             }}
           >
             <h3>New conversation defaults</h3>
             <fieldset disabled={c.state.busy}>
               <FieldRow label="Model">
                 <select
-                  value={values().default_model ?? ""}
-                  onChange={(e) => set("values", { default_model: e.currentTarget.value || null })}
+                  value={current().default_model ?? ""}
+                  onChange={(e) => edit({ default_model: e.currentTarget.value || null })}
                 >
                   <option value="">Installation default</option>
-                  <For each={c.chat.s.choices?.models}>{(model) => <option>{model}</option>}</For>
+                  <For each={modelOptions(models(), saved()?.default_model, current().default_model)}>
+                    {(model) => (
+                      <option value={model} selected={current().default_model === model}>
+                        {model}
+                        {models().includes(model) ? "" : " (unavailable)"}
+                      </option>
+                    )}
+                  </For>
                 </select>
               </FieldRow>
               <FieldRow label="Fallback models, in order">
                 <textarea
-                  value={values().fallback_models.join("\n")}
-                  onInput={(e) => set("values", { fallback_models: lines(e.currentTarget.value) })}
+                  value={current().fallback_models.join("\n")}
+                  onInput={(e) => edit({ fallback_models: lines(e.currentTarget.value) })}
                 />
               </FieldRow>
-              <FieldRow label="Kernel tools">
-                <textarea
-                  value={values().kernel_tools.join("\n")}
-                  onInput={(e) => set("values", { kernel_tools: lines(e.currentTarget.value) })}
-                />
-              </FieldRow>
+              <fieldset>
+                <legend>Kernel tools</legend>
+                <Show when={!catalog()}>
+                  <small>
+                    {catalog.loading ? "Loading kernel tools…" : "Catalog unavailable. Showing saved tools."}
+                  </small>
+                </Show>
+                <For each={groups()}>
+                  {(group) => (
+                    <fieldset>
+                      <legend>{group}</legend>
+                      <For each={toolGroups().get(group)}>
+                        {(name) => {
+                          const row = () => catalog()?.find((tool) => tool.canonical === name)
+                          return (
+                            <Checkbox
+                              checked={current().kernel_tools.includes(name)}
+                              description={
+                                row()?.description?.split(/(?<=[.!?])\s/)[0] ||
+                                row()?.name ||
+                                (catalog() ? "Currently unavailable" : undefined)
+                              }
+                              onChange={(checked) => {
+                                const selected = new Set(current().kernel_tools)
+                                if (checked) selected.add(name)
+                                else selected.delete(name)
+                                edit({ kernel_tools: orderedTools(saved()?.kernel_tools ?? [], catalog(), selected) })
+                              }}
+                            >
+                              {name}
+                            </Checkbox>
+                          )
+                        }}
+                      </For>
+                    </fieldset>
+                  )}
+                </For>
+              </fieldset>
               <FieldRow label="Enable subagents by default">
                 <input
                   type="checkbox"
-                  checked={values().subagent_default}
-                  onChange={(e) => set("values", { subagent_default: e.currentTarget.checked })}
+                  checked={current().subagent_default}
+                  onChange={(e) => edit({ subagent_default: e.currentTarget.checked })}
                 />
               </FieldRow>
               <FieldRow label="Adaptations">
-                <input
-                  value={values().adaptations}
-                  onInput={(e) => set("values", { adaptations: e.currentTarget.value })}
-                />
+                <input value={current().adaptations} onInput={(e) => edit({ adaptations: e.currentTarget.value })} />
               </FieldRow>
               <FieldRow label="Custom adaptation directory">
                 <input
-                  value={values().adaptations_dir ?? ""}
-                  onInput={(e) => set("values", { adaptations_dir: e.currentTarget.value || null })}
+                  value={current().adaptations_dir ?? ""}
+                  onInput={(e) => edit({ adaptations_dir: e.currentTarget.value || null })}
                 />
               </FieldRow>
               <FieldRow label="Automatic title model">
                 <select
-                  value={values().conversation_title_model ?? ""}
-                  onChange={(e) => set("values", { conversation_title_model: e.currentTarget.value || null })}
+                  value={current().conversation_title_model ?? ""}
+                  onChange={(e) => edit({ conversation_title_model: e.currentTarget.value || null })}
                 >
                   <option value="">None</option>
                   <option value="follow_current">Follow conversation model</option>
-                  <For each={c.chat.s.choices?.models}>{(model) => <option>{model}</option>}</For>
+                  <For
+                    each={modelOptions(
+                      models(),
+                      saved()?.conversation_title_model,
+                      current().conversation_title_model,
+                    ).filter((model) => model !== "follow_current")}
+                  >
+                    {(model) => (
+                      <option value={model} selected={current().conversation_title_model === model}>
+                        {model}
+                        {models().includes(model) ? "" : " (unavailable)"}
+                      </option>
+                    )}
+                  </For>
                 </select>
               </FieldRow>
               <Button type="submit">Save defaults</Button>
@@ -322,6 +420,16 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
       </Show>
       <SlotView host={props.host} slot="settings.section" values={{ client: c }} />
     </section>
+  )
+}
+
+function modelOptions(models: string[], saved: string | null | undefined, selected: string | null) {
+  return [...new Set([...models, ...(saved ? [saved] : []), ...(selected ? [selected] : [])])]
+}
+
+function orderedTools(saved: readonly string[], catalog: KernelTool[] | undefined, selected: Set<string>) {
+  return [...new Set([...saved, ...(catalog ?? []).map((tool) => tool.canonical), ...selected])].filter((name) =>
+    selected.has(name),
   )
 }
 

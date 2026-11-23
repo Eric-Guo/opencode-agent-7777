@@ -35,6 +35,30 @@ async function bridge(b: Backend) {
   }
 }
 
+test("the settings bridge returns every catalog tool in kernel order for the active scope", async () => {
+  const connection = { scope: "scope" }
+  const rows = [
+    { canonical_name: "nexus.future.new", name: "new", definition: { function: { description: "A new tool." } } },
+    {
+      canonical_name: "nexus.memory.read",
+      name: "memory_read",
+      definition: { function: { description: "Read memory." } },
+    },
+  ]
+  const backend = { connection, client: { tools: { list: async () => rows } } } as unknown as Backend
+  const { send, close } = await bridge(backend)
+  try {
+    expect(await (await send("/settings/kernel-tools")).json()).toEqual([
+      { canonical: "nexus.future.new", name: "new", description: "A new tool." },
+      { canonical: "nexus.memory.read", name: "memory_read", description: "Read memory." },
+    ])
+    connection.scope = "changed"
+    expect((await send("/settings/kernel-tools")).status).toBe(409)
+  } finally {
+    await close()
+  }
+})
+
 test("new-chat choices resolve the operator runner and expose its identity and presence", async () => {
   let selection: string | null = "remote"
   const backend = {

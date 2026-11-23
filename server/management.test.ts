@@ -151,6 +151,12 @@ test("management binds Human platform calls and workspace reads without exposing
           { status: 400 },
         )
 
+      if (body.action === "settings.update")
+        return Response.json(
+          { _tag: "InvalidRequestError", message: "Unknown adaptation row: retired" },
+          { status: 400 },
+        )
+
       if (body.action === "application.defaults")
         return Response.json({ code_mode: false, subagent: false, available: true, code_mode_available: false })
       expect(request.headers.get("x-nexus-member-token")).toBe("human-token")
@@ -230,6 +236,12 @@ test("management binds Human platform calls and workspace reads without exposing
   ).rejects.toMatchObject({
     status: 400,
     message: "Supply an absolute path in T3's execution environment.",
+  })
+  await expect(
+    manage(b, config, { action: "settings.update", patch: { adaptations: "retired" } }),
+  ).rejects.toMatchObject({
+    status: 400,
+    message: "Unknown adaptation row: retired",
   })
   expect(await defaultModes(b)).toEqual({
     code_mode: false,

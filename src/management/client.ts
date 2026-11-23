@@ -1,3 +1,5 @@
+import { createSignal } from "solid-js"
+import type { NexusSettings } from "@opencode/schema/nexus-settings"
 import { createStore } from "solid-js/store"
 import type { Schema } from "effect"
 import type { NexusCommand } from "@opencode/protocol/nexus-command"
@@ -8,6 +10,8 @@ export type ManagementClient = ReturnType<typeof createManagementClient>
 
 export function createManagementClient(chat: ChatController) {
   const [state, set] = createStore({ busy: false, error: "", notice: "" })
+  // Reconnecting remounts the settings form while the authenticated scope is being resolved.
+  const [defaultsDraft, setDefaultsDraft] = createSignal<{ scope: string; patch: NexusSettings.Patch }>()
   const scope = () => chat.s.connection?.scope
   const identity = () => JSON.parse(scope()?.startsWith("[") ? scope()! : "[]") as string[]
   const command = <T>(payload: typeof NexusCommand.Type) => request<T>("/manage", scope(), payload)
@@ -48,6 +52,8 @@ export function createManagementClient(chat: ChatController) {
     extension,
     platform,
     perform,
+    defaultsDraft,
+    setDefaultsDraft,
     workspace: () => identity()[2],
     human: () => identity()[1],
     notice: (text: string) => set("notice", text),

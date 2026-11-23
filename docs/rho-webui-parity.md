@@ -4,6 +4,41 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `48ff47738cf6edacd076caf261a8ff1f02ea636f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## New conversation defaults
+
+Reviewed November 23, 2026 against Rho's `webui/features/settings/advanced.js`
+and `kernel_tools.js`. Nexus UI keeps field edits against the last settings
+read. A save sends the changed fields, and a reconnect in the same scope
+retains the draft. Default and title model controls keep saved references
+visible when discovery fails or the reference retires.
+
+The authenticated bridge reads the kernel catalog with the selected Human
+credential. The settings form groups its canonical tool names, includes saved
+names missing from discovery, retains the order of kept selections and
+appends additions in catalog order. The two-page Chromium regression covers
+a delayed catalog, failed discovery, a refused save, independent field edits
+and a reconnect. The bridge tests cover catalog order, scope changes and
+the native validation message returned for an invalid adaptation row.
+Opening Settings while the first connection is pending keeps the panel open
+when the workspace finishes loading.
+
+Two live Chromium pages exercised the same source bridge. One page delayed
+its catalog response and saved an unknown adaptation. The runtime refused it
+with HTTP 400 and the form retained the text and displayed the reason. The
+second page received a controlled catalog failure and saved its subagent
+setting. Reconnecting the first page displayed the new subagent value and
+kept its adaptation draft. Correcting the adaptation then saved only that
+field.
+
+On `localhost:3000` the source UI displayed the catalog of 25 tools across
+10 groups. An operator unchecked `nexus.memory.read` in Chromium. The sealed
+first model request of a new ACP conversation omitted `memory_read` and
+included `memory_write`. It also included the editor's callable MCP tool.
+The [runtime ledger](../../nexus-runtime/PARITY.md#editor-mcp-and-workspace-run-listing)
+records the resulting execution. All 417 UI unit tests and 86 Chromium
+component tests passed, along with the UI type check and production build.
+The Rho advanced-settings and settings-page reference suites passed 23 tests.
+
 ## Composer drafts and model selection
 
 Send captures the text in the composer immediately. The operator can type the

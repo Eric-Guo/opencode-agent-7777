@@ -78,6 +78,8 @@ async function fixture(
     if (url.pathname.endsWith("/chats"))
       return route.fulfill({ json: { items: [{ id: "conversation", title: "Fixture" }], next: null } })
 
+    if (url.pathname.endsWith("/settings/kernel-tools")) return route.fulfill({ json: [] })
+
     if (url.pathname.endsWith("/manage")) {
       const input = route.request().postDataJSON() as Command
 
@@ -960,6 +962,89 @@ test("memory bindings preserve a conflicting draft, page collections and disting
   await dialog.getByRole("button", { name: "Save memory bindings", exact: true }).click()
   await expect(dialog).not.toBeVisible()
   expect(posts.at(-1)).toEqual({ selection: null })
+})
+
+test("independent defaults edits survive a delayed catalog, a refused save and a refresh", async ({
+  page,
+  context,
+}) => {
+  const saved = {
+    default_model: "retired/default",
+    conversation_title_model: "retired/title",
+    fallback_models: [],
+    kernel_tools: ["nexus.memory.read", "retired.tool"],
+    subagent_default: true,
+    adaptations: "auto",
+    adaptations_dir: null,
+  }
+  const patches: unknown[] = []
+  let refuse = true
+  const command = (input: Command) => {
+    if (input.action === "extension.list") return []
+    if (input.action === "settings.read") return saved
+    if (input.action === "settings.update") {
+      patches.push(input.patch)
+      if (refuse) return new Error("Refused defaults")
+      return Object.assign(saved, input.patch)
+    }
+    return {}
+  }
+  const second = await context.newPage()
+  await fixture(page, command)
+  await fixture(second, command)
+  await second.route("**/choices", (route) => route.fulfill({ status: 503, json: { error: "Models offline" } }))
+  const connection = Promise.withResolvers<void>()
+  await second.route("**/api/7777/connection*", async (route) => {
+    await connection.promise
+    await route.fallback()
+  })
+  await second.reload()
+  const catalog = Promise.withResolvers<void>()
+  await page.route("**/settings/kernel-tools", async (route) => {
+    await catalog.promise
+    await route.fulfill({
+      json: [
+        { canonical: "nexus.memory.write", name: "write" },
+        { canonical: "nexus.memory.read", name: "read" },
+        { canonical: "nexus.graph.spawn", name: "spawn" },
+      ],
+    })
+  })
+  await second.route("**/settings/kernel-tools", (route) => route.fulfill({ status: 503, json: { error: "offline" } }))
+  for (const tab of [page, second]) await tab.getByRole("button", { name: "Settings & account" }).click()
+  connection.resolve()
+
+  await expect(page.getByRole("combobox", { name: "Model", exact: true })).toHaveValue("retired/default")
+  await expect(second.getByRole("combobox", { name: "Automatic title model", exact: true })).toHaveValue(
+    "retired/title",
+  )
+  await expect(second.getByText("Catalog unavailable.", { exact: false })).toBeVisible()
+  await page.getByText("retired.tool", { exact: true }).click()
+  catalog.resolve()
+  await expect(page.getByRole("checkbox", { name: "retired.tool" })).not.toBeChecked()
+  await page.getByText("nexus.graph.spawn", { exact: true }).click()
+  await page.getByText("nexus.memory.write", { exact: true }).click()
+  await page.getByRole("button", { name: "Save defaults" }).click()
+  await expect(page.getByText("Refused defaults")).toBeVisible()
+  await expect(page.getByRole("checkbox", { name: "nexus.graph.spawn" })).toBeChecked()
+
+  refuse = false
+  await second.getByLabel("Enable subagents by default").uncheck()
+  await second.getByRole("button", { name: "Save defaults" }).click()
+  await expect(second.getByText("Defaults saved for new conversations.")).toBeVisible()
+  await page.getByRole("button", { name: "Refresh connection" }).click()
+  await expect(page.getByLabel("Enable subagents by default")).not.toBeChecked()
+  await expect(page.getByRole("checkbox", { name: "nexus.graph.spawn" })).toBeChecked()
+  await page.getByRole("button", { name: "Save defaults" }).click()
+  await expect(page.getByText("Defaults saved for new conversations.")).toBeVisible()
+  const tools = { kernel_tools: ["nexus.memory.read", "nexus.memory.write", "nexus.graph.spawn"] }
+  expect(patches).toEqual([tools, { subagent_default: false }, tools])
+  expect(saved).toMatchObject({
+    ...tools,
+    subagent_default: false,
+    default_model: "retired/default",
+    conversation_title_model: "retired/title",
+  })
 })
 
 test("member-token settings skip unavailable persona controls and reconnect the selected conversation", async ({

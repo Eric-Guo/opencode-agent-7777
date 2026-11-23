@@ -181,7 +181,8 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
     .catch((error: unknown) => {
       if (
         isInvalidRequestError(error) &&
-        (command.action.startsWith("preset.") ||
+        (command.action === "settings.update" ||
+          command.action.startsWith("preset.") ||
           (command.action === "extension.call" && command.name.startsWith("t3.")))
       )
         throw new BridgeError(400, error.message)
