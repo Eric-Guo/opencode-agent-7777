@@ -36,14 +36,23 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
   })
 
   const refresh = async (after?: string) => {
-    const page = await c.command<{ items: ScheduleRow[]; next_after: string | null }>({
-      action: "schedule.list",
-      workspace: c.workspace(),
-      after,
-    })
+    const workspace = c.workspace()
+    const rows = after ? [...s.rows] : []
+    let cursor = after
+    for (let count = 0; count < 5; count++) {
+      const page = await c.command<{ items: ScheduleRow[]; next_after: string | null }>({
+        action: "schedule.list",
+        workspace,
+        after: cursor,
+      })
+      if (workspace !== c.workspace()) return
 
-    set("rows", after ? [...s.rows, ...page.items] : page.items)
-    set("after", page.next_after)
+      rows.push(...page.items)
+      cursor = page.next_after ?? undefined
+      if (!cursor) break
+    }
+
+    set({ rows, after: cursor ?? null })
   }
 
   onMount(
@@ -131,6 +140,7 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
                   <small>
                     {scheduleRule(row)} · {row.next_run_at ? new Date(row.next_run_at).toLocaleString() : row.status}
                   </small>
+                  <Show when={row.last_error_code}>{(error) => <p>Last error: {error()}</p>}</Show>
                   <Show when={row.last_execution}>
                     {(execution) => (
                       <Button
@@ -149,7 +159,7 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
                       disabled={!row.conversation_public_id}
                       onClick={() => props.open(c.workspace(), row.conversation_public_id!)}
                     >
-                      Open conversation
+                      {row.conversation_title || row.conversation_public_id || "Open conversation"}
                     </Button>
                     <Show when={row.writable !== false && ["active", "paused"].includes(row.status)}>
                       <Button disabled={c.state.busy || !row.conversation_public_id} onClick={() => edit(row)}>
@@ -196,7 +206,9 @@ export function Schedules(props: { client: ManagementClient; open(workspace: str
         )}
       </For>
       <Show when={s.after}>
-        <Button onClick={() => void c.perform(() => refresh(s.after!))}>Load more jobs</Button>
+        <Button disabled={c.state.busy} onClick={() => void c.perform(() => refresh(s.after!))}>
+          Load more jobs
+        </Button>
       </Show>
       <Show when={s.executions}>
         {(page) => (

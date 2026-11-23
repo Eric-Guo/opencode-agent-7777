@@ -252,6 +252,12 @@ test("management binds Human platform calls and workspace reads without exposing
   expect(await manage(b, config, { action: "schedule.list", conversation: "conversation" })).toMatchObject({
     items: [],
   })
+  expect(reads.at(-1)).toEndWith("/conversations/conversation/schedules")
+  expect(await manage(b, config, { action: "schedule.list", after: "second" })).toMatchObject({ items: [] })
+  const workspacePage = new URL(reads.at(-1)!, server.url)
+  expect(workspacePage.pathname).toEndWith("/workspaces/workspace/schedules")
+  expect(workspacePage.searchParams.get("limit")).toBe("100")
+  expect(workspacePage.searchParams.get("after")).toBe("second")
   expect(
     await manage(b, config, { action: "schedule.executions", conversation: "conversation", id: "job", after: "older" }),
   ).toMatchObject({ items: [] })

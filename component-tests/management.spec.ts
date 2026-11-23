@@ -571,6 +571,40 @@ test("creating a workspace selects it without changing the runtime default", asy
   expect(writes.map((row) => row.action)).toEqual(["workspace.create"])
 })
 
+test("workspace schedules stop after five pages and open the latest child from the next page", async ({ page }) => {
+  const cursors: unknown[] = []
+  await fixture(page, (input) => {
+    if (input.action !== "schedule.list") return []
+    cursors.push(input.after)
+    const index = Number(input.after ?? 1)
+    return {
+      items: [
+        {
+          public_id: "job-" + index,
+          name: "Job " + index,
+          prompt: "Report",
+          status: "active",
+          conversation_public_id: "owner",
+          rule: { kind: "interval", every_seconds: 60 },
+          last_execution: { status: "completed", child_conversation_public_id: "child-" + index },
+        },
+      ],
+      next_after: index < 6 ? String(index + 1) : null,
+    }
+  })
+  await page.getByRole("button", { name: "Schedules", exact: true }).click()
+  const more = page.getByRole("button", { name: "Load more jobs" })
+  await expect(more).toBeVisible()
+  expect(cursors).toEqual([undefined, "2", "3", "4", "5"])
+  await more.click()
+  await expect(more).toHaveCount(0)
+  expect(cursors).toEqual([undefined, "2", "3", "4", "5", "6"])
+  const articles = page.locator(".nexus-management article")
+  await expect(articles).toHaveCount(6)
+  await articles.filter({ hasText: "Job 6" }).getByRole("button", { name: "Latest execution: completed" }).click()
+  await expect(page).toHaveURL(/#\/workspaces\/one\/conversations\/child-6$/)
+})
+
 test("schedules retain execution pages, expose their clock and model, and keep finished jobs read-only", async ({
   page,
 }) => {
@@ -592,14 +626,22 @@ test("schedules retain execution pages, expose their clock and model, and keep f
 
   const jobs = [
     job("Later", "active", "2030-01-02T00:00:00Z"),
-    { ...job("Earlier", "active", "2030-01-01T00:00:37.123Z"), approval_mode: null },
+    {
+      ...job("Earlier", "active", "2030-01-01T00:00:37.123Z"),
+      approval_mode: null,
+      conversation_title: "Build reports",
+      last_error_code: "model_unavailable",
+    },
     job("Finished", "completed", "2030-01-01T00:00:00Z"),
   ]
 
   await fixture(page, (input) => {
     if (input.action === "extension.list") return []
 
-    if (input.action === "schedule.list") return { items: jobs, next_after: null }
+    if (input.action === "schedule.list")
+      return input.after
+        ? { items: jobs.slice(1), next_after: null }
+        : { items: jobs.slice(0, 1), next_after: "second-page" }
 
     if (input.action === "schedule.executions") {
       writes.push(input)
@@ -623,6 +665,8 @@ test("schedules retain execution pages, expose their clock and model, and keep f
   await page.getByRole("button", { name: "Schedules", exact: true }).click()
   const articles = page.locator(".nexus-management article")
   await expect(articles.nth(0)).toContainText("Earlier")
+  await expect(articles.nth(0)).toContainText("Build reports")
+  await expect(articles.nth(0)).toContainText("model_unavailable")
   await expect(articles.nth(1)).toContainText("Later")
   await expect(articles.nth(0)).toContainText("Every 3600 seconds")
   await expect(articles.nth(1)).toContainText("Read-only conversation")

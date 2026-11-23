@@ -1,8 +1,27 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`48ff47738cf6edacd076caf261a8ff1f02ea636f`. The reference checkout and its Ruby/JavaScript
+`4053db620ff51b4c9e910b8a6793f5cd4473958f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Workspace schedules
+
+Reviewed November 23, 2026 from Nexus UI `cdedd54c` against Rho's
+`webui/features/schedules/page.js`. Opening or refreshing the Schedules panel
+reads up to five workspace pages of 100 jobs. Active jobs from the loaded pages
+are sorted by their next run time. **Load more jobs** continues from the saved
+cursor. Each job links to its owning conversation by title or ID, displays its
+last error when present and links to the latest child execution.
+
+The bridge test in `server/management.test.ts` checks the workspace limit and
+cursor sent to Nexus. The Chromium schedules cases in
+`component-tests/management.spec.ts` put the earliest active job on page two,
+load a sixth page on demand and open its latest child. They also exercise
+execution-history pagination and read-only controls. All 422 UI unit tests,
+87 Chromium component tests, the type check and the production build passed.
+Rho's jobs-page and schedules reference suites passed 20 tests. The [runtime
+review](../../nexus-runtime/PARITY.md#scheduled-executions-and-adaptation-inspection)
+covers Telegram control of an occurrence on live Nexus.
 
 ## New conversation defaults
 

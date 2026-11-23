@@ -121,7 +121,7 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       ? (await readChat(b, command.conversation)).chat.schedules
       : b.workspace.schedules
 
-    const page = await schedules.list({ after: command.after })
+    const page = await schedules.list({ after: command.after, limit: command.conversation ? undefined : 100 })
 
     const access = new Map(
       await Promise.all(
