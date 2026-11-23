@@ -19,7 +19,14 @@ export function createSessionTimelineInteraction(input: { identity: Accessor<unk
   }
   const updateJump = (current?: TimelinePosition) =>
     setState("jump", follow.userScrolled() && isAwayFromEnd(current ?? readPosition()))
+  let historyAnchor: ResizeObserver | undefined
+  const releaseAnchor = () => {
+    historyAnchor?.disconnect()
+    historyAnchor = undefined
+  }
+  onCleanup(releaseAnchor)
   const resume = () => {
+    releaseAnchor()
     readerInteracted = false
     follow.resume()
     position = readPosition()
@@ -62,7 +69,31 @@ export function createSessionTimelineInteraction(input: { identity: Accessor<unk
     scroll: state,
     actions: { resume, jumpToMessage },
     view: {
+      preserveReadingPosition: () => {
+        const viewport = state.scroller
+        const content = state.content
+        if (!viewport || !content) return
+        const top = viewport.getBoundingClientRect().top
+        const anchor = Array.from(content.querySelectorAll(".chat-turn")).find(
+          (turn) => turn.getBoundingClientRect().bottom > top,
+        )
+        if (!anchor) return
+        releaseAnchor()
+        follow.pause()
+        const offset = anchor.getBoundingClientRect().top
+        const restore = () => {
+          if (!anchor.isConnected) return releaseAnchor()
+          viewport.scrollTop += anchor.getBoundingClientRect().top - offset
+        }
+        return () => {
+          restore()
+          // Offscreen message parts acquire their measured heights after the prepend.
+          historyAnchor = new ResizeObserver(restore)
+          historyAnchor.observe(content)
+        }
+      },
       markInput: () => {
+        releaseAnchor()
         readerInteracted = true
       },
       onKeyDown: (event: KeyboardEvent) => {

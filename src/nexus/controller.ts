@@ -6,6 +6,7 @@ import { readFollowUpBehavior } from "../runtime/persistence/settings-storage-co
 import {
   updateLive,
   projectTurn,
+  HISTORY_PAGE_SIZE,
   type Choices,
   type ConversationAction,
   type ConversationTarget,
@@ -200,7 +201,7 @@ export function createChatController(
               ...data.turns,
             ]
             data.expanded = true
-          }
+          } else set("hasOlder", data.hasOlder ?? true)
           if (!modelEdited && !attempt)
             set("model", data.turns.findLast((turn) => turn.responseModel)?.responseModel?.selected ?? "")
           set("snapshot", reconcile(data, { key: "id" }))
@@ -547,7 +548,7 @@ export function createChatController(
       set({ sending: false, submitting: false })
     }
   }
-  async function earlier() {
+  async function earlier(beforePrepend?: () => (() => void) | undefined) {
     if (!s.id || !s.connection || s.loadingHistory || !s.hasOlder) return
     const owner = version
     set("loadingHistory", true)
@@ -560,8 +561,10 @@ export function createChatController(
       const turns = [
         ...new Map([...page.items.map(projectTurn), ...s.snapshot.turns].map((turn) => [turn.id, turn])).values(),
       ].sort((a, b) => a.position - b.position)
+      const restorePosition = beforePrepend?.()
       set("snapshot", reconcile({ ...s.snapshot, turns, expanded: true }))
-      set("hasOlder", page.before_position !== null && page.items.length > 0)
+      set("hasOlder", page.before_position !== null && page.items.length === HISTORY_PAGE_SIZE)
+      restorePosition?.()
     } catch (error) {
       if (owner === version) fail(error)
     } finally {

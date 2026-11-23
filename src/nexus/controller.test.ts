@@ -71,33 +71,31 @@ test("a draft with an unavailable runner leaves the selector empty", async () =>
 test("earlier history expands the dialog window, survives refresh, and is fenced on conversation switch", async () => {
   const page = Promise.withResolvers<unknown>()
   const later = Array.from({ length: 9 }, (_, index) => ({
-    id: String(index + 10),
+    id: String(index + 46),
     input: "input" + index,
     variant: null,
     run: null,
-    position: index + 10,
+    position: index + 46,
     created: 0,
     prompt: "Prompt " + index,
     text: "Answer",
     status: "completed",
   }))
   const { controller: c } = fixture(async (path) => {
-    if (path.includes("/history?before=10"))
+    if (path.includes("/history?before=46"))
       return {
-        items: [
-          {
-            public_id: "older",
-            position: 9,
-            kind: "direct_reply",
-            role: "assistant",
-            status: "completed",
-            created_at: "2026-01-01T00:00:00Z",
-            active_variant: { public_id: "variant", prompt_text: "Earlier prompt", content: "Earlier answer" },
-          },
-        ],
-        before_position: 9,
+        items: Array.from({ length: 36 }, (_, index) => ({
+          public_id: "older-" + index,
+          position: index + 10,
+          kind: "direct_reply",
+          role: "assistant",
+          status: "completed",
+          created_at: "2026-01-01T00:00:00Z",
+          active_variant: { public_id: "variant", prompt_text: "Earlier prompt", content: "Earlier answer" },
+        })),
+        before_position: 10,
       }
-    if (path.includes("/history?before=9")) return page.promise
+    if (path.includes("/history?before=10")) return page.promise
     return { ...empty(), turns: path === "/chats/current" ? later : [] }
   })
   try {
@@ -106,10 +104,11 @@ test("earlier history expands the dialog window, survives refresh, and is fenced
     await c.refresh()
     await c.earlier()
     expect(c.s.snapshot.expanded).toBe(true)
-    expect(timeline("current", c.s.snapshot, {}).messages.filter((row) => row.type === "user")).toHaveLength(10)
+    expect(timeline("current", c.s.snapshot, {}).messages.filter((row) => row.type === "user")).toHaveLength(45)
     await c.refresh()
-    expect(c.s.snapshot.turns[0].id).toBe("older")
+    expect(c.s.snapshot.turns[0].id).toBe("older-0")
     const pending = c.earlier()
+    expect(c.s.loadingHistory).toBe(true)
     c.select("other")
     page.resolve({ items: [], before_position: null })
     await pending

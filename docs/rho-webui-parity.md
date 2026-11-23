@@ -4,6 +4,27 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `4053db620ff51b4c9e910b8a6793f5cd4473958f`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Conversation history
+
+Reviewed November 23, 2026 from Nexus UI `e6f777e0` against Cybros
+`4053db620`. The bridge reads backwards in 36-turn pages until it finds
+nine user dialogs or reaches a short page. Hidden earlier dialogs within
+a fetched page also make **Load earlier messages** available. Loading a
+short final page removes the control even when Nexus returns its first
+position as a cursor. Refreshing preserves the expanded history and its
+exhaustion state.
+
+The Chromium case in `component-tests/nexus-chat.spec.ts` opens a short
+conversation, switches to a longer one and prepends two pages. It checks
+the screen position of the original prompt as offscreen messages acquire
+their rendered heights. A new reader gesture releases that position.
+`src/nexus/chat.test.ts` exercises eight, nine and ten dialogs on a short
+page and backfilling past kernel receipts. `src/nexus/controller.test.ts`
+covers a refresh and a conversation switch with an older page in flight.
+Rho's conversation panel passed 13 reference cases and its Ops history routes
+passed 27. Nexus UI passed 426 unit tests, 90 Chromium component tests, the
+type check and the production build.
+
 ## Workspace schedules
 
 Reviewed November 23, 2026 from Nexus UI `cdedd54c` against Rho's

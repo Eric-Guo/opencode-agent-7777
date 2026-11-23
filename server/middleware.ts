@@ -30,7 +30,7 @@ import {
 } from "./nexus"
 import { openReply, sealReply } from "./reply"
 import { defaultModes, readModes, updateModes } from "./input-policy"
-import { projectFrame, type Choices, type Resolution } from "../src/nexus/chat"
+import { HISTORY_PAGE_SIZE, projectFrame, type Choices, type Resolution } from "../src/nexus/chat"
 
 const root = "/api/7777"
 function loopback(address = "") {
@@ -303,7 +303,7 @@ export function middleware(
           const before = Number(url.searchParams.get("before"))
 
           if (!Number.isSafeInteger(before) || before < 0) throw new BridgeError(400, "Invalid history cursor.")
-          return json(res, 200, await chat.turns.list({ before_position: before, limit: 36 }))
+          return json(res, 200, await chat.turns.list({ before_position: before, limit: HISTORY_PAGE_SIZE }))
         }
         if (action === "modes") {
           if (!canWrite(b, info) || ownership(info)) return json(res, 200, null)

@@ -3,7 +3,15 @@ import { nexusService, type ServiceConnection } from "./native"
 import { APIError, Client, type Conversation, type ResolveTask, type TaskDetail } from "@cybros/agent"
 import { RealtimeClient } from "@cybros/agent/realtime"
 import { Schema } from "effect"
-import { loadTurns, type Connection, type ConversationOptions, type Decision, type Resolution, type Snapshot } from "../src/nexus/chat"
+import {
+  HISTORY_PAGE_SIZE,
+  loadTurns,
+  type Connection,
+  type ConversationOptions,
+  type Decision,
+  type Resolution,
+  type Snapshot,
+} from "../src/nexus/chat"
 
 export class BridgeError extends Error {
   constructor(
@@ -129,8 +137,10 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
   const { chat, info } = await readChat(backend, id)
 
   // Unbounded turns.list starts at the oldest turn. A before-position window reads newest first.
-  const [turns, inputs, options] = await Promise.all([
-    loadTurns((before_position) => chat.turns.list({ before_position: before_position ?? 2_147_483_647, limit: 36 })),
+  const [history, inputs, options] = await Promise.all([
+    loadTurns((before_position) =>
+      chat.turns.list({ before_position: before_position ?? 2_147_483_647, limit: HISTORY_PAGE_SIZE }),
+    ),
     chat.inputs.list(),
     conversationOptions(backend, info),
   ])
@@ -139,7 +149,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
   let problem = pending.find((item) => item.state === "blocked")?.blocked_reason ?? null
   const active = info.active_turn_public_id
   const runs = new Set(
-    turns
+    history.turns
       .filter(
         (turn) => turn.run && (turn.id === active || ["failed", "held", "running", "pending"].includes(turn.status)),
       )
@@ -190,7 +200,7 @@ export async function snapshot(backend: Backend, id: string): Promise<Snapshot> 
     }
   }
   return {
-    turns,
+    ...history,
     detail: {
       ...options,
       runner: info.default_runner?.display_name || info.default_runner?.executor_public_id || null,

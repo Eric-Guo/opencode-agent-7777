@@ -35,14 +35,36 @@ test("the selected and actual response models come from the active variant throu
   expect(projectTurn(turn).responseModel?.selected).toBeUndefined()
 })
 
+test.each([
+  [8, false],
+  [9, false],
+  [10, true],
+] as const)("derives older history from a short page of %i dialogs", async (count, expected) => {
+  const reads: (number | undefined)[] = []
+  const history = await loadTurns(async (cursor) => {
+    reads.push(cursor)
+    return {
+      items: Array.from({ length: count }, (_, index) => reply(index + 1)),
+      before_position: 1,
+      after_position: count,
+    }
+  })
+  expect(reads).toEqual([undefined])
+  expect(history.hasOlder).toBe(expected)
+  expect(history.turns).toHaveLength(Math.min(9, count))
+})
+
 test("reads backwards past kernel receipts to hydrate exactly nine user dialogs", async () => {
   const before: (number | undefined)[] = []
-  const rows = await loadTurns(async (cursor) => {
+  const { turns: rows, hasOlder } = await loadTurns(async (cursor) => {
     before.push(cursor)
     const items =
-      cursor === undefined ? [reply(11), reply(12, "task_result")] : Array.from({ length: 10 }, (_, i) => reply(i + 1))
+      cursor === undefined
+        ? [reply(11), ...Array.from({ length: 35 }, (_, i) => reply(i + 12, "task_result"))]
+        : Array.from({ length: 10 }, (_, i) => reply(i + 1))
     return { items, before_position: items[0].position, after_position: items.at(-1)!.position }
   })
+  expect(hasOlder).toBe(true)
   expect(before).toEqual([undefined, 11])
   expect(rows.filter((row) => row.prompt !== null).map((row) => row.id)).toEqual([
     "3",
@@ -55,7 +77,7 @@ test("reads backwards past kernel receipts to hydrate exactly nine user dialogs"
     "10",
     "11",
   ])
-  expect(rows.at(-1)?.text).toBe("reply 12")
+  expect(rows.at(-1)?.text).toBe("reply 46")
   const snapshot: Snapshot = {
     turns: rows,
     decisions: [],

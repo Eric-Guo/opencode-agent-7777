@@ -1622,3 +1622,79 @@ test("HTTP recovery updates idle metadata and access without stream events and s
   await page.clock.fastForward(9000)
   expect(state.reads).toBe(reads)
 })
+
+test("history keeps the visible turn anchored and hides Load earlier at the last short page", async ({ page }) => {
+  await mockEvents(page)
+  const recent = Array.from({ length: 9 }, (_, i) => ({
+    id: "t" + (i + 40),
+    position: i + 40,
+    variant: "v" + i,
+    prompt: "Recent question " + i,
+    text: "Recent answer " + i,
+    status: "completed",
+    created: 1000,
+    run: null,
+    input: null,
+  }))
+  const windows: number[] = []
+  const requested = Promise.withResolvers<void>()
+  const release = Promise.withResolvers<void>()
+  await page.route("**/api/7777/**", async (route) => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith("/connection"))
+      return route.fulfill({ json: { scope: "test", workspace: "shared", agent: "Agent", model: "m" } })
+    if (url.pathname.endsWith("/choices"))
+      return route.fulfill({ json: { models: [], runners: [], approvals: ["ask"] } })
+    if (url.pathname.endsWith("/history")) {
+      const before = Number(url.searchParams.get("before"))
+      windows.push(before)
+      requested.resolve()
+      await release.promise
+      const items = Array.from({ length: before === 40 ? 36 : 3 }, (_, i) => {
+        const position = (before === 40 ? 4 : 1) + i
+        return {
+          public_id: "t" + position,
+          position,
+          kind: "direct_reply",
+          role: "assistant",
+          status: "completed",
+          created_at: "2026-01-01T00:00:00Z",
+          active_variant: {
+            public_id: "v" + position,
+            content: "Earlier answer " + position,
+            prompt_text: "Earlier question " + position,
+          },
+        }
+      })
+      return route.fulfill({ json: { items, before_position: items[0].position, after_position: before - 1 } })
+    }
+    const short = url.pathname.endsWith("/short")
+    return route.fulfill({
+      json: {
+        turns: short ? recent.slice(0, 1) : recent,
+        hasOlder: !short,
+        pending: [],
+        decisions: [],
+        busy: false,
+        detail: { title: "History", archived: false, owned: false, writable: true },
+      },
+    })
+  })
+  const earlier = page.getByRole("button", { name: "Load earlier messages" })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/short")
+  await expect(page.getByText("Recent answer 0", { exact: true })).toBeVisible()
+  await expect(earlier).toHaveCount(0)
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/long")
+  await earlier.scrollIntoViewIfNeeded()
+  const first = page.getByText("Recent question 0", { exact: true })
+  await earlier.click()
+  await requested.promise
+  const before = await first.evaluate((el) => el.getBoundingClientRect().top)
+  release.resolve()
+  await expect(page.getByText("Earlier answer 4", { exact: true })).toHaveCount(1)
+  await expect.poll(() => first.evaluate((el) => el.getBoundingClientRect().top)).toBeCloseTo(before, 0)
+  await earlier.click()
+  await expect(page.getByText("Earlier answer 1", { exact: true })).toHaveCount(1)
+  await expect(earlier).toHaveCount(0)
+  expect(windows).toEqual([40, 4])
+})

@@ -75,6 +75,7 @@ export type ChatTurn = {
   status: string
 }
 export type Snapshot = {
+  hasOlder?: boolean
   expanded?: boolean
   turns: ChatTurn[]
   detail?: ConversationOptions & {
@@ -163,21 +164,24 @@ export function latestDialogs(turns: ChatTurn[]) {
   return first ? turns.slice(turns.indexOf(first)) : turns
 }
 
+export const HISTORY_PAGE_SIZE = 36
+
 export async function loadTurns(page: (before?: number) => Promise<TurnPage>) {
   const rows = new Map<string, ChatTurn>()
   let before: number | undefined
+  let more = false
   do {
     const result = await page(before)
     for (const turn of result.items) rows.set(turn.public_id, projectTurn(turn))
-    if (
-      !result.items.length ||
-      result.before_position === null ||
-      (before !== undefined && result.before_position >= before)
-    )
-      break
-    before = result.before_position
+    more =
+      result.items.length === HISTORY_PAGE_SIZE &&
+      result.before_position !== null &&
+      (before === undefined || result.before_position < before)
+    if (!more) break
+    before = result.before_position ?? undefined
   } while (Array.from(rows.values()).filter((row) => row.prompt !== null).length < HISTORY_DIALOG_LIMIT)
-  return latestDialogs(Array.from(rows.values()).sort((a, b) => a.position - b.position))
+  const turns = latestDialogs(Array.from(rows.values()).sort((a, b) => a.position - b.position))
+  return { turns, hasOlder: more || turns.length < rows.size }
 }
 
 export type Frame = Pick<TranscriptItem, "type" | "turn_public_id" | "variant_public_id"> & {

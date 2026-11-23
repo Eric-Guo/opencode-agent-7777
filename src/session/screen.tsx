@@ -144,7 +144,11 @@ export default function SessionPage() {
           >
             <div ref={interaction.view.setContentRef} class="grid min-h-full">
               <Show when={s.id && s.snapshot.turns.length && s.hasOlder}>
-                <Button class="justify-self-center" disabled={s.loadingHistory} onClick={() => void chat.earlier()}>
+                <Button
+                  class="justify-self-center"
+                  disabled={s.loadingHistory}
+                  onClick={() => void chat.earlier(interaction.view.preserveReadingPosition)}
+                >
                   Load earlier messages
                 </Button>
               </Show>

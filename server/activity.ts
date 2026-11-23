@@ -1,7 +1,7 @@
 import { mcpTarget } from "../src/nexus/inspection"
 import type { Conversation, JsonValue, Run, TaskDetail } from "@cybros/agent"
 import { outputPaths } from "./output-paths"
-import { loadTurns } from "../src/nexus/chat"
+import { HISTORY_PAGE_SIZE, loadTurns } from "../src/nexus/chat"
 import { BridgeError, type Backend } from "./nexus"
 
 export function field(value: unknown, name: string) {
@@ -99,9 +99,10 @@ export async function activityRead(b: Backend, info: Conversation, action: strin
   if (action === "child") {
     const child = b.workspace.conversation(field(q.get("id"), "child"))
     if ((await child.fetch()).parent?.public_id !== info.public_id) throw new BridgeError(404, "Unknown child.")
-    return loadTurns((before_position) =>
-      child.turns.list({ before_position: before_position ?? 2147483647, limit: 36 }),
+    const history = await loadTurns((before_position) =>
+      child.turns.list({ before_position: before_position ?? 2147483647, limit: HISTORY_PAGE_SIZE }),
     )
+    return history.turns
   }
   if (action === "children" || action === "links") {
     const after = q.get("after") || undefined
