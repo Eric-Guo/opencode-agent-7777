@@ -1,8 +1,10 @@
-import type { FileDiffInfo, VcsDiffInput } from "@opencode/client/promise"
+import type { FileDiffInfo, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
+import { sameDirectory } from "@opencode/util/path"
 
 export const REVIEW_DIFF_TIMEOUT_MS = 30_000
 export type ChangeMode = "turn" | VcsDiffInput["mode"]
 export type ReviewSource = { mode: ChangeMode; base?: string }
+export type ReviewScope = { sessionID: string; directory: string }
 
 type ReviewState = {
   status: "idle" | "loading" | "ready" | "error" | "timed-out" | "disposed"
@@ -21,6 +23,31 @@ export type ReviewEvent =
 
 export function createReviewState(): ReviewState {
   return { status: "idle", source: { mode: "turn" }, diffs: [], attempt: 0 }
+}
+
+export function reviewRefreshForEvent(
+  state: ReviewState,
+  scope: ReviewScope,
+  event: OpenCodeEvent,
+): "refresh" | "debounce" | undefined {
+  if (state.status === "disposed") return
+  switch (event.type) {
+    case "server.connected":
+      return "refresh"
+    case "filesystem.changed": {
+      const directory = event.location?.directory
+      if (state.source.mode !== "turn" && directory !== undefined && sameDirectory(directory, scope.directory))
+        return "debounce"
+      return
+    }
+    case "session.execution.succeeded":
+    case "session.execution.failed":
+    case "session.execution.interrupted":
+    case "session.revert.staged":
+    case "session.revert.cleared":
+    case "session.revert.committed":
+      if (event.data.sessionID === scope.sessionID) return "refresh"
+  }
 }
 
 export function transitionReview(state: ReviewState, event: ReviewEvent): ReviewState {

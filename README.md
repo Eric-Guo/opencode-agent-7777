@@ -374,8 +374,11 @@ loading, error boundary, dismissal and activation lifetime in place of the main 
 The context ring supplies its explicit focus-return target through this local adapter. Escape and Close return
 to that ring after pointer or keyboard activation, including after a command-opened dialog. Command opens keep
 the shared provider's editor/caret restoration; a replaced dialog or session cannot reclaim focus.
-Reads use the current activation and existing event stream, refresh after completion,
-revert or reconnect, and abort on source change, close or session change. VCS modes also coalesce workspace file events.
+The local `review/machine.ts` routes the existing event stream for the open dialog. Reconnects and the captured
+session's execution outcomes and reverts refresh the selected comparison immediately. Only VCS modes refresh on
+file events from the same directory. The driver in `review/model.ts` waits 100 ms after the last matching file event
+and cancels that timer when another read starts or the dialog closes. Changing the comparison, closing the dialog,
+or switching sessions aborts the active read.
 Each read has a 30-second deadline. A timeout offers Retry for the same mode and base; a late reply cannot
 replace a newer comparison. Drafts are preserved. Staged-only review (unsupported by the current public API),
 comments, arbitrary history ranges, and docked extension panels remain outside this compact view.

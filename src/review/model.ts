@@ -1,24 +1,27 @@
 import type { OpenCodeClient, OpenCodeEvent } from "@opencode/client/promise"
 import { abort } from "@opencode/util/abort"
-import { sameDirectory } from "@opencode/util/path"
 import { createSignal, untrack } from "solid-js"
 import {
   createReviewState,
   REVIEW_DIFF_TIMEOUT_MS,
+  reviewRefreshForEvent,
   transitionReview,
   type ReviewEvent,
+  type ReviewScope,
   type ReviewSource,
 } from "./machine"
 
 export type { ChangeMode, ReviewSource } from "./machine"
 
+const FILE_CHANGE_DEBOUNCE_MS = 100
+
 // The compact review owns one activation's reads. Diff rendering belongs to session-ui.
-export function createReviewModel(input: {
-  client: { session: Pick<OpenCodeClient["session"], "diff">; vcs: Pick<OpenCodeClient["vcs"], "diff"> }
-  sessionID: string
-  directory: string
-  signal: AbortSignal
-}) {
+export function createReviewModel(
+  input: ReviewScope & {
+    client: { session: Pick<OpenCodeClient["session"], "diff">; vcs: Pick<OpenCodeClient["vcs"], "diff"> }
+    signal: AbortSignal
+  },
+) {
   const [state, setState] = createSignal(createReviewState())
   let finishRead: ((cancel: boolean) => void) | undefined
   let scheduled: ReturnType<typeof setTimeout> | undefined
@@ -83,32 +86,12 @@ export function createReviewModel(input: {
     refresh,
     select: (source: ReviewSource) => dispatch({ type: "select", source }),
     event(event: OpenCodeEvent) {
-      if (untrack(state).status === "disposed") return
-      if (event.type === "server.connected") return void refresh()
-      if (event.type === "filesystem.changed") {
-        const directory = event.location?.directory
-        if (
-          untrack(state).source.mode === "turn" ||
-          directory === undefined ||
-          !sameDirectory(directory, input.directory)
-        )
-          return
-        // Match the extension's coalescing of workspace watcher bursts, using the existing stream.
+      const action = reviewRefreshForEvent(untrack(state), input, event)
+      if (action === "refresh") return void refresh()
+      if (action === "debounce") {
         clearScheduled()
-        scheduled = setTimeout(() => void refresh(), 100)
-        return
+        scheduled = setTimeout(() => void refresh(), FILE_CHANGE_DEBOUNCE_MS)
       }
-      if (
-        event.type !== "session.execution.succeeded" &&
-        event.type !== "session.execution.failed" &&
-        event.type !== "session.execution.interrupted" &&
-        event.type !== "session.revert.staged" &&
-        event.type !== "session.revert.cleared" &&
-        event.type !== "session.revert.committed"
-      )
-        return
-
-      if (event.data.sessionID === input.sessionID) void refresh()
     },
     dispose,
   }

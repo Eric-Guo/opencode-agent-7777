@@ -607,6 +607,12 @@ try {
         await review.getByText("working.txt", { exact: true }).click()
         await expect(review.getByText("After working", { exact: true })).toBeVisible()
         expect(vcsReads.at(-1)).toEqual({ mode: "working", base: null })
+        const readsBeforeFileChanges = vcsReads.length
+        for (const event of ["add", "change", "unlink"]) {
+          emit("filesystem.changed", { file: `${directory}/notes.txt`, event })
+        }
+        await expect.poll(() => vcsReads.length).toBe(readsBeforeFileChanges + 1)
+        await expect(review.getByText("working.txt", { exact: true })).toBeVisible()
         await chooseMode("Branch changes")
         await expect(review.getByText("branch.txt", { exact: true })).toBeVisible()
         expect(vcsReads.at(-1)).toEqual({ mode: "branch", base: null })

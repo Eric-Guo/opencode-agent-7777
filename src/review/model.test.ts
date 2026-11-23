@@ -1,4 +1,4 @@
-import { expect, jest, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
 import type { FileDiffInfo, OpenCodeEvent, VcsDiffInput } from "@opencode/client/promise"
 import { createReviewModel } from "./model"
 
@@ -6,7 +6,7 @@ const diffs = (): FileDiffInfo[] => [
   { file: "notes.txt", patch: "@@ -1 +1 @@\n-before\n+after\n", additions: 1, deletions: 1, status: "modified" },
 ]
 
-function fixture() {
+function fixture(directory = "/workspace") {
   const abort = new AbortController()
   const calls: {
     input: { sessionID: string; context?: number } | VcsDiffInput
@@ -15,7 +15,7 @@ function fixture() {
   }[] = []
   const model = createReviewModel({
     sessionID: "session",
-    directory: "/workspace",
+    directory,
     signal: abort.signal,
     client: {
       session: {
@@ -29,7 +29,7 @@ function fixture() {
         diff(input, options) {
           const response = Promise.withResolvers<FileDiffInfo[]>()
           calls.push({ input, signal: options?.signal, response })
-          return response.promise.then((data) => ({ location: { directory: "/workspace" }, data }))
+          return response.promise.then((data) => ({ location: { directory }, data }))
         },
       },
     },
@@ -152,35 +152,103 @@ test.each(["close", "activation"])("%s aborts a VCS read and blocks source chang
   model.dispose()
 })
 
-test("workspace watcher bursts refresh only live VCS review in the captured directory", async () => {
-  const { model, calls, abort } = fixture()
+describe("review file events", () => {
   const changed = (directory?: string): OpenCodeEvent => ({
     type: "filesystem.changed",
     id: "changed",
     created: 1,
-    location: directory ? { directory } : undefined,
+    location: directory === undefined ? undefined : { directory },
     data: { file: "/workspace/notes.txt", event: "change" },
   })
-  model.event(changed("/workspace"))
-  await Bun.sleep(130)
-  expect(calls).toHaveLength(0)
-  const working = model.select({ mode: "working" })
-  calls[0].response.resolve([])
-  await working
-  model.event(changed("/other"))
-  model.event(changed("/workspace/sub"))
-  model.event(changed())
-  await Bun.sleep(130)
-  expect(calls).toHaveLength(1)
-  for (let index = 0; index < 10; index++) model.event(changed("/workspace/"))
-  await Bun.sleep(130)
-  expect(calls).toHaveLength(2)
-  expect(calls[1].input).toEqual({ location: { directory: "/workspace" }, mode: "working", context: 3 })
-  model.event(changed("/workspace"))
-  abort.abort()
-  await Bun.sleep(130)
-  expect(calls).toHaveLength(2)
-  model.dispose()
+  beforeEach(() => {
+    jest.useFakeTimers()
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  test.each([
+    ["working", "/workspace", "/workspace/", "/Workspace"],
+    ["branch", "C:\\Work\\Agent", "c:/work/agent/", "C:/Work/Other"],
+    ["committed", "//host/share/Repo", "//HOST/share/repo/", "//host/share/Other"],
+  ] as const)(
+    "%s refreshes 100 ms after the last matching file event in %s",
+    async (mode, directory, equivalent, other) => {
+      const { model, calls, abort } = fixture(directory)
+      model.event(changed(directory))
+      jest.advanceTimersByTime(100)
+      expect(calls).toHaveLength(0)
+
+      const initial = model.select({ mode })
+      model.event(changed())
+      model.event(changed(other))
+      model.event(changed(directory + "/sub"))
+      jest.advanceTimersByTime(100)
+      expect(calls).toHaveLength(1)
+
+      model.event(changed(directory))
+      jest.advanceTimersByTime(99)
+      model.event(changed(equivalent))
+      calls[0].response.resolve([])
+      await initial
+      jest.advanceTimersByTime(50)
+      model.event(changed(other))
+      jest.advanceTimersByTime(49)
+      expect(calls).toHaveLength(1)
+      jest.advanceTimersByTime(1)
+      expect(calls).toHaveLength(2)
+      expect(calls[1].input).toEqual({ location: { directory }, mode, context: 3 })
+
+      model.event(changed(directory))
+      abort.abort()
+      jest.advanceTimersByTime(100)
+      expect(calls).toHaveLength(2)
+    },
+  )
+
+  test("immediate reads consume a pending file refresh for the active comparison", () => {
+    const { model, calls } = fixture()
+    model.select({ mode: "branch", base: "release" })
+    for (const event of [
+      { type: "server.connected", id: "hello", data: {} },
+      {
+        type: "session.execution.succeeded",
+        id: "done",
+        created: 1,
+        durable: { aggregateID: "session", seq: 1, version: 1 },
+        data: { sessionID: "session" },
+      },
+    ] satisfies OpenCodeEvent[]) {
+      const before = calls.length
+      model.event(changed("/workspace"))
+      jest.advanceTimersByTime(99)
+      model.event(event)
+      expect(calls).toHaveLength(before + 1)
+      expect(calls.at(-1)?.input).toEqual({
+        location: { directory: "/workspace" },
+        mode: "branch",
+        base: "release",
+        context: 3,
+      })
+      jest.advanceTimersByTime(100)
+      expect(calls).toHaveLength(before + 1)
+    }
+    model.dispose()
+  })
+
+  test("changing comparison or closing retires the queued refresh", () => {
+    const { model, calls } = fixture()
+    model.select({ mode: "committed", base: "one" })
+    model.event(changed("/workspace"))
+    model.select({ mode: "committed", base: "two" })
+    jest.advanceTimersByTime(100)
+    expect(calls).toHaveLength(2)
+    model.event(changed("/workspace"))
+    model.dispose()
+    model.event(changed("/workspace"))
+    jest.advanceTimersByTime(100)
+    expect(calls).toHaveLength(2)
+  })
 })
 
 test.each([false, true])("a newer review read wins over a late response (failed=%s)", async (failed) => {

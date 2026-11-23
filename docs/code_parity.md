@@ -117,9 +117,11 @@ loader and the active runtime or draft's client. Only the latest refresh can pub
 Recent-session rows, exact-ID lookup, session actions and post-delete navigation use `sameDirectory` from
 `@opencode/util/path`. The open picker, VCS review and integration catalog use it for directory-scoped events.
 Matching handles trailing slashes and Windows drive or UNC spelling while keeping POSIX paths case-sensitive.
-Review follows the plugin's `review/{machine,model}.ts` boundary locally. Each turn or VCS diff read has a
-30-second deadline. The dialog offers Retry for the selected comparison if the server stalls, and ignores late
-results after a timeout, source change or close. The model still uses the existing activation and event stream.
+Review follows the plugin's `review/{machine,model}.ts` boundary locally. The machine routes reconnects and the
+captured session's execution outcomes and reverts to an immediate refresh. File events schedule a refresh only
+for a VCS comparison in the same directory. The driver owns the 100 ms trailing timer and the 30-second diff
+read deadline. The dialog offers Retry for the selected comparison and ignores late results after a timeout,
+source change or close. The dialog subscribes to the existing event stream for its activation.
 Queue actions and history undo/redo now follow local `session/composer/queue-machine.ts` and
 `session/revert-machine.ts` boundaries. Their drivers own requests and subscriptions; one immutable signal snapshot
 owns each lifecycle and attempt. Switching or reactivating a session settles the old caller and releases its UI
@@ -235,7 +237,7 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
-- Review event routing, three context lines, bounded patches and 100 ms file-event coalescing.
+- Review requests retain three context lines, bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,
 browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
@@ -245,6 +247,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Review event routing validation (2026-11-23). All 22 review model tests passed against both implementations.
+Fake-clock checks covered the 99/100 ms boundary in working-tree, branch and committed comparisons, including
+POSIX, Windows drive and UNC directories. In the production browser fixture, three file events produced one
+working-tree refresh. Both builds issued the same 12 VCS comparisons and four turn-diff reads. The live review
+also refreshed and closed at `1/9`. All 738 Bun tests, 79 browser component tests, typecheck and both production
+builds passed. Both updated builds' source maps contained zero main-app or desktop modules. Evidence is in
+`node_modules/.cache/review-event-routing/`.
 
 Model-selection validation (2026-11-23). The original and refactored resolvers agreed on 1,176 catalog defaults
 and 6,384 scoped model and variant combinations, including ambiguous legacy IDs and unavailable models. The
