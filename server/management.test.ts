@@ -80,19 +80,23 @@ test("management binds Human platform calls and workspace reads without exposing
 
         if (url.pathname.endsWith("/tasks/terminal")) return Response.json({ task: terminalTask })
 
-        if (url.pathname.endsWith("/conversations/conversation") || url.pathname.endsWith("/conversations/read-only"))
+        if (["conversation", "read-only", "writable"].some((id) => url.pathname.endsWith("/conversations/" + id)))
           return Response.json({
             conversation: {
               public_id: url.pathname.split("/").at(-1),
               workspace_public_id: "workspace",
-              answering_user_public_id: url.pathname.endsWith("/read-only") ? "agent" : "other",
-              archived_at: url.pathname.endsWith("/read-only") ? null : "now",
+              answering_user_public_id: url.pathname.endsWith("/conversation") ? "other" : "agent",
+              archived_at: url.pathname.endsWith("/conversation") ? "now" : null,
               side: false,
               lock_version: 0,
               context_revision: 0,
               created_at: "now",
               updated_at: "now",
-              metadata: url.pathname.endsWith("/read-only") ? {} : { "opencode.bot": "private" },
+              metadata: url.pathname.endsWith("/writable")
+                ? { "opencode.initial_model": "provider/opening" }
+                : url.pathname.endsWith("/read-only")
+                  ? {}
+                  : { "opencode.bot": "private" },
               input_queue: { limit: 100, held: 0 },
               usage_summary: {
                 request_count: 0,
@@ -106,7 +110,7 @@ test("management binds Human platform calls and workspace reads without exposing
                 cost_amount: "0",
                 cost_complete: true,
               },
-              access: { default: "read", entries: [] },
+              access: { default: url.pathname.endsWith("/writable") ? "full" : "read", entries: [] },
               effective_memory_context: {},
               agent_configuration_present: false,
               cost_limit_reached: false,
@@ -154,6 +158,12 @@ test("management binds Human platform calls and workspace reads without exposing
       if (body.action === "settings.update")
         return Response.json(
           { _tag: "InvalidRequestError", message: "Unknown adaptation row: retired" },
+          { status: 400 },
+        )
+
+      if (body.action === "schedule.defaults")
+        return Response.json(
+          { _tag: "InvalidRequestError", kind: "Payload", message: "Unknown schedule action" },
           { status: 400 },
         )
 
@@ -248,6 +258,10 @@ test("management binds Human platform calls and workspace reads without exposing
     subagent: false,
     available: true,
     code_mode_available: false,
+  })
+  expect(await manage(b, config, { action: "schedule.defaults", conversation: "writable" })).toEqual({
+    model: "provider/opening",
+    approval: "ask",
   })
   expect(await manage(b, config, { action: "schedule.list", conversation: "conversation" })).toMatchObject({
     items: [],

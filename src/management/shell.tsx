@@ -191,7 +191,12 @@ export function Management(props: { chat: ChatController; navigation: Navigation
                     <Presets client={client} />
                   </Match>
                   <Match when={props.navigation.page() === "Schedules"}>
-                    <Schedules client={client} open={open} />
+                    <Schedules
+                      client={client}
+                      open={open}
+                      selected={props.navigation.item()}
+                      select={(id) => props.navigation.openPage("Schedules", id)}
+                    />
                   </Match>
                   <Match when={props.navigation.page() === "Plugins"}>
                     <Plugins

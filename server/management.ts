@@ -142,9 +142,9 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
   }
 
   if (command.action === "schedule.read") {
-    const { chat } = await readChat(b, command.conversation)
+    const { chat, info } = await readChat(b, command.conversation)
 
-    return chat.schedules.fetch(command.id)
+    return { ...(await chat.schedules.fetch(command.id)), writable: canWrite(b, info) && !ownership(info) }
   }
 
   if (command.action === "schedule.executions") {
@@ -178,7 +178,14 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       "x-nexus-origin": config.native!.origin,
       "x-nexus-member-token": (b.memberToken ?? config.token)!,
     })
-    .catch((error: unknown) => {
+    .catch(async (error: unknown) => {
+      // The installed 2.4.0 service predates the schedule.defaults command.
+      if (command.action === "schedule.defaults" && isInvalidRequestError(error) && error.kind === "Payload") {
+        const { info } = await readChat(b, command.conversation)
+        const pin = info.metadata["opencode.initial_model"]
+
+        return { model: typeof pin === "string" ? pin : b.connection.model, approval: "ask" }
+      }
       if (
         isInvalidRequestError(error) &&
         (command.action === "settings.update" ||

@@ -270,7 +270,16 @@ export function middleware(
       const match = /^\/chats\/([\w-]+)(?:\/([a-z-]+))?$/.exec(route)
       if (!match) throw new BridgeError(404, "Unknown chat route.")
       const [, id, action] = match
-      if (!action && req.method === "GET") return json(res, 200, await snapshot(b, id!))
+      if (!action && req.method === "GET") {
+        const [conversation, defaults] = await Promise.all([
+          snapshot(b, id!),
+          url.searchParams.get("schedule") === "defaults"
+            ? manage(b, config, { action: "schedule.defaults", workspace: b.workspaceID, conversation: id })
+            : undefined,
+        ])
+
+        return json(res, 200, defaults ? { ...conversation, scheduleDefaults: defaults } : conversation)
+      }
       const { chat, info } = await readChat(b, id!)
       if (action === "stream" && req.method === "GET") return await stream(b, id!, res)
 

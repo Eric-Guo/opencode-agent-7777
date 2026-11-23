@@ -140,13 +140,15 @@ export function createChatController(
     storage.setItem(storageKey() + ".draft." + s.id, JSON.stringify(entry))
     storage.setItem(storageKey(), JSON.stringify({ id: s.id }))
   }
-  function restore(id: string, legacy: Partial<Saved> = {}) {
-    let entry: Partial<Saved> = legacy
+  function savedDraft(id: string, legacy: Partial<Saved> = {}): Partial<Saved> {
     try {
-      entry = JSON.parse(storage.getItem(storageKey() + ".draft." + id) || "null") ?? legacy
+      return JSON.parse(storage.getItem(storageKey() + ".draft." + id) || "null") ?? legacy
     } catch {
-      /* corrupt draft */
+      return legacy
     }
+  }
+  function restore(id: string, legacy: Partial<Saved> = {}) {
+    const entry = savedDraft(id, legacy)
     attempt = entry.attempt
     modelEdited = entry.modelEdited ?? !!entry.model
     runnerEdited = entry.runnerEdited ?? (!!entry.runner && entry.runner !== s.connection?.runner)
@@ -594,6 +596,23 @@ export function createChatController(
     edit,
     send,
     configure,
+    async schedulePreferences(id: string) {
+      const current = id === s.id
+      const draft = current ? s : savedDraft(id)
+      const latest = (snapshot: Snapshot) => snapshot.turns.findLast((turn) => turn.responseModel)?.responseModel
+      const currentModel = draft.model || (current && s.hydrated ? latest(s.snapshot)?.selected : undefined)
+      if (currentModel && draft.approval) return { model: currentModel, approval: draft.approval }
+
+      const snapshot = await api<Snapshot & { scheduleDefaults?: { model: string | null; approval: Approval } }>(
+        "/chats/" + encodeURIComponent(id) + "?schedule=defaults",
+        s.connection?.scope,
+      )
+      const response = latest(snapshot)
+      return {
+        model: currentModel || response?.selected || response?.actual || snapshot.scheduleDefaults?.model,
+        approval: draft.approval ?? snapshot.scheduleDefaults?.approval,
+      }
+    },
     modes,
     changeMode,
     loadModes,

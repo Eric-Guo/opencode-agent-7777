@@ -4,6 +4,30 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `7a8243168e166cab52cfce710008723e936d6603`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Scheduled job drafts and detail links
+
+Reviewed November 24, 2026 against `rho-webui` in Cybros `7a8243168`, from Nexus UI
+`87936c92` and OpenCode `dfe362962c5`.
+
+The schedule form starts with the selected conversation's model and permissions
+and suggests a first run 30 minutes ahead. The proposed time and request key survive
+a failed submission. An edit uses the observed lock version and sends only changed
+fields, including an explicit null when the user clears the name.
+
+A job's name opens its detail URL under the workspace. The UI reads that job and its
+execution history by conversation and job ID, including after reload and beyond the
+overview's pagination window. The Human's conversation access controls editing.
+Execution links open the child conversation.
+
+The in-app browser showed the selected model, Ask and a future first run on port 4779.
+In a private workspace backed by the source service, Chromium reloaded a job link,
+opened its history, cleared the name and verified the saved value through Nexus.
+The Chromium suite covers the retry key and absolute time, scoped reloads, read-only
+detail, history pagination and conflicting edits. The UI passed 432 unit tests and 92
+Chromium cases. Rho's 15 WebUI schedule cases passed.
+The [runtime review](../../nexus-runtime/PARITY.md#scheduled-jobs-and-operator-web-fetch)
+records the stored policy and child execution.
+
 ## Answer files and recorded changes
 
 Reviewed November 23, 2026 from Nexus UI `cfb68a7221` and OpenCode `58261aaef0c`.

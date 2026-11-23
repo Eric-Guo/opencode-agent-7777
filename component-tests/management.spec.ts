@@ -56,6 +56,13 @@ async function fixture(
     if (/\/chats\/[^/]+$/.test(url.pathname))
       return route.fulfill({
         json: {
+          ...(url.searchParams.get("schedule") === "defaults" && {
+            scheduleDefaults: await command({
+              action: "schedule.defaults",
+              workspace,
+              conversation: url.pathname.split("/").at(-1),
+            }),
+          }),
           turns: [],
           pending: [],
           busy: false,
@@ -1490,4 +1497,80 @@ test("T3 project and default agent controls use runtime discovery and retain uns
   await dialog.getByRole("button", { name: "Save default agent" }).click()
   await expect.poll(() => config.default_agent).toBeUndefined()
   expect(calls).toEqual(expect.arrayContaining(["t3.status", "t3.agents", "t3.projects", "t3.project"]))
+})
+
+test("scheduled job links reload the scoped job and its history outside the overview", async ({ page }) => {
+  const reads: Command[] = []
+  await fixture(
+    page,
+    (input) => {
+      reads.push(input)
+      if (input.action === "schedule.read")
+        return {
+          public_id: "off-page",
+          conversation_public_id: "parent",
+          name: "Nightly job",
+          prompt: "Run the report",
+          writable: false,
+          status: "paused",
+          rule: { kind: "daily", local_time: "09:00", time_zone: "UTC" },
+        }
+      if (input.action === "schedule.executions")
+        return {
+          items: [
+            { child_conversation_public_id: "child", status: "completed", scheduled_for: "2030-01-01T09:00:00Z" },
+          ],
+          next_after: null,
+        }
+      if (input.action === "schedule.list") return { items: [], next_after: null }
+      return []
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/schedules/parent%2Foff-page",
+  )
+  await expect(page.getByText("Read-only conversation")).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole("button", { name: "Open execution" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Run now" })).toHaveCount(0)
+  expect(reads.filter((row) => row.action === "schedule.read")).toEqual(
+    Array(2).fill({ action: "schedule.read", workspace: "one", conversation: "parent", id: "off-page" }),
+  )
+  expect(reads.some((row) => row.action === "schedule.list")).toBe(false)
+  await page.getByRole("button", { name: "All scheduled jobs" }).click()
+  await expect(page.getByRole("heading", { name: "New scheduled job" })).toBeVisible()
+})
+
+test("a scheduled draft inherits the chosen conversation and retries the original time and key", async ({ page }) => {
+  const writes: Command[] = []
+  const now = new Date("2030-06-01T00:00:00Z")
+  await page.clock.setFixedTime(now)
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "schedule.defaults") return { model: "provider/model", approval: "rules" }
+      if (input.action === "schedule.list") return { items: [], next_after: null }
+      if (input.action === "schedule.create") {
+        writes.push(input)
+        return writes.length === 1 ? new Error("Retry this schedule") : {}
+      }
+      return []
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/schedules",
+  )
+  await page.getByRole("combobox", { name: "Conversation", exact: true }).selectOption("conversation")
+  await expect(page.getByRole("combobox", { name: "Model", exact: true })).toHaveValue("provider/model")
+  await expect(page.getByRole("combobox", { name: "Permissions", exact: true })).toHaveValue("rules")
+  await page.getByRole("textbox", { name: "Prompt", exact: true }).fill("Retain this prompt")
+  await page.getByRole("button", { name: "Save job" }).click()
+  await expect(page.getByText("Retry this schedule")).toBeVisible()
+  await page.clock.setFixedTime(new Date(now.getTime() + 60000))
+  await page.getByRole("button", { name: "Save job" }).click()
+  await expect.poll(() => writes.length).toBe(2)
+  expect(writes[0]).toMatchObject({
+    conversation: "conversation",
+    model: "provider/model",
+    approval: "rules",
+    prompt: "Retain this prompt",
+    rule: { kind: "once", run_at: "2030-06-01T00:30:00.000Z" },
+  })
+  expect(writes[1]).toEqual(writes[0])
 })
