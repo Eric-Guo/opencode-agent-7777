@@ -39,13 +39,20 @@ Draft restoration continues to use the presentation's display text and the origi
 
 The compact timeline shows **Changed files** by default through the public `SessionTimeline` and `TurnDiffSource`
 APIs. A saved preference takes precedence. Shared rows own the file list, counts, patch disclosure and Retry.
-Local `session/timeline/turn-diffs.ts` requests a finished turn through `session.diff` and caches it by its closing
-idle marker within the nine-dialog window. Steered prompts share a read. Reads have three lines of context
+Local `session/timeline/turn-diff-machine.ts` owns load, completion and retry decisions. Its `turn-diffs.ts`
+driver requests a finished turn through `session.diff` and caches it by its closing idle marker within
+the nine-dialog window. Steered prompts share a read. Reads have three lines of context
 and a 15-second deadline. The gear menu and settings persistence stay local.
 
 The Timeline menu also persists two independent expansion defaults for shell and edit tool calls. The compact
 adapter passes them to the public `SessionTimeline` props `shellToolDefaultOpen` and `editToolDefaultOpen`.
 Both start off. The shared timeline owns grouping, patch rendering and per-row disclosure.
+
+Live shell rows use the public session UI provider's `shellRunning` and `shellOutput` callbacks.
+The shared row follows output by cursor and reads the final page on exit. The compact runtime adapter
+loads the public client’s directory inventory on the first output request and refreshes it on reconnect.
+It reconciles shell lifecycle events received during a list read and cancels reads when the session or
+directory changes. Completed shells with saved output render without shell API requests.
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
@@ -269,6 +276,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Live shell output and changed files (2026-11-24). Two production browser tests reproduced missing direct
+and background shell output on the original build. Both passed on the updated build, and expanding a
+saved transcript made zero shell requests. Runtime tests covered stale inventory, reconnect and cancellation
+on rapid directory changes. The changed-files tests covered eviction and retry within the nine-dialog window.
+All 743 Bun tests, 92 browser tests, typecheck and both production builds passed. The live session showed Ready
+at `1/9`. Source maps from both builds contained zero main-app or desktop modules. Three-run medians before
+and after were 181/176 ms for entry, 74/83 ms for switching and 91/91 ms for streaming. The benchmark made
+the same 103 requests by endpoint, including four turn diffs and 12 review reads.
+Evidence is in `node_modules/.cache/shell-turn-parity/`.
 
 Timeline message cards (2026-11-24). Both new browser cases reproduced the missing cards on the original
 production build and passed on the updated build. The fixture showed quotes and notes on a prompt with empty

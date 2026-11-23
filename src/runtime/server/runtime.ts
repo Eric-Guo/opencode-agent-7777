@@ -23,6 +23,7 @@ export type SessionRuntime = {
   api: OpenCodeClient
   data: Data
   events: CreateDataInput["event"]
+  shells: ReturnType<typeof createSessionData>["mutations"]["shells"]
   requestAncestry: ReturnType<typeof createRequestAncestry>
   id: string
   signal: AbortSignal

@@ -114,21 +114,27 @@ export function SessionPage() {
                   </div>
                 }
               >
-                <SessionUIProvider
-                  runtime={currentRuntime()}
-                  data={sessionUiData()}
-                  directory={state.session ? sessionDirectory(state.session) : ""}
-                  turnDiff={turnDiff()}
-                >
-                  <CompactMessageTimeline
-                    document={timeline.document()}
-                    actions={region.actions.timeline}
-                    showReasoningSummaries={settings.general.showReasoningSummaries()}
-                    shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
-                    editToolDefaultOpen={settings.general.editToolPartsExpanded()}
-                    onPointerGesture={interaction.view.markUserScroll}
-                  />
-                </SessionUIProvider>
+                <Show when={currentRuntime()?.shells()} keyed>
+                  {(shells) => (
+                    <SessionUIProvider
+                      runtime={currentRuntime()}
+                      data={sessionUiData()}
+                      directory={state.session ? sessionDirectory(state.session) : ""}
+                      turnDiff={turnDiff()}
+                      shellRunning={shells.running}
+                      shellOutput={shells.output}
+                    >
+                      <CompactMessageTimeline
+                        document={timeline.document()}
+                        actions={region.actions.timeline}
+                        showReasoningSummaries={settings.general.showReasoningSummaries()}
+                        shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
+                        editToolDefaultOpen={settings.general.editToolPartsExpanded()}
+                        onPointerGesture={interaction.view.markUserScroll}
+                      />
+                    </SessionUIProvider>
+                  )}
+                </Show>
               </Show>
             </Show>
           </div>

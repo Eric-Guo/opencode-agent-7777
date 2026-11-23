@@ -82,6 +82,7 @@ export function restartSessionEventStream() {
     connected: (value) => setState("eventsConnected", value),
     retry: restartSessionEventStream,
     greeting() {
+      runtime.shells()?.refresh()
       scheduleMessageRefresh(0)
       refreshPendingRequests()
     },

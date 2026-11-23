@@ -5,6 +5,10 @@ import { setupSession } from "./session.fixture"
 test.use({ userAgent: "7777 fixture Electron/44", locale: "en-US" })
 
 test("shell and edit expansion follow independent saved defaults and allow manual disclosure", async ({ page }) => {
+  const shellReads: string[] = []
+  page.on("request", (request) => {
+    if (/\/api\/shell(?:[/?]|$)/.test(request.url())) shellReads.push(request.url())
+  })
   const history: SessionMessageInfo[] = [
     { id: "user", type: "user", text: "Run the check and edit the notes", time: { created: 1 } },
     {
@@ -23,7 +27,7 @@ test("shell and edit expansion follow independent saved defaults and allow manua
             status: "completed",
             input: { command: "bun test" },
             content: [{ type: "text", text: "Suite passed" }],
-            metadata: { exit: 0 },
+            metadata: { shellID: "sh_saved", status: "completed", exit: 0 },
           },
         },
         {
@@ -83,5 +87,6 @@ test("shell and edit expansion follow independent saved defaults and allow manua
   await shellSetting.click()
   await expect(shellOutput).toBeHidden()
   await expect(editFile).toHaveAttribute("aria-expanded", "true")
+  expect(shellReads).toEqual([])
   expect(errors).toEqual([])
 })

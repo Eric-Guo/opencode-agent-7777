@@ -7,11 +7,12 @@ import type {
   SessionMessageInfo,
   SessionStatus,
 } from "@opencode/client/promise"
-import { batch, onCleanup, type Accessor } from "solid-js"
+import { batch, createMemo, onCleanup, type Accessor } from "solid-js"
 import { createStore, unwrap } from "solid-js/store"
 import { boundedReadClient } from "./read-client"
 import { createSessionMessageCache } from "./global-sync/session-cache-messages"
 import { createSessionPending } from "./global-sync/session-cache-pending"
+import { createSessionShells, type ShellInventoryReads } from "./global-sync/session-shells-compact"
 
 type EventListener = Parameters<CreateDataInput["event"]["listen"]>[0]
 export type SessionDataView = {
@@ -36,6 +37,7 @@ export function createSessionData(input: {
 }) {
   const client = boundedReadClient(input.client, input.signal)
   const id = input.session.id
+  const shellReads: ShellInventoryReads = new Map()
   const listeners = new Set<EventListener>()
   let revision = 0
   let statusRevision = 0
@@ -59,6 +61,8 @@ export function createSessionData(input: {
       })
     },
   }
+  const publishEvent = (event: OpenCodeEvent) =>
+    listeners.forEach((listener) => listener({ name: event.type, details: copy(event) }))
   const options = (value?: Parameters<OpenCodeClient["message"]["list"]>[1]) => ({
     ...value,
     signal: value?.signal ?? input.signal,
@@ -71,6 +75,13 @@ export function createSessionData(input: {
   // Only snapshot publication needs a copy. Streamed content remains the shared store's reactive objects.
   const api: OpenCodeClient = {
     ...client,
+    shell: {
+      ...client.shell,
+      list(request, init) {
+        const list = request?.location?.directory && shellReads.get(request.location.directory)
+        return list && !init ? list() : client.shell.list(request, init)
+      },
+    },
     session: {
       ...client.session,
       async get(request, init) {
@@ -121,6 +132,20 @@ export function createSessionData(input: {
     },
   })
   data.session.remember(copy(input.session))
+  // A 404 evicts the shared session before deleted-session recovery opens the next draft.
+  const directory = createMemo(() => data.session.get(id)?.location.directory)
+  const shells = createMemo(() => {
+    const root = directory()
+    if (!root) return
+    return createSessionShells({
+      directory: root,
+      api: input.client.shell,
+      inventory: data.shell,
+      reads: shellReads,
+      signal: input.signal,
+      publish: publishEvent,
+    })
+  })
   const view = (): SessionDataView => {
     const sessionPending = pending.list()
     return {
@@ -140,6 +165,7 @@ export function createSessionData(input: {
     revision: () => revision,
     acknowledgePending: pending.acknowledge,
     mutations: {
+      shells,
       statusRevision: () => statusRevision,
       pendingRevision: pending.revision,
       setSession(info: SessionInfo) {
@@ -166,6 +192,8 @@ export function createSessionData(input: {
       },
       apply(event: OpenCodeEvent) {
         if (input.signal.aborted || event.type === "server.connected") return false
+        if (event.type === "shell.created" || event.type === "shell.exited" || event.type === "shell.deleted")
+          return shells()?.apply(event) ?? false
         if (!event.type.startsWith("session.")) return false
         if ("sessionID" in event.data && event.data.sessionID !== id) return false
         revision++
@@ -190,7 +218,7 @@ export function createSessionData(input: {
           }
           const inbox = pending.apply(event, revision)
           const missing = cache.apply(event, revision, inbox?.delivered)
-          listeners.forEach((listener) => listener({ name: event.type, details: copy(event) }))
+          publishEvent(event)
           return missing || inbox?.refresh
         })
         if (

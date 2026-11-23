@@ -47,16 +47,17 @@ browserSuite(import.meta.path, () => {
     const failures: unknown[] = []
     let messages: SessionMessageInfo[] = []
     let pending: SessionInboxInfo[] = []
-    let read: ((url: URL) => Promise<unknown> | unknown) | undefined
+    let read: ((url: URL, signal: AbortSignal) => Promise<unknown> | unknown) | undefined
     let sequence = 0
     let publications = 0
     const views: SessionView[] = []
     const client = OpenCode.make({
       baseUrl: "http://fixture.local",
       fetch: (async (input, init) => {
-        const url = new URL(new Request(input, init).url)
+        const request = new Request(input, init)
+        const url = new URL(request.url)
         requests.push(url)
-        const override = await read?.(url)
+        const override = await read?.(url, request.signal)
         if (override) return Response.json(override)
         if (url.pathname.endsWith("/inbox")) return Response.json({ data: pending })
         if (url.pathname.endsWith("/message")) return Response.json({ data: messages.toReversed(), cursor: {} })
@@ -110,6 +111,84 @@ browserSuite(import.meta.path, () => {
   }
 
   const longHistory = Array.from({ length: 60 }, (_, index) => user(60 - index))
+
+  test("live shell events supersede a held inventory and a later greeting reconciles missed exits", async () => {
+    const f = fixture()
+    const shells = f.runtime.shells()!
+    const location = f.initial.location
+    const info = (id: string) => ({
+      id,
+      status: "running",
+      command: "check",
+      cwd: "/repo",
+      shell: "sh",
+      file: "out",
+      time: { started: 1 },
+      metadata: {},
+    })
+    const held = Promise.withResolvers<unknown>()
+    let lists = 0
+    f.read((url) => {
+      if (url.pathname === "/api/shell") {
+        lists++
+        return lists === 1 ? held.promise : { location, data: [] }
+      }
+      if (url.pathname.endsWith("/output"))
+        return { location, data: { output: "", cursor: 0, size: 0, truncated: false } }
+    })
+    shells.refresh()
+    expect(lists).toBe(0)
+    const events: string[] = []
+    f.runtime.events.listen(({ name }) => events.push(name))
+    await shells.output({ id: "old" })
+    expect(f.emit("shell.created", { info: info("unrelated") }, { location: { directory: "/other" } })).toBe(false)
+    f.emit("shell.exited", { id: "exited", exit: 0, status: "exited" })
+    f.emit("shell.deleted", { id: "deleted" })
+    f.emit("shell.created", { info: info("new") }, { location: { directory: "/repo/", workspaceID: "work" } })
+    expect(shells.running("new")).toBe(true)
+    held.resolve({ location, data: ["old", "exited", "deleted"].map(info) })
+    await Bun.sleep(0)
+    expect(
+      f.runtime.data.shell
+        .list(location)
+        .map((shell) => shell.id)
+        .sort(),
+    ).toEqual(["new", "old"])
+    expect(events).toEqual(["shell.exited", "shell.deleted", "shell.created"])
+    shells.refresh()
+    await Bun.sleep(0)
+    expect(lists).toBe(2)
+    expect(shells.running("new")).toBe(false)
+  })
+
+  test("moving directories aborts inventory and output, including a move back to the same path", async () => {
+    const f = fixture()
+    const held = Promise.withResolvers<unknown>()
+    const signals: AbortSignal[] = []
+    f.read((_, signal) => {
+      signals.push(signal)
+      return held.promise
+    })
+    const first = f.runtime.shells()!
+    const output = first.output({ id: "sh_old" })
+    f.runtime.setSession({ ...f.initial, location: { directory: "/moved" } })
+    // The public client serializes reads for /repo. Return and leave again before its old
+    // inventory settles: the queued replacement must still belong to that departed scope.
+    f.runtime.setSession({ ...f.initial, location: { directory: "/repo" } })
+    const returning = f.runtime.shells()!.output({ id: "sh_return" })
+    f.runtime.setSession({ ...f.initial, location: { directory: "/moved" } })
+    await expect(output).rejects.toBeDefined()
+    await expect(returning).rejects.toBeDefined()
+    await Bun.sleep(0)
+    expect(signals.map((signal) => signal.aborted)).toEqual([true, true, true])
+    await expect(first.output({ id: "sh_old" })).rejects.toBeDefined()
+    expect(signals).toHaveLength(3)
+    f.runtime.setSession({ ...f.initial, location: { directory: "/repo" } })
+    held.resolve({ location: { directory: "/repo" }, data: [{ id: "sh_old" }] })
+    await Bun.sleep(0)
+    expect(f.runtime.shells()!.running("sh_old")).toBe(false)
+  })
+
   function historyPage(url: URL) {
     const offset = Number(url.searchParams.get("cursor") ?? 0)
     const limit = Number(url.searchParams.get("limit"))

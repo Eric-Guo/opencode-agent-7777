@@ -279,8 +279,16 @@ them to the public `SessionTimeline` through `shellToolDefaultOpen` and `editToo
 handle tool grouping and manual disclosure. For a completed edit with file metadata, the first file’s patch opens
 by default. An edit with only input text still offers its patch for manual expansion.
 
+Expand a running shell to see its output as it arrives. Background commands keep updating while their
+shell is running. Completed commands with saved output open directly from the transcript.
+The public `@opencode/session-ui` shell row owns cursor reads, polling and the final output.
+`runtime/server/global-sync/session-shells-compact.ts` connects it to the active directory. The first
+live-output read loads the running-shell inventory. Reconnect refreshes that inventory, and switching
+sessions or directories cancels pending reads.
+
 The optional rows use the public `SessionTimeline` and `TurnDiffSource` from `@opencode/session-ui`.
-The local `session/timeline/turn-diffs.ts` follows the main app’s turn-diff boundary. The compact cache lives
+The local `session/timeline/turn-diff-machine.ts` decides when a changed-files row can load or retry.
+`session/timeline/turn-diffs.ts` owns the requests and their cancellation. The compact cache lives
 with the visible nine-dialog window. Prompts steered into the same turn share the diff identified by its closing
 idle marker. The public client reads three context lines for the requested turn, with a 15-second deadline.
 Rewinding past that marker, moving it outside the window, switching sessions or disabling the preference
