@@ -592,6 +592,54 @@ browserSuite(import.meta.path, () => {
     expect(f.rows()).toHaveLength(1)
   })
 
+  test("a snapshot retires an old removal while preserving a newer removal and admission", async () => {
+    const f = fixture()
+    const original = [inbox("first"), inbox("second"), inbox("third")]
+    f.snapshot([], original)
+    await f.runtime.refreshMessages()
+    f.runtime.updatePending((items) => items.filter((item) => item.id !== "first"))
+
+    const started = Promise.withResolvers<void>()
+    const held = Promise.withResolvers<unknown>()
+    f.read((url) => {
+      if (!url.pathname.endsWith("/inbox")) return
+      started.resolve()
+      return held.promise
+    })
+    const refresh = f.runtime.refreshMessages()
+    await started.promise
+    f.runtime.updatePending((items) => [...items.filter((item) => item.id !== "second"), inbox("new", "steer")])
+    held.resolve({ data: original })
+    await refresh
+    expect(f.pending()).toEqual([inbox("first"), inbox("third"), inbox("new", "steer")])
+    expect(f.rows().map((row) => row.id)).toEqual(["new"])
+
+    f.read(undefined)
+    f.snapshot([], [inbox("new"), inbox("third")])
+    await f.runtime.refreshMessages()
+    expect(f.pending()).toEqual([inbox("new"), inbox("third")])
+    expect(f.rows()).toEqual([])
+  })
+
+  test("an inbox echo replaces only its receipt and a readmitted prompt can be delivered", () => {
+    const f = fixture()
+    f.runtime.updatePending(() => [inbox("one", "steer"), inbox("two", "steer")])
+    f.emit("session.inbox.enqueued", {
+      inboxID: "one",
+      item: { type: "user", delivery: "queue", payload: { text: "canonical" } },
+    })
+    expect(f.pending()).toMatchObject([
+      { id: "one", delivery: "queue", payload: { text: "canonical" } },
+      inbox("two", "steer"),
+    ])
+    f.runtime.updatePending((items) => items.filter((item) => item.id !== "two"))
+    expect(f.rows()).toEqual([])
+    f.runtime.updatePending((items) => [...items, inbox("two")])
+    f.emit("session.inbox.delivered", { inboxID: "two" })
+    expect(f.pending().map((item) => item.id)).toEqual(["one"])
+    expect(f.rows()).toMatchObject([{ id: "two", text: "pending prompt", time: { created: 102 } }])
+  })
+
   test("session refresh cannot overwrite a newer successful revert", async () => {
     const f = fixture()
     const held = Promise.withResolvers<unknown>()

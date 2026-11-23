@@ -11,6 +11,7 @@ import { batch, onCleanup, type Accessor } from "solid-js"
 import { createStore, unwrap } from "solid-js/store"
 import { boundedReadClient } from "./read-client"
 import { createSessionMessageCache } from "./global-sync/session-cache-messages"
+import { createSessionPending } from "./global-sync/session-cache-pending"
 
 type EventListener = Parameters<CreateDataInput["event"]["listen"]>[0]
 export type SessionDataView = {
@@ -44,7 +45,7 @@ export function createSessionData(input: {
   const cache = createSessionMessageCache({
     messages: () => data.session.message.list(id),
     get: (key) => data.session.message.get(id, key),
-    pending: pending.list,
+    pending,
     session: () => data.session.get(id),
   })
   const events: CreateDataInput["event"] = {
@@ -120,12 +121,15 @@ export function createSessionData(input: {
     },
   })
   data.session.remember(copy(input.session))
-  const view = (): SessionDataView => ({
-    session: data.session.get(id),
-    sessionMessages: cache.messages(),
-    sessionPending: pending.list(),
-    sessionStatus: local.status ?? (data.session.status(id) === "running" ? { type: "busy" } : { type: "idle" }),
-  })
+  const view = (): SessionDataView => {
+    const sessionPending = pending.list()
+    return {
+      session: data.session.get(id),
+      sessionMessages: cache.messages(sessionPending),
+      sessionPending,
+      sessionStatus: local.status ?? (data.session.status(id) === "running" ? { type: "busy" } : { type: "idle" }),
+    }
+  }
   onCleanup(() => listeners.clear())
 
   return {
@@ -157,19 +161,13 @@ export function createSessionData(input: {
         const next = update(before)
         revision++
         batch(() => {
-          pending.replace(before, next, revision)
-          cache.pendingChanged(before, next)
+          cache.pendingChanged(pending.replace(before, next, revision))
         })
       },
       apply(event: OpenCodeEvent) {
         if (input.signal.aborted || event.type === "server.connected") return false
         if (!event.type.startsWith("session.")) return false
         if ("sessionID" in event.data && event.data.sessionID !== id) return false
-        const values = event.data as { assistantMessageID?: string; inboxID?: string }
-        const admitted = values.inboxID ? pending.list().find((item) => item.id === values.inboxID) : undefined
-        const unloadedInbox =
-          event.type === "session.inbox.delivery.changed" &&
-          !data.session.pending.list(id).some((item) => item.id === event.data.inboxID)
         revision++
         if (
           [
@@ -185,66 +183,23 @@ export function createSessionData(input: {
           ].includes(event.type)
         )
           sessionRevision++
-        let missing = false
-        batch(() => {
+        const needsRefresh = batch(() => {
           if (event.type.startsWith("session.execution.")) {
             statusRevision++
             setLocal("status", undefined)
           }
-          pending.apply(event, revision, admitted, unloadedInbox)
-          missing = cache.apply(event, revision, admitted)
+          const inbox = pending.apply(event, revision)
+          const missing = cache.apply(event, revision, inbox?.delivered)
           listeners.forEach((listener) => listener({ name: event.type, details: copy(event) }))
+          return missing || inbox?.refresh
         })
         if (
-          missing ||
-          unloadedInbox ||
+          needsRefresh ||
           (event.type === "session.inbox.delivered" && !data.session.message.get(id, event.data.inboxID))
         )
           input.refresh()
         return true
       },
-    },
-  }
-}
-
-// HTTP receipts overlay the shared inbox until a newer snapshot or SSE event
-// acknowledges them. Keeping this separate from message projection makes their
-// retirement policy independent of which transcript rows are currently visible.
-function createSessionPending(shared: () => SessionInboxInfo[]) {
-  const [local, setLocal] = createStore({
-    receipts: {} as Record<string, { item?: SessionInboxInfo; revision: number } | undefined>,
-    revision: 0,
-  })
-  return {
-    revision: () => local.revision,
-    list() {
-      const items = new Map(shared().map((item) => [item.id, item]))
-      for (const [key, receipt] of Object.entries(local.receipts)) {
-        if (!receipt) continue
-        if (receipt.item) items.set(key, receipt.item)
-        else items.delete(key)
-      }
-      return [...items.values()]
-    },
-    replace(before: SessionInboxInfo[], next: SessionInboxInfo[], revision: number) {
-      setLocal("revision", (value) => value + 1)
-      for (const item of next) setLocal("receipts", item.id, { item: copy(item), revision })
-      const retained = new Set(next.map((item) => item.id))
-      for (const item of before)
-        if (!retained.has(item.id)) setLocal("receipts", item.id, { item: undefined, revision })
-    },
-    acknowledge(revision: number) {
-      batch(() => {
-        for (const [key, receipt] of Object.entries(local.receipts))
-          if (receipt && receipt.revision <= revision) setLocal("receipts", key, undefined)
-      })
-    },
-    apply(event: OpenCodeEvent, revision: number, admitted: SessionInboxInfo | undefined, unloaded: boolean) {
-      if (!event.type.startsWith("session.inbox.")) return
-      setLocal("revision", (value) => value + 1)
-      if ("inboxID" in event.data) setLocal("receipts", event.data.inboxID, undefined)
-      if (event.type === "session.inbox.delivery.changed" && unloaded && admitted)
-        setLocal("receipts", admitted.id, { item: { ...copy(admitted), delivery: event.data.delivery }, revision })
     },
   }
 }

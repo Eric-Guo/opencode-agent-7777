@@ -6,6 +6,7 @@ import type {
   SessionMessageInfo,
 } from "@opencode/client/promise"
 import { createStore, reconcile, unwrap } from "solid-js/store"
+import type { createSessionPending, PendingChanges } from "./session-cache-pending"
 import { inboxItemMessage } from "./session-messages"
 
 type MessagePage = Awaited<ReturnType<OpenCodeClient["message"]["list"]>>
@@ -25,7 +26,7 @@ const copy = <T>(value: T): T => structuredClone(unwrap(value))
 export function createSessionMessageCache(input: {
   messages: () => SessionMessageInfo[]
   get: (id: string) => SessionMessageInfo | undefined
-  pending: () => SessionInboxInfo[]
+  pending: Pick<ReturnType<typeof createSessionPending>, "list" | "get">
   session: () => SessionInfo
 }) {
   const touched = new Map<string, number>()
@@ -36,8 +37,7 @@ export function createSessionMessageCache(input: {
     echoes: {} as Record<string, SessionMessageInfo | undefined>,
     extra: {} as Record<string, SessionMessageInfo | undefined>,
   })
-  const messages = () => {
-    const admitted = input.pending()
+  const messages = (admitted = input.pending.list()) => {
     const queued = new Set(admitted.filter((item) => item.delivery === "queue").map((item) => item.id))
     const rows = chronological([
       ...Object.values(local.echoes).filter((row): row is SessionMessageInfo => !!row),
@@ -52,7 +52,7 @@ export function createSessionMessageCache(input: {
     messages,
     // Inbox events carry the same ID through admission, delivery and cancellation. A local echo proves nothing.
     admitted(id: string) {
-      return touched.has(id) || input.get(id)?.type === "user" || input.pending().some((item) => item.id === id)
+      return touched.has(id) || input.get(id)?.type === "user" || !!input.pending.get(id)
     },
     echo(message: SessionMessageInfo) {
       setLocal("echoes", message.id, copy(message))
@@ -60,10 +60,9 @@ export function createSessionMessageCache(input: {
     dropEcho(messageID: string) {
       setLocal("echoes", messageID, undefined)
     },
-    pendingChanged(before: SessionInboxInfo[], next: SessionInboxInfo[]) {
-      const retained = new Set(next.map((item) => item.id))
+    pendingChanged({ retained, removed: cancelled }: PendingChanges) {
       for (const id of retained) removed.delete(id)
-      for (const item of before) if (!retained.has(item.id)) removed.add(item.id)
+      for (const id of cancelled) removed.add(id)
     },
     snapshot(request: { cursor?: string }, response: MessagePage, started: number): MessagePage {
       if (started < committedRevertRevision) {

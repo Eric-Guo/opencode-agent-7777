@@ -168,6 +168,11 @@ The first greeting reconciles both pending request lists with the active directo
 and the idle deadline. Hydration scheduling, loading and coalescing follow `refresh-machine.ts`. Drivers own
 controllers, timers and caller settlement. Machine snapshots live outside mutable Solid stores.
 
+The compact runtime keeps HTTP queue receipts in `runtime/server/global-sync/session-cache-pending.ts`.
+It reconciles them with the public client's inbox by ID and by the revision at which a snapshot started.
+The message cache uses the same queue edit to hide removed prompts and show readmitted ones. The data adapter
+publishes the queue and transcript together, including when an event delivers an HTTP-only prompt.
+
 Complete API reads, including decoding, are bounded through local `operation.ts` and `read-client.ts` beneath
 shared `createData`, so stalled synchronization entries settle and retries can proceed. Shared reads retain data-owner
 cancellation; an individual observer cannot abort another consumer's catalog work. Startup, activation, catalogs
@@ -234,7 +239,7 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 
 - Embedding controls, `current/9`, tab keys, welcome, local assets and the recent-session picker's 12-row page size.
 - Deployment-owned model defaults, provider and model visibility, and the persisted server/directory/session/agent scope.
-- The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
+- Nine-dialog hydration and snapshot retention stay local to the runtime. The receipt cache preserves compact queue ordering and acknowledgement timing.
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
@@ -248,6 +253,15 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Pending-inbox validation (2026-11-23). All 36 reactive runtime tests passed against the original and refactored
+implementations. Both production builds passed the same five queue and prompt-retry scenarios. In the queue fixture,
+Send moved one prompt into the transcript and Undo restored another to the draft while an inbox read was stalled.
+Releasing that read and completing the next refresh preserved both actions. The live follow-up menu opened and
+dismissed at `1/9`. All 740 Bun tests, 81 browser component tests, typecheck and both build configurations passed.
+The history and runtime Retry fixtures also passed. Three-run medians before and after were 177/178 ms for entry,
+67/70 ms for session switching and 90/89 ms for streaming. Both runs made the same 87 requests. Neither updated
+build's source maps included main-app or desktop modules. Evidence is in `node_modules/.cache/pending-receipts/`.
 
 Recent-session search validation (2026-11-23). All 25 page-loader and query tests passed against both versions.
 Both production builds of the picker kept a separate exact match alongside 12 title matches, then appended a

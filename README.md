@@ -391,18 +391,21 @@ user or shell dialogs or no cursor can advance. The loader checks the current re
 The cache excludes queued prompts and retains staged messages for Redo. A server revert that leaves the window
 short can schedule another refresh through the same runtime. If a server commit overtakes a read, the cache
 discards the stale page and the runtime starts again at the latest messages. The data adapter creates one
-`createData` instance from `@opencode/client/solid` inside that root, guards session snapshots and owns the private
-pending-inbox receipt ledger.
+`createData` instance from `@opencode/client/solid` inside that root and guards session snapshots.
 Shared data owns durable session records, messages, pending inbox snapshots and location catalogs.
 
-`runtime/server/global-sync/session-cache-messages.ts` now owns the activation's message cache: cursor termination,
-live-row reconciliation, optimistic echoes, cancellation tombstones and skill/selection compatibility. It receives
-accessors from the data adapter and has no global runtime lookup. This compact-specific cache stays local because
-the main app's data adapter has different mutation policies. The adapter batches cache and receipt changes with the
-shared reducer so readers cannot observe half-applied transitions; HTTP receipts retire only when an acknowledging
-snapshot or event arrives. Neither helper creates a root, timer or SSE connection. `runtime.test.ts` covers the combined
-contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
-exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
+`runtime/server/global-sync/session-cache-pending.ts` reconciles HTTP admissions, promotions and removals with
+the shared inbox. An inbox event acknowledges its own ID. A successful hydration acknowledges receipts recorded
+by the time its read began. If a delivery change arrives before the shared inbox has the item, its HTTP receipt
+supplies the content and the adapter schedules the usual refresh.
+
+`runtime/server/global-sync/session-cache-messages.ts` owns cursor termination, live-row reconciliation, optimistic
+echoes, cancellation markers and skill/selection messages. Both caches stay local to the activation. A queue edit
+supplies one set of retained and removed IDs to the transcript, and each published view uses the same pending list
+for the queue and its messages. The adapter batches these changes with the shared event reducer.
+`runtime.test.ts` covers atomic publication, overlapping snapshots and mixed shell/user hydration.
+`session-store-compact.ts` exposes reactive views and local UI state. Transport, directory request discovery and
+embedded behavior stay local.
 
 `session/{fork-machine,fork}.ts` gives the timeline and the composer’s `/fork` picker one operation per session
 activation. The local `session/commands/fork-dialog.tsx` uses the public `SearchList` and `Dialog` controls to
