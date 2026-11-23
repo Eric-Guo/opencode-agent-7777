@@ -1,3 +1,4 @@
+import { base64ToBytes } from "@opencode/util/base64"
 import { Option, Schema } from "effect"
 import { PromptDraft } from "@/composer/schema"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
@@ -6,19 +7,6 @@ import { storageGet, storageRemove, storageSet } from "./storage"
 export type BlobReference = { id: string; url: string }
 
 const decodePromptDraft = Schema.decodeUnknownOption(Schema.fromJsonString(PromptDraft))
-
-async function blobID(blob: Blob, signal?: AbortSignal) {
-  signal?.throwIfAborted()
-  const data = crypto.subtle ? await blob.arrayBuffer() : undefined
-  signal?.throwIfAborted()
-  const bytes = crypto.subtle
-    ? new Uint8Array(await crypto.subtle.digest("SHA-256", data!))
-    : crypto.getRandomValues(new Uint8Array(16))
-  const id = Array.from(bytes)
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("")
-  return id
-}
 
 function dataUrl(blob: Blob, signal?: AbortSignal) {
   return new Promise<string>((resolve, reject) => {
@@ -50,7 +38,20 @@ function dataUrl(blob: Blob, signal?: AbortSignal) {
 
 // The compact draft stores data URLs, so every reference survives a reload without a separate blob store.
 export async function createBlobReference(blob: Blob, signal?: AbortSignal): Promise<BlobReference> {
-  return { id: await blobID(blob, signal), url: await dataUrl(blob, signal) }
+  const url = await dataUrl(blob, signal)
+  signal?.throwIfAborted()
+  let id: Uint8Array
+  if (crypto.subtle) {
+    // Hash the saved bytes. A disk-backed clipboard file may be gone on a second read.
+    // Only the MIME parameters can contain commas before the base64 payload.
+    const comma = url.lastIndexOf(",")
+    const data = base64ToBytes(comma < 0 ? "" : url.slice(comma + 1))
+    id = new Uint8Array(await crypto.subtle.digest("SHA-256", data))
+    signal?.throwIfAborted()
+  } else {
+    id = crypto.getRandomValues(new Uint8Array(16))
+  }
+  return { id: Array.from(id, (byte) => byte.toString(16).padStart(2, "0")).join(""), url }
 }
 
 export const createPersistedBlobReference = createBlobReference

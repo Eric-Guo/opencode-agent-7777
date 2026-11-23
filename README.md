@@ -812,7 +812,12 @@ That module now owns error reporting for picker, input, paste and drop operation
 when a later read fails. `composer/editor/interaction.ts` restores typing focus after picker completion or cancellation,
 following the main app's attachment/editor boundaries. The Add menu reuses `shell/commands/menu-dismiss.ts` to wait
 for its focus teardown; delayed completion checks the editor, session and dialog before restoring focus.
-Inline URLs, supported formats, duplicate detection, draft storage and embedded drop scope remain unchanged.
+`runtime/persistence/drafts.ts` snapshots attachment content once, so a file from disk or the clipboard only
+needs to remain readable until its data URL is ready. On secure origins it hashes the bytes of that URL with
+SHA-256 using the public `@opencode/util/base64` decoder. Browsers without SubtleCrypto retain random 16-byte
+IDs. The browser supplies the MIME header, and the existing draft format stores the URL and lowercase hex ID.
+Cancellation during the read or digest discards the pending attachment. Admission checks, duplicate detection
+and the embedded drop scope stay in the composer.
 
 Animated presence follows the main app's `runtime/{presence-machine,presence,animated-presence}.ts` boundaries
 with local implementations. The pure machine owns visibility, retained values and minimum-duration attempts;

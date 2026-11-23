@@ -223,6 +223,11 @@ picker tokens are released once, even for late selections, and cleanup does not 
 filtering, duplicate detection, RPC schemas and persistence stay local and unchanged. Tests cover stale results,
 partial failures, cancellation, timeout/retry, send admission, caret preservation and native undo/redo.
 
+Inline attachment persistence follows the main app's `runtime/persistence/drafts.ts` boundary. The compact
+adapter reads the source once to produce the stored data URL. It derives the SHA-256 ID from those same bytes
+through the public `@opencode/util/base64` decoder. Browsers without SubtleCrypto keep the random-ID fallback.
+Legacy URL-only drafts and the existing filename, MIME and content-ID fields remain readable.
+
 Animated presence follows local `runtime/{presence-machine,presence,animated-presence}.ts`, matching the main
 app's machine/driver boundary. Visibility, retained values and minimum-duration attempts are pure transitions;
 DOM listeners, reduced-motion observation and timers stay in the driver. CSS animation and transition exits have
@@ -240,7 +245,7 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 - Embedding controls, `current/9`, tab keys, welcome, local assets and the recent-session picker's 12-row page size.
 - Deployment-owned model defaults, provider and model visibility, and the persisted server/directory/session/agent scope.
 - Nine-dialog hydration and snapshot retention stay local to the runtime. The receipt cache preserves compact queue ordering and acknowledgement timing.
-- Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
+- Compact draft formats (including inline URLs), comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
 - Review requests retain three context lines, bounded patches and 100 ms file-event coalescing.
@@ -253,6 +258,15 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Inline attachment validation (2026-11-23). The production fixture counted two full reads of a source file
+before the refactor and one afterward. Both builds preserved attachment bytes and IDs across reload for
+empty, Unicode and binary files, including MIME parameters with commas, the fallback decoder and browsers
+without SubtleCrypto. Cancelling an in-flight hash discarded that attachment and preserved the next file and
+draft. Escape returned focus to the attachment menu trigger on the live agent at `1/9`. All 740 Bun tests,
+86 browser component tests, typecheck and both production builds passed. The three-run benchmarks made the
+same 87 requests. Both updated source maps included the shared decoder and zero main-app or desktop modules.
+Evidence is in `node_modules/.cache/inline-draft-attachments/`.
 
 Pending-inbox validation (2026-11-23). All 36 reactive runtime tests passed against the original and refactored
 implementations. Both production builds passed the same five queue and prompt-retry scenarios. In the queue fixture,
