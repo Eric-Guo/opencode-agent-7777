@@ -12,7 +12,7 @@ export function createSessionCommands() {
   const openContext = useContextDialog(exporter)
   const actions = createSessionActions()
 
-  const commands = (): ClientSlashCommand[] =>
+  const commands = (openFork?: () => void): ClientSlashCommand[] =>
     state.session
       ? [
           {
@@ -35,6 +35,18 @@ export function createSessionCommands() {
               })
             },
           },
+          ...(openFork
+            ? [
+                {
+                  id: "session.fork",
+                  trigger: "fork",
+                  title: language.t("command.session.fork"),
+                  description: language.t("command.session.fork.description"),
+                  whenServerMissing: true,
+                  onSelect: openFork,
+                },
+              ]
+            : []),
         ]
       : []
 

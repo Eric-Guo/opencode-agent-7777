@@ -63,9 +63,15 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
     void catalog.load(data, active.directory)
   })
   onCleanup(files.clear)
-  const clientCommands = () => adapter.commands?.() ?? []
+  const clientCommands = createMemo(() => adapter.commands?.() ?? [])
   const localCommands = createClientSlashCommands({
-    commands: clientCommands,
+    commands: () =>
+      clientCommands().filter(
+        (command) =>
+          !command.whenServerMissing ||
+          (catalog.state.commandStatus === "ready" &&
+            !catalog.state.commands.some((server) => server.name === command.trigger)),
+      ),
     draft: adapter.state,
     beforeSelect: () => {
       controller.resetHistory()
@@ -162,6 +168,14 @@ export function createComposerModel(adapter: ComposerAdapter, options?: { queue?
           if (localCommands.submit(adapter.state.current())) return
           const command = catalog.state.commands.find((item) => item.name === parsed?.name)?.name
           if (parsed && catalog.state.commandStatus === "loading") return
+          if (
+            !command &&
+            catalog.state.commandStatus === "failed" &&
+            clientCommands().some((item) => item.whenServerMissing && item.trigger === parsed?.name)
+          ) {
+            adapter.onAttachmentError(language.t("prompt.suggestions.loadFailed"))
+            return
+          }
           controller.resetHistory()
           adapter.submit({
             delivery: (submitOptions?.alternate ? queue?.alternate() : queue?.delivery()) ?? "steer",

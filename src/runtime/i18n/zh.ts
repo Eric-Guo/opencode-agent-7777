@@ -8,6 +8,11 @@ export const dict = {
   "session.fork.draftChanged":
     "创建分支会话期间，你的草稿发生了变化。打开分支会话可编辑所选消息，取消则保留当前草稿。你可以在最近会话中找到该分支会话。",
   "session.fork.pending": "此消息仍在发送中。",
+  "command.session.fork": "从消息创建新会话",
+  "command.session.fork.description": "从之前的消息创建新会话",
+  "common.search.placeholder": "搜索",
+  "dialog.fork.empty": "没有可用于创建新会话的消息",
+  "dialog.fork.search.empty": "未找到消息",
   "session.read.retry": "重试",
   "session.revert.timeout": "服务器未能及时完成历史记录操作。请检查当前历史记录后重试。",
   "toast.session.export.timeout": "服务器未能及时准备好导出内容，请重试。",

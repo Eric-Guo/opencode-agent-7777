@@ -7,6 +7,8 @@ export type ClientSlashCommand = {
   trigger: string
   title: string
   description?: string
+  /** Deployments may already provide this trigger as a server command with arguments. */
+  whenServerMissing?: boolean
   onSelect: () => void
 }
 

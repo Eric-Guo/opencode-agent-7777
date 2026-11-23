@@ -37,7 +37,7 @@ export function SessionPage() {
     revertMessageID: () => state.session?.revert?.messageID,
     status: () => state.sessionStatus,
   })
-  const region = createActiveSessionRegion()
+  const region = createActiveSessionRegion(timeline.visibleMessages)
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })

@@ -401,10 +401,10 @@ snapshot or event arrives. Neither helper creates a root, timer or SSE connectio
 contract, including atomic inbox/transcript publication and mixed shell/user hydration. `session-store-compact.ts`
 exposes reactive views plus local UI state; transport, directory request discovery and embedded behavior stay local.
 
-`session/fork.ts` supplies the public timeline’s fork action and shares the normal session-switch path.
-The local `session/commands/fork-dialog.tsx` confirms replacing the single tab draft. The returned
-session receives its draft before history hydration, so Retry preserves edits. Each activation admits one fork
-at a time and bounds the public client write to 30 seconds.
+`session/{fork-machine,fork}.ts` gives the timeline and the composer’s `/fork` picker one operation per session
+activation. The local `session/commands/fork-dialog.tsx` uses the public `SearchList` and `Dialog` controls to
+pick a delivered prompt from the visible timeline and confirm draft replacement. The write has a 30-second
+deadline. The normal session-switch path seeds the new draft before history hydration, so Retry preserves edits.
 
 Transport scheduling follows the main app's `runtime/server/{request-queue-machine,request-queue}.ts` boundary.
 One immutable machine owns active slots, FIFO waiting order, request IDs and stall-warning state; the driver owns
@@ -913,6 +913,10 @@ a neighboring root session from the loaded directory history, or a fresh draft w
 ## Fork from here
 
 In a root session, open a delivered user message’s **More actions** menu and choose **Fork from here**.
+You can also type `/fork` or select it in the composer’s **Commands** menu to search the latest nine dialogs.
+The picker lists delivered user messages newest first and shows filenames for attachment-only messages.
+Escape returns to the composer. Opening the picker from **Commands** keeps your unsent draft.
+If the directory defines a server command named `fork`, the composer runs that command with its arguments.
 The new session contains the history before that message, including earlier turns outside the nine-dialog window.
 Its composer opens with the selected message’s display text, supported mentions and attachments ready to edit.
 An unsent draft triggers a replacement confirmation before creation. If the draft changes during creation,

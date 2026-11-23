@@ -8,11 +8,16 @@ import { createSessionQueue } from "./queue"
 
 export function createSessionComposerController(input: {
   controls: Accessor<ComposerControls>
+  openFork: Accessor<(() => void) | undefined>
   dock: Parameters<typeof createSessionComposerRegionController>[0]
 }) {
   const settings = useSettings()
   const region = createSessionComposerRegionController(input.dock)
-  const adapter = createActiveComposerAdapter({ controls: input.controls, disabled: region.disabled })
+  const adapter = createActiveComposerAdapter({
+    controls: input.controls,
+    disabled: region.disabled,
+    openFork: input.openFork,
+  })
   const queue = createSessionQueue({
     draft: adapter.state,
     restoreFocus: (cursor) => composer.restoreFocus(cursor),

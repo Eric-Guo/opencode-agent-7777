@@ -9,6 +9,7 @@ import { useSessionCommands } from "@/session/commands/use-session-commands"
 export function createActiveComposerAdapter(input: {
   controls: Accessor<ComposerControls>
   disabled: Accessor<boolean>
+  openFork: Accessor<(() => void) | undefined>
 }): ComposerAdapter {
   const language = useLanguage()
   const { commands } = useSessionCommands()
@@ -20,7 +21,7 @@ export function createActiveComposerAdapter(input: {
     working: createMemo(() => !!state.session && (state.submitting || state.sessionStatus.type !== "idle")),
     submitting: () => state.submitting,
     placeholder: () => language.t("prompt.placeholder", { agent: currentLocalAgent() }),
-    commands,
+    commands: () => commands(input.openFork()),
     onAttachmentError: (message: string) => setState("error", message),
     submit: submitPrompt,
     interrupt: abortPrompt,

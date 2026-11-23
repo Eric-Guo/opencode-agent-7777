@@ -6,6 +6,11 @@ export const dict = {
   "session.fork.draftChanged":
     "Your draft changed while the fork was being created. Open the fork to edit the selected message, or cancel to keep this draft. The fork is available in Recent sessions.",
   "session.fork.pending": "This message is still being delivered.",
+  "command.session.fork": "Fork from message",
+  "command.session.fork.description": "Create a new session from a previous message",
+  "common.search.placeholder": "Search",
+  "dialog.fork.empty": "No messages to fork from",
+  "dialog.fork.search.empty": "No messages found",
   "session.read.retry": "Retry",
   "session.revert.timeout":
     "The server took too long to finish the history action. Check the current history before trying again.",

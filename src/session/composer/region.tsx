@@ -1,3 +1,4 @@
+import type { SessionMessageInfo } from "@opencode/client/promise"
 import { Composer } from "@/composer/composer"
 import { createPromptModelSelection } from "@/composer/selection"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
@@ -9,18 +10,22 @@ import { SessionComposerRegion } from "./session-composer-region"
 import { createTimelineActions } from "./timeline-actions"
 import { SessionQueuePanel } from "./queue-panel"
 
-export function createActiveSessionRegion() {
+export function createActiveSessionRegion(visibleMessages: () => SessionMessageInfo[]) {
   const requests = createSessionRequestModel()
   const revert = createSessionRevert({ disabled: requests.blocked })
   const selection = createPromptModelSelection()
-  const active = createSessionComposerController({
+  const fork = createSessionFork({
+    visibleMessages,
+    preparingAttachments: () => active.composer.preparingAttachments(),
+  })
+  const active: SessionComposerController = createSessionComposerController({
+    openFork: () => fork()?.openPicker,
     controls: () => ({
       agent: currentLocalAgent(),
       model: { selection, status: state.modelStatus },
     }),
     dock: { state: requests, ready: () => state.status === "ready" && !revert.busy() },
   })
-  const fork = createSessionFork(active.composer.preparingAttachments)
 
   return {
     active,

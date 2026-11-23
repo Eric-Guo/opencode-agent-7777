@@ -314,6 +314,163 @@ async function selectFork(page: Page) {
   await page.getByRole("menuitem", { name: "Fork from here" }).click()
 }
 
+test("the fork command searches the visible prompts and forks once from an attachment-only message", async ({
+  page,
+}) => {
+  const history: SessionMessageInfo[] = [...forkHistory]
+  history[3] = {
+    id: "msg_03",
+    type: "user",
+    time: { created: 4 },
+    text: "",
+    files: [{ name: "diagram.txt", mime: "text/plain", data: "aGk=", source: { type: "inline" } }],
+  }
+  history[4] = {
+    id: "msg_04",
+    type: "shell",
+    shellID: "shell_1",
+    command: "pwd",
+    status: "exited",
+    time: { created: 5 },
+  }
+  history[5] = {
+    id: "msg_05",
+    type: "user",
+    text: "Model-only note",
+    metadata: { displayText: "Displayed question", comments: [] },
+    time: { created: 6 },
+  }
+  const { writes, release, errors } = await setupSession(page, undefined, history)
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const dialog = page.getByRole("dialog", { name: "Fork from message" })
+  const search = dialog.getByRole("combobox")
+  const reads: string[] = []
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.endsWith("/message")) reads.push(request.url())
+  })
+  await editor.fill("Keep this draft")
+  await page.getByRole("button", { name: "Add images and files" }).click()
+  await page.getByRole("menuitem", { name: /Commands/ }).click()
+  await page.getByRole("button", { name: /^\/fork / }).click()
+  await expect(search).toBeFocused()
+  await expect(dialog.getByRole("option")).toHaveText([
+    "Prompt 10",
+    "Prompt 9",
+    "Prompt 8",
+    "Prompt 7",
+    "Prompt 6",
+    "Displayed question",
+    "diagram.txt",
+    "Review @agent",
+  ])
+  await search.fill("Model-only note")
+  await expect(dialog.getByText("No messages found")).toBeVisible()
+  await search.press("Escape")
+  await expect(editor).toBeFocused()
+  await expect(editor).toHaveText("Keep this draft")
+  await editor.fill("/fork")
+  await page.getByRole("button", { name: "Send", exact: true }).click()
+  await search.fill("DIAGRAM")
+  await expect(dialog.getByRole("option")).toHaveText(["diagram.txt"])
+  expect(reads).toEqual([])
+  try {
+    await search.press("Enter")
+    await expect.poll(() => writes).toEqual(["fork msg_03"])
+    await expect(editor).toHaveText("")
+    release.resolve()
+    await expect(page.getByRole("button", { name: "Options for Fork" })).toBeVisible()
+    await expect(page.getByText("diagram.txt", { exact: true })).toBeVisible()
+    expect(writes).toEqual(["fork msg_03"])
+    expect(errors).toEqual([])
+  } finally {
+    release.resolve()
+  }
+})
+
+test("typing /fork keeps attached files and excludes pending and reverted prompts", async ({ page }) => {
+  // A steer lives in the inbox until delivered. A matching transcript row acknowledges delivery.
+  const { sessions, writes } = await setupSession(page, undefined, [forkHistory[0], forkHistory[2], forkHistory[3]])
+  await page.route("**/api/session/ses_0", (route) =>
+    route.fulfill({ json: { data: { ...sessions[0], revert: { messageID: "msg_03" } } } }),
+  )
+  await page.route("**/api/session/ses_0/inbox", (route) =>
+    route.fulfill({
+      json: {
+        data: [
+          {
+            id: "msg_01",
+            sessionID: "ses_0",
+            delivery: "steer",
+            type: "user",
+            payload: { text: "Prompt 1" },
+            time: { created: 2 },
+          },
+        ],
+      },
+    }),
+  )
+  await page.reload()
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  await expect(page.locator('[data-component="user-message"]').getByText("Prompt 1", { exact: true })).toBeVisible()
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "unsent.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("draft"),
+  })
+  const attachment = page.getByText("unsent.txt", { exact: true })
+  await expect(attachment).toBeVisible()
+  await editor.fill("/fork")
+  await page.getByRole("button", { name: /^\/fork / }).click()
+  const picker = page.getByRole("dialog", { name: "Fork from message" })
+  await expect(picker.getByRole("option")).toHaveText(["Review @agent", "Prompt 0"])
+  await picker.getByRole("option", { name: "Prompt 0" }).click()
+  const confirmation = page.getByRole("dialog", { name: "Fork from here" })
+  await confirmation.getByRole("button", { name: "Cancel" }).click()
+  await expect(editor).toHaveText("")
+  await expect(attachment).toBeVisible()
+  expect(writes).toEqual([])
+})
+
+test("an unresolved fork trigger retains the draft and a deployed command receives its arguments", async ({ page }) => {
+  const { sessions, writes, errors } = await setupSession(page, undefined, forkHistory)
+  const catalog = Promise.withResolvers<void>()
+  await page.route("**/api/command?**", async (route) => {
+    await catalog.promise
+    await route.fulfill({
+      json: { location: sessions[0].location, data: [{ name: "fork", description: "Server fork" }] },
+    })
+  })
+  const commands: object[] = []
+  await page.route("**/api/session/ses_0/agent", (route) => route.fulfill({ status: 204 }))
+  await page.route("**/api/session/ses_0/command", (route) => {
+    commands.push(route.request().postDataJSON())
+    return route.fulfill({ status: 204 })
+  })
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  const send = page.getByRole("button", { name: "Send", exact: true })
+  try {
+    await page.reload()
+    await editor.fill("/fork")
+    await send.click()
+    await expect(editor).toHaveText("/fork")
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    expect(commands).toEqual([])
+    catalog.resolve()
+    await page.getByRole("button", { name: "Add images and files" }).click()
+    await page.getByRole("menuitem", { name: /Commands/ }).click()
+    await expect(page.getByRole("button", { name: "/fork Server fork" })).toBeVisible()
+    await page.getByRole("textbox", { name: "Commands", exact: true }).press("Escape")
+    await editor.fill("/fork server arguments")
+    await send.click()
+    await expect.poll(() => commands).toMatchObject([{ name: "fork", text: "server arguments" }])
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    expect(writes).toEqual([])
+    expect(errors).toEqual([])
+  } finally {
+    catalog.resolve()
+  }
+})
+
 test("forks before the oldest visible prompt and restores its draft through hydration retry", async ({ page }) => {
   const { writes, release, errors } = await setupSession(page, undefined, forkHistory)
   const editor = page.getByRole("textbox", { name: "Message", exact: true })

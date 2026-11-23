@@ -140,9 +140,11 @@ server event or HTTP success within 15 seconds. Active-session deletion uses the
 activation paths. The context inspector, session menus and `/export` share a screen-owned exporter. A recent-row
 action uses the selected row's session ID.
 
-The public timeline’s **Fork from here** action uses local `session/fork.ts` and the public session client.
-The controller shares prompt reconstruction with Undo and seeds the normal activation before hydration.
-The local fork dialog handles replacement of the single tab draft, including edits made while the write is pending.
+The public timeline’s **Fork from here** action and the local `/fork` picker share
+`session/{fork-machine,fork}.ts`. The picker uses the public `SearchList` and the existing nine-dialog projection.
+It searches delivered user messages in memory. The active directory’s command catalog determines whether
+`/fork` opens the picker or runs a deployment-defined command. Both fork entry points use the public session
+client, share prompt reconstruction with Undo, and protect edits made before or during creation.
 
 Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
 The pure machine owns slots, FIFO eligibility, request IDs and stall warnings; the driver retains fetch, abort signals,
@@ -236,6 +238,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Fork command validation (2026-11-23). All 727 Bun tests, 79 browser tests, typecheck and both production builds
+passed. The original build lacked the fork command in the composer menu. Eight fork scenarios passed against
+the updated production bundle, including search within the nine-dialog window, attachment-only prompts, pending
+and reverted rows, draft protection, and dispatch to a server-defined `/fork` with arguments. On the running
+agent, Escape returned focus to the composer at `1/9`. Both live processes stayed running.
+
+Three-run production medians before and after were 176/183 ms for entry, 69/69 ms for session switching and
+87/91 ms for streaming. Both runs made 87 requests with matching endpoint counts. Both updated builds’ source
+maps contained zero main-app or desktop source modules. Evidence is in `node_modules/.cache/fork-command/`.
 
 Prompt retry and budget notice validation (2026-11-22). All 725 Bun tests, 76 browser tests, typecheck and
 both production builds passed. The original build issued a fresh ID after a lost acknowledgement and lacked
