@@ -1,4 +1,4 @@
-import type { SessionModelSelection } from "@/runtime/server/persistence"
+import type { ModelSelection, SessionModelSelection } from "@/runtime/server/persistence"
 export const COMMIT_ACK_TIMEOUT_MS = 10_000
 
 type Entry =
@@ -24,6 +24,23 @@ export const sameChoice = (a: SessionModelSelection | undefined, b: SessionModel
   a.model.providerID === b.model.providerID &&
   a.model.modelID === b.model.modelID &&
   a.variant === b.variant
+
+// An explicit variant, including Default (null), belongs to the choice that supplied the model.
+export function selectModelChoice<T extends ModelSelection>(input: {
+  draft?: SessionModelSelection
+  durable?: SessionModelSelection
+  fallback?: ModelSelection
+  find: (key: ModelSelection) => T | undefined
+}) {
+  for (const choice of [input.draft, input.durable]) {
+    if (!choice) continue
+    const model = input.find(choice.model)
+    if (model) return { model, variant: choice.variant }
+  }
+  const model = input.fallback && input.find(input.fallback)
+  if (model) return { model, variant: undefined }
+}
+
 export function createModelSelectionState(
   choices: Record<string, SessionModelSelection | undefined>,
 ): ModelSelectionState {

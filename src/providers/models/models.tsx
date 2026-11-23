@@ -20,7 +20,7 @@ const RECENT_LIMIT = 5
 export const isFreeModel = (model: { provider: { id: string }; cost?: { input: number } }) =>
   model.provider.id === "opencode" && (!model.cost || model.cost.input === 0)
 
-function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
+export function sameModel(a: ModelSelection | undefined, b: ModelSelection | undefined) {
   return !!a && !!b && a.providerID === b.providerID && a.modelID === b.modelID
 }
 

@@ -6,7 +6,8 @@ import {
   type ModelSelectionEvent,
 } from "./selection-machine"
 import { DEFAULT_MODEL_CONFIG } from "@/providers/models/default-config"
-import { createModelsController, findModel, modelOptions, type ModelKey, type ModelOption } from "./models"
+import { resolveSelectedModel } from "./configured"
+import { createModelsController, modelOptions, type ModelKey, type ModelOption } from "./models"
 import type { ProviderListResponse } from "@/runtime/server/types"
 import {
   readModelSelection,
@@ -16,6 +17,8 @@ import {
   type SessionModelSelection,
 } from "@/runtime/server/persistence"
 import { currentDirectory, currentLocalAgent, setState, state } from "@/runtime/server/session-store-compact"
+
+export { resolveSelectedModel }
 
 export type ModelLoadStatus = "loading" | "ready" | "failed"
 
@@ -89,32 +92,6 @@ export function reconcileModelSelection() {
   if (key && state.session?.agent === currentLocalAgent()) dispatch({ type: "reconciled", key, durable: durable() })
 }
 
-export function resolveSelectedModel<T extends ModelKey>(
-  options: T[],
-  defaults: ProviderListResponse["default"],
-  stored: ModelKey | undefined,
-  configured: ModelKey | undefined,
-) {
-  const storedOption = findModel(options, stored)
-  if (storedOption) return { providerID: storedOption.providerID, modelID: storedOption.modelID }
-
-  const configuredDefaultOption = findModel(options, configured)
-  if (configuredDefaultOption) {
-    return { providerID: configuredDefaultOption.providerID, modelID: configuredDefaultOption.modelID }
-  }
-
-  for (const option of options) {
-    const modelID = defaults[option.providerID]
-    if (!modelID) continue
-    const defaultOption = findModel(options, { providerID: option.providerID, modelID })
-    if (defaultOption) return { providerID: defaultOption.providerID, modelID: defaultOption.modelID }
-  }
-
-  const first = options[0]
-  if (!first) return
-  return { providerID: first.providerID, modelID: first.modelID }
-}
-
 export function syncModelSelection(catalog: ProviderListResponse) {
   const options = modelOptions(catalog)
   const selected = resolveSelectedModel(
@@ -132,8 +109,7 @@ export function syncModelSelection(catalog: ProviderListResponse) {
   reconcileModelSelection()
 }
 
-// Shared local choices outlive individual composer controllers. Only this boundary writes preferences
-// or retires an acknowledged draft; composer/selection.ts owns precedence and user interactions.
+// Shared local choices outlive individual composers. The adapter owns preference writes and acknowledgements.
 export const localModelSelection = {
   models,
   draft: {

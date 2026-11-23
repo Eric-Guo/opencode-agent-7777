@@ -34,6 +34,13 @@ describe("model selection fallback", () => {
     })
   })
 
+  test("checks provider defaults in catalog order and skips unavailable defaults", () => {
+    const options = [first, configured, server]
+    const both = { "provider-b": "server", "provider-a": "configured" }
+    expect(resolveSelectedModel(options, both, undefined, undefined)).toEqual(configured)
+    expect(resolveSelectedModel(options, { ...both, "provider-a": "gone" }, undefined, undefined)).toEqual(server)
+  })
+
   test("returns an isolated selection for the mutable session store", () => {
     const selected = resolveSelectedModel(models, defaults, stored, configured)!
     selected.modelID = "changed"

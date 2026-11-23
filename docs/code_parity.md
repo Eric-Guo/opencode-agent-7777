@@ -180,9 +180,12 @@ Local `composer/retry.ts` reuses the admission ID on an explicit resend of the s
 after reload. The compact fingerprint covers the outgoing request and backend. Timeline and inbox evidence
 can settle a retry locally, and replayed HTTP receipts leave queue membership to the existing inbox refresh.
 The optional draft record can reconstruct the original model while the catalog loads.
-Model choices follow `providers/models/selection-machine.ts`; persistence is an output effect. A ten-second
-acknowledgement deadline retains local preferences, and older cancellation or acknowledgement cannot retire a
-newer choice. Optional agent-catalog stalls do not disable successfully loaded models.
+Model selection follows the local `providers/models/{configured,selection-machine}.ts` boundaries. The catalog
+resolver applies saved, source and server defaults in order. The selection machine picks an available model and
+its variant together from the scoped draft, durable session or global fallback. The composer applies per-model
+preferences and agent defaults when the winning choice inherits a variant. A ten-second acknowledgement
+deadline retains local preferences, and older cancellation or acknowledgement cannot retire a newer choice.
+Optional agent-catalog stalls do not disable successfully loaded models.
 
 Permission/question replies and directory lists use compact-local `session/requests/{reply-machine,list-machine}.ts`.
 Replies have 15/30-second deadlines respectively. List reads cannot release active replies; SSE-created requests
@@ -226,13 +229,13 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 
 ## Remaining compact responsibilities
 
-- Embedding controls, `current/9`, model configuration, tab keys, welcome, local assets and paged recent-session search.
+- Embedding controls, `current/9`, tab keys, welcome, local assets and paged recent-session search.
+- Deployment-owned model defaults, provider and model visibility, and the persisted server/directory/session/agent scope.
 - The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
-- Source model defaults, visibility and scoped choices. Review event routing, three context lines,
-  bounded patches and 100 ms file-event coalescing.
+- Review event routing, three context lines, bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,
 browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
@@ -242,6 +245,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Model-selection validation (2026-11-23). The original and refactored resolvers agreed on 1,176 catalog defaults
+and 6,384 scoped model and variant combinations, including ambiguous legacy IDs and unavailable models. The
+production browser fixture passed on both builds for model switching from budget notices and retrying a prompt
+while the catalog loads. On the live agent, filtering kept the selected model and Escape restored composer focus
+at `1/9`. All 734 Bun tests, 79 browser component tests, typecheck and both production builds passed.
+Both updated builds' source maps contained zero main-app or desktop modules. Evidence is in
+`node_modules/.cache/model-selection-parity/`.
 
 Timeline pause/resume validation (2026-11-23). The extracted rules matched the original scroll action and jump
 visibility across 2,592 combinations of reader input, pause state and viewport geometry. The production fixture

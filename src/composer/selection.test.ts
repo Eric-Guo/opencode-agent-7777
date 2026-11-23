@@ -217,6 +217,25 @@ describe("session model selection", () => {
     expect(selection.current()).toMatchObject(other)
   })
 
+  test("restores a scoped Default when its model returns to the catalog", () => {
+    setState("session", session("catalog-returns", "high"))
+    const selection = createPromptModelSelection()
+    selection.set(other)
+    selection.variant.set(undefined)
+
+    const catalog = [...state.models]
+    setState(
+      "models",
+      catalog.filter((item) => item.modelID !== other.modelID),
+    )
+    expect(selection.current()).toMatchObject(model)
+    expect(selection.variant.current()).toBe("high")
+
+    setState("models", catalog)
+    expect(selection.current()).toMatchObject(other)
+    expect(selection.variant.current()).toBeUndefined()
+  })
+
   test("ignores a session's model when a desktop tab targets a different agent", () => {
     setState("server", {
       url: "https://agent.example",

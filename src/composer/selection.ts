@@ -1,28 +1,34 @@
 import { batch } from "solid-js"
+import { sameModel, type ModelOption } from "@/providers/models/models"
 import { localModelSelection, type ModelSelectorState } from "@/providers/models/selection"
+import { selectModelChoice } from "@/providers/models/selection-machine"
 import { cycleModelVariant, getConfiguredAgentVariant, resolveModelVariant } from "@/providers/models/variant"
 import { currentLocalAgent, state } from "@/runtime/server/session-store-compact"
 
-// Composer policy combines draft, durable session and global choices without owning their storage.
+const variantNames = (model: ModelOption | undefined) =>
+  Object.keys(model?.variants ?? {}).filter((key) => key !== "default")
+
 export function createPromptModelSelection(): ModelSelectorState {
   const local = localModelSelection
   const models = local.models
-  const choice = () => {
-    const value = local.draft.current()
-    return value && models.find(value.model) ? value : undefined
-  }
-  const current = () =>
-    models.find(choice()?.model) ?? models.find(local.durable()?.model) ?? models.find(local.fallback.current())
-  const variants = () => Object.keys(current()?.variants ?? {}).filter((value) => value !== "default")
-  const configured = (model = current()) => {
+  const choice = () =>
+    selectModelChoice({
+      draft: local.draft.current(),
+      durable: local.durable(),
+      fallback: local.fallback.current(),
+      find: models.find,
+    })
+  const current = () => choice()?.model
+  const variants = () => variantNames(current())
+  const variantFor = (model: ModelOption | undefined, selected: string | null | undefined) => {
+    if (!model) return
     const agent = state.agentModels[currentLocalAgent()]
-    return getConfiguredAgentVariant({ agent: agent && { model: agent, variant: agent.variant }, model })
-  }
-  const selectedVariant = () => {
-    const draft = choice()
-    if (draft) return draft.variant
-    const value = local.durable()
-    if (value && models.find(value.model)) return value.variant
+    return resolveModelVariant({
+      variants: variantNames(model),
+      selected,
+      configured: getConfiguredAgentVariant({ agent: agent && { model: agent, variant: agent.variant }, model }),
+      preferred: models.variant.get(model),
+    })
   }
   const selection: ModelSelectorState = {
     current,
@@ -36,7 +42,7 @@ export function createPromptModelSelection(): ModelSelectorState {
       const items = selection.recent()
       const item = current()
       if (!item || !items.length) return
-      const index = items.findIndex((entry) => entry.providerID === item.providerID && entry.modelID === item.modelID)
+      const index = items.findIndex((entry) => sameModel(entry, item))
       const next =
         index < 0 ? (direction === 1 ? 0 : items.length - 1) : (index + direction + items.length) % items.length
       // Cycling must not reorder the recent list or it would bounce between two models.
@@ -46,21 +52,10 @@ export function createPromptModelSelection(): ModelSelectorState {
       const resolved = models.find(model)
       if (model && !resolved) return
       const selected = resolved ? { providerID: resolved.providerID, modelID: resolved.modelID } : undefined
-      const previous = current()
-      const same = selected && previous?.providerID === selected.providerID && previous.modelID === selected.modelID
-      const variant = same ? (selection.variant.current() ?? null) : undefined
+      const previous = choice()
+      const variant = variantFor(resolved, sameModel(previous?.model, resolved) ? previous?.variant : undefined)
       batch(() => {
-        // Resolve the new model's preference independently from the previous session model.
-        const nextVariant =
-          variant !== undefined
-            ? variant
-            : resolveModelVariant({
-                variants: Object.keys(resolved?.variants ?? {}),
-                selected: undefined,
-                configured: resolved ? configured(resolved) : undefined,
-                preferred: selected ? models.variant.get(selected) : undefined,
-              })
-        local.draft.set(selected ? { model: selected, variant: nextVariant ?? null } : undefined)
+        local.draft.set(selected ? { model: selected, variant: variant ?? null } : undefined)
         local.fallback.set(selected)
         if (!selected) return
         models.setVisibility(selected, true)
@@ -73,13 +68,8 @@ export function createPromptModelSelection(): ModelSelectorState {
     trackSessionCommit: local.trackSessionCommit,
     variant: {
       current() {
-        const model = current()
-        return resolveModelVariant({
-          variants: variants(),
-          selected: selectedVariant(),
-          configured: configured(),
-          preferred: model ? models.variant.get(model) : undefined,
-        })
+        const active = choice()
+        return variantFor(active?.model, active?.variant)
       },
       list: variants,
       set(value) {

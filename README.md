@@ -510,12 +510,16 @@ English fallback and eager English/Chinese dictionaries remain local. The compac
 its document language and cookie updates, and synchronous language switching without importing app source.
 The compact `runtime/i18n/language-context.ts` keeps the provider identity stable across translation hot updates.
 
-`composer/selection.ts` owns active model precedence, variant resolution and recent-model cycling, following the main
-app's composer boundary. Both the editor and submit path use it. Unsent choices still precede the durable session
-model and global fallback; explicit Default variants, agent defaults, hidden-model filtering and recency order are
-preserved. Provider-owned choices and pending acknowledgements outlive individual composer instances. The moved
-contracts live in `composer/selection.test.ts`, including cancellation of older sends after a newer selection is pending;
-catalog fallback coverage remains in `providers/models/selection.test.ts`.
+`providers/models/configured.ts` resolves the global fallback when the catalog loads. It tries the saved selection,
+then the source-configured default, then server defaults in catalog order, then the first catalog entry.
+Exact catalog IDs take precedence over unambiguous legacy API IDs.
+
+The local `providers/models/selection-machine.ts` selects the model and its variant together. An available unsent
+choice for the active scope takes priority over the session's model for the current agent, followed by the global
+fallback. An explicit **Default** belongs to its model. If the catalog drops that model, the next available choice
+supplies its own variant. Visibility filters picker results and recent-model cycling while allowing a hidden model
+to remain active. The editor and submission both use `composer/selection.ts` for variant resolution and cycling.
+Scoped choices and pending acknowledgements outlive individual composers.
 
 The model manager follows `providers/models/manage.tsx`, `providers/models/provider-group.tsx`,
 `providers/catalog/console.ts`, and `settings/{list,row}.tsx`. Console integrations nest under an OpenCode Console
