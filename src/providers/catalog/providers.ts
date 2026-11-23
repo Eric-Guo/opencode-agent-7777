@@ -4,6 +4,13 @@ import { normalizeProviderList } from "@/runtime/server/global-sync/utils"
 
 export { popularProviders } from "./order"
 
+// Reads the current directory snapshot without starting a sync. The picker and the transcript
+// share the normalized catalog even when they observe it at different times.
+export function readProviderCatalog(data: Data, directory: string) {
+  const location = { directory }
+  return normalizeProviderList(data.location.provider.list(location) ?? [], data.location.model.list(location) ?? [])
+}
+
 // Directory catalog reads do not own active-session state or model selection.
 export async function loadProviderCatalog(
   client: Pick<OpencodeClient, "model">,
@@ -16,7 +23,7 @@ export async function loadProviderCatalog(
   signal?.throwIfAborted()
   await Promise.all([data.location.provider.sync(location), data.location.model.sync(location)])
   return {
-    ...normalizeProviderList(data.location.provider.list(location) ?? [], data.location.model.list(location) ?? []),
+    ...readProviderCatalog(data, directory),
     // Keep the server's configured default ahead of the first available model.
     default: defaultModel.data ? { [defaultModel.data.providerID]: defaultModel.data.id } : {},
   }

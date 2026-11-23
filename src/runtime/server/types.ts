@@ -1,4 +1,4 @@
-import type { ModelCost, ModelInfo, ProviderInfo } from "@opencode/client/promise"
+import type { ModelCost, ModelInfo, ModelSpeed, ProviderInfo } from "@opencode/client/promise"
 
 // Keep public client capabilities intact; only picker-specific views need adaptation.
 export type Model = Pick<ModelInfo, "id" | "providerID" | "name" | "family" | "limit" | "status" | "capabilities"> & {
@@ -6,6 +6,7 @@ export type Model = Pick<ModelInfo, "id" | "providerID" | "name" | "family" | "l
     id: ModelInfo["modelID"]
   }
   cost: Omit<ModelCost, "tier">
+  speed?: ModelSpeed
   variants?: Record<string, NonNullable<ModelInfo["variants"][number]["settings"]>>
 }
 

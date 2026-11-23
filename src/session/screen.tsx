@@ -4,6 +4,7 @@ import { IconButton } from "@opencode/ui/icon-button"
 import { Icon } from "@opencode/ui/icon"
 import { ScrollView } from "@opencode/ui/scroll-view"
 import { createMemo, onCleanup, onMount, Show, type ComponentProps } from "solid-js"
+import { readProviderCatalog } from "@/providers/catalog/providers"
 import { SessionHeader } from "@/session/header/session-header"
 import { useSettings } from "@/settings/model"
 import { ComposerDropzone } from "@/composer/dropzone"
@@ -41,13 +42,16 @@ export function SessionPage() {
   const layout = useSessionLayout({
     userDialogCount: timeline.userDialogCount,
   })
-  const sessionUiData = createMemo(
-    (): SessionUiData => ({
-      session: state.session ? [state.session] : [],
-      session_status: state.session ? { [state.session.id]: state.sessionStatus } : {},
+  const sessionUiData = createMemo((): SessionUiData => {
+    const session = state.session
+    const runtime = currentRuntime()
+    return {
+      provider: session && runtime && readProviderCatalog(runtime.data, sessionDirectory(session)),
+      session: session ? [session] : [],
+      session_status: session ? { [session.id]: state.sessionStatus } : {},
       session_diff: {},
-    }),
-  )
+    }
+  })
 
   const interaction = createSessionTimelineInteraction({ identity: currentRuntime })
   const turnDiff = createMemo(() => {

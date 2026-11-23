@@ -44,6 +44,11 @@ driver requests a finished turn through `session.diff` and caches it by its clos
 the nine-dialog window. Steered prompts share a read. Reads have three lines of context
 and a 15-second deadline. The gear menu and settings persistence stay local.
 
+Message labels and model-switch notices use the active directory’s cached provider and model lists.
+`providers/catalog/providers.ts` shares the catalog with the picker, including each model’s speed and
+base model. The public timeline renders the localized notice and falls back to the recorded ID while the
+catalog loads or when it has no matching entry.
+
 The Timeline menu also persists two independent expansion defaults for shell and edit tool calls. The compact
 adapter passes them to the public `SessionTimeline` props `shellToolDefaultOpen` and `editToolDefaultOpen`.
 Both start off. The shared timeline owns grouping, patch rendering and per-row disclosure.
@@ -276,6 +281,15 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Timeline model labels (2026-11-24). The original production build kept the raw ID after the catalog loaded.
+The updated build showed the catalog name, the recorded variant and both speed-change notices. Unknown
+models retained their IDs, and switching back to a session with an empty catalog restored its fallback labels.
+The fixture counted one provider read and one model read for the activation. The live agent showed matching
+model names in the transcript and picker at `1/9`. All 743 Bun tests, 93 browser tests, typecheck and both
+production builds passed. Both builds’ source maps contained zero main-app or desktop modules. Three-run
+medians before and after were 176/182 ms for entry, 82/82 ms for switching and 91/88 ms for streaming.
+Both benchmarks made the same 87 requests by endpoint. Evidence is in `node_modules/.cache/timeline-model-catalog/`.
 
 Live shell output and changed files (2026-11-24). Two production browser tests reproduced missing direct
 and background shell output on the original build. Both passed on the updated build, and expanding a

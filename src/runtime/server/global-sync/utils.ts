@@ -57,6 +57,7 @@ export function normalizeProviderList(
       },
       limit: model.limit,
       status: model.status,
+      speed: model.experimental?.speed && { ...model.experimental.speed },
       variants: Object.fromEntries(model.variants.map((variant) => [variant.id, variant.settings ?? {}])),
     }
   }

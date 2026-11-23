@@ -286,6 +286,11 @@ The public `@opencode/session-ui` shell row owns cursor reads, polling and the f
 live-output read loads the running-shell inventory. Reconnect refreshes that inventory, and switching
 sessions or directories cancels pending reads.
 
+The transcript uses the active directory’s model catalog for message labels and model-switch notices.
+When two models are speeds of the same base model, the notice names the new speed. A missing catalog
+entry displays the recorded model ID. `providers/catalog/providers.ts` reads the same cached lists used
+by the picker, and the public `@opencode/session-ui` rows format the labels.
+
 The optional rows use the public `SessionTimeline` and `TurnDiffSource` from `@opencode/session-ui`.
 The local `session/timeline/turn-diff-machine.ts` decides when a changed-files row can load or retry.
 `session/timeline/turn-diffs.ts` owns the requests and their cancellation. The compact cache lives

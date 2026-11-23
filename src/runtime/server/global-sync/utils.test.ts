@@ -32,6 +32,7 @@ describe("normalizeProviderList", () => {
     const providers = [{ ...provider("provider"), canonical: "openai", integrationID: "opencode" }]
     const models = [
       model({
+        experimental: { speed: { base: "standard-model", id: "fast", faster: true } },
         cost: [
           { input: 9, output: 12, cache: { read: 3, write: 4 }, tier: { type: "context", size: 100 } },
           { input: 1, output: 2, cache: { read: 0.1, write: 0.2 } },
@@ -47,6 +48,7 @@ describe("normalizeProviderList", () => {
     expect(result.all.get("provider")?.models["configured-model"]).toMatchObject({
       id: "configured-model",
       api: { id: "api-model" },
+      speed: { base: "standard-model", id: "fast", faster: true },
       capabilities: {
         tools: true,
         input: ["text", "image", "pdf"],
@@ -58,12 +60,14 @@ describe("normalizeProviderList", () => {
     expect(result.all.get("provider")?.models["configured-model"].capabilities).not.toHaveProperty("reasoning")
     expect({ providers, models }).toEqual(original)
 
-    // UI stores must not mutate capability arrays owned by the shared client resource.
+    // UI stores must not mutate metadata owned by the shared client resource.
     const [state, setState] = createStore({ model: result.all.get("provider")!.models["configured-model"] })
     setState("model", "capabilities", "input", 0, "audio")
     setState("model", "capabilities", "output", 0, "image")
+    setState("model", "speed", "id", "changed")
     expect(state.model.capabilities.input).toEqual(["audio", "image", "pdf"])
     expect(state.model.capabilities.output).toEqual(["image"])
+    expect(state.model.speed?.id).toBe("changed")
     expect({ providers, models }).toEqual(original)
   })
 
