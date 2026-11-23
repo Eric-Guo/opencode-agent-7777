@@ -41,6 +41,9 @@ for (const mode of ["native codecs", "fallback decoder", "no SubtleCrypto"] as c
     await page.reload()
     for (const file of files) await expect(page.getByText(file.name, { exact: true })).toBeVisible()
     expect(await savedAttachments(page)).toEqual(saved)
+    await page.locator('input[type="file"]').setInputFiles(files[2])
+    await expect(page.getByText("This file has already been uploaded", { exact: true })).toBeVisible()
+    expect(await savedAttachments(page)).toEqual(saved)
     expect(errors).toEqual([])
   })
 }

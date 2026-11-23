@@ -66,6 +66,22 @@ export function createLegacyBlobReference(dataUrl: string): BlobReference {
   return { id: dataUrl, url: dataUrl }
 }
 
+function inlineBase64(url: string) {
+  if (url === "data:" || url === "data:,") return ""
+  // A comma in a quoted MIME parameter is part of the header.
+  const header = /^data:(?:[^",]|"(?:[^"\\]|\\.)*")*?;base64,/i.exec(url)
+  return header ? url.slice(header[0].length) : undefined
+}
+
+export function sameBlobContent(saved: BlobReference, picked: BlobReference) {
+  if (saved.id === picked.id) return true
+  // Restored messages carry URL-based IDs, and origins without SubtleCrypto generate random IDs.
+  if (/^[a-f0-9]{64}$/.test(saved.id) && /^[a-f0-9]{64}$/.test(picked.id)) return false
+  if (saved.url === picked.url) return saved.url.startsWith("data:")
+  const payload = inlineBase64(saved.url)
+  return payload !== undefined && payload === inlineBase64(picked.url)
+}
+
 export function readPromptDraft(key = AGENT_DEFAULT_CONFIG.storageKeys.promptDraft): PromptDraft | undefined {
   const value = storageGet(key)
   if (!value) return undefined

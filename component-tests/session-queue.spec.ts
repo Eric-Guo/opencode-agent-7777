@@ -11,7 +11,12 @@ test("Send and Undo publish queue receipts while an older inbox read is in fligh
     sessionID: "ses_0",
     type: "user",
     delivery: "queue",
-    payload: { text },
+    payload: {
+      text,
+      ...(index === 1
+        ? { files: [{ name: "example.json", mime: "text/plain", data: "e30=", source: { type: "inline" as const } }] }
+        : {}),
+    },
     time: { created: index + 1 },
   }))
   const release = Promise.withResolvers<void>()
@@ -63,5 +68,14 @@ test("Send and Undo publish queue receipts while an older inbox read is in fligh
   await expect(editor).toHaveText(/Keep my draft\s+Restore this/)
   await expect(timeline.getByText("Send this", { exact: true })).toHaveCount(0)
   await expect(timeline.getByText("Restore this", { exact: true })).toHaveCount(0)
+  const file = { name: "example.json", mimeType: 'application/json;profile="a,b"', buffer: Buffer.from("{}") }
+  const picker = page.locator('input[type="file"]')
+  await picker.setInputFiles(file)
+  await expect(page.getByText("This file has already been uploaded", { exact: true })).toBeVisible()
+  await expect(page.getByText(file.name, { exact: true })).toHaveCount(1)
+  await picker.setInputFiles({ ...file, buffer: Buffer.from('{"edited":true}') })
+  await expect(page.getByText(file.name, { exact: true })).toHaveCount(2)
+  await picker.setInputFiles({ ...file, name: "copy.json" })
+  await expect(page.getByText("copy.json", { exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })

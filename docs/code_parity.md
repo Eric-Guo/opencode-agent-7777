@@ -259,6 +259,19 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
 
+Eight-commit browser verification (2026-11-23). On the live agent, recent sessions expanded from 12 to 24,
+title search returned two matches, and scrolling up then choosing Jump to latest resumed the timeline.
+The fork picker, model and variant menus, and review refresh also worked. An isolated production session
+accepted a conditional MCP reply, promoted a queued message, restored a queued file with Undo, switched
+model and variant, and forked from a delivered prompt with draft replacement confirmation.
+
+Reselecting the restored JSON file produced two attachment cards on the committed build. The fix retained
+one card and the original draft across reload, including when the picker supplied a different MIME header.
+The browser suite also reproduced and verified the fix for random attachment IDs without SubtleCrypto.
+Changed bytes and renamed copies stayed independently attachable. All 741 Bun tests, 86 browser component
+tests, typecheck and both builds passed. The production timeline, history, runtime and review checks made the
+same 97 requests before and after, including 12 VCS reads. Evidence is in `node_modules/.cache/eight-commit-browser/`.
+
 Inline attachment validation (2026-11-23). The production fixture counted two full reads of a source file
 before the refactor and one afterward. Both builds preserved attachment bytes and IDs across reload for
 empty, Unicode and binary files, including MIME parameters with commas, the fallback decoder and browsers

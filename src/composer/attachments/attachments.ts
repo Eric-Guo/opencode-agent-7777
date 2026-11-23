@@ -1,7 +1,7 @@
 import { onCleanup, onMount } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { uuid } from "@opencode/util/uuid"
-import { createBlobReference } from "@/runtime/persistence/drafts"
+import { createBlobReference, sameBlobContent } from "@/runtime/persistence/drafts"
 import { ACCEPTED_FILE_TYPES, attachmentMime, type AttachmentPickerLifecycle } from "@/runtime/platform/file-picker"
 import type { ComposerAttachment, ComposerPrompt } from "../types"
 import { isAttachment } from "../prompt-parts"
@@ -97,10 +97,10 @@ export function createComposerAttachments(
       .some(
         (part) =>
           isAttachment(part) &&
-          part.blob.id === blob.id &&
           (sourcePath
-            ? part.sourcePath === sourcePath
-            : !part.sourcePath && (clipboard || part.filename === file.name)),
+            ? (part.sourcePath ?? part.filename) === sourcePath
+            : !part.sourcePath && (clipboard || part.filename === file.name)) &&
+          sameBlobContent(part.blob, blob),
       )
     if (duplicate) {
       input.duplicate()

@@ -2,6 +2,7 @@ import { describe, expect, mock, test } from "bun:test"
 import { createRoot } from "solid-js"
 import { ACCEPTED_FILE_TYPES } from "@/runtime/platform/file-picker"
 import { installDOM } from "@/test/dom"
+import { attachmentFromDraft } from "../prompt"
 import type { ComposerPrompt } from "../types"
 import { createComposerAttachments } from "./attachments"
 
@@ -217,6 +218,32 @@ describe("composer attachments", () => {
       expect(input.prompt()).toEqual(saved)
       expect(input.duplicate).toHaveBeenCalledTimes(1)
       expect(store).toHaveBeenCalledTimes(2)
+    } finally {
+      input.dispose()
+    }
+  })
+
+  test("matches restored desktop files by their recorded path and keeps copies from other directories", async () => {
+    const path = "/reports/example.json"
+    let pickedPath = path
+    const file = new File(["{}"], "example.json", { type: "application/json" })
+    const input = fixture(async () => ({ id: "picked", url: "data:application/json;base64,e30=" }), {
+      getPathForFile: () => pickedPath,
+    })
+    try {
+      const restored = attachmentFromDraft({
+        id: "restored",
+        filename: path,
+        mime: "text/plain",
+        url: "data:text/plain;base64,e30=",
+      })
+      input.target.prompt.set([restored])
+      await input.attachments.addAttachments([file], true, input.target)
+      expect(input.prompt()).toEqual([restored])
+      expect(input.duplicate).toHaveBeenCalledTimes(1)
+      pickedPath = "/archive/example.json"
+      await input.attachments.addAttachments([file], true, input.target)
+      expect(input.prompt()).toHaveLength(2)
     } finally {
       input.dispose()
     }
