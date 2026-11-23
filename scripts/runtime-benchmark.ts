@@ -519,9 +519,11 @@ try {
         // the compact adapter observes, without resuming on the next delta.
         const thumb = scroll.locator('.scroll-view__thumb[data-orientation="vertical"]')
         await scroller.hover()
-        const box = (await thumb.boundingBox())!
-        await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+        // Wait for the thumb to settle after streamed content changes its size and position.
+        await thumb.hover()
         await page.mouse.down()
+        await expect(thumb).toHaveAttribute("data-dragging", "true")
+        const box = (await thumb.boundingBox())!
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 120, { steps: 6 })
         await page.mouse.up()
         await expect(resume).toBeVisible()

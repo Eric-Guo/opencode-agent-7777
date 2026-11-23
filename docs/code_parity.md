@@ -43,8 +43,10 @@ Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching 
 nodes during attachment-only updates, preserving the caret and native undo/redo. In-place store edits remain
 reactive; local blank-line echoes and later explicit clears are separate transitions. Compact mention metadata
 refreshes without replacing matching nodes. The rendered contract lives in `component-tests/composer.spec.ts`.
-The shared `createAutoScroll` hook owns timeline pinning on content and viewport resize. The local interaction adapter
-distinguishes an initial layout adjustment from reader input and tracks jump-button visibility while paused.
+Timeline scroll decisions live in the compact `session/timeline/machine.ts`. It distinguishes a layout shift from
+reader input and uses consecutive viewport measurements to preserve a pause or recognize arrival near the end.
+The local interaction adapter handles DOM events and uses the same ten-pixel boundary for **Jump to latest**.
+The public `createAutoScroll` hook owns the pause state and pins on content and viewport resize.
 The local `session/timeline/controller-projection.ts` follows the main app's projection boundary. The timeline
 and loader use the same revert filter and nine-dialog count. The runtime pages through the public client until the
 visible window is full or the cursor stops advancing, and retains staged rows for Redo. A server revert can
@@ -229,8 +231,8 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
   Queue undo preserves unrepresentable context and merges the latest draft only after cancellation.
   Question state stays local without the main app's global draft cache, collapse controls or global shortcuts.
-- Scroll pause/resume; source model defaults, visibility and scoped choices; review event routing,
-  three context lines, bounded patches and 100 ms file-event coalescing.
+- Source model defaults, visibility and scoped choices. Review event routing, three context lines,
+  bounded patches and 100 ms file-event coalescing.
 
 Queue editing/reordering, credentials, staged/history/comment review, docking, terminal, summary panels,
 browser, remote servers and extension hosting require a product decision. Public APIs also lack atomic queue
@@ -240,6 +242,17 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Timeline pause/resume validation (2026-11-23). The extracted rules matched the original scroll action and jump
+visibility across 2,592 combinations of reader input, pause state and viewport geometry. The production fixture
+passed on both builds for reflow, streaming while paused, wheel, keyboard, scrollbar drag, text selection and
+session switching. Its drag now waits for the scrollbar thumb to settle after streaming. The live agent showed
+**Jump to latest** after Page Up and returned to the end at `1/9`.
+
+All 732 Bun tests, 79 browser tests, typecheck and both production builds passed. The three-run medians before
+and after were 177/185 ms for entry, 70/69 ms for session switching and 90/88 ms for streaming. Both runs
+made the same 87 requests. Both updated builds' source maps contained zero main-app or desktop modules.
+Evidence is in `node_modules/.cache/timeline-follow/`.
 
 MCP form refactor validation (2026-11-23). The original and refactored controllers produced the same visible
 fields, completeness and typed answers after 480 edits. The production routing fixture covered child and

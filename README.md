@@ -248,15 +248,15 @@ cost selection and variants. Unused legacy configuration fields and synthetic ca
 arrays are copied at the adapter boundary so Solid stores cannot mutate shared client catalogs; the tooltip retains its
 existing modality order and omits unknown reasoning support. These files keep the main app's boundaries with local code.
 
-Timeline scrolling follows the main app's `session/timeline/interaction.ts` boundary. The screen now uses the same
-public `ScrollView` from `@opencode/ui/scroll-view` for its focusable viewport, keyboard navigation, nested-scroll
-ownership, and draggable scrollbar. `createAutoScroll` from `@opencode/ui/hooks` still owns following streamed content,
-pausing for reading or text selection, and overflow anchoring. The local adapter pauses on upward keyboard navigation
-and uses the main app's arrival check so delayed scroll events cannot cancel that intent. Reaching the end or using
-**Jump to latest** resumes following. On activation and explicit resume, the adapter keeps the timeline at the end
-if layout briefly clamps the viewport before its scroll event arrives. Timeline input returns control to the reader.
-The shared hook pins on viewport and content resize. While reading, the compact adapter updates **Jump to latest**
-when content grows. The compact screen owns the viewport and resume control and retains the nine-dialog window.
+Timeline scrolling follows the main app's `session/timeline/{interaction,machine}.ts` layout. The compact screen
+uses the public `ScrollView` for its focusable viewport, keyboard navigation, nested scrolling and draggable
+scrollbar. The local interaction adapter measures the viewport and handles upward keys and text selection.
+The public `createAutoScroll` hook handles the wheel and owns the pause state, resize pinning and overflow anchoring.
+
+The local machine distinguishes layout shifts after activation or **Jump to latest** from reader input. After an
+upward key or text selection, a delayed scroll event near the end preserves the pause. Moving back to the end
+or shrinking the scroll range can resume following. While paused, **Jump to latest** appears when the reader
+is at least ten pixels from the end, including when the content grows without a scroll event.
 
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
 to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
