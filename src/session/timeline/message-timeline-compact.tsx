@@ -24,16 +24,9 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
       props.document.messages.flatMap((message): [string, SessionUserPresentation][] => {
         if (message.type !== "user") return []
         const value = readPromptPresentation(message.metadata)
-        const parsed = value ? undefined : parseCommentNote(message.text)
-        return [
-          [
-            message.id,
-            {
-              displayText: value?.displayText,
-              comments: value?.comments ?? (parsed ? [parsed] : []),
-            },
-          ],
-        ]
+        if (value) return [[message.id, value]]
+        const comment = parseCommentNote(message.text)
+        return comment ? [[message.id, { comments: [comment] }]] : []
       }),
     ),
   )

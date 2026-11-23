@@ -31,6 +31,12 @@ The local `session/timeline/projection.ts` supplies stable message and content o
 `SessionTimeline`, which owns row projection. Only the assistant text part receiving a delta recomputes its
 Chinese-parenthesized URL formatting. The context inspector and export retain the source text.
 
+For user rows, `composer/comment-note.ts` reads prompt metadata into the public `SessionUserPresentation`
+type. The shared timeline renders quotes, plugin notes, legacy browser-element comments, and server-file
+references alongside inline attachments. A reference card shows its saved path on hover without reading the
+file. The compact reader preserves the order of valid entries and the existing file-comment fallbacks.
+Draft restoration continues to use the presentation's display text and the original message's files and mentions.
+
 The compact timeline shows **Changed files** by default through the public `SessionTimeline` and `TurnDiffSource`
 APIs. A saved preference takes precedence. Shared rows own the file list, counts, patch disclosure and Retry.
 Local `session/timeline/turn-diffs.ts` requests a finished turn through `session.diff` and caches it by its closing
@@ -263,6 +269,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Timeline message cards (2026-11-24). Both new browser cases reproduced the missing cards on the original
+production build and passed on the updated build. The fixture showed quotes and notes on a prompt with empty
+display text, and a server-file reference beside an inline attachment with zero file reads. The live session
+showed Ready at `1/9` with its chart and composer available. All 743 Bun tests, 90 browser tests, typecheck and
+both production builds passed. Three-run medians before and after were 176/171 ms for entry, 72/71 ms for session
+switching and 91/92 ms for streaming. The 87 requests matched by endpoint. Both updated builds' source maps
+contained zero main-app or desktop sources. Evidence is in `node_modules/.cache/timeline-cards/`.
 
 Question and tool expansion validation (2026-11-23). Two browser regressions reproduced the loss of an explicitly
 checked option on the original dock. Both passed after the refactor. The original and updated controllers also

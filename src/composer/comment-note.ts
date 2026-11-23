@@ -1,3 +1,6 @@
+import type { SessionUserComment } from "@opencode/session-ui/actions"
+import type { SessionUserPresentation } from "@opencode/session-ui/timeline"
+import { isRecord } from "@opencode/util/record"
 import type { FileSelection } from "./types"
 
 export type PromptComment = {
@@ -9,11 +12,11 @@ export type PromptComment = {
 }
 
 function selection(selection: unknown) {
-  if (!selection || typeof selection !== "object") return undefined
-  const startLine = Number((selection as FileSelection).startLine)
-  const startChar = Number((selection as FileSelection).startChar)
-  const endLine = Number((selection as FileSelection).endLine)
-  const endChar = Number((selection as FileSelection).endChar)
+  if (!isRecord(selection)) return
+  const startLine = Number(selection.startLine)
+  const startChar = Number(selection.startChar)
+  const endLine = Number(selection.endLine)
+  const endChar = Number(selection.endChar)
   if (![startLine, startChar, endLine, endChar].every(Number.isFinite)) return undefined
   return {
     startLine,
@@ -36,38 +39,83 @@ export function createCommentMetadata(input: PromptComment) {
 }
 
 export function readCommentMetadata(value: unknown) {
-  if (!value || typeof value !== "object") return
-  return readComment((value as { opencodeComment?: unknown }).opencodeComment)
+  if (isRecord(value) && isRecord(value.opencodeComment)) return readFileComment(value.opencodeComment)
 }
 
-function readComment(value: unknown) {
-  if (!value || typeof value !== "object") return
-  const path = (value as { path?: unknown }).path
-  const comment = (value as { comment?: unknown }).comment
+function readFileComment(value: Record<string, unknown>) {
+  const { path, comment, preview, origin } = value
   if (typeof path !== "string" || typeof comment !== "string") return
-  const preview = (value as { preview?: unknown }).preview
-  const origin = (value as { origin?: unknown }).origin
   return {
     path,
-    selection: selection((value as { selection?: unknown }).selection),
+    selection: selection(value.selection),
     comment,
     preview: typeof preview === "string" ? preview : undefined,
     origin: origin === "review" || origin === "file" ? origin : undefined,
   } satisfies PromptComment
 }
 
+function readPresentationComment(value: unknown): SessionUserComment | undefined {
+  if (!isRecord(value)) return
+  const { type, comment } = value
+  switch (type) {
+    case "quote": {
+      const { text, source } = value
+      if (typeof text !== "string") return
+      return {
+        type,
+        text,
+        comment: typeof comment === "string" ? comment : undefined,
+        source:
+          isRecord(source) && typeof source.label === "string" && typeof source.icon === "string"
+            ? { label: source.label, icon: source.icon }
+            : undefined,
+      }
+    }
+    case "note": {
+      const { label, icon, title, subtitle } = value
+      if (typeof label !== "string" || typeof icon !== "string" || typeof comment !== "string") return
+      return {
+        type,
+        label,
+        icon,
+        comment,
+        title: typeof title === "string" ? title : undefined,
+        subtitle: typeof subtitle === "string" ? subtitle : undefined,
+      }
+    }
+    case "browser": {
+      // Older clients recorded a picked element. Its label and comment still describe it after the tab is gone.
+      const { element } = value
+      if (typeof comment !== "string") return
+      if (!isRecord(element) || typeof element.selector !== "string" || typeof element.label !== "string") return
+      return { type: "note", label: element.label, icon: "select-element", comment }
+    }
+    default:
+      return readFileComment(value)
+  }
+}
+
+function readReferences(attachments: unknown[]) {
+  return attachments.flatMap((file) => {
+    if (!isRecord(file)) return []
+    const { name, mime, path } = file
+    if (typeof name !== "string" || typeof mime !== "string" || typeof path !== "string") return []
+    return [{ name, mime, path }]
+  })
+}
+
 export function readPromptPresentation(value: unknown) {
-  if (!value || typeof value !== "object") return
-  const displayText = (value as { displayText?: unknown }).displayText
-  const comments = (value as { comments?: unknown }).comments
+  if (!isRecord(value)) return
+  const { displayText, comments, attachments } = value
   if (typeof displayText !== "string" || !Array.isArray(comments)) return
   return {
     displayText,
-    comments: comments.flatMap((item): PromptComment[] => {
-      const comment = readComment(item)
+    comments: comments.flatMap((item) => {
+      const comment = readPresentationComment(item)
       return comment ? [comment] : []
     }),
-  }
+    ...(Array.isArray(attachments) ? { references: readReferences(attachments) } : {}),
+  } satisfies SessionUserPresentation
 }
 
 export function formatCommentNote(input: { path: string; selection?: FileSelection; comment: string }) {

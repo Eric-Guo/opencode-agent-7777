@@ -240,8 +240,14 @@ the initial setting. The browser remembers the preference. A single overflowing 
 wrapping and scrolling with its own toolbar button.
 
 Session labels share `@opencode/util/session-title-fallback`, with a local wrapper preserving the recent-session
-agent fallback for absent titles. `composer/comment-note.ts` owns one compatibility reader for legacy comment and
-prompt-presentation metadata; its selection type comes from the local editor types. Both preserve existing behavior.
+agent fallback for absent titles.
+
+The timeline shows quoted text, plugin notes, and older browser-element comments attached to user messages.
+Server-file references appear beside inline attachments. Hover over a reference to see its path. Displaying the
+card uses the saved filename and MIME type without fetching the file. The local `composer/comment-note.ts` reader
+maps message metadata to the public `SessionUserPresentation` type from `@opencode/session-ui/timeline`.
+It also handles existing file comments, including the plain-text format used in older sessions.
+
 Provider/model views in `runtime/server/types.ts` reuse public `@opencode/client/promise` fields, including capability
 arrays. `runtime/server/global-sync/utils.ts` only adapts picker data: provider grouping, separate catalog/API IDs,
 cost selection and variants. Unused legacy configuration fields and synthetic capability flags are removed. Capability
@@ -798,7 +804,7 @@ draft intact and reads its existing inline URL. PDFs and text files keep their a
 
 Compact differences remain intentional: inline attachment URLs and file-type filtering,
 file comments, disabled controls, optional queue editing, and provider icons.
-The main app's upload progress, path attachments, and note cards remain outside this view.
+Upload progress and authoring path attachments or plugin notes belong to the main app's composer.
 All implementations stay package-local or use public shared-package exports.
 Markdown parsing and sanitization dependencies belong to the shared UI packages; 7777 no longer declares unused
 direct dependencies on `marked` or `dompurify`.
