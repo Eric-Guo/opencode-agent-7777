@@ -10,6 +10,8 @@ type CompactMessageTimelineProps = {
   document: SessionDocument
   actions?: SessionUserActions
   showReasoningSummaries: boolean
+  shellToolDefaultOpen?: boolean
+  editToolDefaultOpen?: boolean
   onPointerGesture?: (target?: EventTarget | null) => void
 }
 
@@ -55,6 +57,8 @@ export function CompactMessageTimeline(props: CompactMessageTimelineProps) {
         presentation={presentation()}
         actions={props.actions}
         reasoningMode={props.showReasoningSummaries ? "full" : "hidden"}
+        shellToolDefaultOpen={props.shellToolDefaultOpen}
+        editToolDefaultOpen={props.editToolDefaultOpen}
         turnDiffs={!!data.turnDiff}
         class="session-timeline-compact mx-auto w-full max-w-[1000px]"
       />

@@ -18,6 +18,8 @@ export function createSettings() {
     showReasoningSummaries: timelinePreferences.showReasoningSummaries.read(),
     showTurnDiffs: timelinePreferences.showTurnDiffs.read(),
     wrapCodeBlocks: timelinePreferences.wrapCodeBlocks.read(),
+    shellToolPartsExpanded: timelinePreferences.shellToolPartsExpanded.read(),
+    editToolPartsExpanded: timelinePreferences.editToolPartsExpanded.read(),
   })
   const setTimelinePreference = (key: keyof typeof timelinePreferences) => (value: boolean) => {
     setStore(key, value)
@@ -31,6 +33,10 @@ export function createSettings() {
       setShowTurnDiffs: setTimelinePreference("showTurnDiffs"),
       wrapCodeBlocks: () => store.wrapCodeBlocks,
       setWrapCodeBlocks: setTimelinePreference("wrapCodeBlocks"),
+      shellToolPartsExpanded: () => store.shellToolPartsExpanded,
+      setShellToolPartsExpanded: setTimelinePreference("shellToolPartsExpanded"),
+      editToolPartsExpanded: () => store.editToolPartsExpanded,
+      setEditToolPartsExpanded: setTimelinePreference("editToolPartsExpanded"),
       followUpBehavior: () => store.followUpBehavior,
       setFollowUpBehavior(value: FollowUpBehavior) {
         setStore("followUpBehavior", value)

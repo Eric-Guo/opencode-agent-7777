@@ -124,6 +124,8 @@ export function SessionPage() {
                     document={timeline.document()}
                     actions={region.actions.timeline}
                     showReasoningSummaries={settings.general.showReasoningSummaries()}
+                    shellToolDefaultOpen={settings.general.shellToolPartsExpanded()}
+                    editToolDefaultOpen={settings.general.editToolPartsExpanded()}
                     onPointerGesture={interaction.view.markUserScroll}
                   />
                 </SessionUIProvider>

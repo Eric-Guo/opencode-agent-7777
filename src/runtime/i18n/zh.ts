@@ -148,6 +148,8 @@ export const dict = {
   "settings.timeline.title": "时间表",
   "settings.timeline.row.turnDiffs.title": "已更改的文件",
   "settings.timeline.row.wrapCodeBlocks.title": "代码块自动换行",
+  "settings.general.row.shellToolPartsExpanded.title": "展开 Shell 工具调用",
+  "settings.general.row.editToolPartsExpanded.title": "展开编辑工具调用",
 
   "prompt.placeholder": "询问 {{agent}}",
   "prompt.message.aria": "消息",

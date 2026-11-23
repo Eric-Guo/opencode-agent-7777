@@ -267,6 +267,12 @@ Completed turns show their changed files by default. Turn them off under **Timel
 header gear menu. This browser remembers your choice. Expand a filename for its patch. If the read fails,
 the row keeps its recorded paths and offers **Retry**. The header’s **Review turn changes** dialog is also available.
 
+The same Timeline menu offers **Expand shell tool parts** and **Expand edit tool parts**. Both start off.
+Each preference takes effect on the current timeline and is saved in this browser. The compact adapter passes
+them to the public `SessionTimeline` through `shellToolDefaultOpen` and `editToolDefaultOpen`. Shared rows
+handle tool grouping and manual disclosure. For a completed edit with file metadata, the first file’s patch opens
+by default. An edit with only input text still offers its patch for manual expansion.
+
 The optional rows use the public `SessionTimeline` and `TurnDiffSource` from `@opencode/session-ui`.
 The local `session/timeline/turn-diffs.ts` follows the main app’s turn-diff boundary. The compact cache lives
 with the visible nine-dialog window. Prompts steered into the same turn share the diff identified by its closing
@@ -449,16 +455,11 @@ under `src/session/requests/`. These widgets own answer selection, custom text, 
 pending controls and permission decisions. Only the existing `@opencode/session-ui/dock-prompt` shell and styles
 are shared. The main app keeps its own prompt implementations, including its question draft cache, collapse controls,
 global shortcuts and viewport sizing. Compact widgets are not exported by `session-ui` or consumed by the main app.
-`question-state.ts` and `question-keys.ts` now follow the main app's state and keyboard module boundaries with local
-implementations. Each mounted request owns one state controller, grouping a question's selected values, custom text
-and custom-selection flag in one record instead of parallel arrays. One navigation path restores answer focus for
-Next, Back and progress jumps; one custom-answer path handles opening, toggling, trimming and deduplication.
-The keyboard module maps input, option and footer keys to actions without reading the DOM. Compact horizontal-arrow
-navigation, native Enter/Space activation, custom-input Escape, Shift+Enter and modifier-Enter behavior remain intact.
-Unlike the main app's cache-only state module, the compact state module owns these transitions and retains no global
-request cache. `question-prompt.tsx` keeps rendering, localized labels, textarea sizing and cancellable DOM focus work.
-The existing request-prompt browser suite owns the interaction contract, including custom text retained across toggles,
-blank custom-answer omission, multiline input and fresh state on a new request.
+`question-machine.ts` owns answer edits, progress navigation, and reply construction. Each mounted request has
+its own state through `question-state.ts`. A custom answer has its own place in selection order. Editing, clearing,
+or disabling it preserves explicitly checked options, even when their values match the typed text. The reply
+includes matching values once. The editor retains the original text, including whitespace and newlines.
+`question-keys.ts` maps compact shortcuts to actions. `question-prompt.tsx` owns DOM focus and textarea sizing.
 The `session-question-dock.tsx` and `session-permission-dock.tsx` boundaries retain form-field filtering, label
 fallbacks, compact translations and the existing callbacks. Each request mounts a fresh question widget.
 Scalar/multiselect payloads, unanswered-field omission, custom-answer trimming and deduplication, Escape and

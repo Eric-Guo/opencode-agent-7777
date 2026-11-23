@@ -77,3 +77,11 @@ test("keeps the preference usable when storage reads and writes fail", () => {
   expect(() => settings.general.setShowReasoningSummaries(true)).not.toThrow()
   expect(settings.general.showReasoningSummaries()).toBe(true)
 })
+
+test("invalid tool expansion settings fall back independently", () => {
+  saved.set("opencode.7777.shellToolPartsExpanded", "yes")
+  saved.set("opencode.7777.editToolPartsExpanded", "true")
+  const settings = createSettings().general
+  expect(settings.shellToolPartsExpanded()).toBe(false)
+  expect(settings.editToolPartsExpanded()).toBe(true)
+})

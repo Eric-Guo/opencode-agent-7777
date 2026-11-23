@@ -90,6 +90,23 @@ story("deduplicates custom multiselect answers and retains multiline free text",
   )
 })
 
+story("editing a matching custom answer keeps the checked option and the reply order", async ({ mount }) => {
+  const component = await mount("question")
+  await component.getByRole("button", { name: "Questions 2", exact: true }).click()
+  const tests = component.getByRole("checkbox", { name: "Tests", exact: true })
+  await tests.click()
+  await component.getByRole("checkbox", { name: "Type your own answer" }).click()
+  const custom = component.getByRole("textbox")
+  await custom.fill("tests")
+  await custom.fill("lint")
+  await expect(tests).toBeChecked()
+  await custom.press("Enter")
+  await component.getByRole("checkbox", { name: "Types", exact: true }).click()
+  await component.getByRole("button", { name: "Questions 3", exact: true }).click()
+  await component.getByRole("button", { name: "Submit", exact: true }).click()
+  await expect(component.getByLabel("Answer", { exact: true })).toHaveText('{"checks":["tests","lint","types"]}')
+})
+
 story(
   "retains custom text when its mark is toggled and removes blank custom values from the reply",
   async ({ mount }) => {
@@ -100,15 +117,16 @@ story(
     const mark = own.locator('[data-slot="question-option-check"]')
     await tests.click()
     await own.click()
-    await component.getByRole("textbox").fill("  lint  ")
+    await component.getByRole("textbox").fill("  tests  ")
     await component.getByRole("textbox").press("Enter")
     await mark.click()
     await expect(own).not.toBeChecked()
     await expect(own).toBeFocused()
-    await expect(own).toContainText("lint")
+    await expect(own).toContainText("tests")
+    await expect(tests).toBeChecked()
     await mark.click()
     await expect(own).toBeChecked()
-    await expect(component.getByRole("textbox")).toHaveValue("  lint  ")
+    await expect(component.getByRole("textbox")).toHaveValue("  tests  ")
     await component.getByRole("textbox").fill("   ")
     await component.getByRole("textbox").press("Enter")
     await expect(tests).toBeChecked()

@@ -37,6 +37,10 @@ Local `session/timeline/turn-diffs.ts` requests a finished turn through `session
 idle marker within the nine-dialog window. Steered prompts share a read. Reads have three lines of context
 and a 15-second deadline. The gear menu and settings persistence stay local.
 
+The Timeline menu also persists two independent expansion defaults for shell and edit tool calls. The compact
+adapter passes them to the public `SessionTimeline` props `shellToolDefaultOpen` and `editToolDefaultOpen`.
+Both start off. The shared timeline owns grouping, patch rendering and per-row disclosure.
+
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
 Editor DOM synchronization follows `composer/editor/{dom,machine}.ts`: matching text and mentions retain their
@@ -54,9 +58,10 @@ schedule a refill through the existing refresh lifecycle. A commit invalidates a
 restarts the read from the latest messages.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
-Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
-keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
-repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
+Question requests follow the main app’s `session/requests/question-machine.ts` boundary locally. The pure
+machine tracks option picks and custom text independently, preserves their selection order, and constructs
+scalar or multiselect replies. The request-owned `question-state.ts` runs focus and reply effects, and
+`question-keys.ts` maps compact keyboard shortcuts. Checked options survive edits to matching custom text.
 MCP input requests follow the local `session/requests/{elicitation-machine,elicitation-controller}.ts` boundary.
 The pure module evaluates conditions against preceding visible answers and checks required fields and selection
 counts. The controller retains edits by request identity. The dock uses the public `DockPrompt` shell and form
@@ -258,6 +263,16 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Question and tool expansion validation (2026-11-23). Two browser regressions reproduced the loss of an explicitly
+checked option on the original dock. Both passed after the refactor. The original and updated controllers also
+agreed on selection, focus, progress and replies across 24,000 interactions with distinct option and custom values.
+The session fixture verified independent shell and edit defaults, manual patch disclosure and persistence after
+reload. The live Chinese menu toggled both settings and returned to its original values at `1/9`.
+All 742 Bun tests, 88 browser tests, typecheck and both production builds passed. Before/after three-run medians
+were 157/171 ms for entry, 69/63 ms for switching and 88/90 ms for streaming. Per-endpoint counts matched across
+87 requests in each build. Both updated builds’ source maps contained zero main-app or desktop sources.
+Evidence is in `node_modules/.cache/question-timeline/`.
 
 Eight-commit browser verification (2026-11-23). On the live agent, recent sessions expanded from 12 to 24,
 title search returned two matches, and scrolling up then choosing Jump to latest resumed the timeline.

@@ -150,6 +150,8 @@ export const dict = {
   "settings.timeline.title": "Timeline",
   "settings.timeline.row.turnDiffs.title": "Changed files",
   "settings.timeline.row.wrapCodeBlocks.title": "Wrap code blocks",
+  "settings.general.row.shellToolPartsExpanded.title": "Expand shell tool parts",
+  "settings.general.row.editToolPartsExpanded.title": "Expand edit tool parts",
 
   "prompt.placeholder": "Ask {{agent}}",
   "prompt.message.aria": "Message",

@@ -109,7 +109,6 @@ export const QuestionPrompt: Component<QuestionPromptProps> = (props) => {
       case "advance":
         return model.next()
       case "commit":
-        return model.commitCustom()
       case "close-custom":
         return model.closeCustom()
       case "move":
@@ -204,7 +203,7 @@ export const QuestionPrompt: Component<QuestionPromptProps> = (props) => {
               disabled={sending()}
               ref={(el) => (optsRef[i()] = el)}
               onFocus={() => model.trackFocus(i())}
-              onClick={() => model.selectOption(i())}
+              onClick={() => model.selectOption(opt.value)}
             />
           )}
         </For>

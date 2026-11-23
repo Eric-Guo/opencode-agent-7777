@@ -58,6 +58,20 @@ export function SettingsGeneral() {
             >
               {language.t("settings.timeline.row.wrapCodeBlocks.title")}
             </Menu.CheckboxItem>
+            <Menu.CheckboxItem
+              checked={settings.general.shellToolPartsExpanded()}
+              onChange={settings.general.setShellToolPartsExpanded}
+              closeOnSelect
+            >
+              {language.t("settings.general.row.shellToolPartsExpanded.title")}
+            </Menu.CheckboxItem>
+            <Menu.CheckboxItem
+              checked={settings.general.editToolPartsExpanded()}
+              onChange={settings.general.setEditToolPartsExpanded}
+              closeOnSelect
+            >
+              {language.t("settings.general.row.editToolPartsExpanded.title")}
+            </Menu.CheckboxItem>
           </Menu.Group>
         </Menu.Content>
       </Menu.Portal>

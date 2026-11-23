@@ -21,6 +21,8 @@ export const timelinePreferences = {
   showReasoningSummaries: booleanPreference(SHOW_REASONING_SUMMARIES_KEY, false),
   showTurnDiffs: booleanPreference("opencode.7777.showTurnDiffs", true),
   wrapCodeBlocks: booleanPreference("opencode.7777.wrapCodeBlocks", false),
+  shellToolPartsExpanded: booleanPreference("opencode.7777.shellToolPartsExpanded", false),
+  editToolPartsExpanded: booleanPreference("opencode.7777.editToolPartsExpanded", false),
 }
 
 export function readFollowUpBehavior(): ComposerDelivery {
