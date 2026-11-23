@@ -117,6 +117,50 @@ test("exact ID lookup finds old sessions, deduplicates title results, and respec
   expect((await loadHomeSessionPage(missing, { search: id })).items).toEqual([])
 })
 
+test("a separate exact match and a full title page keep every row covered by the cursor", async () => {
+  const id = "ses_abcdefghijklmnopq"
+  const lookups: string[] = []
+  const api = source(
+    async (input) => (input.cursor ? page([session(id), session("last")]) : page(rows(0, 12), "next")),
+    async ({ sessionID }) => {
+      lookups.push(sessionID)
+      return session(sessionID)
+    },
+  )
+  const index = createHomeSessionIndex({ source: () => api })
+  await index.refresh("  " + id + "  ")
+  expect(index.list()).toEqual([session(id), ...rows(0, 12)])
+  await index.more()
+  expect(index.list()).toEqual([session(id), ...rows(0, 12), session("last")])
+  expect(lookups).toEqual([id])
+  // One character below the full-ID threshold uses only title search.
+  await index.refresh(id.slice(0, -1))
+  expect(index.list()).toEqual(rows(0, 12))
+  expect(lookups).toEqual([id])
+})
+
+test("exact match data wins over a title duplicate while excluded rows trigger backfill", async () => {
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const reads: SessionListInput[] = []
+  const exact = { ...session(id), title: "Exact result" }
+  const api = source(
+    async (input) => {
+      reads.push(input)
+      if (input.cursor) return page([session("last")])
+      return page([session("active"), session("known"), session("other", "/other"), session(id)], "backfill")
+    },
+    async () => exact,
+  )
+  expect(await loadHomeSessionPage(api, { search: id, knownIDs: ["known"] })).toEqual({
+    items: [exact, session("last")],
+    cursor: undefined,
+  })
+  expect(reads).toEqual([
+    { directory: "/repo", limit: 12, order: "desc", search: id },
+    { directory: "/repo", limit: 11, order: "desc", search: id, cursor: "backfill" },
+  ])
+})
+
 test.each(["/repo/agent7777/agent7777", "/", "C:\\"])(
   "preserves the stored directory when browsing and searching %s",
   async (directory) => {

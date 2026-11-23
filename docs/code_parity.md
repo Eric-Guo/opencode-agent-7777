@@ -109,11 +109,12 @@ File-mention search follows the main app's separate file-lifecycle machine patte
 `workspaces/files/search-machine.ts`. It owns request attempts and status transitions; `model.tsx` drives HTTP reads
 and cancellation through public `@opencode/util/abort`. Replaced or cleared requests cannot publish paths or change
 the current status. Query limits, deduplication, error recovery and the existing reactive status API are preserved.
-Recent-session loading follows `home/sessions/{index,queries,load-machine}.ts` and the main app's 30-second fetch
-deadline. The local page loader bounds the entire 12-row batch, including exact-ID lookup and cursor backfill.
-Cancelling a search settles the caller even if a read ignores abort. The query driver owns debounce and cancellation,
-and the load machine retains rows, query and cursor for Retry. The background directory snapshot uses the same
-loader and the active runtime or draft's client. Only the latest refresh can publish results or offer a banner retry.
+Recent-session search follows the main app's `home/sessions/search-machine.ts` boundary locally. It decides when
+to look up an exact ID, merges directory-scoped results and requests enough rows to fill the page. The page loader
+runs the title query, exact lookup and cursor backfill under one 30-second deadline. Cancelling a search settles
+the caller even if a read ignores abort. The query driver owns debounce and cancellation, and the load machine
+retains rows, query and cursor for Retry. The background directory snapshot uses the same loader and the active
+runtime or draft's client. Only the latest refresh can publish results or offer a banner retry.
 Recent-session rows, exact-ID lookup, session actions and post-delete navigation use `sameDirectory` from
 `@opencode/util/path`. The open picker, VCS review and integration catalog use it for directory-scoped events.
 Matching handles trailing slashes and Windows drive or UNC spelling while keeping POSIX paths case-sensitive.
@@ -231,7 +232,7 @@ control APIs, with no parent-package edits, app-source imports or new shared exp
 
 ## Remaining compact responsibilities
 
-- Embedding controls, `current/9`, tab keys, welcome, local assets and paged recent-session search.
+- Embedding controls, `current/9`, tab keys, welcome, local assets and the recent-session picker's 12-row page size.
 - Deployment-owned model defaults, provider and model visibility, and the persisted server/directory/session/agent scope.
 - The runtime/cache lifecycle documented in README: nine-dialog hydration, snapshot retention and receipt acknowledgement.
 - Persisted formats, inline URLs, comments, undo/redo, request routing and suggestion filtering, keys and sizing.
@@ -247,6 +248,14 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Recent-session search validation (2026-11-23). All 25 page-loader and query tests passed against both versions.
+Both production builds of the picker kept a separate exact match alongside 12 title matches, then appended a
+fourteenth row on Load more with one exact lookup in total. On the live agent, Load more expanded 12 rows to 24,
+title search returned two matches and Escape restored focus to the trigger. All 740 Bun tests, 80 browser component
+tests, typecheck and both build configurations passed. The three-run medians before and after were 199/185 ms
+for entry, 69/68 ms for switching and 87/90 ms for streaming, with the same 87 requests. Only the two local
+search modules changed in the browser build's mapped sources. Evidence is in `node_modules/.cache/compact-parity/`.
 
 Review event routing validation (2026-11-23). All 22 review model tests passed against both implementations.
 Fake-clock checks covered the 99/100 ms boundary in working-tree, branch and committed comparisons, including

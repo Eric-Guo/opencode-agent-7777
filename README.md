@@ -569,12 +569,14 @@ Recent-session search in `home/sessions/view.tsx` uses the public `TextInput`, `
 directly. It retains plain-arrow navigation, IME and repeated-Enter guards, and server paging. Both pickers have
 rendered coverage in `component-tests/pickers.spec.ts`.
 
-Recent-session loading follows the main app's `home/sessions/{index,queries,load-machine}.ts` boundaries.
-The local page loader gives each 12-row batch one 30-second deadline, covering title search, parallel exact-ID lookup,
-response decoding and any extra cursor reads needed after directory filtering and deduplication. The query driver
-owns the 200 ms search debounce and cancels reads when the picker closes or its source or query changes. The load
-machine retains the last published cursor and rows for Retry. Whole-state replacement keeps its snapshots independent
-of Solid store merging.
+Recent-session search follows the main app's `home/sessions/search-machine.ts` boundary. The compact version
+plans reads for one directory at a time. A full session ID triggers an exact lookup alongside the first title page.
+The picker keeps a separate exact match even when the server returns 12 title matches, so Load more can resume at
+the server cursor. After filtering duplicates, the current session and rows from other directories, the next
+read asks only for the number still needed.
+`home/sessions/index.ts` runs those reads under one 30-second deadline. The query driver owns the 200 ms debounce
+and cancels reads when the picker closes or its source or query changes. The load machine retains the last
+published cursor and rows for Retry.
 
 The compact-only `home/sessions/directory-sync-recent-compact.ts` uses the same page loader for the background
 directory snapshot. These rows supply known parents for request routing and neighbors for session deletion.

@@ -95,6 +95,44 @@ test("a rename in an equivalent directory refreshes the open picker", async ({ p
   expect(writes).toEqual([])
 })
 
+test("recent-session search keeps a separate exact match through Load more", async ({ page }) => {
+  const { sessions, writes, errors } = await setupSession(page)
+  const id = "ses_abcdefghijklmnopqrstuvwxyz"
+  const exact = { ...sessions[1], id, title: "Exact session" }
+  const titles = Array.from({ length: 12 }, (_, i) => ({ ...sessions[1], id: "title-" + i, title: "Title " + i }))
+  const cursors: (string | null)[] = []
+  let lookups = 0
+  await page.route("**/api/session/" + id, (route) => {
+    lookups++
+    return route.fulfill({ json: { data: exact } })
+  })
+  await page.route("**/api/session?**", (route) => {
+    const params = new URL(route.request().url()).searchParams
+    if (params.get("search") !== id) return route.fallback()
+    const cursor = params.get("cursor")
+    cursors.push(cursor)
+    const response = cursor
+      ? { data: [exact, { ...sessions[1], title: "Older result" }], cursor: {} }
+      : { data: titles, cursor: { next: "older" } }
+    return route.fulfill({ json: response })
+  })
+  const recent = page.getByRole("button", { name: "Recent sessions", exact: true })
+  await recent.click()
+  const search = page.getByRole("combobox")
+  await search.fill(id)
+  await expect(page.getByRole("option")).toHaveCount(13)
+  await page.getByRole("button", { name: "Load more" }).click()
+  await expect(page.getByRole("option")).toHaveCount(14)
+  await expect(page.getByRole("option", { name: /Older result/ })).toHaveCount(1)
+  await expect(page.getByRole("option", { name: /Exact session/ })).toHaveCount(1)
+  await search.press("Escape")
+  await expect(recent).toBeFocused()
+  expect(cursors).toEqual([null, "older"])
+  expect(lookups).toBe(1)
+  expect(writes).toEqual([])
+  expect(errors).toEqual([])
+})
+
 test("rename and delete target the chosen recent row and retain the active draft", async ({ page }) => {
   const { writes, errors } = await setupSession(page)
   const recent = page.getByRole("button", { name: "Recent sessions", exact: true })
