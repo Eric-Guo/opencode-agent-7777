@@ -48,7 +48,9 @@ In development, the client resolves the opencode server from `VITE_OPENCODE_SERV
 
 ## Agent-Specific Instructions
 
-Prioritize stability, simplicity, then performance. Do not restart the app or server process while debugging unless explicitly requested. For browser verification, use the available automation tools and re-check the page after interactions.
+Prioritize stability, simplicity, then performance. Do not restart the app or server process while debugging unless explicitly requested.
+
+Prefer the in-app browser for live UI verification and reuse the app's open tab when available. If the connection times out, retry with a longer timeout before switching to another browser tool. Re-check the page after interactions.
 
 When a UI status disagrees with the server response, inspect the network result and the in-memory store value separately before adding event handlers, retries, or polling. Reproduce the smallest local state transition and check for shared-reference mutation first.
 
