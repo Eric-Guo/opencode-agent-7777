@@ -1,8 +1,55 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`4053db620ff51b4c9e910b8a6793f5cd4473958f`. The reference checkout and its Ruby/JavaScript
+`7a8243168e166cab52cfce710008723e936d6603`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Answer files and recorded changes
+
+Reviewed November 23, 2026 from Nexus UI `cfb68a7221` and OpenCode `58261aaef0c`.
+Turn attachments, explicit file publications, generated images and files named in the
+answer appear under that answer. An accepted child result keeps its published files
+when its active variant changes. Child callback messages also show these files. Downloads recheck the selected answer and use the
+viewing Human’s credential. Browser screenshots, web fetches and MCP captures remain
+available in task activity.
+
+Recorded review uses the answer’s original runner IDs. A fork can read an inherited
+answer when the run identifies that exact inherited turn. Checkpoint restoration requires
+a retained local task in its owning conversation. Review comments preserve the recorded
+runner, root, base, run, turn and variant.
+
+`server/outputs.test.ts` covers the cutoff, out-of-order captures, reverts, legacy
+task patches, fork ownership, denied child access and downloading the accepted child’s
+image. `component-tests/nexus-chat.spec.ts` switches variants with a read pending,
+downloads the image, opens a task-only capture and quotes a line from the original
+runner into the draft. The UI suite passed 430 unit tests and 90 Chromium component
+tests, and the type check and production build passed. Rho’s turn and Git review
+JavaScript suites passed 24 cases.
+
+The source bridge also read a real fork and downloaded a 70-byte PNG from the accepted
+child variant after replacement. Its SHA-256 matched the uploaded bytes. These reads
+used seeded history on an isolated Nexus server because port 3000 was unavailable.
+The [runtime ledger](../../nexus-runtime/PARITY.md#recorded-changes-and-published-outputs)
+records task timing precision and the eleven-package check.
+
+### Verification on localhost
+
+On November 23, 2026 an isolated Chromium profile opened the source UI against the
+paired service and development Nexus at `localhost:3000`. It downloaded the runner’s
+published text and a seeded child image, checked their bytes, reloaded the answer and
+quoted a recorded patch into the draft with the original runner, run, turn and variant.
+
+Switching the real child variant while its old file response was delayed retired the
+old listing. The stale download returned HTTP 409. The parent kept the accepted image.
+Hiding the child removed the parent’s file and made its download return HTTP 404.
+Screenshot, web-fetch and MCP captures remained downloadable in their own task views.
+
+A new bridge regression covers a checkpoint captured before the run first changed
+a file. Chromium restored that exact live run after the fix. It also restored a
+two-file run with one baseline. A seeded answer containing two distinct checkpoints
+from real writes and shell work exercised both labeled buttons and their on-disk results.
+The full suite passed 431 unit tests and 90 Chromium component tests, the type check
+and the production build. The private verification workspace was deleted.
 
 ## Conversation history
 

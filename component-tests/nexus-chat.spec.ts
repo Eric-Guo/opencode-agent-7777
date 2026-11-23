@@ -888,8 +888,13 @@ test("shows completed turn changes inline, keeps each variant’s files, and rem
         await delayed
         return json([{ id: "old", name: "old.zip" }])
       }
-      return json([{ id: "new", name: "report.md" }])
+      return json([
+        { id: "new", name: "report.md" },
+        { id: "image", name: "generated.png" },
+      ])
     }
+    if (p.endsWith("/bytes") && url.searchParams.get("file") === "image")
+      return route.fulfill({ body: Buffer.from([137, 80, 78, 71, 0]), contentType: "application/octet-stream" })
     if (p.endsWith("/bytes"))
       return route.fulfill({ body: "# Previewed output", contentType: "application/octet-stream" })
     if (p.endsWith("/review")) {
@@ -898,7 +903,8 @@ test("shows completed turn changes inline, keeps each variant’s files, and rem
       if (requested === "old") await delayed
       return json([
         {
-          runner: "Local",
+          runner: "original-runner",
+          restoreTasks: [],
           root: "project",
           base: "base",
           run: "run",
@@ -926,7 +932,7 @@ test("shows completed turn changes inline, keeps each variant’s files, and rem
         output: "Recorded output",
         status: "completed",
         kind: "model_task",
-        captures: [],
+        captures: [{ id: "screen", name: "task-screenshot.png" }],
         sealed: true,
       })
     if (p.endsWith("/request")) return json({ entries: ["A captured request"] })
@@ -964,7 +970,15 @@ test("shows completed turn changes inline, keeps each variant’s files, and rem
   await expect(review.getByText("readme.txt")).toBeVisible()
   await expect(review.getByText("superseded.txt")).toHaveCount(0)
   expect(reviewReads).toEqual(["old", "new"])
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await expect(page.getByText("task-screenshot.png")).toHaveCount(0)
+  const download = page.waitForEvent("download")
+  await page
+    .locator(".chat-file")
+    .filter({ hasText: "generated.png" })
+    .getByRole("button", { name: "Download" })
+    .click()
+  expect((await download).suggestedFilename()).toBe("generated.png")
+  await page.locator(".chat-file").filter({ hasText: "report.md" }).getByRole("button", { name: "Preview" }).click()
   await expect(page.getByText("Previewed output")).toBeVisible()
   await expect(page.getByText("old.zip")).toHaveCount(0)
   await review.getByText("readme.txt", { exact: true }).click()
@@ -975,11 +989,13 @@ test("shows completed turn changes inline, keeps each variant’s files, and rem
   await comment.press("Enter")
   const draft = page.getByRole("textbox", { name: "Message" })
   await expect(draft).toContainText("Keep this line")
+  await expect(draft).toContainText('"runner": "original-runner"')
   await expect(draft).toContainText('"variant": "new"')
   await expect(draft).toContainText('"turn": "turn"')
   await page.getByText("Tools and activity", { exact: true }).click()
   await page.getByText("Round r1 · completed").click()
   await expect(page.getByText("Recorded output")).toBeVisible()
+  await expect(page.getByText("task-screenshot.png")).toBeVisible()
   await page.getByText("Read sealed model request").click()
   await expect(page.getByText("A captured request", { exact: false })).toBeVisible()
 

@@ -24,7 +24,7 @@ export const dict = {
   "toast.session.export.timeout": "服务器未能及时准备好导出内容，请重试。",
   "chat.codeMode": "代码模式",
   "chat.subagent": "子代理",
-  "chat.restoreFiles": "还原此步骤修改的文件",
+  "chat.restoreFiles": "将文件还原到检查点",
   "chat.filesRestored": "文件已还原。",
   "chat.modesUnavailable": "请重新连接 OpenCode，以便在发送前加载工具策略。",
   "chat.modeHint": "更改将应用于此会话之后的回复。",

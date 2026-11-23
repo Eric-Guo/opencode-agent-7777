@@ -125,33 +125,36 @@ export function AnswerReview(p: {
                   root: r.root,
                 })}
               </p>
-              <Show when={r.restorable && p.chat.writable()}>
-                <Button
-                  type="button"
-                  disabled={s.restoring || !p.valid()}
-                  onClick={async () => {
-                    if (!p.valid() || !p.chat.writable()) return
-                    set({ restoring: true, notice: "" })
-                    const key = JSON.stringify([r.run, r.base])
-                    const receipt = receipts.get(key) ?? crypto.randomUUID()
-                    receipts.set(key, receipt)
-                    try {
-                      await request(chatPath(p.chat, "restore-files", p.query), p.chat.s.connection?.scope, {
-                        task: r.base,
-                        receipt,
-                      })
-                      receipts.delete(key)
-                      set("notice", lang.t("chat.filesRestored"))
-                    } catch (error) {
-                      set("notice", error instanceof Error ? error.message : String(error))
-                    } finally {
-                      set("restoring", false)
-                    }
-                  }}
-                >
-                  {lang.t("chat.restoreFiles")}
-                </Button>
-              </Show>
+              <For each={p.chat.writable() ? r.restoreTasks : []}>
+                {(task) => (
+                  <Button
+                    type="button"
+                    disabled={s.restoring || !p.valid()}
+                    onClick={async () => {
+                      if (!p.valid() || !p.chat.writable()) return
+                      set({ restoring: true, notice: "" })
+                      const key = JSON.stringify([r.run, task])
+                      const receipt = receipts.get(key) ?? crypto.randomUUID()
+                      receipts.set(key, receipt)
+                      try {
+                        await request(chatPath(p.chat, "restore-files", p.query), p.chat.s.connection?.scope, {
+                          task,
+                          receipt,
+                        })
+                        receipts.delete(key)
+                        set("notice", lang.t("chat.filesRestored"))
+                      } catch (error) {
+                        set("notice", error instanceof Error ? error.message : String(error))
+                      } finally {
+                        set("restoring", false)
+                      }
+                    }}
+                  >
+                    {lang.t("chat.restoreFiles")}
+                    {r.restoreTasks.length > 1 && " · " + task}
+                  </Button>
+                )}
+              </For>
               <Show when={r.truncated}>{lang.t("chat.limit")}</Show>
               <For each={r.files.filter((f) => f.state !== "text")}>
                 {(f) => <p>{lang.t("chat.nonText", { path: f.path, state: f.state })}</p>}

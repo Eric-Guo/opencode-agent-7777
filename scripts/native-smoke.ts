@@ -103,9 +103,9 @@ const written = await call("write", { path: filename, content: "checkpoint fixtu
 if ((await file.text()) !== "checkpoint fixture") throw new Error("The runner did not write the fixture.")
 const query = "?turn=" + written.turn.id + "&variant=" + written.turn.variant
 const reviews = await api<Review[]>(written.route + "/review" + query)
-const change = reviews.find((item) => item.restorable && item.files.some((f) => f.path === filename))
+const change = reviews.find((item) => item.restoreTasks.length && item.files.some((f) => f.path === filename))
 if (!change) throw new Error("The answer has no restorable file review.")
-await api(written.route + "/restore-files" + query, { task: change.base, receipt: randomUUID() })
+await api(written.route + "/restore-files" + query, { task: change.restoreTasks[0], receipt: randomUUID() })
 if (await file.exists()) throw new Error("Restoring the creation left the file in the project.")
 console.log(
   "The paired service verified Human authorship, read the fixture and restored a file from its answer review.",

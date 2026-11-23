@@ -1,23 +1,7 @@
 import type { JsonValue, RunTranscript, TaskDetail } from "@cybros/agent"
 
 export type OutputFile = { id: string; name: string; path?: boolean }
-export type Review = {
-  source?: "checkpoint"
-  runner: string
-  root: string
-  base: string
-  run: string
-  restorable?: boolean
-  truncated?: boolean
-  files: {
-    path: string
-    state: string
-    patch?: string
-    additions?: number
-    deletions?: number
-    status: "added" | "deleted" | "modified"
-  }[]
-}
+export type { Review } from "@opencode/nexus-runtime/experimental/history"
 export type RunView = {
   status: string
   tasks: {

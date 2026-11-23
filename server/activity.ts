@@ -1,5 +1,5 @@
 import { mcpTarget } from "../src/nexus/inspection"
-import type { Conversation, JsonValue, Run, TaskDetail } from "@cybros/agent"
+import type { Conversation, JsonValue, Run, TaskDetail, Turn } from "@cybros/agent"
 import { outputPaths } from "./output-paths"
 import { HISTORY_PAGE_SIZE, loadTurns } from "../src/nexus/chat"
 import { BridgeError, type Backend } from "./nexus"
@@ -13,11 +13,12 @@ export async function ownedRun(
   b: Backend,
   id: string,
   rid: string,
+  turn?: Turn,
 ): Promise<{ run: ReturnType<Backend["workspace"]["run"]>; data: Run }> {
   const run = b.workspace.run(field(rid, "run"))
   const data = await run.fetch()
   if (
-    data.turn?.conversation_public_id !== id ||
+    (turn?.inherited ? data.turn?.public_id !== turn.public_id : data.turn?.conversation_public_id !== id) ||
     (data.workspace_public_id != null && data.workspace_public_id !== b.workspaceID)
   )
     throw new BridgeError(404, "Unknown conversation run.")

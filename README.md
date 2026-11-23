@@ -26,7 +26,7 @@ For Human platform sign-in, use `opencode nexus login`, open the printed browser
 
 ## Native tools and integrations
 
-The selected project supports file reads, edits, filename and content search, shell commands, attachment import and publication, public web reads and a conversation-owned interactive terminal. File writes and edits retain checkpoints across service restarts. Shell reviews use OpenCode Git snapshots where the selected project supports them. **Restore files changed by this step** restores the recorded paths and refuses to overwrite later changes to them.
+The selected project supports file reads, edits, filename and content search, shell commands, attachment import and publication, public web reads and a conversation-owned interactive terminal. File writes and edits retain checkpoints across service restarts. Shell reviews use OpenCode Git snapshots where the selected project supports them. **Restore files to checkpoint** restores the project to the retained checkpoint, which can cover several tasks in the same run.
 
 Code Mode runs confined JavaScript with the tools declared for the input. Child tool calls go through Nexus and use the same runner binding and approval policy.
 
@@ -119,8 +119,7 @@ including Code Mode's false, zero and null selections alongside ordered printed 
 `src/session/commands/session-actions.tsx` owns the rename and delete dialogs and calls the scoped Nexus bridge.
 `src/session/commands/export-session.tsx` owns downloads from the options menu, context dialog and `/export`.
 `src/nexus/output-files.tsx` shows recorded file changes beneath completed answers using the shared session review.
-Write, edit and bash steps retain their recorded patches and restore targets. For terminal commands and other local runner tools,
-the bridge reads the latest saved checkpoint diff for each project and baseline. This includes files changed through an interactive terminal.
+The bridge reads the latest saved checkpoint diff for each original runner and project, including changes made through an interactive terminal. A retained local checkpoint can restore changes from several tasks even when the task that captured it produced no patch.
 The header gear’s **Timeline → Changed files** preference controls inline display. When it is off, **Review changes** opens the same recording on demand.
 **Timeline → Wrap code blocks** sets the default for long lines and remembers it across reloads. Each overflowing block has its own wrap button.
 The Timeline menu also remembers independent expansion defaults for shell and edit calls. Both start off.

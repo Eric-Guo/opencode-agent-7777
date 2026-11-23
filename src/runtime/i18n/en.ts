@@ -21,7 +21,7 @@ export const dict = {
   "toast.session.export.timeout": "The server took too long to prepare the export. Try again.",
   "chat.codeMode": "Code mode",
   "chat.subagent": "Subagent",
-  "chat.restoreFiles": "Restore files changed by this step",
+  "chat.restoreFiles": "Restore files to checkpoint",
   "chat.filesRestored": "Files restored.",
   "chat.modesUnavailable": "Reconnect to OpenCode to load the tool policy before sending.",
   "chat.modeHint": "Changes apply to future replies in this conversation.",

@@ -104,7 +104,10 @@ export function projectTurn(turn: Turn): ChatTurn {
   const variant = candidate ?? turn.active_variant
   const status = candidate?.status ?? turn.status
   const terminal = ["completed", "failed", "canceled", "cancelled", "timed_out", "skipped", "stopped"].includes(status)
-  const answer = !turn.reference && turn.kind !== "compaction_summary" && turn.role === "assistant"
+  const ordinary = !turn.reference && turn.kind !== "compaction_summary"
+  const answer = ordinary && turn.role === "assistant"
+  const publications =
+    ordinary && !variant?.details_pruned_at && (!!variant?.run_public_id || !!turn.callback_sources?.length)
   const recorded = !!variant && variant.public_id === turn.active_variant?.public_id
   const text = variant?.content ?? variant?.content_preview ?? ""
   const userMessage = turn.kind === "message" && turn.role === "user"
@@ -145,7 +148,7 @@ export function projectTurn(turn: Turn): ChatTurn {
     pruned: !!variant?.details_pruned_at,
     review:
       recorded && answer && terminal && variant.runner_effects?.status === "touched" && !variant.details_pruned_at,
-    files: recorded && (!!variant.attachments?.length || (answer && terminal)),
+    files: recorded && (!!variant.attachments?.length || (terminal && (answer || publications))),
     completed: completions.length ? Math.max(...completions) : undefined,
     id: turn.public_id,
     input: turn.input_public_id,
