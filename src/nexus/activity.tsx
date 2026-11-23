@@ -7,18 +7,19 @@ import { Markdown } from "@opencode/session-ui/markdown"
 import { ExternalLink } from "../runtime/platform/external-link"
 import { McpTargetDetails } from "./mcp-target"
 import { useLanguage } from "../runtime/i18n/language"
+import { useSettings } from "../settings/model"
 import { chatPath, DetailRead, Disclosure } from "./detail-read"
 import { FileRow } from "./output-files"
 import type { ChatController } from "./controller"
 import type { ChatTurn } from "./chat"
 import type { Related, RunView, TaskView, Rounds } from "./inspection"
 
-function Task(p: { chat: ChatController; run: string; task: string; name: string }) {
+function Task(p: { chat: ChatController; run: string; task: string; name: string; defaultOpen?: boolean }) {
   const modules = useContext(ModuleContext)
   const lang = useLanguage(),
     q = { run: p.run, key: p.task }
   return (
-    <Disclosure title={p.name}>
+    <Disclosure title={p.name} defaultOpen={p.defaultOpen}>
       <DetailRead<TaskView> chat={p.chat} path={chatPath(p.chat, "task", q)} revision={p.chat.s.revision}>
         {(data) => (
           <>
@@ -77,6 +78,11 @@ function Task(p: { chat: ChatController; run: string; task: string; name: string
 }
 export function RoundHistory(p: { chat: ChatController; run: string; before?: string }) {
   const lang = useLanguage()
+  const { general } = useSettings()
+  const toolDefaultOpen = (name: string) => {
+    if (name === "bash" || name === "shell" || name === "execute") return general.shellToolPartsExpanded()
+    if (name === "edit" || name === "write" || name === "patch") return general.editToolPartsExpanded()
+  }
   return (
     <DetailRead<Rounds>
       chat={p.chat}
@@ -94,9 +100,18 @@ export function RoundHistory(p: { chat: ChatController; run: string; before?: st
                   name={lang.t("chat.round", { key: row.task_key }) + " · " + row.status}
                 />
                 <For each={row.calls.items}>
-                  {(call) => (
-                    <Task chat={p.chat} run={p.run} task={call.task_key} name={call.name + " · " + call.status} />
-                  )}
+                  {(call) => {
+                    const tool = call.tool || call.name
+                    return (
+                      <Task
+                        chat={p.chat}
+                        run={p.run}
+                        task={call.task_key}
+                        name={tool + " · " + call.status}
+                        defaultOpen={toolDefaultOpen(tool)}
+                      />
+                    )
+                  }}
                 </For>
               </div>
             )}

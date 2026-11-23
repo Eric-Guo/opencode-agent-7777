@@ -8,10 +8,13 @@ export function chatPath(chat: ChatController, action: string, query: Record<str
   return "/chats/" + encodeURIComponent(chat.s.id) + "/" + action + "?" + new URLSearchParams(query)
 }
 
-export function Disclosure(p: { title: JSX.Element; children: JSX.Element }) {
+export function Disclosure(p: { title: JSX.Element; children: JSX.Element; defaultOpen?: boolean }) {
   const [open, set] = createSignal(false)
+  createEffect(() => {
+    if (p.defaultOpen !== undefined) set(p.defaultOpen)
+  })
   return (
-    <details class="chat-disclosure" onToggle={(e) => set(e.currentTarget.open)}>
+    <details class="chat-disclosure" open={open()} onToggle={(e) => set(e.currentTarget.open)}>
       <summary>{p.title}</summary>
       <Show when={open()}>{p.children}</Show>
     </details>

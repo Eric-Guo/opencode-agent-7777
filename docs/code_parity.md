@@ -23,6 +23,8 @@ Nexus uses `server/outputs.ts` for local Markdown images, with the same runner b
 The local `session/timeline/projection.ts` supplies stable message and content objects to the public
 `SessionTimeline`, which owns row projection. A text delta updates Chinese-parenthesized URL formatting
 for the affected assistant text part while preserving the source text.
+The Timeline menu persists independent shell and edit expansion preferences. Nexus applies them to task disclosures
+in `src/nexus/activity.tsx` when the reader opens **Tools and activity**.
 
 Composer conversion, edits and offsets live in `composer/{prompt,prompt-parts}.ts`. Draft restoration, DOM parsing
 and history share one text/mention builder; DOM clipboard and caret behavior stay in `composer/editor/dom.ts`.
@@ -34,9 +36,9 @@ The shared `createAutoScroll` hook owns timeline pinning on content and viewport
 distinguish an initial layout adjustment from reader input and tracks jump-button visibility while paused.
 The README documents the local runtime/cache, desktop schemas, request widgets, context details and dialog lifecycle.
 `QuestionPrompt` and `PermissionPrompt` stay package-local; only their shell and styles come from `session-ui`.
-Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
-keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
-repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
+The retained question widget uses `session/requests/question-machine.ts` for ordered answer transitions and reply
+construction. Checked options and custom text remain independent, and matching values appear once in replies.
+`question-state.ts` runs request-local focus and reply effects, while `question-keys.ts` maps compact keyboard shortcuts.
 Composer catalog projection stays in `composer/suggestions/catalog-compact.ts`: local/server commands share
 one row builder, and context/file mentions are independent of runtime wiring. Attachment IDs reuse public
 `@opencode/util/uuid`, including insecure-origin handling, instead of a duplicate compact helper.

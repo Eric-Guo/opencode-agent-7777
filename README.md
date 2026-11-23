@@ -123,11 +123,15 @@ Write, edit and bash steps retain their recorded patches and restore targets. Fo
 the bridge reads the latest saved checkpoint diff for each project and baseline. This includes files changed through an interactive terminal.
 The header gear’s **Timeline → Changed files** preference controls inline display. When it is off, **Review changes** opens the same recording on demand.
 **Timeline → Wrap code blocks** sets the default for long lines and remembers it across reloads. Each overflowing block has its own wrap button.
+The Timeline menu also remembers independent expansion defaults for shell and edit calls. Both start off.
+Open **Tools and activity** under an answer to see those defaults applied to its task details. You can still open or close each task manually.
 `src/nexus/transcript.tsx` passes completed answers’ local Markdown image references to the scoped Nexus file bridge. The bridge verifies the reference against the displayed variant and reads from the conversation’s bound runner.
 The Nexus bridge in `server/export.ts` converts the retained conversation's diagnostic stream into a JSON array,
 including records beyond the nine-dialog view. Human members with read access can export the conversation.
 
 7777 owns the Nexus integration. Its compact header menus, result disclosures and decision dock provide the compact desktop interface.
+The retained compact question widget follows the main app’s `session/requests/question-machine.ts` boundary.
+Its local machine preserves selection order and tracks custom text separately from checked options, deduplicating matching values in the reply.
 
 Animated presence follows the main app's `runtime/{presence-machine,presence,animated-presence}.ts` boundaries
 with local implementations. Pure transitions own visibility, retained values and minimum-duration attempts;
