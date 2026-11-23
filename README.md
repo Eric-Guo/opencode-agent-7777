@@ -461,8 +461,9 @@ modifier-Enter behavior are preserved. Package-local browser fixtures render the
 
 The local `session/requests/session-elicitation-dock.tsx` displays MCP input requests from the active session
 and its descendants. Directory-wide requests appear after those requests and show the active directory.
-`elicitation-controller.ts` builds typed answers from visible fields and keeps edits while another request
-has priority or a submission needs a retry. URL requests open through an explicit link and settle on Submit,
+`elicitation-machine.ts` applies field edits and derives visibility, completeness and typed answers in field order.
+`elicitation-controller.ts` keys drafts by the pending request object so edits survive dock remounts and
+failed submissions. URL requests open through an explicit link and settle on Submit,
 Dismiss or a server event. The dock uses the public `DockPrompt` shell and UI controls. Its replies use the
 compact form lifecycle, including the owning directory on writes to a directory-wide form.
 

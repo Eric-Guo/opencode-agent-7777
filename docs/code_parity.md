@@ -55,8 +55,10 @@ The README documents the local runtime/cache, desktop schemas, request widgets, 
 Question requests follow `session/requests/question-{state,keys}.ts`: request-owned answer transitions and DOM-free
 keyboard decisions are separate from rendering. The compact state controller replaces parallel answer arrays and
 repeated custom-answer/navigation logic; fresh requests, payloads, focus and keyboard behavior are preserved.
-MCP input requests use local `session/requests/{session-elicitation-dock.tsx,elicitation-controller.ts}` with the
-public `DockPrompt` shell and form controls. Session and subagent requests take priority over directory-wide forms.
+MCP input requests follow the local `session/requests/{elicitation-machine,elicitation-controller}.ts` boundary.
+The pure module evaluates conditions against preceding visible answers and checks required fields and selection
+counts. The controller retains edits by request identity. The dock uses the public `DockPrompt` shell and form
+controls, including native input validation. Session and subagent requests take priority over directory-wide forms.
 The compact form adapter routes answers and dismissals to their owner and reconciles pending forms on reconnect.
 The production-entry fixture in `component-tests/request-routing.spec.ts` covers routing, typed replies and retry.
 Web-search consent follows `session/requests/{websearch,websearch-machine}.ts`. A local state machine tracks
@@ -238,6 +240,11 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+MCP form refactor validation (2026-11-23). The original and refactored controllers produced the same visible
+fields, completeness and typed answers after 480 edits. The production routing fixture covered child and
+directory-wide forms, keyboard submission, dismissal and retry. All 728 Bun tests, 79 browser tests, typecheck
+and the production build passed. Evidence is in `node_modules/.cache/mcp-form-refactor/`.
 
 Fork command validation (2026-11-23). All 727 Bun tests, 79 browser tests, typecheck and both production builds
 passed. The original build lacked the fork command in the composer menu. Eight fork scenarios passed against

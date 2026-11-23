@@ -150,14 +150,8 @@ export function SessionElicitationDock(props: {
                             <Checkbox
                               appearance="compact"
                               disabled={props.busy}
-                              checked={dock.selected(field).includes(option.value)}
-                              onChange={(checked) => {
-                                const selected = dock.selected(field)
-                                dock.set(
-                                  field,
-                                  checked ? [...selected, option.value] : selected.filter((v) => v !== option.value),
-                                )
-                              }}
+                              checked={dock.selected(multi()).includes(option.value)}
+                              onChange={(checked) => dock.toggle(multi(), option.value, checked)}
                             >
                               {option.label}
                             </Checkbox>
