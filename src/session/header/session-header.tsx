@@ -16,6 +16,7 @@ export function SessionHeader(props: {
   chat: ReturnType<typeof createChatController>
   exporter: ReturnType<typeof createSessionExporter>
   dialogCount: number
+  onJumpToMessage?: () => void
   windowDrag: boolean
   browser?: { open: boolean; toggle(): void }
 }) {
@@ -60,11 +61,27 @@ export function SessionHeader(props: {
       </div>
       <div data-slot="session-header-controls" class="flex flex-wrap gap-2 items-center text-xs">
         <span>{s.connection?.user}</span>
-        <Icon name="speech-bubble" />
-        <span>
-          {props.dialogCount}
-          {s.snapshot.expanded ? "" : "/" + HISTORY_DIALOG_LIMIT}
-        </span>
+        <Button
+          icon="speech-bubble"
+          variant="ghost-muted"
+          aria-haspopup="dialog"
+          aria-label={
+            s.snapshot.expanded
+              ? language.t("dialog.jump.title")
+              : language.t("session.messages.jumpToMessage", { count: props.dialogCount, limit: HISTORY_DIALOG_LIMIT })
+          }
+          title={language.t("dialog.jump.title")}
+          disabled={!props.onJumpToMessage}
+          onClick={(event: MouseEvent & { currentTarget: HTMLButtonElement }) => {
+            event.currentTarget.focus({ preventScroll: true })
+            props.onJumpToMessage?.()
+          }}
+        >
+          <span>
+            {props.dialogCount}
+            {s.snapshot.expanded ? "" : "/" + HISTORY_DIALOG_LIMIT}
+          </span>
+        </Button>
         <Show when={props.exporter.available() && s.connection}>
           {(connection) => (
             <SessionOptions

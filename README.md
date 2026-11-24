@@ -118,6 +118,9 @@ including Code Mode's false, zero and null selections alongside ordered printed 
 `src/session/header/session-options.tsx` shares the options menu between the header and recent rows.
 `src/session/commands/session-actions.tsx` owns the rename and delete dialogs and calls the scoped Nexus bridge.
 `src/session/commands/export-session.tsx` owns downloads from the options menu, context dialog and `/export`.
+`src/session/commands/message-picker.tsx` follows the main branch's jump-to-message dialog using delivered prompts
+from the Nexus transcript's latest-nine window. `src/session/commands/jump-to-message.ts` searches loaded prompt
+presentation in memory. `src/session/timeline/interaction.ts` scrolls and focuses the selected prompt in the transcript.
 `src/nexus/output-files.tsx` shows recorded file changes beneath completed answers using the shared session review.
 The bridge reads the latest saved checkpoint diff for each original runner and project, including changes made through an interactive terminal. A retained local checkpoint can restore changes from several tasks even when the task that captured it produced no patch.
 The header gear’s **Timeline → Changed files** preference controls inline display. When it is off, **Review changes** opens the same recording on demand.

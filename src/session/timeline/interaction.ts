@@ -35,6 +35,7 @@ export function createSessionTimelineInteraction(input: { identity: Accessor<unk
     const el = state.scroller
     const row = el?.querySelector<HTMLElement>(`[data-timeline-row="UserMessage"][data-message-id="${CSS.escape(id)}"]`)
     if (!el || !row) return
+    releaseAnchor()
     readerInteracted = true
     follow.pause()
     // Only move the transcript. The embedding page can have a scroll container of its own.

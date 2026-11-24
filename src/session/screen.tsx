@@ -10,7 +10,7 @@ import { ComposerEditor } from "@/composer/editor/editor"
 import { createComposerEditor } from "@/composer/editor/interaction"
 import { promptText, replacePromptText } from "@/composer/prompt-parts"
 import type { ComposerPersistedState } from "@/composer/types"
-import { SET_DOCUMENT_TITLE } from "@/constants/session"
+import { HISTORY_DIALOG_LIMIT, SET_DOCUMENT_TITLE } from "@/constants/session"
 import { Management } from "@/management/shell"
 import { createChatController } from "@/nexus/controller"
 import { createNavigation } from "@/nexus/navigation"
@@ -27,6 +27,7 @@ import { SendControls } from "@/nexus/send-controls"
 import { useSettings } from "@/settings/model"
 import { createSessionTimelineInteraction } from "./timeline/interaction"
 import { createSessionExporter } from "./commands/export-session"
+import { useMessagePicker } from "./commands/message-picker"
 import { BrowserPane, createSessionBrowser } from "./browser/pane"
 
 export default function SessionPage() {
@@ -45,6 +46,15 @@ export default function SessionPage() {
     if (scope && !navigation.page()) return { id: s.id, scope }
   })
   const exporter = createSessionExporter(exportOwner, () => s.hydrated && !s.accessDenied)
+  const visiblePrompts = createMemo(() => doc().messages.filter((message) => message.type === "user"))
+  const jumpPrompts = createMemo(() => {
+    const delivered = new Set(s.snapshot.turns.filter((turn) => !turn.kind).map((turn) => turn.id + "-prompt"))
+    return visiblePrompts()
+      .slice(-HISTORY_DIALOG_LIMIT)
+      .filter((message) => delivered.has(message.id))
+  })
+  const jumpOwner = () => (s.hydrated && !s.accessDenied ? exportOwner() : undefined)
+  const openJump = useMessagePicker(jumpOwner, jumpPrompts, interaction.actions.jumpToMessage)
   const runExport = () => {
     if (!s.id) {
       showToast({ title: language.t("toast.session.export.noSession") })
@@ -123,7 +133,8 @@ export default function SessionPage() {
         <SessionHeader
           chat={chat}
           exporter={exporter}
-          dialogCount={doc().messages.filter((message) => message.type === "user").length}
+          dialogCount={visiblePrompts().length}
+          onJumpToMessage={jumpOwner() && jumpPrompts().length ? openJump : undefined}
           windowDrag={isElectronUserAgent(navigator.userAgent) && !navigation.page()}
           browser={browser.api ? { open: browser.open(), toggle: browser.toggle } : undefined}
         />
@@ -170,7 +181,11 @@ export default function SessionPage() {
             </div>
           </ScrollView>
           <Show when={interaction.scroll.jump}>
-            <Button class="absolute bottom-2 left-1/2" onClick={interaction.actions.resume}>
+            <Button
+              class="absolute bottom-2 left-1/2"
+              aria-label={language.t("session.messages.jumpToLatest")}
+              onClick={interaction.actions.resume}
+            >
               <Icon name="arrow-down-to-line" />
             </Button>
           </Show>

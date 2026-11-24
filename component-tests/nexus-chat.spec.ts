@@ -692,6 +692,7 @@ test("steers a running reply, queues the next, promotes without resending, and r
   expect(await controls.getByRole("button").evaluateAll((buttons) =>
     buttons.map((button) => button.getAttribute("aria-label") ?? button.textContent?.trim()),
   )).toEqual([
+    "Jump to message (1/9)",
     "Options for Running example",
     "New session",
     "View context usage",
