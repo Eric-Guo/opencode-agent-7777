@@ -251,6 +251,12 @@ card uses the saved filename and MIME type without fetching the file. The local 
 maps message metadata to the public `SessionUserPresentation` type from `@opencode/session-ui/timeline`.
 It also handles existing file comments, including the plain-text format used in older sessions.
 
+Click a non-image attachment in the transcript, or focus its card and press Enter or Space, to download it.
+The filename uses the basename from the message. Image cards open their preview. The local
+`session/composer/timeline-actions.ts` implements the public `SessionUserActions.openAttachment` callback.
+It reads the delivered bytes or the just-sent prompt’s local attachment URL. Session export and attachment
+downloads share the compact browser download helper in `runtime/platform/download.ts`.
+
 Provider/model views in `runtime/server/types.ts` reuse public `@opencode/client/promise` fields, including capability
 arrays. `runtime/server/global-sync/utils.ts` only adapts picker data: provider grouping, separate catalog/API IDs,
 cost selection and variants. Unused legacy configuration fields and synthetic capability flags are removed. Capability

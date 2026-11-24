@@ -2,6 +2,7 @@ import { base64ToBytes } from "@opencode/util/base64"
 import { Option, Schema } from "effect"
 import { PromptDraft } from "@/composer/schema"
 import { AGENT_DEFAULT_CONFIG } from "@/new-session/agent-default-config"
+import { inlineBase64 } from "./base64"
 import { storageGet, storageRemove, storageSet } from "./storage"
 
 export type BlobReference = { id: string; url: string }
@@ -64,13 +65,6 @@ export async function blobDataUrl(blob: BlobReference, mime: string) {
 
 export function createLegacyBlobReference(dataUrl: string): BlobReference {
   return { id: dataUrl, url: dataUrl }
-}
-
-function inlineBase64(url: string) {
-  if (url === "data:" || url === "data:,") return ""
-  // A comma in a quoted MIME parameter is part of the header.
-  const header = /^data:(?:[^",]|"(?:[^"\\]|\\.)*")*?;base64,/i.exec(url)
-  return header ? url.slice(header[0].length) : undefined
 }
 
 export function sameBlobContent(saved: BlobReference, picked: BlobReference) {

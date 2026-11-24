@@ -1,4 +1,5 @@
 import type { OpenCodeClient, SessionExportOutput } from "@opencode/client/promise"
+import { downloadFile } from "@/runtime/platform/download"
 
 export type SessionExportData = SessionExportOutput
 
@@ -21,16 +22,5 @@ export function sessionExportFilename(session: { id: string; title?: string; slu
 }
 
 export function downloadSessionExport(filename: string, data: SessionExportData) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  try {
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-  } finally {
-    link.remove()
-    URL.revokeObjectURL(url)
-  }
+  downloadFile(filename, new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }))
 }
