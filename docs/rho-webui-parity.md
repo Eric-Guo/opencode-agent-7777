@@ -1,8 +1,32 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`79ff4f2da20ae80a7513f1198d7002a84e72a396`. The reference checkout and its Ruby/JavaScript
+`0d98aa07776db6d38ca5d8bcaf4e10f80c39ed04`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Portable Presets and fallback models
+
+Reviewed November 24, 2026 from Nexus UI `27fef8c0` and OpenCode `6a8077b2f58`.
+The Presets panel downloads both runtime exports under the selected Preset's name and keeps the
+text preview and Copy action available. An import carries the filename and optional name override.
+A refusal keeps the draft editable. A successful import opens the new catalog entry.
+Project import shows the imported count and the path and reason for each rejected file.
+
+The custom fallback list starts empty and keeps its own ordered draft, including unavailable model
+names, through catalog refreshes and switches to either inherited or disabled policy. Saving sends
+the policy selected in the editor. Opening another Preset initializes the draft from that entry.
+
+Chromium downloaded a JSON Preset through the UI at port 4779 backed by the installed service.
+A second UI on port 4796 used an isolated source-built service and the same live Nexus at port 3000.
+It checked Markdown and JSON filenames and bytes against the selected catalog entry, retried a
+rejected import using the filename, opened a renamed import, displayed a project-file diagnostic
+and saved two unavailable fallback models in order. An independent Nexus profile-store read
+confirmed the saved configuration. The disposable workspaces, catalogs and credentials were retired.
+
+All 14 Rho WebUI Preset reference cases, 433 UI unit tests and 101 Chromium component cases passed,
+as did the UI type check and production build. The two new Chromium cases also passed ten consecutive
+runs each. The [runtime ledger](../../nexus-runtime/PARITY.md#project-presets-and-development-environment-commands)
+records the scan, management command and development CLI contracts.
 
 ## Memory binding names and collection identity
 

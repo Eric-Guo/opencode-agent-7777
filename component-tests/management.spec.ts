@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test"
 
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { executionExtensions } from "../../nexus-runtime/src/execution-settings"
@@ -1548,6 +1548,91 @@ test("Preset discovery preserves independent MCP choices, unavailable selections
   const advanced = editor.getByRole("textbox", { name: "Advanced configuration, including MCP selections" })
   await advanced.fill(JSON.stringify({ ...saved.configuration, runner_tool_names: ["read"] }))
   await expect(runner.getByRole("checkbox", { name: "read", exact: true })).toBeChecked()
+})
+
+test("Preset documents download exact bytes and keep the file and selected name through an import refusal", async ({
+  page,
+}) => {
+  const entry = { name: "Review", description: "Review changes", public_id: "original", role: null, configuration: {} }
+  const entries = [entry]
+  const imports: Command[] = []
+  const documents = { md: "---\ndescription: Checks\n---\n你好\n", json: '{"description":"Checks","tools":[]}\n' }
+  await fixture(page, (input) => {
+    if (input.action === "preset.list")
+      return { presets: entries, main_preset_public_id: "original", default_bot_preset_public_id: "original" }
+    if (input.action === "preset.tools") return { tools: [], mcp_connections: [] }
+    if (input.action === "preset.export-document") {
+      expect(input.id).toBe("original")
+      return documents[input.format as keyof typeof documents]
+    }
+    if (input.action === "preset.import-project")
+      return { imported: [], skipped: [{ path: "bad.md", reason: "Missing description" }], missing: [] }
+    if (input.action === "preset.import-document") {
+      imports.push(input)
+      if (imports.length === 1) return new Error("Import refused")
+      const saved = { ...entry, public_id: String(imports.length), name: String(input.name ?? "Checker") }
+      entries.push(saved)
+      return saved
+    }
+    return []
+  })
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  for (const format of ["md", "json"] as const) {
+    const received = page.waitForEvent("download")
+    await page.getByRole("button", { name: "Export " + format.toUpperCase(), exact: true }).click()
+    const download = await received
+    expect(download.suggestedFilename()).toBe("Review." + format)
+    expect(await readFile((await download.path())!, "utf8")).toBe(documents[format])
+    await expect(page.getByRole("textbox", { name: "Exported definition" })).toHaveValue(documents[format])
+  }
+  const file = { name: "Checker.json", mimeType: "application/json", buffer: Buffer.from(documents.json) }
+  await page.getByLabel("Preset file").setInputFiles(file)
+  const submit = page.getByRole("button", { name: "Import Preset", exact: true })
+  await submit.click()
+  await expect(page.getByRole("alert")).toContainText("Import refused")
+  await expect(page.getByRole("textbox", { name: "Definition", exact: true })).toHaveValue(documents.json)
+  await submit.click()
+  const name = page.getByRole("textbox", { name: "Name", exact: true })
+  await expect(name).toHaveValue("Checker")
+  await page.getByLabel("Preset file").setInputFiles(file)
+  await page.getByLabel("Import name override").fill("Chosen")
+  await submit.click()
+  await expect(name).toHaveValue("Chosen")
+  const expected = {
+    action: "preset.import-document",
+    format: "json",
+    filename: "Checker.json",
+    content: documents.json,
+  }
+  expect(imports).toEqual([expected, expected, { ...expected, name: "Chosen" }])
+  await page.getByRole("button", { name: "Import project Presets" }).click()
+  await expect(page.getByRole("status").filter({ hasText: "0 Presets imported" })).toContainText(
+    "bad.md — Missing description",
+  )
+})
+
+test("custom fallback models retain order, unavailable models and their own draft across refresh and mode changes", async ({
+  page,
+}) => {
+  await fixture(page, (input) =>
+    input.action === "preset.tools" ? { tools: [], mcp_connections: [] } : { presets: [] },
+  )
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  const mode = page.getByRole("combobox", { name: "Fallback policy" })
+  const models = page.getByRole("textbox", { name: "Fallback models, in order" })
+  await mode.selectOption("custom")
+  await expect(models).toHaveValue("")
+  await models.fill("provider/unavailable\nprovider/next\n")
+  await page.getByRole("button", { name: "Refresh", exact: true }).click()
+  for (const choice of ["inherit", "none"]) {
+    await mode.selectOption(choice)
+    await expect(models).toHaveCount(0)
+    await mode.selectOption("custom")
+    await expect(models).toHaveValue("provider/unavailable\nprovider/next\n")
+  }
+  await page.getByRole("button", { name: "New Preset", exact: true }).click()
+  await mode.selectOption("custom")
+  await expect(models).toHaveValue("")
 })
 
 test("T3 project and default agent controls use runtime discovery and retain unsaved choices after a refusal", async ({

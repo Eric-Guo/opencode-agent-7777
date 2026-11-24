@@ -21,6 +21,11 @@ export function Presets(props: { client: ManagementClient }) {
     role: "",
     roleDescription: "",
     importText: "",
+    filename: "",
+    importName: "",
+    project: null as NexusPreset.ProjectImport | null,
+    fallbackMode: "inherit",
+    fallbackDraft: "",
     format: "md" as "md" | "json",
     exported: "",
   })
@@ -36,8 +41,15 @@ export function Presets(props: { client: ManagementClient }) {
   }
   onMount(() => void c.perform(refresh))
 
+  const loadConfiguration = (config: NexusPreset.Configuration) => {
+    set("config", reconcile(structuredClone(unwrap(config))))
+    set({
+      fallbackMode: config.fallback_models == null ? "inherit" : config.fallback_models.length ? "custom" : "none",
+      fallbackDraft: config.fallback_models?.join("\n") ?? "",
+    })
+  }
   const edit = (entry: NexusPreset.Entry) => {
-    set("config", reconcile(structuredClone(unwrap(entry.configuration))))
+    loadConfiguration(entry.configuration)
     set({
       id: entry.public_id,
       name: entry.name,
@@ -63,12 +75,37 @@ export function Presets(props: { client: ManagementClient }) {
         <Button
           onClick={() => {
             set({ id: "", name: "", description: "" })
-            set("config", reconcile({}))
+            loadConfiguration({})
           }}
         >
           New Preset
         </Button>
+        <Button
+          disabled={c.state.busy}
+          onClick={() =>
+            void c.perform(async () => {
+              set("project", await c.command<NexusPreset.ProjectImport>({ action: "preset.import-project" }))
+              await refresh()
+            })
+          }
+        >
+          Import project Presets
+        </Button>
       </div>
+      <Show when={s.project}>
+        {(project) => (
+          <div role="status">
+            <p>{project().imported.length} Presets imported</p>
+            <For each={project().skipped}>
+              {(file) => (
+                <p>
+                  {file.path} — {file.reason}
+                </p>
+              )}
+            </For>
+          </div>
+        )}
+      </Show>
       <For each={s.catalog?.presets}>
         {(entry) => (
           <div class="nexus-card">
@@ -119,7 +156,18 @@ export function Presets(props: { client: ManagementClient }) {
                           format,
                         })
 
-                        set("exported", typeof result === "string" ? result : result.content)
+                        const content = typeof result === "string" ? result : result.content
+                        set("exported", content)
+                        const url = URL.createObjectURL(
+                          new Blob([content], {
+                            type: format === "md" ? "text/markdown;charset=utf-8" : "application/json",
+                          }),
+                        )
+                        const link = document.createElement("a")
+                        link.href = url
+                        link.download = entry.name + "." + format
+                        link.click()
+                        setTimeout(() => URL.revokeObjectURL(url), 1000)
                       })
                     }
                   >
@@ -179,28 +227,26 @@ export function Presets(props: { client: ManagementClient }) {
           </FieldRow>
           <FieldRow label="Fallback policy">
             <select
-              value={s.config.fallback_models == null ? "inherit" : s.config.fallback_models.length ? "custom" : "none"}
-              onChange={(e) =>
-                update({
-                  fallback_models:
-                    e.currentTarget.value === "inherit"
-                      ? null
-                      : e.currentTarget.value === "none"
-                        ? []
-                        : [c.chat.s.connection?.model ?? ""],
-                })
-              }
+              value={s.fallbackMode}
+              onChange={(e) => {
+                const mode = e.currentTarget.value
+                set("fallbackMode", mode)
+                update({ fallback_models: mode === "inherit" ? null : mode === "none" ? [] : list(s.fallbackDraft) })
+              }}
             >
               <option value="inherit">Inherit global list</option>
               <option value="none">No fallback</option>
               <option value="custom">Custom ordered list</option>
             </select>
           </FieldRow>
-          <Show when={s.config.fallback_models?.length}>
+          <Show when={s.fallbackMode === "custom"}>
             <FieldRow label="Fallback models, in order">
               <textarea
-                value={s.config.fallback_models?.join("\n")}
-                onInput={(e) => update({ fallback_models: list(e.currentTarget.value) })}
+                value={s.fallbackDraft}
+                onInput={(e) => {
+                  set("fallbackDraft", e.currentTarget.value)
+                  update({ fallback_models: list(s.fallbackDraft) })
+                }}
               />
             </FieldRow>
           </Show>
@@ -211,7 +257,7 @@ export function Presets(props: { client: ManagementClient }) {
           <JsonInput
             label="Advanced configuration, including MCP selections"
             value={s.config}
-            change={(value) => set("config", reconcile(Schema.decodeUnknownSync(NexusPreset.Configuration)(value)))}
+            change={(value) => loadConfiguration(Schema.decodeUnknownSync(NexusPreset.Configuration)(value))}
           />
           <Button type="submit">Save Preset</Button>
         </fieldset>
@@ -251,9 +297,18 @@ export function Presets(props: { client: ManagementClient }) {
         class="nexus-card"
         onSubmit={(event) => {
           event.preventDefault()
+          const form = event.currentTarget
           void c.perform(async () => {
-            await c.command({ action: "preset.import-document", content: s.importText, format: s.format })
-            set("importText", "")
+            const entry = await c.command<NexusPreset.Entry>({
+              action: "preset.import-document",
+              content: s.importText,
+              format: s.format,
+              ...(s.filename && { filename: s.filename }),
+              ...(s.importName.trim() && { name: s.importName.trim() }),
+            })
+            form.reset()
+            set({ importText: "", filename: "", importName: "", format: "md" })
+            edit(entry)
             await refresh()
           })
         }}
@@ -261,16 +316,26 @@ export function Presets(props: { client: ManagementClient }) {
         <h3>Import definition</h3>
         <input
           type="file"
+          aria-label="Preset file"
           accept=".md,.json"
+          disabled={c.state.busy}
           onChange={(e) => {
             const file = e.currentTarget.files?.[0]
 
             if (file)
-              void file
-                .text()
-                .then((text) => set({ importText: text, format: file.name.endsWith(".json") ? "json" : "md" }))
+              void c.perform(async () => {
+                const content = await file.text()
+                set({
+                  importText: content,
+                  filename: file.name,
+                  format: file.name.toLowerCase().endsWith(".json") ? "json" : "md",
+                })
+              })
           }}
         />
+        <FieldRow label="Import name override">
+          <input value={s.importName} onInput={(e) => set("importName", e.currentTarget.value)} />
+        </FieldRow>
         <FieldRow label="Format">
           <select value={s.format} onChange={(e) => set("format", e.currentTarget.value as "md" | "json")}>
             <option value="md">Markdown</option>
