@@ -954,7 +954,7 @@ test("memory bindings preserve a conflicting draft, page collections and disting
           items: [
             {
               public_id: url.searchParams.has("after") ? "second" : "first",
-              name: url.searchParams.has("after") ? "Later notes" : "First notes",
+              name: "Project notes",
               scope: "workspace",
             },
           ],
@@ -976,34 +976,60 @@ test("memory bindings preserve a conflicting draft, page collections and disting
     return route.fulfill({
       json: {
         selection,
-        effective: { bindings: [{ name: "workspace", scope: "workspace", access: "read", state: "ready" }] },
+        effective: {
+          bindings: [
+            {
+              name: "workspace",
+              scope: "workspace",
+              access: "read",
+              state: "ready",
+              collection_public_id: selection ? "second" : "first",
+            },
+          ],
+        },
         writable: true,
       },
     })
   })
   await page.getByRole("button", { name: "Memory bindings", exact: true }).click()
   const dialog = page.getByRole("dialog", { name: "Memory bindings", exact: true })
-  await expect(dialog.getByText("workspace/ · workspace · Read only · ready", { exact: true })).toBeVisible()
+  await expect(dialog.getByText("workspace/ · workspace · Read only · ready · first", { exact: true })).toBeVisible()
   await dialog.getByRole("combobox", { name: "Memory selection", exact: true }).selectOption("custom")
 
   for (const index of [4, 3, 2])
     await dialog.getByRole("button", { name: "Remove binding " + index, exact: true }).click()
   const binding = dialog.getByRole("group", { name: "Binding 1", exact: true })
-  await binding.getByRole("textbox", { name: "Name", exact: true }).fill("project_notes")
+  const name = binding.getByRole("textbox", { name: "Name", exact: true })
+  const source = binding.getByRole("combobox", { name: "Source", exact: true })
+  await name.fill("invalid name")
+  await dialog.getByRole("button", { name: "Save memory bindings", exact: true }).click()
+  await expect(name).toBeFocused()
+  expect(await name.evaluate((field: HTMLInputElement) => field.validity.patternMismatch)).toBe(true)
+  expect(posts).toEqual([])
+  await name.fill("project-notes_2")
+  await source.selectOption({ label: "Project notes · workspace · first" })
   await dialog.getByRole("button", { name: "Load more collections", exact: true }).click()
-  await binding.getByRole("combobox", { name: "Source", exact: true }).selectOption("collection:second")
+  await expect(source).toHaveValue("collection:first")
+  await source.selectOption({ label: "Project notes · workspace · second" })
   await binding.getByRole("combobox", { name: "Access", exact: true }).selectOption("read")
   await dialog.getByRole("button", { name: "Save memory bindings", exact: true }).click()
   await expect(dialog.getByRole("alert")).toContainText("Selection changed")
-  await expect(binding.getByRole("textbox", { name: "Name", exact: true })).toHaveValue("project_notes")
+  await expect(name).toHaveValue("project-notes_2")
   await dialog.getByRole("button", { name: "Save memory bindings", exact: true }).click()
   await expect(dialog).not.toBeVisible()
   expect(posts).toEqual(
     Array(2).fill({
-      selection: { bindings: [{ name: "project_notes", source: { collection_public_id: "second" }, access: "read" }] },
+      selection: {
+        bindings: [{ name: "project-notes_2", source: { collection_public_id: "second" }, access: "read" }],
+      },
     }),
   )
+  await page.reload()
   await page.getByRole("button", { name: "Memory bindings", exact: true }).click()
+  await expect(source).toHaveValue("collection:second")
+  await expect(dialog.getByText("workspace/ · workspace · Read only · ready · second", { exact: true })).toBeVisible()
+  await dialog.getByRole("button", { name: "Load more collections", exact: true }).click()
+  await expect(source.locator("option:checked")).toHaveText("Project notes · workspace · second")
   await dialog.getByRole("combobox", { name: "Memory selection", exact: true }).selectOption("disabled")
   await dialog.getByRole("button", { name: "Save memory bindings", exact: true }).click()
   await expect(dialog).not.toBeVisible()

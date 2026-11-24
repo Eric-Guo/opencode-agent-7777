@@ -4,6 +4,25 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `79ff4f2da20ae80a7513f1198d7002a84e72a396`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Memory binding names and collection identity
+
+Reviewed November 24, 2026 in the Nexus UI working tree based on `6eba7a80`, with OpenCode
+`fef04675d02` and Cybros `79ff4f2da`.
+
+The memory-binding editor follows the Rho WebUI's binding-name grammar in Chromium. A name containing
+a space keeps focus in the invalid field and produces zero save requests. The collection picker shows the
+name, scope and ID. Effective bindings show the resolved collection ID alongside the binding's access and
+state. The Chromium case selects between two identically named workspace collections, keeps the draft
+through a conflict, reloads, and checks the saved selection before and after loading the next catalog page.
+
+On the source UI at port 4779, a Human opened a private workspace on Nexus at port 3000. The editor
+rejected an invalid name, paged to two collections named “Parity notes” and saved the second.
+After reload, the picker and effective binding displayed its ID. Independent Nexus reads returned that
+ID for both the stored selection and the effective binding. Workspace deletion was verified by HTTP 404.
+
+All 432 UI unit tests and 99 Chromium cases passed, along with the UI type check and build.
+The reference memory-binding and seat suites passed 24 cases.
+
 ## Terminal recovery and structured questions
 
 Reviewed November 24, 2026 from Nexus UI `f03ad71f` and OpenCode `27b1b2b39e4`.

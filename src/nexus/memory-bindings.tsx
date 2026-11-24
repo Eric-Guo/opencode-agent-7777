@@ -132,7 +132,7 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
                   <FieldRow label="Name">
                     <input
                       required
-                      pattern="[a-z][a-z0-9_-]{0,31}"
+                      pattern="[a-z](?:[a-z0-9_]|-){0,31}"
                       maxLength={32}
                       value={binding.name}
                       onInput={(event) => set("bindings", index(), "name", event.currentTarget.value)}
@@ -168,7 +168,8 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
                             value={"collection:" + row.public_id}
                             selected={selected() === "collection:" + row.public_id}
                           >
-                            {row.name || row.public_id} · {row.scope}
+                            {row.name || (row.is_default ? "Default collection" : "Unnamed collection")} · {row.scope} ·{" "}
+                            {row.public_id}
                           </option>
                         )}
                       </For>
@@ -243,6 +244,7 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
           <p>
             {binding.name}/ · {binding.scope} · {binding.access === "read_write" ? "Read and write" : "Read only"} ·{" "}
             {binding.state}
+            {binding.collection_public_id && " · " + binding.collection_public_id}
           </p>
         )}
       </For>
