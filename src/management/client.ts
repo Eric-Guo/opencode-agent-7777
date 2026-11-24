@@ -25,6 +25,7 @@ export function createManagementClient(chat: ChatController) {
   ) => command<T>({ action: "platform.request", principal: identity()[1], path, method, body, key })
 
   const pending = new Set<symbol>()
+  const reportError = (error: unknown) => set("error", error instanceof Error ? error.message : String(error))
 
   async function perform(action: () => Promise<unknown>) {
     const operation = Symbol()
@@ -36,7 +37,7 @@ export function createManagementClient(chat: ChatController) {
 
       return true
     } catch (error) {
-      set("error", error instanceof Error ? error.message : String(error))
+      reportError(error)
 
       return false
     } finally {
@@ -52,6 +53,7 @@ export function createManagementClient(chat: ChatController) {
     extension,
     platform,
     perform,
+    reportError,
     defaultsDraft,
     setDefaultsDraft,
     workspace: () => identity()[2],

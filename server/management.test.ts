@@ -120,6 +120,19 @@ test("management binds Human platform calls and workspace reads without exposing
         if (url.pathname.endsWith("/executions"))
           return Response.json({ executions: [], pagination: { next_after: null, last_cursor: null } })
 
+        if (url.pathname.endsWith("/conversations/writable/schedules/job"))
+          return Response.json({
+            schedule: {
+              workspace_public_id: "workspace",
+              public_id: "job",
+              prompt: "Saved prompt",
+              rule: { kind: "daily", local_time: "09:00", time_zone: "UTC" },
+              wake: "auto",
+              status: "active",
+              lock_version: 4,
+            },
+          })
+
         return Response.json({ schedules: [], pagination: { next_after: null } })
       }
 
@@ -166,6 +179,9 @@ test("management binds Human platform calls and workspace reads without exposing
           { _tag: "InvalidRequestError", kind: "Payload", message: "Unknown schedule action" },
           { status: 400 },
         )
+
+      if (body.action === "schedule.update")
+        return Response.json({ _tag: "InvalidRequestError", message: "Update refused" }, { status: 400 })
 
       if (body.action === "application.defaults")
         return Response.json({ code_mode: false, subagent: false, available: true, code_mode_available: false })
@@ -276,6 +292,12 @@ test("management binds Human platform calls and workspace reads without exposing
     await manage(b, config, { action: "schedule.executions", conversation: "conversation", id: "job", after: "older" }),
   ).toMatchObject({ items: [] })
   expect(reads.at(-1)).toEndWith("/schedules/job/executions?after=older")
+  const edit = { action: "schedule.update", conversation: "writable", id: "job", prompt: "New prompt" }
+  await expect(manage(b, config, { ...edit, version: 3 })).rejects.toMatchObject({ status: 409 })
+  await expect(manage(b, config, { ...edit, version: 4 })).rejects.toMatchObject({
+    status: 400,
+    message: "Update refused",
+  })
   expect(await terminal(b, { action: "create", runner: "runner", key: "one-terminal" })).toEqual({
     run: "terminal-run",
     task: "terminal",

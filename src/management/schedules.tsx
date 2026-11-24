@@ -73,10 +73,12 @@ export function Schedules(props: {
       })
     }),
   )
+  let detailRead = 0
   let historyRead = 0
   const refresh = async (after?: string) => {
     const target = props.selected
     if (target) {
+      const read = ++detailRead
       const [conversation, id] = target.split("/")
       if (!conversation || !id) throw new Error("Invalid scheduled job link.")
       const detail = await c.command<ScheduleRow>({
@@ -85,8 +87,9 @@ export function Schedules(props: {
         conversation,
         id,
       })
-      if (props.selected !== target) return
-      set("detail", detail)
+      if (read !== detailRead) return
+      // Replace the row. An open edit still owns the version and values it began with.
+      set({ detail })
       await executions(detail)
       return
     }
@@ -112,11 +115,35 @@ export function Schedules(props: {
   createEffect(
     on(
       () => props.selected,
-      () => {
-        historyRead++
+      (target) => {
+        let active = true
+        onCleanup(() => {
+          active = false
+          detailRead++
+          historyRead++
+        })
         if (s.editing) newDraft()
         set({ detail: null, executions: null, executionJob: null, rows: [], after: null })
         void c.perform(() => refresh())
+
+        const [parent, job] = target.split("/")
+        if (!parent || !job) return
+        if (c.chat.s.id !== parent) c.chat.select(parent)
+
+        // A scheduled result is delivered to its parent. Follow the existing chat
+        // subscription, including when the detail URL opened in a fresh tab.
+        let version: number | undefined
+        createEffect(
+          on([() => c.chat.s.snapshot.detail?.version, () => c.state.busy], ([next, busy]) => {
+            if (next === undefined || c.chat.s.id !== parent) return
+            if (version === undefined) version = next
+            if (busy || version === next) return
+            version = next
+            void refresh().catch((error: unknown) => {
+              if (active) c.reportError(error)
+            })
+          }),
+        )
       },
     ),
   )
@@ -159,19 +186,26 @@ export function Schedules(props: {
 
   const executions = async (row: Schedule, after?: string) => {
     const read = ++historyRead
-    const page = await c.command<ScheduleExecutionPage>({
-      action: "schedule.executions",
-      workspace: c.workspace(),
-      conversation: row.conversation_public_id!,
-      id: row.public_id,
-      after,
-    })
-
-    if (read !== historyRead) return
-    set({
-      executionJob: row,
-      executions: { ...page, items: after ? [...(s.executions?.items ?? []), ...page.items] : page.items },
-    })
+    const previous = s.executionJob?.public_id === row.public_id ? s.executions?.items : undefined
+    const items = after && previous ? [...previous] : []
+    let cursor = after
+    // A refresh rereads as much history as the user has already opened.
+    while (true) {
+      const page = await c.command<ScheduleExecutionPage>({
+        action: "schedule.executions",
+        workspace: c.workspace(),
+        conversation: row.conversation_public_id!,
+        id: row.public_id,
+        after: cursor,
+      })
+      if (read !== historyRead) return
+      items.push(...page.items)
+      if (!page.next_after || items.length >= (previous?.length ?? 0)) {
+        set({ executionJob: row, executions: { ...page, items } })
+        return
+      }
+      cursor = page.next_after
+    }
   }
 
   return (

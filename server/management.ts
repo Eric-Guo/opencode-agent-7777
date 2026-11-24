@@ -179,6 +179,16 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       "x-nexus-member-token": (b.memberToken ?? config.token)!,
     })
     .catch(async (error: unknown) => {
+      if (command.action === "schedule.update" && isInvalidRequestError(error)) {
+        // The native service exposes Nexus refusals as InvalidRequestError.
+        // Read the saved version to distinguish a stale draft from invalid fields.
+        const saved = await b.workspace.conversation(command.conversation).schedules.fetch(command.id)
+        if (saved.lock_version !== command.version)
+          throw new BridgeError(409, "This job changed since you opened it. Refresh to review the saved job.")
+
+        throw new BridgeError(400, error.message)
+      }
+
       // The installed 2.4.0 service predates the schedule.defaults command.
       if (command.action === "schedule.defaults" && isInvalidRequestError(error) && error.kind === "Payload") {
         const { info } = await readChat(b, command.conversation)

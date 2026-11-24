@@ -1574,3 +1574,76 @@ test("a scheduled draft inherits the chosen conversation and retries the origina
   })
   expect(writes[1]).toEqual(writes[0])
 })
+
+test("a delivered job result refreshes open history and preserves the edit's original version", async ({ page }) => {
+  await page.clock.install()
+  let delivered = false
+  const writes: Command[] = []
+  const execution = (id: string, status: string) => ({
+    child_conversation_public_id: id,
+    status,
+    scheduled_for: "2030-01-01T09:00:00Z",
+  })
+  await fixture(
+    page,
+    (input) => {
+      if (input.action === "schedule.read")
+        return {
+          public_id: "job",
+          conversation_public_id: "parent",
+          prompt: delivered ? "Another operator's edit" : "Original prompt",
+          rule: { kind: "daily", local_time: "09:00", time_zone: "UTC" },
+          status: "active",
+          lock_version: delivered ? 3 : 2,
+          last_execution: execution("latest", delivered ? "completed" : "running"),
+        }
+      if (input.action === "schedule.executions")
+        return input.after
+          ? { items: [execution("latest", delivered ? "completed" : "running")], next_after: null }
+          : { items: [execution("first", "failed")], next_after: "more" }
+      if (input.action === "schedule.update") {
+        writes.push(input)
+        return new Error("This job changed")
+      }
+      return []
+    },
+    "/component-tests/nexus-chat.html#/workspaces/one/panels/schedules/parent%2Fjob",
+  )
+  await page.getByRole("button", { name: "Load more executions" }).click()
+  await page.getByRole("button", { name: "Edit", exact: true }).click()
+  const prompt = page.getByRole("textbox", { name: "Prompt", exact: true })
+  await prompt.fill("My unsaved edit")
+  delivered = true
+  await page.route("**/api/7777/chats/parent", (route) =>
+    route.fulfill({
+      json: {
+        turns: [],
+        pending: [],
+        decisions: [],
+        busy: false,
+        problem: null,
+        detail: { title: "Delivery parent", version: 1, active: null, runner: null, archived: false, owned: false },
+      },
+    }),
+  )
+  await page.clock.fastForward(3000)
+  await expect(page.getByRole("button", { name: "Latest execution: completed" })).toBeVisible()
+  await expect(page.getByText(/· completed$/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Open execution", exact: true })).toHaveCount(2)
+  await expect(prompt).toHaveValue("My unsaved edit")
+  await expect(prompt).toBeFocused()
+  await page.getByRole("button", { name: "Save job" }).click()
+  await expect(page.getByText("This job changed", { exact: true })).toBeVisible()
+  expect(writes).toEqual([
+    {
+      action: "schedule.update",
+      workspace: "one",
+      conversation: "parent",
+      id: "job",
+      version: 2,
+      prompt: "My unsaved edit",
+    },
+  ])
+  await page.getByRole("button", { name: "Back to conversation" }).click()
+  await expect(page).toHaveURL(/\/conversations\/parent$/)
+})

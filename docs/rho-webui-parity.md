@@ -4,6 +4,27 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `7a8243168e166cab52cfce710008723e936d6603`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Live scheduled results
+
+Reviewed November 24, 2026 from Nexus UI `732798d5` with OpenCode `f774b3dc494`
+and Cybros `79ff4f2da`. The in-app browser on port 4779 displayed an empty
+execution history after the installed CLI had run the job and Nexus had recorded
+its completed child. Rho's `test/schedules_test.js` refreshes the job when its
+parent receives the result.
+
+Opening a job detail now follows its parent conversation. When the parent
+version changes, the detail and the execution pages already on screen refresh.
+A one-time job fired on the server clock with the editor open. A second live
+check kept the prompt and typing focus through delivery, then opened the child
+and displayed its answer. A concurrent CLI edit made the draft stale. Saving
+returned HTTP 409, kept the draft, and preserved the CLI's stored prompt.
+
+The Chromium regression checks delivery on a direct link, two pages of history,
+editor focus, the original edit version, and navigation back to the parent.
+The bridge regression distinguishes a version conflict from a rejected edit at
+the current version. All 432 UI unit tests and 93 Chromium cases passed. The new
+delivery case also passed ten repeats with two workers.
+
 ## Scheduled job drafts and detail links
 
 Reviewed November 24, 2026 against `rho-webui` in Cybros `7a8243168`, from Nexus UI
