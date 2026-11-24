@@ -259,11 +259,6 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "opencode",
-        "modelID": "gpt-5.3-codex",
-        "visibility": "hide"
-      },
-      {
-        "providerID": "opencode",
         "modelID": "gpt-5.4-nano",
         "visibility": "hide"
       },
@@ -285,11 +280,6 @@ bun run models:apply-localstorage <<'JSON'
       {
         "providerID": "opencode",
         "modelID": "gemini-3.5-flash",
-        "visibility": "hide"
-      },
-      {
-        "providerID": "opencode",
-        "modelID": "gpt-5.4-mini",
         "visibility": "hide"
       },
       {
@@ -394,11 +384,6 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "opencode-go",
-        "modelID": "glm-5.3",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
         "modelID": "glm-5.3-flash",
         "visibility": "show"
       },
@@ -414,32 +399,7 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "opencode-go",
-        "modelID": "hy4-preview",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
-        "modelID": "kimi-k2.7-code",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
-        "modelID": "kimi-k3",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
         "modelID": "longcat-2.5-preview-free",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
-        "modelID": "mimo-v2.6-flash",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
-        "modelID": "mimo-v2.6-pro",
         "visibility": "show"
       },
       {
@@ -450,11 +410,6 @@ bun run models:apply-localstorage <<'JSON'
       {
         "providerID": "opencode-go",
         "modelID": "space-bunny-free",
-        "visibility": "show"
-      },
-      {
-        "providerID": "opencode-go",
-        "modelID": "qwen3.8-max",
         "visibility": "show"
       },
       {
@@ -489,22 +444,7 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "openai",
-        "modelID": "gpt-5.6-sol",
-        "visibility": "show"
-      },
-      {
-        "providerID": "openai",
-        "modelID": "gpt-6-astra",
-        "visibility": "show"
-      },
-      {
-        "providerID": "openai",
         "modelID": "gpt-6-luna",
-        "visibility": "show"
-      },
-      {
-        "providerID": "google",
-        "modelID": "gemini-3.8-flash",
         "visibility": "show"
       },
       {
@@ -524,17 +464,7 @@ bun run models:apply-localstorage <<'JSON'
       },
       {
         "providerID": "siliconflow-cn",
-        "modelID": "deepseek-ai/DeepSeek-V4-Flash",
-        "visibility": "show"
-      },
-      {
-        "providerID": "siliconflow-cn",
         "modelID": "stepfun-ai/Step-3.5-Flash",
-        "visibility": "show"
-      },
-      {
-        "providerID": "openai",
-        "modelID": "gpt-6.1-sol",
         "visibility": "show"
       },
       {
@@ -583,43 +513,373 @@ bun run models:apply-localstorage <<'JSON'
         "visibility": "show"
       },
       {
+        "providerID": "opencode-go",
         "modelID": "beam-free",
-        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
+        "providerID": "opencode-go",
         "modelID": "minimax-m3.1-flash-free",
+        "visibility": "show"
+      },
+      {
+        "providerID": "google",
+        "modelID": "gemini-3.5-flash",
+        "visibility": "show"
+      },
+      {
+        "providerID": "google",
+        "modelID": "gemini-3.1-flash-image",
+        "visibility": "show"
+      },
+      {
+        "providerID": "google",
+        "modelID": "gemini-3-pro-image",
+        "visibility": "show"
+      },
+      {
+        "providerID": "google",
+        "modelID": "gemini-pro-latest",
+        "visibility": "show"
+      },
+      {
+        "providerID": "minimax",
+        "modelID": "MiniMax-M3.1-Flash",
+        "visibility": "show"
+      },
+      {
+        "modelID": "k3.1-pro-highspeed",
+        "providerID": "kimi-code-plan-cn",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "k3",
+        "providerID": "kimi-code-plan-cn",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "kimi-for-coding",
+        "providerID": "kimi-code-plan-global",
+        "visibility": "show"
+      },
+      {
+        "modelID": "k3.1-pro",
+        "providerID": "kimi-code-plan-global",
+        "visibility": "show"
+      },
+      {
+        "modelID": "k3-256k",
+        "providerID": "kimi-code-plan-global",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-4-hydrogen",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gemini-4-neon",
+        "providerID": "google",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6.2-astra",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6.2-sol",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6.1-terra",
+        "providerID": "openai",
+        "visibility": "show"
+      },
+      {
+        "modelID": "gpt-6.1-terra",
+        "providerID": "github-copilot",
+        "visibility": "show"
+      },
+      {
+        "modelID": "claude-fable-5-1",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "claude-fable-5-2-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "claude-opus-4-8-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "claude-opus-5-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "claude-opus-5-5-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gemini-3.7-flash",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5-nano-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.1-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.1-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.2-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.2-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-mini-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-mini-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-nano-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.4-pro-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.5",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.5-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.5-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.5-pro-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-luna",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-luna-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-luna-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-sol-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-sol-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-terra-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-5.6-terra-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-astra",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-astra-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-astra-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-astra-ultrafast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-luna-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-luna-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-sol",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-sol-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6-sol-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.1-sol",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.1-sol-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.1-sol-flex",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.1-sol-ultrafast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.2-astra-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.2-astra-ultrafast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.2-sol-fast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "gpt-6.2-sol-ultrafast",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.6-plus",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "qwen3.8-max",
+        "providerID": "opencode",
+        "visibility": "hide"
+      },
+      {
+        "modelID": "hungerg-free",
         "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "gemini-3.5-flash-lite",
-        "providerID": "google",
+        "modelID": "hy4-flash-free",
+        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "gemini-3.5-flash",
-        "providerID": "google",
+        "modelID": "hy4",
+        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "gemini-3.1-flash-image",
-        "providerID": "google",
+        "modelID": "iceman-contributor-free",
+        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "gemini-3-pro-image",
-        "providerID": "google",
+        "modelID": "kimi-k3.1-pro",
+        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "gemini-pro-latest",
-        "providerID": "google",
+        "modelID": "minimax-m3.1-flash",
+        "providerID": "opencode-go",
         "visibility": "show"
       },
       {
-        "modelID": "MiniMax-M3.1-Flash",
-        "providerID": "minimax",
+        "modelID": "deepseek-ai/DeepSeek-V4.1-Flash",
+        "providerID": "siliconflow-cn",
         "visibility": "show"
       }
     ],
