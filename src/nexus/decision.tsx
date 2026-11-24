@@ -42,7 +42,7 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
   const [error, setError] = createSignal("")
   let form!: HTMLFormElement
   function submit() {
-    if (!form.reportValidity()) return
+    if (props.sending || !form.reportValidity()) return
     const data = new FormData(form)
     try {
       const answer = fields().length ? answerFields(fields(), data) : data.getAll("reply").map(String).join("\n")
@@ -68,6 +68,7 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
           props.reply({ action: event.key === "Escape" ? "deny" : "approve" })
         } else if (
           d().kind === "ask" &&
+          !fields().length &&
           event.key === "Enter" &&
           !event.shiftKey &&
           event.target instanceof HTMLTextAreaElement
@@ -108,76 +109,88 @@ export function DecisionDock(props: { decision: Decision; sending: boolean; repl
               e.preventDefault()
               submit()
             }}
-            class="grid gap-3 overflow-auto max-h-72"
+            class="overflow-auto max-h-72"
           >
-            <For each={fields()}>
-              {(field) => {
-                const name = "value:" + field.name
-                let group!: HTMLFieldSetElement
-                return (
-                  <div>
-                    <Show when={!field.required}>
-                      <label>
-                        <input
-                          name={"include:" + field.name}
-                          type="checkbox"
-                          onChange={(e) => {
-                            group.disabled = !e.currentTarget.checked
-                          }}
-                        />{" "}
-                        {language.t("nexus.include", { field: field.label })}
-                      </label>
-                    </Show>
-                    <fieldset ref={group} disabled={!field.required}>
-                      <label>
-                        {field.label}
-                        <Show
-                          when={["boolean", "choice", "multichoice"].includes(field.type)}
-                          fallback={
-                            <input
-                              class="border rounded px-2"
-                              name={name}
-                              type={field.type === "string" ? "text" : "number"}
-                              required={field.type !== "string"}
-                              step={field.type === "integer" ? "1" : "any"}
-                            />
-                          }
-                        >
-                          <select
-                            name={name}
-                            multiple={field.type === "multichoice"}
-                            required={field.type !== "multichoice"}
+            <fieldset disabled={props.sending} class="grid gap-3">
+              <For each={fields()}>
+                {(field) => {
+                  const name = "value:" + field.name
+                  let group!: HTMLFieldSetElement
+                  return (
+                    <div>
+                      <Show when={!field.required}>
+                        <label>
+                          <input
+                            name={"include:" + field.name}
+                            type="checkbox"
+                            onChange={(e) => {
+                              group.disabled = !e.currentTarget.checked
+                            }}
+                          />{" "}
+                          {language.t("nexus.include", { field: field.label })}
+                        </label>
+                      </Show>
+                      <fieldset ref={group} disabled={!field.required}>
+                        <label>
+                          {field.label}
+                          <Show
+                            when={["boolean", "choice", "multichoice"].includes(field.type)}
+                            fallback={
+                              <Show
+                                when={field.type === "string"}
+                                fallback={
+                                  <input
+                                    class="border rounded px-2"
+                                    name={name}
+                                    type="number"
+                                    required
+                                    step={field.type === "integer" ? "1" : "any"}
+                                  />
+                                }
+                              >
+                                <textarea class="border rounded px-2" name={name} rows={2} />
+                              </Show>
+                            }
                           >
-                            <Show when={field.type !== "multichoice"}>
-                              <option value="">{language.t("nexus.choose")}</option>
+                            <Show
+                              when={field.type === "multichoice"}
+                              fallback={
+                                <select name={name} required>
+                                  <option value="">{language.t("nexus.choose")}</option>
+                                  <For each={field.type === "boolean" ? ["true", "false"] : field.options}>
+                                    {(value) => (
+                                      <option value={value}>
+                                        {field.type === "boolean"
+                                          ? language.t(value === "true" ? "nexus.yes" : "nexus.no")
+                                          : value}
+                                      </option>
+                                    )}
+                                  </For>
+                                </select>
+                              }
+                            >
+                              <select name={name} multiple>
+                                <For each={field.options}>{(value) => <option value={value}>{value}</option>}</For>
+                              </select>
                             </Show>
-                            <For each={field.type === "boolean" ? ["true", "false"] : field.options}>
-                              {(value) => (
-                                <option value={value}>
-                                  {field.type === "boolean"
-                                    ? language.t(value === "true" ? "nexus.yes" : "nexus.no")
-                                    : value}
-                                </option>
-                              )}
-                            </For>
-                          </select>
-                        </Show>
-                      </label>
-                    </fieldset>
-                  </div>
-                )
-              }}
-            </For>
-            <Show when={!fields().length}>
-              <Show
-                when={options().length}
-                fallback={<textarea name="reply" required aria-label={language.t("nexus.answer")} />}
-              >
-                <select name="reply" required multiple={!!d().multi} aria-label={language.t("nexus.answer")}>
-                  <For each={options()}>{(value) => <option>{value}</option>}</For>
-                </select>
+                          </Show>
+                        </label>
+                      </fieldset>
+                    </div>
+                  )
+                }}
+              </For>
+              <Show when={!fields().length}>
+                <Show
+                  when={options().length}
+                  fallback={<textarea name="reply" required aria-label={language.t("nexus.answer")} />}
+                >
+                  <select name="reply" required multiple={!!d().multi} aria-label={language.t("nexus.answer")}>
+                    <For each={options()}>{(value) => <option>{value}</option>}</For>
+                  </select>
+                </Show>
               </Show>
-            </Show>
+            </fieldset>
             <Show when={error()}>
               <span role="alert">{error()}</span>
             </Show>

@@ -19,6 +19,13 @@ test("management binds Human platform calls and workspace reads without exposing
     wake: "none",
     visibility: "public",
   }
+  const traces = new Map([
+    ["terminal-run", [terminalTask]],
+    ["rho-terminal", [{ ...terminalTask, key: "call_tool" }]],
+    ["unrelated", [{ ...terminalTask, key: "other" }]],
+    ["mixed", [terminalTask, { ...terminalTask, key: "read", tool_name: "read" }]],
+    ["finished", [{ ...terminalTask, status: "timed_out" }]],
+  ])
 
   using server = Bun.serve({
     port: 0,
@@ -32,18 +39,24 @@ test("management binds Human platform calls and workspace reads without exposing
 
         if (url.pathname.endsWith("/runs"))
           return Response.json({
-            runs: [{ public_id: "terminal-run", status: "running" }],
+            runs: (url.searchParams.get("after") === "empty" ? ["mixed"] : ["vanished", ...traces.keys()]).map(
+              (public_id) => ({ public_id, status: "running" }),
+            ),
             pagination: { next_after: "older-terminal" },
           })
 
-        if (url.pathname.endsWith("/runs/terminal-run"))
+        if (url.pathname.endsWith("/runs/vanished"))
+          return Response.json({ error: { code: "not_found" } }, { status: 404 })
+
+        const tasks = traces.get(url.pathname.split("/").at(-1)!)
+        if (tasks)
           return Response.json({
             run: {
-              public_id: "terminal-run",
+              public_id: url.pathname.split("/").at(-1),
               status: "running",
               turn: { status: "running" },
               created_at: "now",
-              tasks: [terminalTask],
+              tasks,
             },
           })
 
@@ -315,15 +328,23 @@ test("management binds Human platform calls and workspace reads without exposing
   ).rejects.toThrow("active workspace")
   expect(calls).toHaveLength(before)
   expect(await terminal(b, undefined, "cursor")).toEqual({
-    items: [{ run: "terminal-run", task: "terminal", status: "running", created: "now" }],
+    items: [
+      { run: "terminal-run", task: "terminal", status: "running", created: "now" },
+      { run: "rho-terminal", task: "call_tool", status: "running", created: "now" },
+    ],
     next: "older-terminal",
   })
-  expect(Object.fromEntries(new URL(reads.at(-2)!, server.url).searchParams)).toEqual({
+  expect(
+    Object.fromEntries(
+      new URL(reads.find((url) => url.includes("/runs?") && url.includes("after=cursor"))!, server.url).searchParams,
+    ),
+  ).toEqual({
     kind: "standalone",
     after: "cursor",
-    limit: "50",
+    limit: "20",
+    order: "desc",
   })
-  expect(reads.at(-1)).toBe("/agent_api/v1/workspaces/workspace/runs/terminal-run")
+  expect(await terminal(b, undefined, "empty")).toEqual({ items: [], next: "older-terminal" })
   expect(await terminal(b, { action: "read", run: "terminal-run", task: "terminal" })).toMatchObject({
     task: { key: "terminal", status: "running" },
     writable: true,

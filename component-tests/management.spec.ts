@@ -1102,6 +1102,7 @@ test("member-token settings skip unavailable persona controls and reconnect the 
   page,
 }) => {
   const state: { account: { id: string; role: string } | null } = { account: null }
+  let persona: { content: string } | null = { content: "Saved persona" }
   const commands: string[] = []
   const connections: string[] = []
   page.on("request", (request) => {
@@ -1125,7 +1126,8 @@ test("member-token settings skip unavailable persona controls and reconnect the 
           conversation_title_model: null,
         }
 
-      if (input.action === "persona.read") return { content: "Saved persona" }
+      if (input.action === "persona.read") return persona
+      if (input.action === "persona.reset") persona = null
 
       return {}
     },
@@ -1160,6 +1162,11 @@ test("member-token settings skip unavailable persona controls and reconnect the 
   state.account = { id: "human", role: "member" }
   await refresh.click()
   await expect(page.getByRole("textbox", { name: "Persona instructions", exact: true })).toHaveValue("Saved persona")
+  await page.getByRole("button", { name: "Reset persona" }).click()
+  await expect(page.getByRole("textbox", { name: "Persona instructions", exact: true })).toHaveValue("")
+  await refresh.click()
+  await expect(page.getByRole("button", { name: "Save persona" })).toBeEnabled()
+  await expect(page.getByRole("alert")).toHaveCount(0)
 })
 
 test("Bot editors retain unavailable Home Workspaces and respect fixed external audiences", async ({ page }) => {
@@ -1223,11 +1230,118 @@ test("Bot editors retain unavailable Home Workspaces and respect fixed external 
   await expect(audience).toBeEnabled()
 })
 
+test("terminal creation retries the selected runner and key after reload", async ({ page }) => {
+  const creates: { scope: string; body: Command }[] = []
+  await fixture(page, (input) =>
+    input.name === "runners"
+      ? {
+          runners: [
+            { public_id: "reader", display_name: "Reader", tools: ["read"] },
+            { public_id: "runner", display_name: "Local", tools: ["terminal"] },
+            { public_id: "remote", display_name: "Remote", tools: ["terminal"] },
+          ],
+        }
+      : [],
+  )
+  await page.route("**/api/7777/terminals*", async (route) => {
+    const request = route.request()
+    if (request.method() === "GET") return route.fulfill({ json: { items: [], next: null } })
+    const body = request.postDataJSON()
+    if (body.action === "read")
+      return route.fulfill({ json: { task: { status: "timed_out", error: { message: "Terminal expired" } } } })
+    creates.push({ scope: request.headers()["x-7777-scope"], body })
+    if (creates.length === 1) return route.fulfill({ status: 503, json: { error: "Response lost" } })
+    return route.fulfill({ json: { run: "run", task: "terminal" } })
+  })
+  await page.getByRole("button", { name: "Terminals", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Terminals", exact: true })
+  const runner = dialog.getByRole("combobox", { name: "Runner" })
+  await expect(runner.locator("option")).toHaveText(["Local", "Remote"])
+  await runner.selectOption("remote")
+  await dialog.getByRole("button", { name: "New terminal" }).click()
+  const retry = dialog.getByRole("button", { name: "Retry terminal creation" })
+  await expect(retry).toBeEnabled()
+  await page.reload()
+  await expect(runner).toBeDisabled()
+  await expect(runner).toHaveValue("remote")
+  await retry.click()
+  await expect(dialog.getByRole("status")).toHaveText("timed_out")
+  await expect(dialog.getByRole("alert")).toHaveText("Terminal expired")
+  expect(creates).toHaveLength(2)
+  expect(creates[0]).toEqual(creates[1])
+  expect(creates[0].body).toEqual({ action: "create", runner: "remote", key: expect.any(String) })
+})
+
+test("terminal screen survives peer replacement and resets only for a new output gap", async ({ page }) => {
+  await fixture(page, (input) => (input.name === "runners" ? { runners: [] } : []))
+  const runner = () =>
+    page.evaluateHandle(async () => {
+      const peer = new RTCPeerConnection({ iceServers: [] })
+      const terminal = peer.createDataChannel("terminal", { negotiated: true, id: 0 })
+      const permission = peer.createDataChannel("permission", { negotiated: true, id: 1 })
+      const offsets: number[] = []
+      permission.onmessage = (event) => permission.send(JSON.stringify({ nonce: Number(event.data), max_age_ms: 1000 }))
+      terminal.onmessage = (event) => {
+        const frame = JSON.parse(event.data)
+        if (frame.type === "resume") offsets.push(frame.offset)
+      }
+      await peer.setLocalDescription(await peer.createOffer())
+      if (peer.iceGatheringState !== "complete")
+        await new Promise<void>((resolve) => {
+          peer.onicegatheringstatechange = () => {
+            if (peer.iceGatheringState === "complete") resolve()
+          }
+        })
+      return { peer, terminal, offsets, offer: peer.localDescription!.sdp }
+    })
+  let current = await runner()
+  let generation = 1
+  await page.route("**/api/7777/terminals**", async (route) => {
+    if (route.request().url().endsWith("/config")) return route.fulfill({ json: { iceServers: [] } })
+    if (route.request().method() === "GET")
+      return route.fulfill({ json: { items: [{ run: "run", task: "terminal", status: "running" }], next: null } })
+    const input = route.request().postDataJSON()
+    if (input.action === "read") return route.fulfill({ json: { task: { status: "running" }, writable: true } })
+    if (input.action === "answer") {
+      await current.evaluate((r, sdp) => r.peer.setRemoteDescription({ type: "answer", sdp }), input.sdp)
+      return route.fulfill({ json: {} })
+    }
+    return route.fulfill({
+      json: { status: "active", connection_id: String(generation), offer_sdp: await current.evaluate((r) => r.offer) },
+    })
+  })
+  await page.getByRole("button", { name: "Terminals", exact: true }).click()
+  const dialog = page.getByRole("dialog", { name: "Terminals", exact: true })
+  await dialog.getByRole("button", { name: "Attach", exact: true }).click()
+  const screen = dialog.locator(".xterm-rows")
+  const send = (frame: object) => current.evaluate((r, data) => r.terminal.send(JSON.stringify(data)), frame)
+  await expect.poll(() => current.evaluate((r) => r.offsets)).toContain(0)
+  await send({ type: "output", offset: 0, data: btoa("first") })
+  await expect(screen).toContainText("first")
+  const previous = current
+  const next = await runner()
+  current = next
+  generation++
+  await previous.evaluate((r) => r.peer.close())
+  await expect.poll(() => current.evaluate((r) => r.offsets)).toContain(5)
+  await send({ type: "output", offset: 5, data: btoa(" second") })
+  await expect(screen).toContainText("first second")
+  await send({ type: "gap", from: 12, to: 20 })
+  await expect(dialog.getByText("Screen refreshed. 8 bytes of older output are no longer available.")).toBeVisible()
+  await expect(screen).not.toContainText("first")
+  await send({ type: "output", offset: 20, data: btoa("third") })
+  await expect(screen).toContainText("third")
+  await send({ type: "gap", from: 12, to: 20 })
+  await send({ type: "output", offset: 25, data: btoa(" fourth") })
+  await expect(screen).toContainText("third fourth")
+  await current.evaluate((r) => r.peer.close())
+})
+
 test("terminal viewers follow write access and disable controls when access is revoked", async ({ page }) => {
   const state = { writable: false, unavailable: false }
   const signals: string[] = []
 
-  await fixture(page, () => [])
+  await fixture(page, (input) => (input.name === "runners" ? { runners: [] } : []))
   await page.route("**/api/7777/terminals", async (route) => {
     if (route.request().method() === "GET")
       return route.fulfill({ json: { items: [{ run: "run", task: "terminal", status: "running" }], next: null } })

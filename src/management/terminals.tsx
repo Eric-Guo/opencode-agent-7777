@@ -1,4 +1,5 @@
 import { For, Show, onMount, onCleanup } from "solid-js"
+import { Schema } from "effect"
 import { createStore } from "solid-js/store"
 import { Button } from "@opencode/ui/button"
 import type { Terminal } from "@xterm/xterm"
@@ -7,32 +8,65 @@ import type { ManagementClient } from "./client"
 import { request, RequestError } from "../nexus/controller"
 import { FieldRow } from "./fields"
 import { terminalConnection } from "./terminal-connection"
+import { terminalEnded } from "./terminal-stream"
+import { storageGet, storageSet, storageRemove } from "../runtime/persistence/storage"
 import "@xterm/xterm/css/xterm.css"
 
 type Target = { run: string; task: string }
 
 type Row = Target & { status: string; created: string | null }
 
+type Runner = { public_id: string; display_name: string | null; tools: string[] }
+
 type TerminalDetail = TaskDetail & { writable?: boolean }
 
 export function Terminals(props: { client: ManagementClient; target?: Target }) {
   const c = props.client
-
+  const scope = c.scope()
+  const storageKey = "nexus.terminal.create:" + scope
+  const pending = Schema.decodeUnknownOption(
+    Schema.fromJsonString(Schema.Struct({ runner: Schema.NonEmptyString, key: Schema.NonEmptyString })),
+  )(storageGet(storageKey, "tab") ?? "null")
   const [s, set] = createStore({
     rows: [] as Row[],
     next: null as string | null,
     target: props.target ?? (null as Target | null),
+    runners: [] as Runner[],
     runner: c.chat.s.connection?.runner ?? "",
-    key: crypto.randomUUID(),
+    intent: pending._tag === "Some" ? pending.value : undefined,
   })
 
   const refresh = async (after?: string) => {
-    const page = await request<{ items: Row[]; next: string | null }>(
-      "/terminals" + (after ? "?after=" + encodeURIComponent(after) : ""),
-      c.scope(),
-    )
+    const [page, catalog] = await Promise.all([
+      request<{ items: Row[]; next: string | null }>(
+        "/terminals" + (after ? "?after=" + encodeURIComponent(after) : ""),
+        scope,
+      ),
+      c.extension<{ runners: Runner[] }>("runners"),
+    ])
+    const runners = catalog.runners.filter((row) => row.tools.includes("terminal"))
+    set("runners", runners)
+    if (!runners.some((row) => row.public_id === s.runner)) set("runner", runners[0]?.public_id ?? "")
 
     set({ rows: after ? [...s.rows, ...page.items] : page.items, next: page.next })
+  }
+
+  const create = async () => {
+    const intent = s.intent ?? { runner: s.runner, key: crypto.randomUUID() }
+    storageSet(storageKey, JSON.stringify(intent), "tab")
+    set("intent", intent)
+    const target = await request<Target>("/terminals", scope, { action: "create", ...intent }).catch(
+      (error: unknown) => {
+        if (error instanceof RequestError && [403, 404, 409].includes(error.status)) {
+          storageRemove(storageKey, "tab")
+          set("intent", undefined)
+        }
+        throw error
+      },
+    )
+    storageRemove(storageKey, "tab")
+    set({ target, intent: undefined })
+    await refresh()
   }
 
   onMount(() => void c.perform(() => refresh()))
@@ -43,28 +77,31 @@ export function Terminals(props: { client: ManagementClient; target?: Target }) 
       <p>A terminal runs on its selected runner. Closing this page detaches the viewer; Stop ends the shell.</p>
       <div class="nexus-card">
         <FieldRow label="Runner">
-          <select value={s.runner} onChange={(e) => set("runner", e.currentTarget.value)}>
-            <option value="">Choose runner</option>
-            <For each={c.chat.s.choices?.runners}>{(row) => <option value={row.id}>{row.name}</option>}</For>
+          <select
+            disabled={!!s.intent || !s.runners.length}
+            value={s.intent?.runner ?? s.runner}
+            onChange={(e) => set("runner", e.currentTarget.value)}
+          >
+            <Show when={!s.runners.length && !s.intent}>
+              <option value="">No terminal runner available</option>
+            </Show>
+            <Show when={s.intent && !s.runners.some((row) => row.public_id === s.intent?.runner)}>
+              <option value={s.intent!.runner} selected>
+                {s.intent!.runner}
+              </option>
+            </Show>
+            <For each={s.runners}>
+              {(row) => (
+                <option value={row.public_id} selected={row.public_id === (s.intent?.runner ?? s.runner)}>
+                  {row.display_name || row.public_id}
+                </option>
+              )}
+            </For>
           </select>
         </FieldRow>
         <div class="nexus-actions">
-          <Button
-            disabled={c.state.busy || !s.runner}
-            onClick={() =>
-              void c.perform(async () => {
-                const target = await request<Target>("/terminals", c.scope(), {
-                  action: "create",
-                  runner: s.runner,
-                  key: s.key,
-                })
-
-                set({ target, key: crypto.randomUUID() })
-                await refresh()
-              })
-            }
-          >
-            New terminal
+          <Button disabled={c.state.busy || (!s.intent && !s.runners.length)} onClick={() => void c.perform(create)}>
+            {s.intent ? "Retry terminal creation" : "New terminal"}
           </Button>
           <Button onClick={() => void c.perform(() => refresh())}>Refresh</Button>
         </div>
@@ -94,6 +131,7 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
     detail: null as TerminalDetail | null,
     status: "Connecting",
     error: "",
+    gap: "",
   })
   const abort = new AbortController()
   const scope = props.client.scope()
@@ -123,9 +161,16 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
       if (abort.signal.aborted) return
       set("detail", detail)
 
-      if (["completed", "failed", "canceled", "cancelled", "stopped"].includes(detail.task.status)) {
+      if (terminalEnded(detail.task.status)) {
         connection?.close()
         set("status", detail.task.status)
+        const error = detail.task.error
+        set(
+          "error",
+          error && !["canceled", "cancelled", "stopped"].includes(detail.task.status)
+            ? String(error.message || error.key || "")
+            : "",
+        )
 
         return
       }
@@ -154,6 +199,10 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
           iceServers: settings.iceServers,
           status: (status) => set("status", status),
           output: (bytes) => new Promise((resolve) => screen!.write(bytes, resolve)),
+          gap: (bytes) => {
+            screen!.reset()
+            set("gap", `Screen refreshed. ${bytes} bytes of older output are no longer available.`)
+          },
         })
         screen.onData((text) => {
           if (!connection!.send(text))
@@ -204,6 +253,9 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
           {s.error}
         </p>
       </Show>
+      <Show when={s.gap}>
+        <p>{s.gap}</p>
+      </Show>
       <div class="nexus-actions">
         <Show when={s.detail?.task.status === "needs_approval"}>
           <Button
@@ -214,7 +266,9 @@ function TerminalSession(props: { client: ManagementClient; target: Target }) {
           </Button>
         </Show>
         <Button
-          disabled={props.client.state.busy || !s.detail || s.detail.writable === false}
+          disabled={
+            props.client.state.busy || !s.detail || s.detail.writable === false || terminalEnded(s.detail.task.status)
+          }
           onClick={() =>
             void props.client.perform(async () => {
               await call("stop")

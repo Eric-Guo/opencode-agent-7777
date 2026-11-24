@@ -9,6 +9,7 @@ export function terminalConnection(options: {
   signal: AbortSignal
   iceServers?: RTCIceServer[]
   output(data: Uint8Array): Promise<void>
+  gap(bytes: number): void
   status(value: string): void
 }) {
   const stream = new TerminalStream()
@@ -113,7 +114,7 @@ export function terminalConnection(options: {
         if (rendering) return
         rendering = true
 
-        if (frame.gap) options.status(`${frame.gap} bytes of older output are no longer available.`)
+        if (frame.gap) options.gap(frame.gap)
 
         if (frame.data?.length) await options.output(frame.data)
         rendering = false

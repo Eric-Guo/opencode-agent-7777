@@ -1,5 +1,11 @@
 import { Schema } from "effect"
 
+export function terminalEnded(status: string) {
+  return ["completed", "failed", "timed_out", "uncertain", "canceled", "cancelled", "skipped", "stopped"].includes(
+    status,
+  )
+}
+
 const Offset = Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }))
 
 const Frame = Schema.Union([

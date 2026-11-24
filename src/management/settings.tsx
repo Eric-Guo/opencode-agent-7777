@@ -80,7 +80,7 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
     set(
       "persona",
       editablePersona()
-        ? ((await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "")
+        ? ((await c.command<{ content: string } | null>({ action: "persona.read" }))?.content ?? "")
         : "",
     )
   }
@@ -357,7 +357,7 @@ export function Settings(props: { client: ManagementClient; host: ModuleHost }) 
                     await c.command({ action: "persona.reset" })
                     set(
                       "persona",
-                      (await c.command<{ content: string | null }>({ action: "persona.read" })).content ?? "",
+                      (await c.command<{ content: string } | null>({ action: "persona.read" }))?.content ?? "",
                     )
                   })
                 }

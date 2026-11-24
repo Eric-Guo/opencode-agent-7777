@@ -3,8 +3,9 @@ import { createStore, type SetStoreFunction, type Store } from "solid-js/store"
 
 // The embedded app uses synchronous browser storage, without routed namespaces or a platform provider.
 // Resolve storage on each operation so importing a consumer does not require a browser environment.
-export function storageGet(key: string) {
+export function storageGet(key: string, scope?: "tab") {
   try {
+    if (scope === "tab") return sessionStorage.getItem(key)
     if (typeof localStorage !== "object") return null
     return localStorage.getItem(key)
   } catch {
@@ -12,8 +13,9 @@ export function storageGet(key: string) {
   }
 }
 
-export function storageSet(key: string, value: string) {
+export function storageSet(key: string, value: string, scope?: "tab") {
   try {
+    if (scope === "tab") return sessionStorage.setItem(key, value)
     if (typeof localStorage !== "object") return
     localStorage.setItem(key, value)
   } catch {
@@ -21,8 +23,9 @@ export function storageSet(key: string, value: string) {
   }
 }
 
-export function storageRemove(key: string) {
+export function storageRemove(key: string, scope?: "tab") {
   try {
+    if (scope === "tab") return sessionStorage.removeItem(key)
     if (typeof localStorage !== "object") return
     localStorage.removeItem(key)
   } catch {

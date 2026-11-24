@@ -1,4 +1,6 @@
 import { Schema } from "effect"
+import { listTerminalRuns } from "@opencode/nexus-runtime/terminal-runs"
+import { terminalEnded } from "../src/management/terminal-stream"
 import { BridgeError, canWrite, channelOwned, readChat, type Backend } from "./nexus"
 
 const Action = Schema.Union([
@@ -19,17 +21,8 @@ const Action = Schema.Union([
 
 export async function terminal(b: Backend, value?: unknown, after?: string) {
   if (value === undefined) {
-    const page = await b.workspace.runs.list({ kind: "standalone", after, limit: 50 })
-    const runs = await Promise.all(page.items.map((run) => b.workspace.run(run.public_id).fetch()))
-
-    return {
-      items: runs.flatMap((run) =>
-        run.tasks
-          .filter((task) => task.tool_name === "terminal")
-          .map((task) => ({ run: run.public_id, task: task.key, status: task.status, created: run.created_at })),
-      ),
-      next: page.next_after,
-    }
+    const page = await listTerminalRuns(b.workspace, after)
+    return { items: page.items.filter((row) => !terminalEnded(row.status)), next: page.next }
   }
 
   const command = Schema.decodeUnknownSync(Action)(value)

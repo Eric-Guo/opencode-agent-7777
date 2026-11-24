@@ -1,8 +1,32 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`7a8243168e166cab52cfce710008723e936d6603`. The reference checkout and its Ruby/JavaScript
+`79ff4f2da20ae80a7513f1198d7002a84e72a396`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Terminal recovery and structured questions
+
+Reviewed November 24, 2026 from Nexus UI `f03ad71f` and OpenCode `27b1b2b39e4`.
+
+The terminal picker lists runners advertising `terminal`. It pages standalone
+runs newest first, preserving the cursor when all 20 candidates are filtered
+or have disappeared. A pending creation keeps its workspace, runner and request
+key across reload. In Chromium, two real WebRTC peers fed the same xterm
+across a connection replacement. The screen retained earlier text until the
+runner reported a new byte gap. Replaying that gap left the new text intact.
+
+On the UI at port 4779, a private workspace on Nexus at port 3000 opened a
+terminal on the installed OpenCode runner. After a reload, reattaching to that
+terminal printed a variable set before the reload. Stop settled the task and
+deleting the workspace returned HTTP 404.
+
+The Chromium question regression enters multiline text, switches to read-only
+and back, and submits a typed answer twice after the first attempt is refused.
+The form preserves the draft and disables all fields during read-only access
+and submission. The local conversation fixture receives the string, false, zero,
+an explicit empty choice and an empty multichoice list. An unchecked optional
+field is omitted. All 432 UI unit tests and 98 Chromium cases passed. The reference `rho-webui`
+seat suite passed 20 cases and the `rho-env/test/webui` terminal suites passed 33.
 
 ## Live scheduled results
 

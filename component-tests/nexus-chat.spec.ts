@@ -1513,6 +1513,98 @@ test("keyboard mode choices survive a new draft reload, and a lost receipt reuse
   expect(patches[1]).toEqual({ code_mode: false })
 })
 
+test("structured question drafts survive read-only refresh and a refused answer", async ({ page }) => {
+  await mockEvents(page)
+  const state = { writable: true, held: true }
+  const answers: unknown[] = []
+  const release = Promise.withResolvers<void>()
+  await page.route("**/api/7777/**", async (route) => {
+    const path = new URL(route.request().url()).pathname
+    const json = (body: unknown) => route.fulfill({ json: body })
+    if (path.endsWith("/connection"))
+      return json({ scope: "fixture", user: "Human", workspace: "Shared", agent: "OpenCode", model: "m", runner: "r" })
+    if (path.endsWith("/choices")) return json({ models: ["m"], runners: [], approvals: ["ask"] })
+    if (path.endsWith("/decisions")) {
+      answers.push(route.request().postDataJSON())
+      if (answers.length === 1) {
+        await release.promise
+        return route.fulfill({ status: 400, json: { error: "Answer refused" } })
+      }
+      state.held = false
+      return json({})
+    }
+    if (route.request().method() === "POST") return json([])
+    return json({
+      turns: [],
+      pending: [],
+      busy: state.held,
+      problem: null,
+      detail: {
+        title: "Shared",
+        owned: false,
+        archived: false,
+        runner: "r",
+        version: 0,
+        active: null,
+        writable: state.writable,
+      },
+      decisions: state.held
+        ? [
+            {
+              kind: "ask",
+              run: "run",
+              key: "ask",
+              prompt: "Review result",
+              fields: [
+                { name: "notes", label: "Notes", type: "string", required: true },
+                { name: "ok", label: "Approved", type: "boolean", required: true },
+                { name: "count", label: "Count", type: "integer", required: true },
+                { name: "choice", label: "Choice", type: "choice", options: ["", "other"], required: true },
+                { name: "tags", label: "Tags", type: "multichoice", options: ["tag"], required: true },
+                { name: "extra", label: "Extra", type: "string", required: false },
+              ],
+            },
+          ]
+        : [],
+    })
+  })
+  await page.goto("/component-tests/nexus-chat.html#/workspaces/shared/conversations/chat")
+  const form = page.getByRole("group", { name: "Review result" })
+  const notes = form.getByLabel("Notes")
+  const submit = form.getByRole("button", { name: "Send answer" })
+  await notes.fill("First")
+  await notes.press("Enter")
+  await notes.pressSequentially("second")
+  await form.getByLabel("Approved").selectOption("false")
+  await form.getByLabel("Count").fill("0")
+  await form.getByRole("combobox", { name: "Choice", exact: true }).selectOption({ index: 1 })
+  state.writable = false
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(notes).toBeDisabled()
+  await expect(form.getByRole("checkbox")).toBeDisabled()
+  await form.locator("form").evaluate((el) => (el as HTMLFormElement).requestSubmit())
+  expect(answers).toHaveLength(0)
+  state.writable = true
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-refresh")))
+  await expect(notes).toBeEnabled()
+  await expect(notes).toHaveValue("First\nsecond")
+  await submit.click()
+  await expect(notes).toBeDisabled()
+  await expect(submit).toBeDisabled()
+  release.resolve()
+  await expect(submit).toBeEnabled()
+  await expect(notes).toHaveValue("First\nsecond")
+  await submit.click()
+  await expect(form).toHaveCount(0)
+  expect(answers).toEqual(
+    Array(2).fill({
+      run: "run",
+      key: "ask",
+      response: { action: "answer", answer: { notes: "First\nsecond", ok: false, count: 0, choice: "", tags: [] } },
+    }),
+  )
+})
+
 test("read-only access disables conversation edits and updates when write access returns", async ({ page }) => {
   await mockEvents(page)
   const state = { writable: false, archived: false, unavailable: false }
