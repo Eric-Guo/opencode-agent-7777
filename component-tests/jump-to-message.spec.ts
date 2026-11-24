@@ -100,3 +100,105 @@ test("jump reveals a match deep in a multiline prompt and closes when the sessio
   expect(writes).toEqual([])
   expect(errors).toEqual([])
 })
+
+test("jump finds matching card excerpts once per prompt without reading history or files", async ({ page }) => {
+  const { errors, writes } = await setupSession(page, undefined, [
+    {
+      type: "user",
+      id: "mixed",
+      time: { created: 1 },
+      text: "Private server instructions",
+      files: [{ name: "inline-ledger.txt", mime: "text/plain", source: { type: "inline" }, data: "aGk=" }],
+      metadata: {
+        displayText: "Review both files",
+        comments: [{ path: "src/totals.ts", comment: "Verify the balance" }],
+        attachments: [
+          { name: "archived-ledger.csv", path: "/private/reference.csv", mime: "text/csv" },
+          { name: "invalid.csv", mime: "text/csv" },
+        ],
+      },
+    },
+    {
+      type: "user",
+      id: "cards",
+      time: { created: 2 },
+      text: "Private card instructions",
+      metadata: {
+        displayText: "",
+        comments: [
+          { type: "quote", text: "Read the\nquarterly statement", comment: "Check the sum" },
+          {
+            type: "note",
+            title: "Save preferences",
+            subtitle: "Settings panel",
+            label: "Button",
+            icon: "select-element",
+            comment: "",
+          },
+          {
+            type: "browser",
+            element: { selector: "#hidden-selector", label: "Legacy toolbar" },
+            comment: "Move the toolbar",
+          },
+          { type: "quote", text: 42, comment: "Invalid quote" },
+        ],
+      },
+    },
+    {
+      type: "user",
+      id: "incomplete",
+      time: { created: 3 },
+      text: "Private envelope instructions",
+      metadata: { displayText: "Public preview", comments: false },
+    },
+  ])
+  const editor = page.getByRole("textbox", { name: "Message", exact: true })
+  await editor.fill("Keep this draft")
+  const reads: string[] = []
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname
+    if (path.endsWith("/message") || path.startsWith("/api/fs/")) reads.push(path)
+  })
+  await page.getByRole("button", { name: "Jump to message (3/9)" }).click()
+  const dialog = page.getByRole("dialog", { name: "Jump to message" })
+  const search = dialog.getByRole("combobox")
+  const options = dialog.getByRole("option")
+  await expect(options).toHaveCount(3)
+  for (const [query, excerpt] of [
+    ["LEDGER", "archived-ledger.csv"],
+    ["inline-ledger", "inline-ledger.txt"],
+    ["balance", "Verify the balance"],
+    ["totals.ts", "totals.ts"],
+    ["sum", "Check the sum"],
+    ["PREFERENCES", "Save preferences"],
+    ["settings", "Settings panel"],
+    ["legacy", "Legacy toolbar"],
+    ["move the", "Move the toolbar"],
+  ]) {
+    await search.fill(query)
+    await expect(options).toHaveText([excerpt])
+  }
+  for (const hidden of ["private", "invalid", "hidden-selector"]) {
+    await search.fill(hidden)
+    await expect(dialog.getByText("No matching prompts")).toBeVisible()
+  }
+  await search.fill("")
+  await expect(options).toHaveText(["Public preview", "cards", "Review both files"])
+  await search.fill("quarterly   statement")
+  await expect(options).toHaveText(["Read the quarterly statement"])
+  await search.press("Enter")
+  await expect(dialog).toHaveCount(0)
+  await expect(page.locator('[data-timeline-row="UserMessage"][data-message-id="cards"]')).toBeInViewport()
+  await expect(page.locator('[data-slot="session-message-scroller"] [data-scrollable]').first()).toBeFocused()
+  await page.getByRole("button", { name: "Add images and files" }).click()
+  await page.getByRole("menuitem", { name: /Commands/ }).click()
+  await page.getByRole("button", { name: /^\/fork / }).click()
+  const fork = page.getByRole("dialog", { name: "Fork from message" })
+  await fork.getByRole("combobox").fill("archived-ledger")
+  await expect(fork.getByText("No messages found")).toBeVisible()
+  await fork.getByRole("combobox").press("Escape")
+  await expect(editor).toHaveText("Keep this draft")
+  expect(reads).toEqual([])
+  expect(writes).toEqual([])
+  expect(errors).toEqual([])
+})

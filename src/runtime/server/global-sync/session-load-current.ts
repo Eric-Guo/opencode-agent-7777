@@ -1,13 +1,23 @@
 import { translateSync } from "@/runtime/i18n/language"
 import type { SessionRecord } from "@/runtime/persistence/storage-compact"
-// Resolves the draft location or restores the current session. Only submission creates a session.
 import type { OpencodeClient } from "@/runtime/server/directory-client-compact"
+import { isSessionNotFoundError } from "@/runtime/server/errors"
 import { defaultSessionDirectory } from "@/session/directory"
-import type { SessionInfo as Session } from "@opencode/client/promise"
 
-export function restoreSession(baseClient: OpencodeClient, record: SessionRecord | undefined, signal?: AbortSignal) {
-  if (!record) return Promise.resolve<Session | undefined>(undefined)
-  return baseClient.session.get({ sessionID: record.id }, { signal }).catch(() => undefined)
+export async function restoreSession(
+  baseClient: OpencodeClient,
+  record: SessionRecord | undefined,
+  signal?: AbortSignal,
+) {
+  if (!record) return
+  try {
+    const session = await baseClient.session.get({ sessionID: record.id }, { signal })
+    if (session?.id !== record.id) throw new Error(translateSync("error.requestFailed"))
+    return session
+  } catch (error) {
+    // Activating a draft clears the saved ID. Only the server can confirm it is gone.
+    if (!isSessionNotFoundError(error, record.id)) throw error
+  }
 }
 
 export function createSession(baseClient: OpencodeClient, directory: string, localAgent: string, signal?: AbortSignal) {

@@ -8,19 +8,12 @@ import { readPromptPresentation } from "@/composer/comment-note"
 import { useLanguage } from "@/runtime/i18n/language"
 import type { SessionRuntime } from "@/runtime/server/runtime"
 import { selectSessionUserMessages } from "@/session/session-domain"
+import { jumpSearchFields, matchingJumpSnippet } from "./jump-to-message"
 
 const LABELS = {
   fork: { title: "command.session.fork", empty: "dialog.fork.empty", noMatches: "dialog.fork.search.empty" },
   jump: { title: "dialog.jump.title", empty: "dialog.jump.empty", noMatches: "dialog.jump.noMatches" },
 } as const
-
-function jumpSnippet(text: string, match: number, length: number) {
-  const prefix = Math.max(0, match - 16)
-  const space = text.indexOf(" ", prefix)
-  const start = prefix && space >= prefix && space < match ? space + 1 : prefix
-  const end = Math.max(start + 90, match + length + 16)
-  return (start ? "…" : "") + text.slice(start, end) + (end < text.length ? "…" : "")
-}
 
 function MessagePicker(props: {
   action: keyof typeof LABELS
@@ -30,21 +23,26 @@ function MessagePicker(props: {
   const language = useLanguage()
   const dialog = useDialog()
   const labels = LABELS[props.action]
-  const normalize = (text: string) => (props.action === "jump" ? text.replace(/\s+/g, " ") : text)
   const [query, setQuery] = createSignal("")
   const rows = createMemo(() =>
     props.messages.toReversed().map((message) => {
-      const text = (readPromptPresentation(message.metadata)?.displayText ?? message.text).trim()
-      const filenames = message.files?.map((file) => file.name || language.t("ui.message.attachment.alt")).join(", ")
-      return { id: message.id, label: normalize(text || filenames || message.id) }
+      const presentation = readPromptPresentation(message.metadata)
+      // Even an incomplete card envelope can explicitly hide model-only text from Jump.
+      const displayText = props.action === "jump" ? message.metadata?.displayText : presentation?.displayText
+      const text = typeof displayText === "string" ? displayText : message.text
+      const attachment = language.t("ui.message.attachment.alt")
+      const label = text.trim() || message.files?.map((file) => file.name || attachment).join(", ") || message.id
+      const fields =
+        props.action === "jump" ? jumpSearchFields(label, message.files, presentation, attachment) : undefined
+      return { id: message.id, label, fields }
     }),
   )
   const matches = createMemo(() => {
-    const search = normalize(query()).trim().toLowerCase()
-    return rows().flatMap(({ id, label }) => {
-      const match = label.toLowerCase().indexOf(search)
-      if (match < 0) return []
-      return [{ id, label: props.action === "jump" ? jumpSnippet(label, match, search.length) : label }]
+    const search = (props.action === "jump" ? query().replace(/\s+/g, " ") : query()).trim().toLowerCase()
+    return rows().flatMap(({ id, label, fields }) => {
+      if (!fields) return label.toLowerCase().includes(search) ? [{ id, label }] : []
+      const snippet = matchingJumpSnippet(fields, search)
+      return snippet === undefined ? [] : [{ id, label: snippet }]
     })
   })
   return (

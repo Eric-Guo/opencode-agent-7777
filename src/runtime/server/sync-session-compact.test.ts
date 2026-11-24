@@ -9,8 +9,11 @@ import {
   sessionEvents,
 } from "./sync-session-compact"
 import * as resolver from "./resolver-compact"
+import * as sessionLoad from "./global-sync/session-load-current"
 import * as catalogs from "@/providers/catalog/loader-compact"
-import { currentDraft, setSessionClient, setState, state } from "./session-store-compact"
+import { currentDraft, currentRuntime, setSessionClient, setState, state } from "./session-store-compact"
+import { readRetry } from "./read-errors"
+import { READ_TIMEOUT_MS } from "./operation"
 
 const originalFetch = globalThis.fetch
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
@@ -53,6 +56,38 @@ function fixture() {
 }
 
 describe("compact session event stream", () => {
+  test("a late saved-session result after timeout cannot attach over Retry", async () => {
+    jest.useFakeTimers()
+    const resolve = spyOn(resolver, "resolveServer").mockResolvedValue({
+      url: "http://fixture.test",
+      localAgent: "7777",
+      welcomeText: "",
+      suggestedQuestions: [],
+    })
+    const held = Promise.withResolvers<SessionInfo>()
+    const restore = spyOn(sessionLoad, "restoreSession")
+      .mockReturnValueOnce(held.promise)
+      .mockRejectedValueOnce(new Error("Retry failed"))
+    try {
+      const first = initializeSessionSync()
+      await until(() => restore.mock.calls.length === 1)
+      jest.advanceTimersByTime(READ_TIMEOUT_MS)
+      await first
+      expect(state.status).toBe("failed")
+      expect(restore.mock.calls[0]?.[2]?.aborted).toBe(true)
+      readRetry()!()
+      await until(() => state.error === "Retry failed")
+      held.resolve({ id: "late", location: { directory: "/old" } } as SessionInfo)
+      await tick()
+      expect(currentRuntime()).toBeUndefined()
+      expect(currentDraft()).toBeUndefined()
+      expect(state.error).toBe("Retry failed")
+    } finally {
+      resolve.mockRestore()
+      restore.mockRestore()
+    }
+  })
+
   test("navigation retires unfinished startup without replacing the new stream or reporting its failure", async () => {
     const server = { url: "http://fixture.test", localAgent: "7777", welcomeText: "", suggestedQuestions: [] }
     const held = Promise.withResolvers<void>()

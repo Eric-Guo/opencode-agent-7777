@@ -204,6 +204,9 @@ New conversations follow the main app's draft-before-submit behavior. `new-sessi
 opens a local draft, and the compact-only `new-session/draft.ts` supplies location catalogs without a session ID.
 `composer/submit.ts` creates and activates the server session on the first nonempty submission, then sends the captured
 message, attachments and model selection. Startup without a saved session and deleted-session recovery also open drafts.
+When a saved-session lookup fails, **Retry** looks up the same session again. Its ID, directory and unsent
+draft stay in tab storage until the session loads or the server confirms that this particular session was deleted.
+On confirmed deletion, the local draft opens with the saved prompt and attachments.
 The embedded app keeps this orchestration in its existing compact controller and bootstrap modules instead of the main
 app's routed `new-session/composer-adapter.ts`; recent sessions remain available while drafting.
 
@@ -264,8 +267,9 @@ upward key or text selection, a delayed scroll event near the end preserves the 
 or shrinking the scroll range can resume following. While paused, **Jump to latest** appears when the reader
 is at least ten pixels from the end, including when the content grows without a scroll event.
 
-Click the header's **current/9** counter to **Jump to message**. Search by prompt text, or by filename for an
-attachment-only prompt. Choose a result to scroll to it. Long prompts show the passage containing the match.
+Click the header's **current/9** counter to **Jump to message**. Search the displayed prompt, attachment names,
+quotes, file comments and note cards. Each matching prompt appears once with an excerpt from the matching field.
+Choose a result to scroll to it. Search uses the loaded transcript and makes no file or history requests.
 Escape returns to the counter. **Jump to latest** resumes following.
 
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
@@ -437,8 +441,10 @@ for the queue and its messages. The adapter batches these changes with the share
 embedded behavior stay local.
 
 The main app has separate jump and fork pickers. In 7777, both search the same nine-dialog window, so
-`session/commands/message-picker.tsx` shares the public `SearchList` and `Dialog` controls and the prompt
-labels. The session cache identifies delivered user prompts, excluding inbox items and optimistic echoes.
+`session/commands/message-picker.tsx` shares the public `SearchList` and `Dialog` controls. The local
+`session/commands/jump-to-message.ts` projects searchable card fields from the timeline presentation and
+uses the public session UI attachment predicate. Fork uses the original prompt labels. The session cache
+identifies delivered user prompts, excluding inbox items and optimistic echoes.
 Each dialog closes with its session activation. A jump moves only the transcript's scroll viewport.
 
 `session/{fork-machine,fork}.ts` gives the timeline and the composer’s `/fork` picker one operation per session

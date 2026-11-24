@@ -178,7 +178,9 @@ client, share prompt reconstruction with Undo, and protect edits made before or 
 
 The header's **current/9** counter opens **Jump to message**. It shares the local
 `session/commands/message-picker.tsx` dialog with `/fork`. Both read delivered user prompts from the
-visible history. Jump shows the matching passage of a long prompt. Selecting a result focuses and scrolls
+visible history. The local `session/commands/jump-to-message.ts` matches each prompt's display text, inline
+and server-reference filenames, quotes, file comments and note labels. It returns the first matching excerpt
+per prompt and keeps the original preview for an empty query. Selecting a result focuses and scrolls
 the embedded transcript through `session/timeline/interaction.ts`. Search and selection run in memory.
 
 Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
@@ -191,6 +193,9 @@ cover stale completions, watcher cleanup, cancellation between grant and dispatc
 Startup, runtime attachment, activation reads, session switching and New session admission now use the local
 `runtime/server/load-machine.ts` finite-read boundary. It replaces independent generation counters and busy
 flags while leaving the main app's multi-server registry and workspace providers outside the compact runtime.
+The saved-session lookup in `global-sync/session-load-current.ts` uses the same ID-specific not-found
+predicate as session actions. A temporary or mismatched response goes to startup Retry with the tab record
+and draft intact. A confirmed deletion opens the saved draft in its directory.
 Stream activity, handshake and retry backoff follow the local `server-sync/{connection,machine}.ts` boundary.
 The first greeting reconciles both pending request lists with the active directory. Heartbeats renew stream readiness
 and the idle deadline. Hydration scheduling, loading and coalescing follow `refresh-machine.ts`. Drivers own
@@ -286,6 +291,17 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Saved-session recovery and Jump search (2026-11-24). On the original production build, a 500 opened a draft
+and a filename search missed a prompt with display text. Both regressions passed on the updated bundle. Retry
+restored the conversation, draft text and attachment after a 500, a 404 naming another session and a mismatched
+success response. A matching 404 opened the saved draft. The picker found card excerpts with zero file or
+history reads. On the live agent, a Chinese search matched the prompt and Escape returned focus to **1/9**.
+
+All 744 Bun tests, 98 browser tests, typecheck and both production builds passed. The updated source maps
+contained zero main-app or desktop modules. Three-run medians before and after were 179/186 ms for entry,
+75/88 ms for switching and 87/91 ms for streaming. Both benchmarks made the same 155 requests by endpoint,
+including the history, scrolling and runtime Retry checks. Evidence is in `node_modules/.cache/recovery-jump/`.
 
 Jump to message (2026-11-24). An 11-prompt production fixture searched the latest nine, jumped to the
 oldest visible prompt and retained the draft across a viewport resize. It recorded zero extra message
