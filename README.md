@@ -364,9 +364,11 @@ types and `data`, `nodes`, or a `dataset`. Other JSON remains code. A chart appe
 message finishes; incomplete JSON stays visible during streaming. Charts use a white surface with ECharts' light
 defaults while honoring supplied colors and background options.
 
-The local `markdown-echarts-options.ts` boundary accepts JSON data only. JavaScript callbacks, custom/plugin chart
-types, maps, and option wrappers (`option`, `baseOption`, `options`, `media`) are unsupported. Tooltip rendering uses
-rich text; HTML data views, navigation links, image resources, prototype keys, and regex dataset filters are excluded.
+The local `markdown-echarts-options.ts` boundary passes JSON data to ECharts. In explicit `echarts` fences, a
+`color` value written as `function() { return undefined; }` is read as `null`, so ECharts can use its default color.
+JavaScript callbacks are never executed. Custom/plugin chart types, maps, and option wrappers (`option`, `baseOption`,
+`options`, `media`) are unsupported. Tooltip rendering uses rich text. HTML data views, navigation links, image
+resources, prototype keys, and regex dataset filters are excluded.
 Only built-in `filter` and `sort` dataset transforms are supported. These presentation rules do not change stored
 messages or copied source. Fixtures and browser coverage remain local in `component-tests/echarts*`.
 

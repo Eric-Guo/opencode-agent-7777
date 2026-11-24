@@ -31,6 +31,28 @@ describe("chart option recognition", () => {
     expect(parseChartOptions('{"series":{"type":"pie","data":[]}}', "javascript")).toEqual({ kind: "code" })
   })
 
+  test("uses the default color for an empty color callback in an explicit chart", () => {
+    const title = 'Literal "color": function() { return undefined; }'
+    const source = `{
+      "title": { "text": ${JSON.stringify(title)} },
+      "series": [
+        { "type": "bar", "data": [1, -2], "itemStyle": { "color": function() { return undefined; }, "opacity": 0.8 } },
+        { "type": "line", "data": [1, -1], "itemStyle": { "color": "#123456" } }
+      ]
+    }`
+    expect<unknown>(parseChartOptions(source, "echarts")).toEqual({
+      kind: "chart",
+      option: {
+        title: { text: title },
+        series: [
+          { type: "bar", data: [1, -2], itemStyle: { color: null, opacity: 0.8 } },
+          { type: "line", data: [1, -1], itemStyle: { color: "#123456" } },
+        ],
+      },
+    })
+    expect(parseChartOptions(source, "json")).toEqual({ kind: "code" })
+  })
+
   test("explicit malformed JSON and unsupported charts produce source-preserving errors", () => {
     for (const source of [
       "{",
@@ -39,6 +61,9 @@ describe("chart option recognition", () => {
       "option = {}",
       "{series: []}",
       '{"series":[{"type":"custom","renderItem":()=>{}}]}',
+      '{"series":{"type":"bar","data":[1],"itemStyle":{"color":function() { return "red"; }}}}',
+      '{"series":{"type":"bar","data":[1],"itemStyle":{"color":function() { return undefined; }()}}}',
+      '{"series":{"type":"bar","data":[1],"label":{"formatter":function() { return undefined; }}}}',
     ]) {
       expect(parseChartOptions(source, "echarts")).toEqual({ kind: "error", reason: "invalid" })
     }

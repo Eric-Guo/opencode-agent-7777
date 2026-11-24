@@ -2,6 +2,10 @@ import type { EChartsOption } from "echarts"
 
 type JsonObject = Record<string, unknown>
 
+// Match the default-color placeholder or consume a whole JSON string, including escaped quotes.
+const DEFAULT_COLOR_CALLBACK =
+  /("color"\s*:\s*)function\s*\(\s*\)\s*\{\s*return[ \t]+undefined\s*(?:;\s*)?\}|"(?:\\[\s\S]|[^"\\])*"/g
+
 const SERIES = new Set([
   "line",
   "bar",
@@ -90,7 +94,13 @@ export function parseChartOptions(source: string, language: string): ChartOption
 
   let value: unknown
   try {
-    value = JSON.parse(source)
+    const input =
+      explicit && source.includes("function")
+        ? source.replace(DEFAULT_COLOR_CALLBACK, (token, property: string | undefined) =>
+            property ? `${property}null` : token,
+          )
+        : source
+    value = JSON.parse(input)
   } catch {
     return explicit ? { kind: "error", reason: "invalid" } : { kind: "code" }
   }
