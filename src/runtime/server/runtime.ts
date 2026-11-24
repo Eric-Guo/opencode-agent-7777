@@ -5,6 +5,7 @@ import type {
   SessionInboxInfo,
   SessionInfo,
   SessionMessageInfo,
+  SessionMessageUser,
   SessionStatus,
 } from "@opencode/client/promise"
 import { createComputed, createMemo, createRoot, createSignal, onCleanup, untrack } from "solid-js"
@@ -38,6 +39,7 @@ export type SessionRuntime = {
   setSession: (info: SessionInfo) => void
   setStatus: (status: SessionStatus) => void
   admitted: (messageID: string) => boolean
+  deliveredPrompt: (messageID: string) => SessionMessageUser | undefined
   echo: (message: SessionMessageInfo) => void
   dropEcho: (messageID: string) => void
   updatePending: (update: (items: SessionInboxInfo[]) => SessionInboxInfo[]) => void

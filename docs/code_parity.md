@@ -176,6 +176,11 @@ It searches delivered user messages in memory. The active directory’s command 
 `/fork` opens the picker or runs a deployment-defined command. Both fork entry points use the public session
 client, share prompt reconstruction with Undo, and protect edits made before or during creation.
 
+The header's **current/9** counter opens **Jump to message**. It shares the local
+`session/commands/message-picker.tsx` dialog with `/fork`. Both read delivered user prompts from the
+visible history. Jump shows the matching passage of a long prompt. Selecting a result focuses and scrolls
+the embedded transcript through `session/timeline/interaction.ts`. Search and selection run in memory.
+
 Transport scheduling follows local `runtime/server/{request-queue-machine,request-queue}.ts` boundaries.
 The pure machine owns slots, FIFO eligibility, request IDs and stall warnings; the driver retains fetch, abort signals,
 promise callbacks and timers. The shared fetch/origin budget, synchronous free-slot dispatch, slow-request limits,
@@ -281,6 +286,18 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Jump to message (2026-11-24). An 11-prompt production fixture searched the latest nine, jumped to the
+oldest visible prompt and retained the draft across a viewport resize. It recorded zero extra message
+reads. A second fixture found a match near the end of a multiline prompt and closed the picker on session
+replacement. The live Chinese agent jumped to its prompt and returned to latest at `1/9`.
+The scrolling benchmark now checks focus and sends Page Up to the focused viewport. The former
+`tabindex="0"` assertion failed on both builds with the current shared `ScrollView`. Keyboard scrolling,
+streaming while paused, session switching and nine-dialog Undo/Redo passed on both builds.
+All 743 Bun tests, 95 browser tests, typecheck and both production builds passed. Both builds' source
+maps contained zero main-app or desktop modules. Three-run medians before and after were 172/180 ms
+for entry, 83/84 ms for switching and 91/90 ms for streaming. Both runs made the same 87 requests by
+endpoint. Evidence is in `node_modules/.cache/jump-to-message/`.
 
 Timeline model labels (2026-11-24). The original production build kept the raw ID after the catalog loaded.
 The updated build showed the catalog name, the recorded variant and both speed-change notices. Unknown

@@ -264,6 +264,10 @@ upward key or text selection, a delayed scroll event near the end preserves the 
 or shrinking the scroll range can resume following. While paused, **Jump to latest** appears when the reader
 is at least ten pixels from the end, including when the content grows without a scroll event.
 
+Click the header's **current/9** counter to **Jump to message**. Search by prompt text, or by filename for an
+attachment-only prompt. Choose a result to scroll to it. Long prompts show the passage containing the match.
+Escape returns to the counter. **Jump to latest** resumes following.
+
 `session/timeline/message-timeline-compact.tsx` keeps the compact header's binary **Thinking** preference and maps it
 to the shared timeline's `full`/`hidden` reasoning modes. Enabling Thinking shows thought contents expanded by default;
 individual thought sections can still be folded. The main app's `session/timeline/controller.tsx` derives its mode
@@ -432,9 +436,13 @@ for the queue and its messages. The adapter batches these changes with the share
 `session-store-compact.ts` exposes reactive views and local UI state. Transport, directory request discovery and
 embedded behavior stay local.
 
+The main app has separate jump and fork pickers. In 7777, both search the same nine-dialog window, so
+`session/commands/message-picker.tsx` shares the public `SearchList` and `Dialog` controls and the prompt
+labels. The session cache identifies delivered user prompts, excluding inbox items and optimistic echoes.
+Each dialog closes with its session activation. A jump moves only the transcript's scroll viewport.
+
 `session/{fork-machine,fork}.ts` gives the timeline and the composer’s `/fork` picker one operation per session
-activation. The local `session/commands/fork-dialog.tsx` uses the public `SearchList` and `Dialog` controls to
-pick a delivered prompt from the visible timeline and confirm draft replacement. The write has a 30-second
+activation. The local `session/commands/fork-dialog.tsx` confirms draft replacement. The write has a 30-second
 deadline. The normal session-switch path seeds the new draft before history hydration, so Retry preserves edits.
 
 Transport scheduling follows the main app's `runtime/server/{request-queue-machine,request-queue}.ts` boundary.

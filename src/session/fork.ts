@@ -11,7 +11,8 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { bounded } from "@/runtime/server/operation"
 import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { readableError } from "@/shell/errors/readable"
-import { useForkConfirmation, useForkPicker } from "./commands/fork-dialog"
+import { useForkConfirmation } from "./commands/fork-dialog"
+import { useMessagePicker } from "./commands/message-picker"
 import { createForkState, FORK_TIMEOUT_MS, transitionFork, type ForkEvent } from "./fork-machine"
 
 const sameDraft = Schema.toEquivalence(PromptDraft)
@@ -21,7 +22,7 @@ export function createSessionFork(input: {
   visibleMessages: () => SessionMessageInfo[]
 }) {
   const confirm = useForkConfirmation()
-  const pick = useForkPicker()
+  const pick = useMessagePicker("fork", input.visibleMessages)
   const language = useLanguage()
   // Each activation owns its admission lock, dialogs and request, including a return to the same session.
   return createMemo(() => {
@@ -38,16 +39,10 @@ export function createSessionFork(input: {
     const current = () => !signal.aborted && currentRuntime() === runtime && state.session?.id === runtime.id
     const root = () => current() && !state.session?.parentID && !state.recentSessionSwitchingID
     const available = () => root() && operation().status === "idle"
-    // The timeline also contains optimistic echoes and undelivered inbox entries.
-    const delivered = (id: string) => {
-      if (state.sessionPending.some((item) => item.id === id)) return
-      const message = runtime.data.session.message.get(runtime.id, id)
-      return message?.type === "user" ? message : undefined
-    }
     const visible = (id: string) => input.visibleMessages().some((row) => row.id === id)
     const fork: NonNullable<SessionUserActions["fork"]> = async ({ sessionID, messageID }) => {
       if (!available() || sessionID !== runtime.id || !visible(messageID)) return
-      const message = delivered(messageID)
+      const message = runtime.deliveredPrompt(messageID)
       if (!message) {
         setState("error", language.t("session.fork.pending"))
         return
@@ -60,7 +55,8 @@ export function createSessionFork(input: {
       const { attempt } = start
       try {
         if (start.status === "confirming-replace") {
-          if (!(await confirm(false, signal)) || !root() || !visible(messageID) || !delivered(messageID)) return
+          if (!(await confirm(false, signal)) || !root() || !visible(messageID) || !runtime.deliveredPrompt(messageID))
+            return
           dispatch({ type: "approved", attempt })
         }
         const approved = prompt.capture()
@@ -91,11 +87,7 @@ export function createSessionFork(input: {
       // The command menu restores the editor and its selection on the preceding frame callback.
       requestAnimationFrame(() => {
         if (!available()) return
-        pick(
-          () => input.visibleMessages().flatMap((row) => (row.type === "user" && delivered(row.id) ? [row] : [])),
-          (messageID) => void fork({ sessionID: runtime.id, messageID }),
-          signal,
-        )
+        pick(runtime, (messageID) => void fork({ sessionID: runtime.id, messageID }), signal)
       })
     }
     return {

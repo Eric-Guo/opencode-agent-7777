@@ -24,6 +24,7 @@ import {
 import { CompactMessageTimeline } from "@/session/timeline/message-timeline-compact"
 import { createCompactTimelineModel } from "@/session/timeline/model-compact"
 import { createSessionTimelineInteraction } from "@/session/timeline/interaction"
+import { useMessagePicker } from "@/session/commands/message-picker"
 import { createTurnDiffSource } from "@/session/timeline/turn-diffs"
 import { sessionDirectory } from "@/session/directory"
 
@@ -54,6 +55,11 @@ export function SessionPage() {
   })
 
   const interaction = createSessionTimelineInteraction({ identity: currentRuntime })
+  const pickMessage = useMessagePicker("jump", timeline.visibleMessages)
+  const openJump = () => {
+    const runtime = currentRuntime()
+    if (runtime && !state.recentSessionSwitchingID) pickMessage(runtime, interaction.actions.jumpToMessage)
+  }
   const turnDiff = createMemo(() => {
     if (!settings.general.showTurnDiffs()) return
     const runtime = currentRuntime()
@@ -81,6 +87,7 @@ export function SessionPage() {
       <SessionHeader
         {...layout.header()}
         revert={region.actions.revert}
+        onJumpToMessage={openJump}
         showReasoningSummaries={settings.general.showReasoningSummaries()}
         onToggleReasoningSummaries={toggleReasoningSummaries}
       />

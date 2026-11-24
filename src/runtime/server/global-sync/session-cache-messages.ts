@@ -50,6 +50,11 @@ export function createSessionMessageCache(input: {
 
   return {
     messages,
+    deliveredPrompt(id: string) {
+      if (input.pending.get(id)) return
+      const message = input.get(id)
+      return message?.type === "user" ? message : undefined
+    },
     // Inbox events carry the same ID through admission, delivery and cancellation. A local echo proves nothing.
     admitted(id: string) {
       return touched.has(id) || input.get(id)?.type === "user" || !!input.pending.get(id)

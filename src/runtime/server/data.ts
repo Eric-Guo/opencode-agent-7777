@@ -180,6 +180,7 @@ export function createSessionData(input: {
         })
       },
       admitted: cache.admitted,
+      deliveredPrompt: cache.deliveredPrompt,
       echo: cache.echo,
       dropEcho: cache.dropEcho,
       updatePending(update: (items: SessionInboxInfo[]) => SessionInboxInfo[]) {

@@ -11,6 +11,10 @@ export const dict = {
   "common.search.placeholder": "Search",
   "dialog.fork.empty": "No messages to fork from",
   "dialog.fork.search.empty": "No messages found",
+  "dialog.jump.title": "Jump to message",
+  "dialog.jump.empty": "No sent prompts in the visible history",
+  "dialog.jump.noMatches": "No matching prompts",
+  "session.messages.jumpToMessage": "Jump to message ({{count}}/{{limit}})",
   "session.read.retry": "Retry",
   "session.revert.timeout":
     "The server took too long to finish the history action. Check the current history before trying again.",

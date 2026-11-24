@@ -40,6 +40,7 @@ export function SessionHeader(props: {
   revert: SessionRevert
   status: string
   userDialogCount: number
+  onJumpToMessage: () => void
   showReasoningSummaries: boolean
   newSessionPending: boolean
   newSessionDisabled: boolean
@@ -74,12 +75,26 @@ export function SessionHeader(props: {
             </div>
           )}
         </Show>
-        <div class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 px-2 text-xs font-[650] text-v2-text-text-muted select-none [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-label={language.t("session.messages.jumpToMessage", {
+            count: props.userDialogCount,
+            limit: HISTORY_DIALOG_LIMIT,
+          })}
+          title={language.t("dialog.jump.title")}
+          disabled={!currentRuntime() || !props.userDialogCount || !!state.recentSessionSwitchingID}
+          onClick={(event) => {
+            event.currentTarget.focus({ preventScroll: true })
+            props.onJumpToMessage()
+          }}
+          class="inline-flex h-[30px] min-w-[30px] items-center justify-center gap-1 rounded-full px-2 text-xs font-[650] text-v2-text-text-muted select-none hover:enabled:bg-v2-overlay-simple-overlay-hover hover:enabled:text-v2-text-text-base [&_[data-component=icon]]:h-3.5 [&_[data-component=icon]]:w-3.5"
+        >
           <Icon name="speech-bubble" />
           <span>{props.userDialogCount}</span>
           <span>/</span>
           <span>{HISTORY_DIALOG_LIMIT}</span>
-        </div>
+        </button>
         <Show when={state.session && !state.session.parentID && currentRuntime()} keyed>
           {(runtime) => <SessionOptions session={runtime.view().session} />}
         </Show>

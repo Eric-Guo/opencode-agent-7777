@@ -24,6 +24,19 @@ export function createSessionTimelineInteraction(input: { identity: Accessor<unk
     follow.resume()
     position = readPosition()
   }
+  const jumpToMessage = (id: string) => {
+    const el = state.scroller
+    const row = el?.querySelector<HTMLElement>(`[data-timeline-row="UserMessage"][data-message-id="${CSS.escape(id)}"]`)
+    if (!el || !row) return
+    readerInteracted = true
+    follow.pause()
+    // Only move the transcript. The embedding page can have a scroll container of its own.
+    el.scrollTop += row.getBoundingClientRect().top - el.getBoundingClientRect().top - el.clientTop
+    follow.handleScroll()
+    el.focus({ preventScroll: true })
+    position = readPosition()
+    updateJump(position)
+  }
   createEffect(on(input.identity, resume))
 
   // createAutoScroll observes both elements and pins in the resize delivery. While reading,
@@ -47,7 +60,7 @@ export function createSessionTimelineInteraction(input: { identity: Accessor<unk
   return {
     scroller: () => state.scroller,
     scroll: state,
-    actions: { resume },
+    actions: { resume, jumpToMessage },
     view: {
       markInput: () => {
         readerInteracted = true

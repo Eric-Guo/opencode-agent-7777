@@ -498,8 +498,9 @@ try {
 
         // Shared keyboard navigation must pause the compact auto-follow adapter,
         // keep the reader in place during streaming, and resume on reaching End.
-        await expect(scroller).toHaveAttribute("tabindex", "0")
-        await scroller.press("PageUp")
+        await scroller.focus()
+        await expect(scroller).toBeFocused()
+        await page.keyboard.press("PageUp")
         await expect(resume).toBeVisible()
         await expect.poll(distance).toBeGreaterThan(100)
         await page.waitForTimeout(350)
