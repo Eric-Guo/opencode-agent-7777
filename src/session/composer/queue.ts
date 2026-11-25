@@ -1,9 +1,11 @@
-import { batch, createComputed, createSignal, on, onCleanup, untrack, type Accessor } from "solid-js"
+import { batch, createComputed, createMemo, createSignal, on, onCleanup, untrack, type Accessor } from "solid-js"
 import type { SessionInboxInfo } from "@opencode/client/promise"
+import type { SessionUserActions } from "@opencode/session-ui/actions"
 import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
 import { extractPromptFromQueued as queuedPromptUndoDraft } from "@/composer/prompt"
 import type { PromptState } from "@/composer/state"
 import { translateSync } from "@/runtime/i18n/language"
+import type { SessionRuntime } from "@/runtime/server/runtime"
 import { currentRuntime, setState, state } from "@/runtime/server/session-store-compact"
 import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
@@ -13,6 +15,7 @@ import {
   selectQueueUndoing,
   transitionQueue,
   type QueueEvent,
+  type QueueOperation,
 } from "./queue-machine"
 
 export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
@@ -46,11 +49,12 @@ export function createSessionQueue(input: {
         if (effect.type === "refresh") active.runtime.schedule(0)
         if (effect.type !== "apply") continue
         const { id, action, restored } = effect.operation
-        active.runtime.updatePending((items) =>
-          action === "steer"
-            ? items.map((item) => (item.id === id ? { ...item, delivery: "steer" } : item))
-            : items.filter((item) => item.id !== id),
-        )
+        if (event.type === "succeeded")
+          active.runtime.updatePending((items) =>
+            action === "steer" || action === "queue"
+              ? items.map((item) => (item.id === id ? { ...item, delivery: action } : item))
+              : items.filter((item) => item.id !== id),
+          )
         if (!restored) continue
         // Read only after acknowledgement, so other draft writers survive cancellation.
         const draft = input.draft.capture()
@@ -81,9 +85,25 @@ export function createSessionQueue(input: {
         item.sessionID === state.session?.id && item.type === "user" && item.delivery === "queue",
     )
   const busy = () => input.disabled() || selectQueueBusy(mutation())
-  const change = async (id: string, action: "steer" | "remove" | "undo") => {
+  const timelineOwner = (runtime: SessionRuntime) =>
+    runtime.alive() &&
+    currentRuntime() === runtime &&
+    state.session?.id === runtime.id &&
+    !state.session.parentID &&
+    !state.recentSessionSwitchingID
+  const change = async (id: string, action: QueueOperation["action"], timeline?: SessionRuntime) => {
     if (busy() || untrack(mutation).status === "disposed") return
-    const item = queued().find((item) => item.id === id)
+    const findItem = () => {
+      if (timeline && !timelineOwner(timeline)) return
+      return state.sessionPending.find(
+        (item): item is QueuedPrompt =>
+          item.id === id &&
+          item.sessionID === state.session?.id &&
+          item.type === "user" &&
+          item.delivery === (timeline ? "steer" : "queue"),
+      )
+    }
+    const item = findItem()
     if (!item) return
     const restored = action === "undo" ? queuedPromptUndoDraft(item) : undefined
     if (action === "undo" && !restored) {
@@ -98,7 +118,15 @@ export function createSessionQueue(input: {
     const done = Promise.withResolvers<void>()
     const retire = () => dispatch({ type: "reset" })
     const stop = active.runtime.events.listen(({ details: event }) => {
-      if (!active.current() || !("inboxID" in event.data) || event.data.inboxID !== id) return
+      if (
+        !active.current() ||
+        !("inboxID" in event.data) ||
+        event.data.sessionID !== active.sessionID ||
+        event.data.inboxID !== id
+      )
+        return
+      if (event.type === "session.inbox.delivery.changed")
+        dispatch({ type: "delivery.changed", delivery: event.data.delivery, attempt }, active)
       if (event.type === "session.inbox.cancelled" || event.type === "session.inbox.delivered")
         dispatch({ type: event.type === "session.inbox.cancelled" ? "cancelled" : "delivered", attempt }, active)
     })
@@ -110,11 +138,15 @@ export function createSessionQueue(input: {
     }
     setState("error", "")
     if (untrack(mutation) !== current) return done.promise
+    if (!active.current() || input.disabled() || !findItem()) {
+      retire()
+      return done.promise
+    }
     // A sent mutation may still commit after navigation. Retire its UI ownership,
     // but leave the transport's existing deadline in charge of the request.
     void Promise.try(() =>
-      action === "steer"
-        ? active.client.session.inbox.update({ sessionID: active.sessionID, inboxID: id, delivery: "steer" })
+      action === "steer" || action === "queue"
+        ? active.client.session.inbox.update({ sessionID: active.sessionID, inboxID: id, delivery: action })
         : active.client.session.inbox.cancel({ sessionID: active.sessionID, inboxID: id }),
     ).then(
       () => dispatch({ type: "succeeded", attempt }, active),
@@ -122,6 +154,19 @@ export function createSessionQueue(input: {
     )
     return done.promise
   }
+  const pending = createMemo<SessionUserActions["pending"]>(() => {
+    const runtime = currentRuntime()
+    if (!runtime || !timelineOwner(runtime)) return
+    return {
+      status: runtime.pendingStatus,
+      async queue({ sessionID, messageID }) {
+        if (sessionID === runtime.id) await change(messageID, "queue", runtime)
+      },
+      async remove({ sessionID, messageID }) {
+        if (sessionID === runtime.id) await change(messageID, "remove", runtime)
+      },
+    }
+  })
   const delivery: ComposerQueue = {
     count: () => queued().length,
     delivery: () => (input.working() ? (input.behavior?.() ?? "steer") : "steer"),
@@ -132,6 +177,7 @@ export function createSessionQueue(input: {
   }
   return {
     ...delivery,
+    pending,
     rows: () => queuedPromptRows(queued()),
     working: input.working,
     busy,

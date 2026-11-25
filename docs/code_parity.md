@@ -211,6 +211,14 @@ It reconciles them with the public client's inbox by ID and by the revision at w
 The message cache uses the same queue edit to hide removed prompts and show readmitted ones. The data adapter
 publishes the queue and transcript together, including when an event delivers an HTTP-only prompt.
 
+Root-session transcripts use the public `SessionUserActions.pending` interface for waiting labels and the
+**Move to queue** and **Delete** menu items. The compact runtime distinguishes a local sending echo from an
+admitted steer. It reads the shared client's pending status once delivery modes agree and accounts for earlier
+HTTP receipts against the current execution boundary. The queue panel and transcript share the compact queue
+machine. A matching delivery change or cancellation can settle the write before HTTP. A delayed admission
+echo preserves a confirmed move or withdrawal. After an idempotent Delete response, a delivery event or a
+fresh history read can still confirm that the message was delivered. Only queue Undo restores the draft.
+
 Complete API reads, including decoding, are bounded through local `operation.ts` and `read-client.ts` beneath
 shared `createData`, so stalled synchronization entries settle and retries can proceed. Shared reads retain data-owner
 cancellation; an individual observer cannot abort another consumer's catalog work. Startup, activation, catalogs
@@ -296,6 +304,17 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Pending follow-ups (2026-11-26). The production fixture reproduced the missing Pending label on the original
+bundle. On the updated bundle it moved one prompt to the queue, returned it to the transcript, and deleted it
+with three writes to the same inbox ID. The draft survived. Runtime tests cover delivery before and after a
+Delete response, stale snapshots, and delayed admission events. The live session remained Ready at `1/9` and
+its delivered message offered Copy message, Fork from here, and Undo.
+
+All 745 Bun tests, 102 browser tests, typecheck and both production builds passed. Source maps contained zero
+main-app or desktop modules. Three-run medians before and after were 174/178 ms for entry, 68/76 ms for
+session switching and 87/89 ms for streaming. Both runs passed the nine-dialog history check and made the
+same 108 requests by endpoint. Evidence is in `node_modules/.cache/pending-follow-ups/`.
 
 Transcript attachment downloads (2026-11-24). The original production bundle rendered delivered and just-sent
 files as inactive cards. The updated fixture downloaded the exact binary, zero-byte and pending UTF-8 payloads

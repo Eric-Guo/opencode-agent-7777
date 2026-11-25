@@ -35,6 +35,7 @@ export function createActiveSessionRegion(visibleMessages: () => SessionMessageI
       timeline: createTimelineActions({
         revert,
         fork,
+        pending: active.queue.pending,
         chooseModel: () =>
           state.session && !state.session.parentID && !state.recentSessionSwitchingID
             ? active.composer.chooseModel()

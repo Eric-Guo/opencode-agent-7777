@@ -34,6 +34,7 @@ export type SessionRuntime = {
   view: () => SessionView
   alive: () => boolean
   pendingRevision: () => number
+  pendingStatus: ReturnType<typeof createSessionData>["mutations"]["pendingStatus"]
   refreshMessages: (limit?: number) => Promise<void>
   schedule: (delay?: number) => void
   setSession: (info: SessionInfo) => void

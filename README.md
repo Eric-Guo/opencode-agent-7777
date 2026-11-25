@@ -436,7 +436,8 @@ discards the stale page and the runtime starts again at the latest messages. The
 Shared data owns durable session records, messages, pending inbox snapshots and location catalogs.
 
 `runtime/server/global-sync/session-cache-pending.ts` reconciles HTTP admissions, promotions and removals with
-the shared inbox. An inbox event acknowledges its own ID. A successful hydration acknowledges receipts recorded
+the shared inbox. An inbox event acknowledges its own ID, accounting for moves and withdrawals confirmed
+after that admission. A successful hydration acknowledges receipts recorded
 by the time its read began. If a delivery change arrives before the shared inbox has the item, its HTTP receipt
 supplies the content and the adapter schedules the usual refresh.
 
@@ -444,6 +445,10 @@ supplies the content and the adapter schedules the usual refresh.
 echoes, cancellation markers and skill/selection messages. Both caches stay local to the activation. A queue edit
 supplies one set of retained and removed IDs to the transcript, and each published view uses the same pending list
 for the queue and its messages. The adapter batches these changes with the shared event reducer.
+`session/composer/timeline-actions.ts` supplies the public `SessionUserActions.pending` callbacks for the
+active root session. The runtime reads pending status from the shared client. When an HTTP receipt arrives
+first, it uses the confirmed delivery mode, the most recent idle marker, and delivered prompts in the current
+turn. The timeline and the queue panel use the same local queue controller for moves and cancellations.
 `runtime.test.ts` covers atomic publication, overlapping snapshots and mixed shell/user hydration.
 `session-store-compact.ts` exposes reactive views and local UI state. Transport, directory request discovery and
 embedded behavior stay local.
@@ -1031,6 +1036,11 @@ Use the header's **Follow-up behavior** menu to choose **Steer** (the default) o
 **Enter** uses that preference and **Cmd+Enter** on macOS, or **Ctrl+Enter** elsewhere, uses the opposite delivery.
 When the session is idle, either shortcut sends immediately. The preference is saved in this browser; the composer
 also shows the alternate action while a follow-up is ready to send.
+
+A steered follow-up waiting behind a running turn shows **Pending** in the transcript. Open its **More actions**
+menu to **Move to queue** or **Delete** it. Delete withdraws the follow-up and keeps your current draft.
+From the queue, **Steer** (or **Send** when idle) returns the same prompt to the transcript. Once the server
+delivers it, the message offers its usual history actions.
 
 Use **Undo** on a queued prompt to move it back into the composer. It appends after any current draft text and
 preserves existing attachments and file, agent, and skill mentions. The prompt leaves the queue only after the server confirms

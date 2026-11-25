@@ -2,7 +2,7 @@ import type { PromptDraft } from "@/composer/state"
 
 export type QueueOperation = {
   readonly id: string
-  readonly action: "steer" | "remove" | "undo"
+  readonly action: "steer" | "queue" | "remove" | "undo"
   readonly restored?: PromptDraft
 }
 
@@ -14,6 +14,7 @@ export type QueueState =
 export type QueueEvent =
   | { readonly type: "requested"; readonly operation: QueueOperation }
   | { readonly type: "succeeded" | "cancelled" | "delivered"; readonly attempt: number }
+  | { readonly type: "delivery.changed"; readonly delivery: "steer" | "queue"; readonly attempt: number }
   | { readonly type: "failed"; readonly attempt: number; readonly error: unknown }
   | { readonly type: "reset" }
   | { readonly type: "disposed" }
@@ -38,15 +39,15 @@ export function transitionQueue(state: QueueState, event: QueueEvent): { state: 
       ? unchanged
       : { state: { status: "running", attempt: state.attempt + 1, operation: event.operation }, effects: [] }
   if (state.status !== "running" || state.attempt !== event.attempt) return unchanged
-  if (event.type === "cancelled" && state.operation.action === "steer") return unchanged
+  if (event.type === "delivery.changed" && event.delivery !== state.operation.action) return unchanged
+  const effects: QueueEffect[] = []
+  if (event.type === "failed") effects.push({ type: "failed", error: event.error })
+  if (event.type === "succeeded" || (event.type === "cancelled" && state.operation.action === "undo"))
+    effects.push({ type: "apply", operation: state.operation })
+  effects.push({ type: "refresh" })
   return {
     state: { status: "idle", attempt: state.attempt },
-    effects:
-      event.type === "failed"
-        ? [{ type: "failed", error: event.error }, { type: "refresh" }]
-        : event.type === "delivered"
-          ? [{ type: "refresh" }]
-          : [{ type: "apply", operation: state.operation }, { type: "refresh" }],
+    effects,
   }
 }
 

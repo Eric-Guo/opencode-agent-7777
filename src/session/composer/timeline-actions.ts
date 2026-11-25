@@ -29,6 +29,7 @@ async function attachmentBlob(file: PromptAttachment) {
 export function createTimelineActions(input: {
   revert: ReturnType<typeof createSessionRevert>
   fork: ReturnType<typeof createSessionFork>
+  pending: () => SessionUserActions["pending"]
   chooseModel: () => SessionUserActions["chooseModel"]
 }): SessionUserActions {
   const language = useLanguage()
@@ -52,6 +53,9 @@ export function createTimelineActions(input: {
     get fork() {
       const action = input.fork()
       return action?.available() ? action.fork : undefined
+    },
+    get pending() {
+      return input.pending()
     },
     get chooseModel() {
       return input.chooseModel()

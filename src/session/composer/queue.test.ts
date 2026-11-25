@@ -135,6 +135,109 @@ browserSuite(import.meta.path, () => {
     expect(queue.busy()).toBe(false)
   })
 
+  const target = { sessionID: "session", messageID: "queued" }
+  const steer = (): QueuedPrompt => ({ ...item(), delivery: "steer" })
+  function inboxEvent(type: "delivered" | "cancelled" | "delivery.changed", delivery?: "queue" | "steer") {
+    currentRuntime()!.apply({
+      id: "evt_inbox",
+      created: 2,
+      type: `session.inbox.${type}`,
+      data: { sessionID: target.sessionID, inboxID: target.messageID, delivery },
+      location: { directory: "/repo" },
+      durable: { aggregateID: target.sessionID, seq: 1, version: 1 },
+    } as OpenCodeEvent)
+  }
+
+  test.each(["queue", "remove"] as const)(
+    "delivery during timeline %s wins over its late HTTP result",
+    async (action) => {
+      const response = Promise.withResolvers<Response>()
+      let writes = 0
+      connect(
+        OpenCode.make({
+          baseUrl: "http://fixture.local",
+          fetch: (async (_input, _init) => {
+            writes++
+            return response.promise
+          }) as typeof fetch,
+        }),
+      )
+      currentRuntime()!.updatePending(() => [steer()])
+      const draft = createPromptState({ prompt: "keep", attachments: [] })
+      const queue = makeQueue({ draft })
+      const pending = queue.pending()!
+      const write = pending[action](target)
+      await pending[action](target)
+      expect(writes).toBe(1)
+      inboxEvent("delivered")
+      await write
+      expect(queue.busy()).toBe(false)
+      response.resolve(new Response(null, { status: 503 }))
+      await Bun.sleep(0)
+      expect(state.error).toBe("")
+      expect(state.sessionPending).toEqual([])
+      expect(state.sessionMessages.map((row) => [row.id, row.type === "user" && row.text])).toEqual([
+        ["queued", "later"],
+      ])
+      expect(draft.current()).toBe("keep")
+    },
+  )
+
+  test("a move acknowledged by its event cannot overwrite the next promotion", async () => {
+    const response = Promise.withResolvers<void>()
+    const client = OpenCode.make({ baseUrl: "http://fixture.local" })
+    const writes: string[] = []
+    client.session.inbox.update = async ({ delivery }) => {
+      writes.push(delivery)
+      if (delivery === "queue") await response.promise
+    }
+    connect(client)
+    currentRuntime()!.updatePending(() => [steer()])
+    const queue = makeQueue()
+    const first = queue.pending()!.queue(target)
+    inboxEvent("delivery.changed", "steer")
+    expect(queue.busy()).toBe(true)
+    inboxEvent("delivery.changed", "queue")
+    await first
+    expect(queue.count()).toBe(1)
+    await queue.steer(target.messageID)
+    response.resolve()
+    await Promise.resolve()
+    expect(writes).toEqual(["queue", "steer"])
+    expect(state.sessionPending).toEqual([steer()])
+  })
+
+  test("timeline callbacks require the original root activation and a still-steered user item", async () => {
+    const writes: string[] = []
+    const client = OpenCode.make({ baseUrl: "http://fixture.local" })
+    client.session.inbox.cancel = async ({ inboxID }) => {
+      writes.push(inboxID)
+      throw new Error("offline")
+    }
+    connect(client)
+    const queue = makeQueue()
+    const old = queue.pending()!
+    await old.remove(target)
+    currentRuntime()!.updatePending(() => [steer()])
+    await old.remove({ ...target, sessionID: "other" })
+    setState("recentSessionSwitchingID", "other")
+    await old.remove(target)
+    setState("recentSessionSwitchingID", undefined)
+    connect(client)
+    currentRuntime()!.updatePending(() => [steer()])
+    await old.remove(target)
+    expect(writes).toEqual([])
+    const active = queue.pending()!
+    await active.remove(target)
+    expect(writes).toEqual(["queued"])
+    expect(state.error).toBe("offline")
+    expect(state.sessionPending).toEqual([steer()])
+    setState("session", "parentID", "parent")
+    expect(queue.pending()).toBeUndefined()
+    await active.remove(target)
+    expect(writes).toEqual(["queued"])
+  })
+
   test("blocks actions while the dock is disabled", async () => {
     let calls = 0
     connect(

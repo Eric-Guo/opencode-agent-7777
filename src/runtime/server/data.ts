@@ -1,4 +1,4 @@
-import { createData, type CreateDataInput } from "@opencode/client/solid"
+import { createData, type CreateDataInput, type DataPendingStatus } from "@opencode/client/solid"
 import type {
   OpenCodeClient,
   OpenCodeEvent,
@@ -155,6 +155,24 @@ export function createSessionData(input: {
       sessionStatus: local.status ?? (data.session.status(id) === "running" ? { type: "busy" } : { type: "idle" }),
     }
   }
+  function pendingStatus(messageID: string): DataPendingStatus | "sending" | undefined {
+    const item = pending.get(messageID)
+    if (!item) return cache.sending(messageID) ? "sending" : undefined
+    if (item.type !== "user") return
+    if (item.delivery === "queue") return "queued"
+    const status = data.session.pending.status(id, messageID)
+    if (status && status !== "queued") return status
+
+    // An HTTP admission or promotion can precede its inbox event. Classify it against
+    // the same idle boundary, using the compact view of delivered and pending inputs.
+    const rows = cache.messages()
+    const boundary = rows.findLastIndex((row) => row.type === "idle")
+    if (data.session.status(id) === "idle")
+      return boundary >= 0 && item.time.created <= rows[boundary].time.created ? "stranded" : "starting"
+    return rows.slice(boundary + 1).some((row) => row.type === "user" && cache.deliveredPrompt(row.id))
+      ? "steering"
+      : "starting"
+  }
   onCleanup(() => listeners.clear())
 
   return {
@@ -168,6 +186,7 @@ export function createSessionData(input: {
       shells,
       statusRevision: () => statusRevision,
       pendingRevision: pending.revision,
+      pendingStatus,
       setSession(info: SessionInfo) {
         sessionRevision++
         data.session.remember(copy(info))
@@ -188,7 +207,7 @@ export function createSessionData(input: {
         const next = update(before)
         revision++
         batch(() => {
-          cache.pendingChanged(pending.replace(before, next, revision))
+          cache.pendingChanged(pending.replace(before, next, revision), revision)
         })
       },
       apply(event: OpenCodeEvent) {
@@ -218,7 +237,7 @@ export function createSessionData(input: {
             setLocal("status", undefined)
           }
           const inbox = pending.apply(event, revision)
-          const missing = cache.apply(event, revision, inbox?.delivered)
+          const missing = !inbox?.superseded && cache.apply(event, revision, inbox?.delivered)
           publishEvent(event)
           return missing || inbox?.refresh
         })

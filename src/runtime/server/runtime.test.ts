@@ -455,6 +455,43 @@ browserSuite(import.meta.path, () => {
     f.emit("session.inbox.delivered", { inboxID: "pending" })
     expect(f.pending()).toEqual([])
     expect(f.rows()).toMatchObject([{ id: "pending", text: "pending prompt", time: { created: 103 } }])
+    expect(f.runtime.deliveredPrompt("pending")?.text).toBe("pending prompt")
+  })
+
+  test("pending status follows local echoes, receipts and the execution boundary before SSE catches up", async () => {
+    const f = fixture()
+    const prompt = user(20)
+    const status = () => f.runtime.pendingStatus(prompt.id)
+    f.snapshot([user(1)])
+    await f.runtime.refreshMessages()
+    f.runtime.echo(prompt)
+    expect(status()).toBe("sending")
+    f.runtime.updatePending(() => [inbox(prompt.id, "steer")])
+    expect(status()).toBe("starting")
+    f.runtime.setStatus({ type: "busy" })
+    expect(status()).toBe("steering")
+    f.emit("session.execution.succeeded", {})
+    expect(status()).toBe("stranded")
+    f.runtime.updatePending(() => [inbox(prompt.id, "queue")])
+    expect(status()).toBe("queued")
+    f.runtime.updatePending(() => [])
+    expect(status()).toBeUndefined()
+    expect(f.rows().map((row) => row.id)).not.toContain(prompt.id)
+  })
+
+  test("confirmed delivery mode overrides stale shared status until the event arrives", async () => {
+    const f = fixture()
+    f.snapshot([user(1)], [inbox()])
+    await f.runtime.refreshMessages()
+    f.runtime.setStatus({ type: "busy" })
+    f.runtime.updatePending(() => [inbox("pending", "steer")])
+    expect(f.runtime.data.session.pending.status("session", "pending")).toBe("queued")
+    expect(f.runtime.pendingStatus("pending")).toBe("steering")
+    f.emit("session.inbox.delivery.changed", { inboxID: "pending", delivery: "steer" })
+    expect(f.runtime.pendingStatus("pending")).toBe("steering")
+    f.emit("session.inbox.delivered", { inboxID: "pending" })
+    expect(f.runtime.pendingStatus("pending")).toBeUndefined()
+    expect(f.runtime.deliveredPrompt("pending")?.text).toBe("pending prompt")
   })
 
   test("an inbox cancellation overtaking a snapshot cannot restore the item", async () => {
@@ -476,6 +513,39 @@ browserSuite(import.meta.path, () => {
     expect(f.pending()).toEqual([])
     expect(f.rows()).toEqual([])
   })
+
+  test.each(["event", "snapshot"] as const)(
+    "a later %s confirms delivery despite an HTTP removal",
+    async (confirmation) => {
+      const f = fixture()
+      const pending = inbox("msg_009", "steer")
+      const delivered = { ...user(9), text: "pending prompt" }
+      f.runtime.updatePending(() => [pending])
+      const held = Promise.withResolvers<unknown>()
+      const started = Promise.withResolvers<void>()
+      f.read((url) => {
+        if (!url.pathname.endsWith("/message")) return
+        started.resolve()
+        return held.promise
+      })
+      const old = f.runtime.refreshMessages()
+      await started.promise
+      f.runtime.updatePending(() => [])
+      if (confirmation === "event") {
+        f.emit("session.inbox.delivered", { inboxID: pending.id })
+        expect(f.runtime.deliveredPrompt(pending.id)?.text).toBe("pending prompt")
+      }
+      held.resolve({ data: confirmation === "event" ? [] : [delivered], cursor: {} })
+      await old
+      if (confirmation === "snapshot") expect(f.rows()).toEqual([])
+      f.read(undefined)
+      f.snapshot([delivered])
+      await f.runtime.refreshMessages()
+      expect(f.pending()).toEqual([])
+      expect(f.rows()).toEqual([delivered])
+      expect(f.runtime.deliveredPrompt(pending.id)).toEqual(delivered)
+    },
+  )
 
   test("retains live assistant, compaction and shell rows across history refreshes", async () => {
     const f = fixture()
@@ -593,6 +663,7 @@ browserSuite(import.meta.path, () => {
       files: [{ mime: "text/plain", name: "note", data: "aGk=", source: { type: "inline" as const } }],
     }
     f.runtime.echo(echo)
+    expect(f.runtime.pendingStatus(echo.id)).toBe("sending")
     expect(f.rows()[0]).toEqual(echo)
     f.emit("session.inbox.enqueued", {
       inboxID: echo.id,
@@ -600,6 +671,7 @@ browserSuite(import.meta.path, () => {
     })
     expect(f.rows()).toHaveLength(1)
     expect(f.rows()[0]).toMatchObject({ text: "durable", files: echo.files })
+    expect(f.runtime.pendingStatus(echo.id)).toBe("starting")
     f.runtime.updatePending(() => [])
     expect(f.rows()).toEqual([])
     expect(f.pending()).toEqual([])
@@ -718,6 +790,31 @@ browserSuite(import.meta.path, () => {
     expect(f.pending().map((item) => item.id)).toEqual(["one"])
     expect(f.rows()).toMatchObject([{ id: "two", text: "pending prompt", time: { created: 102 } }])
   })
+
+  test.each(["queued", "withdrawn"] as const)(
+    "a delayed admission echo keeps an HTTP-%s steer out of the transcript",
+    (outcome) => {
+      const f = fixture()
+      f.runtime.updatePending(() => [inbox("same", "steer")])
+      f.runtime.updatePending(() => (outcome === "queued" ? [inbox("same", "queue")] : []))
+      const enqueue = (created: number) =>
+        f.emit(
+          "session.inbox.enqueued",
+          {
+            inboxID: "same",
+            item: { type: "user", delivery: "steer", payload: { text: "follow-up" } },
+          },
+          { created },
+        )
+      enqueue(100)
+      expect(f.rows()).toEqual([])
+      expect(f.pending().map((item) => item.delivery)).toEqual(outcome === "queued" ? ["queue"] : [])
+      if (outcome === "queued") f.emit("session.inbox.delivery.changed", { inboxID: "same", delivery: "queue" })
+      f.emit("session.inbox.cancelled", { inboxID: "same" })
+      enqueue(105)
+      expect(f.rows()).toMatchObject([{ id: "same", text: "follow-up" }])
+    },
+  )
 
   test("session refresh cannot overwrite a newer successful revert", async () => {
     const f = fixture()

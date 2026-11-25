@@ -30,7 +30,7 @@ export function createSessionMessageCache(input: {
   session: () => SessionInfo
 }) {
   const touched = new Map<string, number>()
-  const removed = new Set<string>()
+  const removed = new Map<string, number | "confirmed">()
   const cursors = new Set<string>()
   let committedRevertRevision = 0
   const [local, setLocal] = createStore({
@@ -50,9 +50,12 @@ export function createSessionMessageCache(input: {
 
   return {
     messages,
+    sending(id: string) {
+      return !!local.echoes[id] && !input.get(id)
+    },
     deliveredPrompt(id: string) {
-      if (input.pending.get(id)) return
-      const message = input.get(id)
+      if (input.pending.get(id) || removed.has(id)) return
+      const message = local.extra[id] ?? input.get(id)
       return message?.type === "user" ? message : undefined
     },
     // Inbox events carry the same ID through admission, delivery and cancellation. A local echo proves nothing.
@@ -65,9 +68,15 @@ export function createSessionMessageCache(input: {
     dropEcho(messageID: string) {
       setLocal("echoes", messageID, undefined)
     },
-    pendingChanged({ retained, removed: cancelled }: PendingChanges) {
-      for (const id of retained) removed.delete(id)
-      for (const id of cancelled) removed.add(id)
+    pendingChanged({ retained, removed: cancelled }: PendingChanges, revision: number) {
+      for (const id of retained) {
+        removed.delete(id)
+        setLocal("echoes", id, undefined)
+      }
+      for (const id of cancelled) {
+        removed.set(id, revision)
+        setLocal("echoes", id, undefined)
+      }
     },
     snapshot(request: { cursor?: string }, response: MessagePage, started: number): MessagePage {
       if (started < committedRevertRevision) {
@@ -75,6 +84,11 @@ export function createSessionMessageCache(input: {
         return { data: request.cursor ? [] : copy(input.messages()).reverse(), cursor: {} }
       }
       const rows = copy(response.data)
+      // A history read started after withdrawal can prove that delivery won the race.
+      for (const row of rows) {
+        const removal = removed.get(row.id)
+        if (typeof removal === "number" && removal <= started) removed.delete(row.id)
+      }
       let next = response.cursor.next
       if (!request.cursor) cursors.clear()
       if (request.cursor) cursors.add(request.cursor)
@@ -120,8 +134,9 @@ export function createSessionMessageCache(input: {
         const message = inboxItemMessage(admitted)
         if (message) setLocal("extra", admitted.id, { ...copy(message), time: { created: event.created } })
       }
-      if (event.type === "session.inbox.cancelled") removed.add(event.data.inboxID)
-      if (event.type === "session.inbox.enqueued") removed.delete(event.data.inboxID)
+      if (event.type === "session.inbox.cancelled") removed.set(event.data.inboxID, "confirmed")
+      if (event.type === "session.inbox.enqueued" || event.type === "session.inbox.delivered")
+        removed.delete(event.data.inboxID)
       if (event.type === "session.skill.activated")
         setLocal("extra", key, {
           id: key,
@@ -153,7 +168,7 @@ export function createSessionMessageCache(input: {
         })
       if (event.type === "session.revert.committed") {
         committedRevertRevision = revision
-        for (const row of messages()) if (row.id >= event.data.to) removed.add(row.id)
+        for (const row of messages()) if (row.id >= event.data.to) removed.set(row.id, "confirmed")
         setLocal("extra", reconcile({}))
       }
       return missing
