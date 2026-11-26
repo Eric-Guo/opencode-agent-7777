@@ -4,6 +4,57 @@ import { setupSession } from "./session.fixture"
 
 test.use({ userAgent: "7777 fixture Electron/44", locale: "en-US" })
 
+test("a refreshed queue keeps the focused action on its inbox item", async ({ page }) => {
+  const { errors } = await setupSession(page)
+  const target = {
+    id: "msg_target",
+    sessionID: "ses_0",
+    type: "user",
+    delivery: "queue",
+    payload: { text: "Original preview" },
+    time: { created: 2 },
+  } satisfies SessionInboxInfo
+  let inbox: SessionInboxInfo[] = [target]
+  const writes: string[] = []
+  await page.route("**/api/session/ses_0/inbox", (route) => route.fulfill({ json: { data: inbox } }))
+  await page.route("**/api/session/ses_0/inbox/*", (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").pop()
+    writes.push(`${route.request().method()} ${id}`)
+    inbox = inbox.filter((item) => item.id !== id)
+    return route.fulfill({ status: 204 })
+  })
+  await page.reload()
+  const rows = page.locator('[data-component="session-queue-row"]')
+  const remove = rows.filter({ hasText: "Original preview" }).getByRole("button", { name: "Remove" })
+  await remove.focus()
+  const originalButton = await remove.evaluateHandle((button) => button)
+  inbox = [
+    { ...target, id: "msg_neighbor", time: { created: 1 }, payload: { text: "Neighbor" } },
+    {
+      ...target,
+      payload: {
+        text: "Full prompt",
+        metadata: { displayText: "Updated preview", comments: [{ type: "quote", text: "Earlier reply" }] },
+      },
+    },
+  ]
+  await page.route(
+    "**/api/event",
+    (route) =>
+      route.fulfill({ contentType: "text/event-stream", body: 'data: {"type":"server.connected","data":{}}\n\n' }),
+    { times: 1 },
+  )
+  const updated = rows.filter({ hasText: "Updated preview" })
+  await expect(updated).toBeVisible()
+  expect(await originalButton.evaluate((button) => button === document.activeElement)).toBe(true)
+  await expect(updated).toContainText("1 attachment")
+  await page.keyboard.press("Enter")
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText("Neighbor")
+  expect(writes).toEqual(["DELETE msg_target"])
+  expect(errors).toEqual([])
+})
+
 test("a waiting steer moves to the queue, back to the transcript, and can be withdrawn", async ({ page }) => {
   const { errors } = await setupSession(page, undefined, [
     { id: "msg_idle", type: "idle", outcome: "succeeded", time: { created: 10 } },

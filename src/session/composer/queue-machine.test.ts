@@ -1,5 +1,40 @@
 import { expect, test } from "bun:test"
-import { createQueueState, transitionQueue } from "./queue-machine"
+import { createQueueState, queuedPromptRows, transitionQueue, type QueuedPrompt } from "./queue-machine"
+
+test("queue previews count files and presentation cards and retain legacy display text", () => {
+  const queued = (id: string, payload: QueuedPrompt["payload"]): QueuedPrompt => ({
+    id,
+    sessionID: "session",
+    type: "user",
+    delivery: "queue",
+    time: { created: 1 },
+    payload,
+  })
+  const rows = queuedPromptRows([
+    queued("mixed", {
+      text: "Full prompt",
+      files: [{ name: "src/index.ts", mime: "text/plain", data: "", source: { type: "inline" } }],
+      metadata: {
+        displayText: "Review these",
+        attachments: [{ name: "notes.csv", path: "/work/notes.csv", mime: "text/csv" }, { name: "incomplete" }],
+        comments: [
+          { path: "src/index.ts", comment: "Inspect this line" },
+          { type: "quote", text: "Earlier reply" },
+          { type: "note", label: "Console", icon: "terminal", comment: "Inspect output" },
+          { type: "browser", element: { selector: "#save", label: "Save" }, comment: "Inspect button" },
+          { type: "note", label: "Missing icon" },
+        ],
+      },
+    }),
+    queued("legacy", { text: "Full prompt", metadata: { displayText: "Older preview" } }),
+    queued("empty", { text: "Full prompt", metadata: { displayText: "", comments: [] } }),
+  ])
+  expect(rows).toEqual([
+    { id: "mixed", text: "Review these", attachments: 5 },
+    { id: "legacy", text: "Older preview", attachments: 0 },
+    { id: "empty", text: "Full prompt", attachments: 0 },
+  ])
+})
 
 test.each(["cancelled", "delivered"] as const)("%s settles Undo once without guessing from snapshots", (type) => {
   const initial = createQueueState()

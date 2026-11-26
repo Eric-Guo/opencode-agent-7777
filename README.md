@@ -694,6 +694,8 @@ nested scroll ownership. Only the timeline keeps
 `ScrollView` for its keyboard navigation and custom thumb. No main-app source or new shared exports are required.
 
 Queued-prompt undo follows the main app's `session/composer/{queue,queue-machine,queue-panel,controller}` boundaries.
+The queue machine also projects the preview and attachment count for each inbox item. The controller reconciles
+those rows by inbox ID, keeping the focused action mounted when a refresh changes its preview or adds another row.
 The local implementation restores text, inline attachments, and file, agent, and skill mentions into the single
 persisted draft. Historical and queued prompt reconstruction share the package-local `composer/prompt.ts`
 boundary; the queue controller retains cancellation, draft merging, and activation guards. This shared local
@@ -1041,6 +1043,9 @@ A steered follow-up waiting behind a running turn shows **Pending** in the trans
 menu to **Move to queue** or **Delete** it. Delete withdraws the follow-up and keeps your current draft.
 From the queue, **Steer** (or **Send** when idle) returns the same prompt to the transcript. Once the server
 delivers it, the message offers its usual history actions.
+
+Each queued prompt's attachment count includes its payload files, saved file references, quotes, and notes.
+A file comment counts through its attached file. Older prompts keep their saved preview text.
 
 Use **Undo** on a queued prompt to move it back into the composer. It appends after any current draft text and
 preserves existing attachments and file, agent, and skill mentions. The prompt leaves the queue only after the server confirms

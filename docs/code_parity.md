@@ -158,6 +158,9 @@ ownership. Queue Undo requires HTTP success or an explicit cancellation event be
 delivery and missing rows cannot restore it. Queue writes keep the existing transport deadline. History actions have
 a 30-second bound; confirmed boundaries and restored drafts survive stalled or failed history refreshes, whose
 shared loading state remains independently owned. Uncertain outcomes trigger existing reads, without write retries.
+The local queue machine also owns the row projection. It reads saved references, quotes and notes through the
+composer's presentation reader. The controller reconciles the projected rows by inbox ID so a refresh can update
+their text and counts while the reader keeps keyboard focus on the same action.
 JSON export follows local `session/commands/{export-machine,export-session}` boundaries. The exporter keeps
 its original target across navigation and serializes requests. A 60-second deadline covers fetch and decoding;
 timeout or disposal dismisses loading, aborts the read and rejects late downloads. Notifications follow the active
@@ -304,6 +307,18 @@ reordering, staged-only/end-revision diffs and GUI host contexts.
 
 Run `bun test`, `bun run typecheck`, `bun run build`, and browser interactions without restarting app/server.
 Request widgets, pickers and the composer also use `bun run test:components`. Keep evidence in ignored `node_modules/.cache/`.
+
+Queue previews and focus (2026-11-26). The production fixture reproduced focus loss on the original bundle.
+With the change, an inbox refresh added a neighboring prompt and updated the focused row's preview and attachment
+count. Its original Remove button kept focus, and Enter issued one DELETE for that row's inbox ID. The projection
+test counted five attachments across a payload file, a saved reference, a quote, a note and a legacy browser note.
+The live agent stayed Ready at `1/9` after opening and dismissing Follow-up behavior. Its API reported version
+`0.0.0-dev-202611260512`.
+
+All 746 Bun tests, 103 browser tests, typecheck and both production builds passed. Source maps contained zero
+main-app or desktop modules. Three-run medians before and after were 182/188 ms for entry, 86/80 ms for
+session switching and 92/90 ms for streaming. Both runs passed the nine-dialog history check and made the
+same 108 requests by endpoint. Evidence is in `node_modules/.cache/queue-row-parity/`.
 
 Pending follow-ups (2026-11-26). The production fixture reproduced the missing Pending label on the original
 bundle. On the updated bundle it moved one prompt to the queue, returned it to the transcript, and deleted it

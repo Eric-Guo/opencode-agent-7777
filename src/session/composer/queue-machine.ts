@@ -1,4 +1,27 @@
+import type { SessionInboxInfo } from "@opencode/client/promise"
+import { readPromptPresentation } from "@/composer/comment-note"
 import type { PromptDraft } from "@/composer/state"
+
+export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
+export type QueueRow = { id: string; text: string; attachments: number }
+
+export function queuedPromptRows(items: readonly QueuedPrompt[]): QueueRow[] {
+  return items.map((item) => {
+    const presentation = readPromptPresentation(item.payload.metadata)
+    // A file comment already contributes its context file in the payload.
+    const cards = presentation?.comments.filter((card) => card.type === "quote" || card.type === "note")
+    return {
+      id: item.id,
+      text: queuedPromptText(item),
+      attachments: (item.payload.files?.length ?? 0) + (presentation?.references?.length ?? 0) + (cards?.length ?? 0),
+    }
+  })
+}
+
+export function queuedPromptText(item: QueuedPrompt) {
+  const display = item.payload.metadata?.displayText
+  return typeof display === "string" && display.length > 0 ? display : item.payload.text
+}
 
 export type QueueOperation = {
   readonly id: string

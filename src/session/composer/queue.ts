@@ -1,5 +1,5 @@
 import { batch, createComputed, createMemo, createSignal, on, onCleanup, untrack, type Accessor } from "solid-js"
-import type { SessionInboxInfo } from "@opencode/client/promise"
+import { createStore, reconcile } from "solid-js/store"
 import type { SessionUserActions } from "@opencode/session-ui/actions"
 import type { ComposerDelivery, ComposerQueue } from "@/composer/adapter"
 import { extractPromptFromQueued as queuedPromptUndoDraft } from "@/composer/prompt"
@@ -11,14 +11,17 @@ import { captureSessionOwnership } from "@/session/session-ownership"
 import { readableError } from "@/shell/errors/readable"
 import {
   createQueueState,
+  queuedPromptRows,
   selectQueueBusy,
   selectQueueUndoing,
   transitionQueue,
+  type QueuedPrompt,
   type QueueEvent,
   type QueueOperation,
+  type QueueRow,
 } from "./queue-machine"
 
-export type QueuedPrompt = Extract<SessionInboxInfo, { type: "user" }>
+export { queuedPromptRows, queuedPromptText, type QueuedPrompt } from "./queue-machine"
 export { queuedPromptUndoDraft }
 
 // The server owns delivery and persistence; undo restores only representable drafts.
@@ -79,11 +82,15 @@ export function createSessionQueue(input: {
   }
   createComputed(on([currentRuntime, () => state.session?.id], () => dispatch({ type: "reset" }), { defer: true }))
   onCleanup(() => dispatch({ type: "disposed" }))
-  const queued = () =>
-    state.sessionPending.filter(
+  const [rows, setRows] = createStore<QueueRow[]>([])
+  createComputed(() => {
+    const queued = state.sessionPending.filter(
       (item): item is QueuedPrompt =>
         item.sessionID === state.session?.id && item.type === "user" && item.delivery === "queue",
     )
+    // Keep each surviving row's proxy so Solid's For retains its focused controls across inbox reads.
+    setRows(reconcile(queuedPromptRows(queued), { key: "id" }))
+  })
   const busy = () => input.disabled() || selectQueueBusy(mutation())
   const timelineOwner = (runtime: SessionRuntime) =>
     runtime.alive() &&
@@ -168,7 +175,7 @@ export function createSessionQueue(input: {
     }
   })
   const delivery: ComposerQueue = {
-    count: () => queued().length,
+    count: () => rows.length,
     delivery: () => (input.working() ? (input.behavior?.() ?? "steer") : "steer"),
     alternate: () => {
       if (!input.working()) return undefined
@@ -178,7 +185,7 @@ export function createSessionQueue(input: {
   return {
     ...delivery,
     pending,
-    rows: () => queuedPromptRows(queued()),
+    rows: () => rows,
     working: input.working,
     busy,
     undoing: () => selectQueueUndoing(mutation()),
@@ -190,16 +197,3 @@ export function createSessionQueue(input: {
 
 export type SessionQueue = ReturnType<typeof createSessionQueue>
 export type SessionQueueView = Pick<SessionQueue, "rows" | "working" | "busy" | "steer" | "remove" | "undo">
-
-export function queuedPromptRows(items: QueuedPrompt[]) {
-  return items.map((item) => ({
-    id: item.id,
-    text: queuedPromptText(item),
-    attachments: item.payload.files?.length ?? 0,
-  }))
-}
-
-export function queuedPromptText(item: QueuedPrompt) {
-  const display = item.payload.metadata?.["displayText"]
-  return typeof display === "string" && display.length > 0 ? display : item.payload.text
-}
