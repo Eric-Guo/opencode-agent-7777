@@ -209,7 +209,7 @@ describe("review file events", () => {
   test("immediate reads consume a pending file refresh for the active comparison", () => {
     const { model, calls } = fixture()
     model.select({ mode: "branch", base: "release" })
-    for (const event of [
+    const events: OpenCodeEvent[] = [
       { type: "server.connected", id: "hello", data: {} },
       {
         type: "session.execution.succeeded",
@@ -218,7 +218,8 @@ describe("review file events", () => {
         durable: { aggregateID: "session", seq: 1, version: 1 },
         data: { sessionID: "session" },
       },
-    ] satisfies OpenCodeEvent[]) {
+    ]
+    for (const event of events) {
       const before = calls.length
       model.event(changed("/workspace"))
       jest.advanceTimersByTime(99)
