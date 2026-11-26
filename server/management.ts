@@ -89,9 +89,41 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       "cost",
       "inputs",
       "events",
+      "inbox",
+      "channels",
+      "routines",
+      "skills.drafts",
+      "subscriptions",
+      "skill.show",
     ]
 
-    if (!reads.includes(operation.action)) throw new BridgeError(403, "Use the scoped conversation controls.")
+    const writes = [
+      "personal_desk",
+      "inbox.snooze",
+      "inbox.done",
+      "inbox.read",
+      "channels.source",
+      "channels.source.rm",
+      "channels.attention",
+      "channels.ingest",
+      "channels.outbox.enqueue",
+      "channels.outbox.drain",
+      "subscriptions.create",
+      "subscriptions.rm",
+      "triggers.handback",
+      "routines.create",
+      "routines.update",
+      "routines.toggle",
+      "routines.rm",
+      "skills.drafts.propose",
+      "skills.drafts.approve",
+      "skills.drafts.dismiss",
+      "skill.push",
+      "skill.remove",
+    ]
+
+    if (!reads.includes(operation.action) && !writes.includes(operation.action))
+      throw new BridgeError(403, "Use the scoped conversation controls.")
 
     if (
       ["participants", "cost"].includes(operation.action) &&
@@ -99,7 +131,12 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
     )
       throw new BridgeError(403, "This operation is read-only here.")
 
-    if (operation.conversation) await readChat(b, operation.conversation)
+    if (operation.conversation) {
+      const { info } = await readChat(b, operation.conversation)
+
+      if (writes.includes(operation.action) && (ownership(info) || !canWrite(b, info)))
+        throw new BridgeError(403, "Use the owning channel or a writable conversation.")
+    }
   }
 
   if (command.action === "bot.submit") throw new BridgeError(403, "Use the scoped conversation controls.")
@@ -198,9 +235,7 @@ export async function manage(b: Backend, config: BridgeConfig, value: unknown) {
       }
       if (
         isInvalidRequestError(error) &&
-        (command.action === "settings.update" ||
-          command.action.startsWith("preset.") ||
-          (command.action === "extension.call" && command.name.startsWith("t3.")))
+        (command.action === "settings.update" || command.action.startsWith("preset."))
       )
         throw new BridgeError(400, error.message)
       throw error

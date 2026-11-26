@@ -353,7 +353,9 @@ export function middleware(
         const names = change.selection?.bindings.map((binding) => binding.name) ?? []
 
         if (new Set(names).size !== names.length) throw new BridgeError(400, "Memory binding names must be unique.")
-        await chat.setMemoryContext(change.selection ? { bindings: [...change.selection.bindings] } : null)
+        await chat.setMemoryContext(
+          change.selection ? { ...change.selection, bindings: [...change.selection.bindings] } : null,
+        )
 
         return json(res, 200, {})
       }

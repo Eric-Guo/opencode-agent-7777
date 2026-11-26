@@ -2,10 +2,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
   padding: 10px 22px;
   border-bottom: 1px solid var(--border-base);
 }
+
 .nexus-management {
   position: absolute;
   inset: 0;
@@ -129,4 +132,152 @@
   z-index: 20;
   max-width: 100%;
   background: var(--v2-background-bg-base);
+}
+.nexus-inbox {
+  display: grid;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.nexus-inbox-list {
+  display: grid;
+  gap: 8px;
+}
+.nexus-inbox-row {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  border: 1px solid var(--border-base);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--v2-background-bg-base);
+  color: inherit;
+  cursor: pointer;
+}
+.nexus-inbox-row:hover {
+  background: var(--v2-overlay-simple-overlay-hover);
+}
+.nexus-inbox-row.nexus-inbox-selected {
+  border-color: var(--v2-border-border-focus);
+  background: var(--v2-background-bg-layer-01);
+}
+.nexus-inbox-row-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.nexus-inbox-row-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nexus-inbox-row-title small,
+.nexus-inbox-heading small {
+  color: var(--v2-text-text-faint);
+  white-space: nowrap;
+}
+.nexus-inbox-row-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nexus-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  background: var(--v2-background-bg-layer-02);
+  color: var(--v2-text-text-muted);
+}
+.nexus-badge-warn {
+  background: var(--v2-state-bg-warning);
+  color: var(--v2-state-fg-warning);
+}
+.nexus-badge-danger {
+  background: var(--v2-state-bg-danger);
+  color: var(--v2-state-fg-danger);
+}
+.nexus-badge-ok {
+  background: var(--v2-state-bg-success);
+  color: var(--v2-state-fg-success);
+}
+.nexus-inbox-detail {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--v2-background-bg-base);
+}
+.nexus-inbox-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.nexus-inbox-heading {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.nexus-snooze {
+  position: relative;
+  display: inline-flex;
+}
+.nexus-snooze-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  min-width: 180px;
+  padding: 6px;
+  border: 1px solid var(--border-base);
+  border-radius: 10px;
+  background: var(--v2-background-bg-base);
+  box-shadow: var(--v2-elevation-raised);
+}
+.nexus-inbox-decisions {
+  display: grid;
+  gap: 10px;
+}
+.nexus-inbox-transcript {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+.nexus-inbox-turn {
+  border: 1px solid var(--border-base);
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: var(--v2-background-bg-layer-01);
+}
+.nexus-inbox-turn small {
+  color: var(--v2-text-text-faint);
+}
+.nexus-inbox-you {
+  margin-left: 32px;
+}
+.nexus-inbox-turn:not(.nexus-inbox-you) {
+  margin-right: 32px;
+}
+.nexus-inbox-reply {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nexus-inbox-reply input {
+  flex: 1;
+}
+@media (max-width: 900px) {
+  .nexus-inbox {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

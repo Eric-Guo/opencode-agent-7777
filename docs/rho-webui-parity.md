@@ -1,8 +1,36 @@
 # Rho WebUI behavioral review
 
 Reference: `agents/rho/rho-webui` in Cybros revision
-`0d98aa07776db6d38ca5d8bcaf4e10f80c39ed04`. The reference checkout and its Ruby/JavaScript
+`e2033ac9a1ae12063d86a0c1565dbfd9adc12d72`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
+
+## Superagent surfaces
+
+Reviewed November 26, 2026 from Nexus UI `nexus_backend` and OpenCode `a82bc392ff8`,
+against the reference's React 19 + Tailwind 4 reshape (`be87f819d`, `49f8f9700`,
+`83f27843c`). The reference's four-tier IA (Personal Desk, Inbox, Routines,
+Knowledge, with Channels & Peers in the footer) maps to panels in this UI's
+management shell; the alignment is behavioral, not a React port.
+
+| Reference behavior | Nexus UI owner and evidence |
+| --- | --- |
+| Personal Desk: one desk conversation per workspace, created on demand and opened | `management/shell.tsx` Personal Desk action → `personal_desk` operation → conversation navigation; runtime ledger records the desk's `memory_context` index mode and surface metadata |
+| Inbox workbench (`src/views/InboxWorkbench.tsx`): needs_you/running/snoozed/done tabs with counts, master-detail, snooze presets (1h/+3h/tomorrow 09:00/indefinite), wake, Mark done, inline held-ask deck, transcript preview, quick reply, J/K/E/Enter keyboard, skill-draft callout | `management/inbox.tsx` + `inbox-model.ts`; `component-tests/inbox-routines.spec.ts` covers tabs/counts/selection, exact `until_at` payloads, wake, done, open-full-thread, sealed quick reply, held-approval answer and keyboard navigation |
+| Routines workbench (`src/views/RoutinesWorkbench.tsx`): unified time+event list, act/check_in filters, active/check-in counts, create (daily `local_time`/`time_zone`, interval `every_seconds`/`starts_at`, event source+pattern), toggle, remove, edit with lock version, Attention Policy modal (quiet hours + daily cap 1–100, fallback 6), observed events | `management/routines.tsx` + `routines-model.ts`; the same spec covers both kinds, exact create payloads with a stable retry key, toggle/remove, stale-409 draft retention and the cap clamp |
+| Channels & Peers (`src/views/ChannelsPeersWorkbench.tsx`): source cards with off/observe/auto gate, add/remove source, simulate event with outcome, durable outbox + drain, recent gate decisions, Telegram and Peers tabs | `management/channels.tsx` + `channels-model.ts`; `component-tests/channels-knowledge.spec.ts` covers the gate control payloads, add/remove with validation, `routed · explicit` outcome, outbox + drain settlements and observations. Telegram/Peers are informational cards pointing at Integrations/Bots plus a read-only bot list, because the shell owns panel switching |
+| Knowledge (`src/views/KnowledgeWorkbench.tsx`, `SkillsProposalsPane.tsx`): memory wiki with folder tree, search/scope filters, Markdown read/edit with CAS save/delete, new-document validation; skills drafts banner with approve/dismiss; published skills show/push/remove; Personal Soul entry | `management/knowledge.tsx` + `knowledge-model.ts`; the same spec covers tree grouping, CAS payloads, 409 draft retention, path validation, draft approve (with/without workspace) and skill show/push/remove. Personal Soul points at the existing Settings → Persona editor |
+| Memory bindings injection mode (`features/conversation/memory_bindings.js`): full/index select inside custom mode; custom saves `{mode:"index", bindings}` when index, `{bindings}` otherwise; disabled saves `{bindings: []}` | `nexus/memory-bindings.tsx` injection select, `server/memory.ts` schema and `server/middleware.ts` forwarding; the runtime ledger records the index-mode default on new conversations |
+
+The reference's command palette and hero quick-start cards are navigation chrome
+and remain unported by decision; this UI's shell nav and composer cover the same
+workflows. The reference's T3 surfaces were removed upstream (`b2731b091`) and the
+T3 panel, proxy mapping and tests were removed here in the same review; the
+"Preset selection and T3 setup" ledger section below is retained as history.
+
+The UI passed 452 unit tests and 67 Chromium component tests, the type check and
+the production build. The new panels' bridge operations are proxied with the
+established workspace and conversation guards (`server/management.ts`), with
+server tests for the read/write allowlist.
 
 ## Portable Presets and fallback models
 
@@ -358,6 +386,10 @@ All 407 unit tests and 81 Playwright component tests passed. The new browser
 case also passed three consecutive runs. The UI type check and build passed.
 
 ## Preset selection and T3 setup, November 21, 2026
+
+> Superseded November 26, 2026: the reference removed `rho-t3` (`b2731b091`) and
+> renamed the seed Presets (Probius→Personal, Adjutant→Peer). This section is
+> retained as history; the T3 panel and its bridge mapping no longer exist.
 
 The Presets panel reads `preset.tools` through the existing scoped management
 bridge. Kernel and application selections share the authored `tools` field.

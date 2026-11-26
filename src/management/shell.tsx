@@ -16,6 +16,10 @@ import { Settings } from "./settings"
 import { Integrations } from "./integrations"
 import { Providers } from "./providers"
 import { Terminals } from "./terminals"
+import { Inbox } from "./inbox"
+import { Routines } from "./routines"
+import { Channels } from "./channels"
+import { Knowledge } from "./knowledge"
 import { ModuleContext } from "./context"
 import type { JSX } from "solid-js"
 import { Updates } from "./updates"
@@ -59,6 +63,15 @@ export function Management(props: { chat: ChatController; navigation: Navigation
     void props.navigation.open(workspace, conversation)
   }
 
+  const desk = () =>
+    void client.perform(async () => {
+      const result = await client.command<{ conversation: { public_id: string } }>({
+        action: "application.operation",
+        operation: { action: "personal_desk" },
+      })
+      open(client.workspace(), result.conversation.public_id)
+    })
+
   return (
     <ModuleContext.Provider
       value={{
@@ -93,12 +106,16 @@ export function Management(props: { chat: ChatController; navigation: Navigation
           </select>
           <For
             each={[
+              "Inbox",
+              "Routines",
+              "Knowledge",
               "Workspaces",
               "Bots",
               "Presets",
               "Schedules",
               "Plugins",
               "Integrations",
+              "Channels",
               "Terminals",
               ...(modelConfig.manageModels ? ["Providers"] : []),
               "Updates",
@@ -110,6 +127,9 @@ export function Management(props: { chat: ChatController; navigation: Navigation
               </Button>
             )}
           </For>
+          <Button size="small" onClick={desk}>
+            Personal Desk
+          </Button>
           <For each={host.entries("sidebar.panellist")}>
             {(entry) => (
               <Button size="small" onClick={() => props.navigation.openPage(entry.id)}>
@@ -208,6 +228,22 @@ export function Management(props: { chat: ChatController; navigation: Navigation
                   </Match>
                   <Match when={props.navigation.page() === "Integrations"}>
                     <Integrations client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Inbox"}>
+                    <Inbox client={client} open={open} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Routines"}>
+                    <Routines client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Channels"}>
+                    <Channels client={client} />
+                  </Match>
+                  <Match when={props.navigation.page() === "Knowledge"}>
+                    <Knowledge
+                      client={client}
+                      selected={props.navigation.item()}
+                      select={(id) => props.navigation.openPage("Knowledge", id)}
+                    />
                   </Match>
                   <Match when={props.navigation.page() === "Providers"}>
                     <Providers client={client} />

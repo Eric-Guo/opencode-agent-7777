@@ -41,7 +41,6 @@ Set optional adapters in the environment of the managed service and restart it a
 | Browser      | Set `OPENCODE_NEXUS_CHROMIUM` to the Chromium executable. The browser tools open an isolated profile per conversation.                                                                                                                                                                                      |
 | ACP delegate | Set `OPENCODE_NEXUS_ACP_AGENTS` to a JSON map such as `{"reviewer":["acp-agent","--stdio"]}`. A child request for one-time permission is relayed to Nexus.                                                                                                                                                  |
 | ACP editor   | Configure the editor to run `opencode nexus acp` with the paired `NEXUS_URL` and its Human `NEXUS_MEMBER_TOKEN`. Use the paired project as the editor directory.                                                                                                                                            |
-| T3           | Set `OPENCODE_NEXUS_T3_URL`, `OPENCODE_NEXUS_T3_TOKEN` and `OPENCODE_NEXUS_T3_PROJECT` for a protocol-2 T3 service. Use `coding_work` to delegate to a provider instance and model.                                                                                                                         |
 | Telegram     | Set `OPENCODE_NEXUS_TELEGRAM_TOKEN` and comma-separated private chat IDs in `OPENCODE_NEXUS_TELEGRAM_CHATS`. Each allowed private chat has a durable conversation and can send text, photos, documents, audio or voice attachments up to 16 MiB. Use `/approve`, `/deny`, `/answer` or `/stop` when needed. |
 | Extensions   | Set `OPENCODE_NEXUS_EXTENSIONS` to a JSON array of absolute paths to installed JavaScript modules. Each default export implements `NexusExtension` from `@opencode/nexus-runtime`. The registration receives the project directory and service shutdown signal.                                             |
 
@@ -323,7 +322,7 @@ conversations and scheduled executions keep their original placement.
   retain saved secrets until explicitly replaced or cleared. Managed packages support
   install, check, activate, rollback and disable.
 - **Integrations** provides Telegram Connections, Bot routing/access/delivery controls,
-  MCP catalogs and OAuth, and T3 service, provider-login and project setup.
+  and MCP catalogs and OAuth.
 - **Settings & account** owns Human login, pairing, persona, conversation defaults and
   memory review. Member-token connections can read defaults without a platform login;
   persona editing requires the linked Human's platform account. Refresh connection
@@ -386,8 +385,19 @@ primitives continue to come from the existing public UI packages. Built-in Codin
 Checkpoints and Lifecycle hook settings use the same Plugins form; atomic hook
 groups are edited as complete JSON objects, following the runtime descriptors.
 `src/management/preset-tools.tsx` uses shared OpenCode checkboxes to edit the same
-draft as the Preset JSON editor. The T3 controls in `src/management/integrations.tsx`
-read both peer directories and save choices through the runtime.
+draft as the Preset JSON editor.
+`src/management/channels.tsx` and `src/management/knowledge.tsx` follow the Rho
+WebUI Channels & Peers and Knowledge workbenches through the scoped
+`application.operation` bridge; their gate, path and skill-name rules mirror the
+runtime and live in `channels-model.ts` and `knowledge-model.ts`. Telegram reach
+and peer management stay in the Integrations and Bots panels, and the Personal
+Soul stays in Settings → Persona, so those cards only point at their owners.
+`src/management/inbox.tsx` and `src/management/routines.tsx` follow the Rho WebUI
+Inbox and Routines workbenches through the same bridge; snooze presets, bucket
+flattening, rule summaries and attention-cap clamping live in `inbox-model.ts`
+and `routines-model.ts`. Held decisions reuse the conversation `DecisionDock`,
+the transcript preview reads the existing `/chats/<id>` snapshot and quick
+replies go through the composer's sealed prepare/inputs flow.
 
 Run `bun run test`, `bun run typecheck`, `bun run build` and `bun run test:components`
 from this package. The nested repository's CI checks out a matching OpenCode workspace

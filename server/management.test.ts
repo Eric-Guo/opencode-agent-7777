@@ -175,12 +175,6 @@ test("management binds Human platform calls and workspace reads without exposing
         return Response.json({ status: "active" })
       }
 
-      if (body.action === "extension.call" && body.name === "t3.create")
-        return Response.json(
-          { _tag: "InvalidRequestError", message: "Supply an absolute path in T3's execution environment." },
-          { status: 400 },
-        )
-
       if (body.action === "settings.update")
         return Response.json(
           { _tag: "InvalidRequestError", message: "Unknown adaptation row: retired" },
@@ -260,22 +254,40 @@ test("management binds Human platform calls and workspace reads without exposing
       operation: { action: "participants", conversation: "conversation", entries: [] },
     }),
   ).rejects.toThrow("read-only")
-  expect(calls).toEqual([])
+  await expect(
+    manage(b, config, {
+      action: "application.operation",
+      operation: { action: "inbox.snooze", conversation: "read-only", until_at: null },
+    }),
+  ).rejects.toThrow("writable conversation")
+  await expect(
+    manage(b, config, {
+      action: "application.operation",
+      operation: { action: "inbox.snooze", conversation: "conversation", until_at: null },
+    }),
+  ).rejects.toThrow("writable conversation")
+  await expect(
+    manage(b, config, {
+      action: "application.operation",
+      operation: { action: "channels.source.rm", workspace: "other", source_key: "webhook" },
+    }),
+  ).rejects.toThrow("Select this workspace")
+  expect(
+    await manage(b, config, {
+      action: "application.operation",
+      operation: { action: "inbox.snooze", conversation: "writable", until_at: null },
+    }),
+  ).toEqual({ saved: true })
+  expect(calls.at(-1)).toMatchObject({ operation: { action: "inbox.snooze", conversation: "writable" } })
+  expect(await manage(b, config, { action: "application.operation", operation: { action: "inbox" } })).toEqual({
+    saved: true,
+  })
+  calls.length = 0
   expect(await manage(b, config, { action: "extension.list" })).toEqual([])
   expect(reads.at(-1)).toBe("/api/experimental/nexus/extensions")
   expect(calls).toEqual([])
   expect(await manage(b, config, { action: "workspace.list" })).toEqual({ saved: true })
   expect(calls).toEqual([{ action: "workspace.list" }])
-  await expect(
-    manage(b, config, {
-      action: "extension.call",
-      name: "t3.create",
-      input: { action: "t3.create", path: "relative" },
-    }),
-  ).rejects.toMatchObject({
-    status: 400,
-    message: "Supply an absolute path in T3's execution environment.",
-  })
   await expect(
     manage(b, config, { action: "settings.update", patch: { adaptations: "retired" } }),
   ).rejects.toMatchObject({
@@ -340,6 +352,7 @@ test("management binds Human platform calls and workspace reads without exposing
     ),
   ).toEqual({
     kind: "standalone",
+    tool_name: "terminal",
     after: "cursor",
     limit: "20",
     order: "desc",

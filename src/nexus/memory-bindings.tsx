@@ -24,6 +24,7 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
     ready: false,
     writable: false,
     mode: "automatic",
+    injection: "full",
     bindings: [] as MemoryBinding[],
     effective: [] as MemoryBindings["bindings"],
     collections: [] as MemoryCollection[],
@@ -63,6 +64,7 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
           ready: true,
           writable: view.writable,
           mode: automatic ? "automatic" : view.selection!.bindings.length ? "custom" : "disabled",
+          injection: view.selection?.mode === "index" ? "index" : "full",
           bindings: automatic
             ? scopes.map((scope) => ({ name: scope, source: { scope }, access: "read_write" }))
             : view.selection!.bindings,
@@ -89,7 +91,14 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
           return
         }
 
-        const selection = s.mode === "automatic" ? null : { bindings: s.mode === "disabled" ? [] : s.bindings }
+        const selection =
+          s.mode === "automatic"
+            ? null
+            : s.mode === "disabled"
+              ? { bindings: [] as MemoryBinding[] }
+              : s.injection === "index"
+                ? { mode: "index" as const, bindings: s.bindings }
+                : { bindings: s.bindings }
         void c.command("memory", { selection }).then((saved) => {
           if (saved) props.saved()
         })
@@ -120,6 +129,16 @@ export function MemoryBindings(props: { chat: ChatController; saved(): void }) {
           </select>
         </FieldRow>
         <Show when={s.mode === "custom"}>
+          <FieldRow label="Injection mode">
+            <select value={s.injection} onChange={(event) => set("injection", event.currentTarget.value)}>
+              <option value="full" selected={s.injection === "full"}>
+                Full documents
+              </option>
+              <option value="index" selected={s.injection === "index"}>
+                Directory index
+              </option>
+            </select>
+          </FieldRow>
           <For each={s.bindings}>
             {(binding, index) => {
               const selected = () =>

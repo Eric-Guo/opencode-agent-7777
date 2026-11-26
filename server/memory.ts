@@ -16,7 +16,10 @@ const Binding = Schema.Struct({
   access: Schema.Literals(["read", "read_write"]),
 })
 
-export const MemorySelection = Schema.Struct({ bindings: Schema.Array(Binding).check(Schema.isMaxLength(16)) })
+export const MemorySelection = Schema.Struct({
+  bindings: Schema.Array(Binding).check(Schema.isMaxLength(16)),
+  mode: Schema.optional(Schema.Literals(["full", "index"])),
+})
 
 export const MemoryChange = Schema.Struct({ selection: Schema.NullOr(MemorySelection) })
 
