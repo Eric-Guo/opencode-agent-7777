@@ -23,7 +23,11 @@ type Operation = Extract<typeof NexusCommand.Type, { action: "application.operat
 const operation = <T,>(c: ManagementClient, input: Operation) =>
   c.command<T>({ action: "application.operation", operation: input })
 
-export function Inbox(props: { client: ManagementClient; open(workspace: string, conversation: string): void }) {
+export function Inbox(props: {
+  client: ManagementClient
+  open(workspace: string, conversation: string): void
+  reviewDrafts(): void
+}) {
   const c = props.client
 
   const [s, set] = createStore({
@@ -169,7 +173,10 @@ export function Inbox(props: { client: ManagementClient; open(workspace: string,
         {(count) => (
           <p class="nexus-card" role="status">
             {count()} proposed skill{count() === 1 ? "" : "s"} drafted by the agent and waiting for your approval in
-            the Knowledge panel.
+            the Knowledge panel.{" "}
+            <Button size="small" onClick={() => props.reviewDrafts()}>
+              Review proposals
+            </Button>
           </p>
         )}
       </Show>

@@ -737,3 +737,36 @@ test("the knowledge panel points at Settings for the Personal Soul", async ({ pa
   await expect(panel.getByRole("combobox", { name: "Collection", exact: true })).toHaveValue("")
   await expect(panel.getByRole("button", { name: "New page", exact: true })).toBeDisabled()
 })
+
+test("channel tabs are addressable and restore from the page item", async ({ page }) => {
+  await fixture(page, (input) => {
+    if (input.action !== "application.operation") return {}
+    const op = input.operation as Command
+    if (op.action === "channels")
+      return {
+        channels: {
+          sources: [channelSource()],
+          event_rules: [],
+          attention_policy: {},
+          observations: [],
+          desks: {},
+          active_adapters: [],
+          outbox_messages: [],
+        },
+      }
+    if (op.action === "bot.list") return []
+    return {}
+  })
+  await page.getByRole("button", { name: "Channels", exact: true }).click()
+  const panel = page.getByRole("dialog", { name: "Channels", exact: true })
+  await panel.getByRole("button", { name: "Telegram", exact: true }).click()
+  await expect(page).toHaveURL(/\/panels\/Channels\/telegram$/)
+  await panel.getByRole("button", { name: "Peers", exact: true }).click()
+  await expect(page).toHaveURL(/\/panels\/Channels\/peers$/)
+  await expect(panel.getByRole("heading", { name: "Scoped peers" })).toBeVisible()
+
+  await page.reload()
+  const restored = page.getByRole("dialog", { name: "Channels", exact: true })
+  await expect(restored.getByRole("heading", { name: "Scoped peers" })).toBeVisible()
+  await expect(restored.getByRole("button", { name: "Peers", exact: true })).toHaveAttribute("aria-pressed", "true")
+})

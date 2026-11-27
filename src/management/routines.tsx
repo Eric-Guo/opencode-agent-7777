@@ -27,7 +27,7 @@ const operation = <T,>(c: ManagementClient, input: Operation) =>
 
 const browserZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
 
-export function Routines(props: { client: ManagementClient }) {
+export function Routines(props: { client: ManagementClient; open(workspace: string, conversation: string): void }) {
   const c = props.client
   const dialog = useDialog()
 
@@ -169,6 +169,13 @@ export function Routines(props: { client: ManagementClient }) {
                         : ""}
                   </small>
                   <div class="nexus-actions">
+                    <Show when={row.kind === "time" ? row.conversation_public_id : undefined}>
+                      {(conversation) => (
+                        <Button size="small" onClick={() => props.open(c.workspace(), conversation())}>
+                          Thread
+                        </Button>
+                      )}
+                    </Show>
                     <Button
                       size="small"
                       onClick={() =>

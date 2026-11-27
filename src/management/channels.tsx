@@ -51,18 +51,19 @@ type Overview = {
 
 type Peer = NamedAgent & { settings?: NexusBot.Settings }
 
-export function Channels(props: { client: ManagementClient }) {
+export function Channels(props: { client: ManagementClient; selected?: string; select(id: string): void }) {
   const c = props.client
   const dialog = useDialog()
 
   const [s, set] = createStore({
-    tab: "sources" as "sources" | "telegram" | "peers",
     overview: null as Overview | null,
     peers: null as Peer[] | null,
     outcome: "",
     settlements: null as Settlement[] | null,
     removing: "",
   })
+
+  const activeTab = () => (props.selected === "telegram" || props.selected === "peers" ? props.selected : "sources")
 
   const refresh = async () => {
     const result = await operation<{ channels: Overview }>(c, { action: "channels" })
@@ -71,9 +72,9 @@ export function Channels(props: { client: ManagementClient }) {
 
   onMount(() => void c.perform(refresh))
 
-  const selectTab = (tab: typeof s.tab) => {
-    set("tab", tab)
-    if (tab !== "peers" || s.peers !== null) return
+  const selectTab = (next: "sources" | "telegram" | "peers") => {
+    props.select(next)
+    if (next !== "peers" || s.peers !== null) return
     void c.perform(async () => set("peers", await c.command<Peer[]>({ action: "bot.list" })))
   }
 
@@ -130,12 +131,12 @@ export function Channels(props: { client: ManagementClient }) {
           }
         >
           {([tab, label]) => (
-            <Button aria-pressed={s.tab === tab} onClick={() => selectTab(tab)}>
+            <Button aria-pressed={activeTab() === tab} onClick={() => selectTab(tab)}>
               {label}
             </Button>
           )}
         </For>
-        <Show when={s.tab === "sources"}>
+        <Show when={activeTab() === "sources"}>
           <Button
             onClick={() =>
               dialog.show(() => (
@@ -164,7 +165,7 @@ export function Channels(props: { client: ManagementClient }) {
           Refresh
         </Button>
       </div>
-      <Show when={s.tab === "sources"}>
+      <Show when={activeTab() === "sources"}>
         <Show when={s.outcome}>
           <p role="status">Event outcome: {s.outcome}</p>
         </Show>
@@ -321,7 +322,7 @@ export function Channels(props: { client: ManagementClient }) {
           )}
         </Show>
       </Show>
-      <Show when={s.tab === "telegram"}>
+      <Show when={activeTab() === "telegram"}>
         <div class="nexus-card">
           <h3>Telegram reach</h3>
           <p>
@@ -330,7 +331,7 @@ export function Channels(props: { client: ManagementClient }) {
           </p>
         </div>
       </Show>
-      <Show when={s.tab === "peers"}>
+      <Show when={activeTab() === "peers"}>
         <div class="nexus-card">
           <h3>Scoped peers</h3>
           <p>Peer bots are created and configured in the Bots panel. This workspace's bots are listed read-only.</p>

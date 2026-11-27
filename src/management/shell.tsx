@@ -230,13 +230,21 @@ export function Management(props: { chat: ChatController; navigation: Navigation
                     <Integrations client={client} />
                   </Match>
                   <Match when={props.navigation.page() === "Inbox"}>
-                    <Inbox client={client} open={open} />
+                    <Inbox
+                      client={client}
+                      open={open}
+                      reviewDrafts={() => props.navigation.openPage("Knowledge", "skills")}
+                    />
                   </Match>
                   <Match when={props.navigation.page() === "Routines"}>
-                    <Routines client={client} />
+                    <Routines client={client} open={open} />
                   </Match>
                   <Match when={props.navigation.page() === "Channels"}>
-                    <Channels client={client} />
+                    <Channels
+                      client={client}
+                      selected={props.navigation.item()}
+                      select={(id) => props.navigation.openPage("Channels", id)}
+                    />
                   </Match>
                   <Match when={props.navigation.page() === "Knowledge"}>
                     <Knowledge

@@ -481,6 +481,40 @@ test("routine cards list both kinds with counts, filters and next runs", async (
   await expect(panel.locator(".nexus-card")).toContainText("Morning invoice check")
 })
 
+test("a time routine's thread link opens its conversation", async ({ page }) => {
+  await fixture(page, (input) => {
+    if (input.action !== "application.operation") return {}
+    const op = input.operation as Command
+    if (op.action === "routines") return routinesPayload([timeRoutine(), eventRoutine()])
+    return {}
+  })
+  await page.getByRole("button", { name: "Routines", exact: true }).click()
+  const panel = page.getByRole("dialog", { name: "Routines", exact: true })
+  const cards = panel.locator(".nexus-card")
+  await expect(cards).toHaveCount(2)
+  await expect(cards.nth(1).getByRole("button", { name: "Thread", exact: true })).toHaveCount(0)
+  await cards.nth(0).getByRole("button", { name: "Thread", exact: true }).click()
+  await expect(page).toHaveURL(/#\/workspaces\/one\/conversations\/desk$/)
+})
+
+test("the skill-draft callout opens the Knowledge skills tab", async ({ page }) => {
+  await fixture(page, (input) => {
+    if (input.action !== "application.operation") return {}
+    const op = input.operation as Command
+    if (op.action === "inbox") return inboxPayload({ needs_you: [inboxItem("alpha")] }, 2)
+    if (op.action === "skills")
+      return { agent: [], workspace: [], project: [], collections: {} }
+    if (op.action === "skills.drafts") return { skill_drafts: [] }
+    return {}
+  })
+  await page.getByRole("button", { name: "Inbox", exact: true }).click()
+  const panel = page.getByRole("dialog", { name: "Inbox", exact: true })
+  await panel.getByRole("button", { name: "Review proposals", exact: true }).click()
+  await expect(page).toHaveURL(/\/panels\/Knowledge\/skills$/)
+  const knowledge = page.getByRole("dialog", { name: "Knowledge", exact: true })
+  await expect(knowledge.getByRole("button", { name: "Skills", exact: true })).toHaveAttribute("aria-pressed", "true")
+})
+
 test("creating time routines retries with a stable key and posts daily and interval rules", async ({ page }) => {
   const writes: Command[] = []
   await fixture(page, (input) => {

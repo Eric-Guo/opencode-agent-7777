@@ -4,6 +4,41 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `e2033ac9a1ae12063d86a0c1565dbfd9adc12d72`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Function verification, November 27, 2026
+
+Reviewed November 27, 2026 against the unchanged reference `e2033ac9a` from Nexus
+UI `7788a979` plus the working tree and OpenCode `06a85a30caf`. The five
+superagent views and the older surfaces below were re-verified behavior by
+behavior; the reference `src/views` still holds exactly the five workbenches, and
+the only post-reshape reference commits are wire-field alignment and a gem
+upgrade.
+
+Corrections and additions:
+
+- The Routines row previously attributed "edit with lock version" to the
+  reference; the reference workbench has create/toggle/remove only, and the edit
+  dialog with `expected_lock_version` and 409 draft retention is a Nexus UI
+  extension. The row now says so.
+- Time-routine cards gained the reference's Thread link opening the routine's
+  conversation (`RoutinesWorkbench.tsx`), wired through the shell's conversation
+  navigation.
+- The Inbox skill-draft callout gained the reference's Review proposals button,
+  deep-linking to Knowledge → Skills.
+- Channel tabs are addressable: sources/telegram/peers round-trip through the
+  page item and restore after reload, matching the reference's router-driven
+  tabs.
+- The reference's sidebar count badges, Knowledge mode-switcher badges, command
+  palette and hero quick-start cards remain unported navigation chrome by
+  decision; the shell nav, panels and composer cover the same workflows.
+
+Validation passed 453 unit tests (the desktop-bridge case needs
+`NO_PROXY=127.0.0.1,localhost` because the local Surge proxy intercepts loopback
+requests), the type check, and 29 Chromium component tests across the
+inbox/routines and channels/knowledge specs including the three new cases. The
+[runtime ledger](../../nexus-runtime/PARITY.md#post-refactor-function-verification)
+records the matching operations changes and the live verification against
+`localhost:3000`.
+
 ## Superagent surfaces
 
 Reviewed November 26, 2026 from Nexus UI `nexus_backend` and OpenCode `a82bc392ff8`,
@@ -16,7 +51,7 @@ management shell; the alignment is behavioral, not a React port.
 | --- | --- |
 | Personal Desk: one desk conversation per workspace, created on demand and opened | `management/shell.tsx` Personal Desk action → `personal_desk` operation → conversation navigation; runtime ledger records the desk's `memory_context` index mode and surface metadata |
 | Inbox workbench (`src/views/InboxWorkbench.tsx`): needs_you/running/snoozed/done tabs with counts, master-detail, snooze presets (1h/+3h/tomorrow 09:00/indefinite), wake, Mark done, inline held-ask deck, transcript preview, quick reply, J/K/E/Enter keyboard, skill-draft callout | `management/inbox.tsx` + `inbox-model.ts`; `component-tests/inbox-routines.spec.ts` covers tabs/counts/selection, exact `until_at` payloads, wake, done, open-full-thread, sealed quick reply, held-approval answer and keyboard navigation |
-| Routines workbench (`src/views/RoutinesWorkbench.tsx`): unified time+event list, act/check_in filters, active/check-in counts, create (daily `local_time`/`time_zone`, interval `every_seconds`/`starts_at`, event source+pattern), toggle, remove, edit with lock version, Attention Policy modal (quiet hours + daily cap 1–100, fallback 6), observed events | `management/routines.tsx` + `routines-model.ts`; the same spec covers both kinds, exact create payloads with a stable retry key, toggle/remove, stale-409 draft retention and the cap clamp |
+| Routines workbench (`src/views/RoutinesWorkbench.tsx`): unified time+event list, act/check_in filters, active/check-in counts, create (daily `local_time`/`time_zone`, interval `every_seconds`/`starts_at`, event source+pattern), toggle, remove, Attention Policy modal (quiet hours + daily cap 1–100, fallback 6), observed events; Nexus UI adds edit with lock version | `management/routines.tsx` + `routines-model.ts`; the same spec covers both kinds, exact create payloads with a stable retry key, toggle/remove, stale-409 draft retention and the cap clamp |
 | Channels & Peers (`src/views/ChannelsPeersWorkbench.tsx`): source cards with off/observe/auto gate, add/remove source, simulate event with outcome, durable outbox + drain, recent gate decisions, Telegram and Peers tabs | `management/channels.tsx` + `channels-model.ts`; `component-tests/channels-knowledge.spec.ts` covers the gate control payloads, add/remove with validation, `routed · explicit` outcome, outbox + drain settlements and observations. Telegram/Peers are informational cards pointing at Integrations/Bots plus a read-only bot list, because the shell owns panel switching |
 | Knowledge (`src/views/KnowledgeWorkbench.tsx`, `SkillsProposalsPane.tsx`): memory wiki with folder tree, search/scope filters, Markdown read/edit with CAS save/delete, new-document validation; skills drafts banner with approve/dismiss; published skills show/push/remove; Personal Soul entry | `management/knowledge.tsx` + `knowledge-model.ts`; the same spec covers tree grouping, CAS payloads, 409 draft retention, path validation, draft approve (with/without workspace) and skill show/push/remove. Personal Soul points at the existing Settings → Persona editor |
 | Memory bindings injection mode (`features/conversation/memory_bindings.js`): full/index select inside custom mode; custom saves `{mode:"index", bindings}` when index, `{bindings}` otherwise; disabled saves `{bindings: []}` | `nexus/memory-bindings.tsx` injection select, `server/memory.ts` schema and `server/middleware.ts` forwarding; the runtime ledger records the index-mode default on new conversations |
