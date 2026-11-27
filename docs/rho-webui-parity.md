@@ -4,6 +4,27 @@ Reference: `agents/rho/rho-webui` in Cybros revision
 `e2033ac9a1ae12063d86a0c1565dbfd9adc12d72`. The reference checkout and its Ruby/JavaScript
 runtime are development references, not dependencies of this UI.
 
+## Behavioral follow-up, November 27, 2026
+
+Reviewed from Nexus UI `031f65a4` plus the working tree and OpenCode `7779240bd5e`
+against the unchanged reference `e2033ac9a`. The five Superagent workbenches and the
+established conversation, approval/question, memory, schedule, Bot/Preset, plugin and
+terminal surfaces retained their existing owners. No additional UI production gap was
+found in this pass, and no React/layout port was introduced.
+
+The companion runtime review corrected Unicode code-point truncation in channel
+observations and routine fallback names, plus snooze's `Time.iso8601` grammar. Those
+payloads retain complete emoji and the reference's accepted/refused timestamp forms;
+the UI consumes them through the existing scoped management bridge.
+
+Validation passed 453 unit tests with `NO_PROXY=127.0.0.1,localhost`, all 129 Chromium
+component tests, the type check and the production build. The reference `rho-webui`
+suite passed 458 JavaScript tests. The focused 29 inbox/routines and
+channels/knowledge browser cases are included in the full component run. The
+[runtime ledger](../../nexus-runtime/PARITY.md#behavioral-follow-up-november-27-2026)
+records the corresponding 505-test runtime gate and the successful live member-plane
+checks, including cleanup of the disposable workspace.
+
 ## Function verification, November 27, 2026
 
 Reviewed November 27, 2026 against the unchanged reference `e2033ac9a` from Nexus
